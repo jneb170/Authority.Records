@@ -1,0 +1,34 @@
+﻿namespace Modules.Records.Domain.Common
+{
+    public abstract class AggregateRoot : Entity
+    {
+        private readonly List<object> _domainEvents = new();
+        public IReadOnlyCollection<object> DomainEvents => _domainEvents.AsReadOnly();
+
+        protected void AddDomainEvent(object @event) => _domainEvents.Add(@event);
+        public void ClearDomainEvents() => _domainEvents.Clear();
+
+        // Soft delete support
+        public bool IsDeleted { get; private set; }
+
+        public void SoftDelete()
+        {
+            if (!IsDeleted)
+            {
+                IsDeleted = true;
+                // Optionally: add a domain event here
+                // AddDomainEvent(new EntitySoftDeletedDomainEvent(this));
+            }
+        }
+
+        public void Restore()
+        {
+            if (IsDeleted)
+            {
+                IsDeleted = false;
+                // Optionally: add a domain event here
+                // AddDomainEvent(new EntityRestoredDomainEvent(this));
+            }
+        }
+    }
+}

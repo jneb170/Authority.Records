@@ -1,0 +1,86 @@
+﻿using Microsoft.Data.Sqlite;
+using Microsoft.EntityFrameworkCore;
+using Modules.Records.Application.Abstractions;
+using Modules.Records.Domain.Abstractions;
+using Modules.Records.Domain.DomainEvents;
+using Modules.Records.Domain.Entities;
+using Shared.Infrastructure.Persistence;
+
+namespace Infrastructure.IntegrationTests;
+
+public class SoftDeleteTests
+{
+    private readonly DbContextOptions<AppDbContext> _options;
+
+    public SoftDeleteTests()
+    {
+        var connection = new SqliteConnection("DataSource=:memory:");
+        connection.Open();
+
+        _options = new DbContextOptionsBuilder<AppDbContext>()
+            .UseSqlite(connection)
+            .Options;
+
+        using var context = new AppDbContext(_options, new FakeTenantProvider(), new FakeDomainEventDispatcher());
+        context.Database.EnsureCreated();
+    }
+
+    [Fact]
+    public async Task Should_Filter_Out_SoftDeleted_Records()
+    {
+        var incidentJurisdictionId = Guid.NewGuid();
+        var incidentAgencyId = Guid.NewGuid();
+        var incident = new Incident(incidentJurisdictionId, incidentAgencyId, "Test Incident");
+
+
+        // Insert a record
+        using (var context = new AppDbContext(_options, new FakeTenantProvider(), new FakeDomainEventDispatcher()))
+        {
+            context.Incidents.Add(incident);
+            await context.SaveChangesAsync();
+
+            // Soft delete it
+            incident.SoftDelete();
+            await context.SaveChangesAsync();
+        }
+
+        // Regular query should exclude
+        using (var context = new AppDbContext(_options, new FakeTenantProvider(), new FakeDomainEventDispatcher()))
+        {
+            var incidents = await context.Incidents.ToListAsync();
+            Assert.Empty(incidents); // soft deleted records are filtered out
+        }
+
+        // IgnoreQueryFilters retrieves it
+        using (var context = new AppDbContext(_options, new FakeTenantProvider(), new FakeDomainEventDispatcher()))
+        {
+            var allWithDeleted = await context.Incidents.IgnoreQueryFilters().ToListAsync();
+            Assert.Contains(allWithDeleted, i => i.Id == incident.Id);
+        }
+    }
+
+    private class FakeTenantProvider : ITenantProvider
+    {
+        public Guid GetAgencyId()
+        {
+            throw new NotImplementedException();
+        }
+
+        public Guid GetJurisdictionId() => Guid.NewGuid();
+
+        public Guid GetUserId()
+        {
+            throw new NotImplementedException();
+        }
+    }
+
+    private class FakeDomainEventDispatcher : IDomainEventDispatcher
+    {
+        public Task Dispatch(IDomainEvent domainEvent) => Task.CompletedTask;
+
+        public Task DispatchAsync(IEnumerable<IDomainEvent> domainEvents, CancellationToken cancellationToken = default)
+        {
+            throw new NotImplementedException();
+        }
+    }
+}
