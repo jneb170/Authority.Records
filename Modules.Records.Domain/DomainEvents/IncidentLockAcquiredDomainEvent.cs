@@ -2,7 +2,7 @@
 
 namespace Modules.Records.Domain.DomainEvents;
 
-public sealed class IncidentLockAcquiredDomainEvent : IDomainEvent
+public sealed record IncidentLockAcquiredDomainEvent : IDomainEvent
 {
     public Guid IncidentId { get; }
     public Guid UserId { get; }

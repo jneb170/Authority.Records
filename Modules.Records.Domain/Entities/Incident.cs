@@ -20,8 +20,6 @@ namespace Modules.Records.Domain.Entities
         public Guid? LockedByUserId { get; private set; }
         public DateTime? LockedAtUtc { get; private set; }
 
-        public byte[] RowVersion { get; private set; } = Array.Empty<byte>();
-
         // Soft delete
         public bool IsDeleted { get; private set; }
 

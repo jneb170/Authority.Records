@@ -5,6 +5,7 @@ using System;
 using System.IO;
 using Modules.Records.Application.Abstractions;
 using Modules.Records.Domain.Abstractions;
+using Modules.Records.Domain.DomainEvents;
 
 namespace Shared.Infrastructure.Persistence
 {
@@ -55,7 +56,12 @@ namespace Shared.Infrastructure.Persistence
         private class DummyDomainEventDispatcher : IDomainEventDispatcher
         {
             public Task DispatchAsync(
-                IEnumerable<Modules.Records.Domain.DomainEvents.IDomainEvent> domainEvents,
+                IDomainEvent domainEvent,
+                CancellationToken cancellationToken = default)
+                => Task.CompletedTask;
+
+            public Task DispatchAsync(
+                IEnumerable<IDomainEvent> domainEvents, 
                 CancellationToken cancellationToken = default)
                 => Task.CompletedTask;
         }
