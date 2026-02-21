@@ -11,6 +11,10 @@
         // Soft delete support
         public bool IsDeleted { get; private set; }
 
+        // Concurrency token for optimistic locking
+        public byte[] RowVersion { get; private set; } = Array.Empty<byte>();
+
+
         public void SoftDelete()
         {
             if (!IsDeleted)

@@ -3,6 +3,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Modules.Records.Application.Abstractions;
 using Modules.Records.Domain.Abstractions;
+using Modules.Records.Domain.DomainEvents;
 using Shared.Infrastructure.Persistence;
 using System;
 using System.Collections.Generic;
@@ -114,6 +115,10 @@ internal class FakeTenantProvider : ITenantProvider
 /// </summary>
 internal class FakeDomainEventDispatcher : IDomainEventDispatcher
 {
+    public Task DispatchAsync(IDomainEvent domainEvent, 
+        CancellationToken cancellationToken = default) 
+        => Task.CompletedTask;
+
     /// <summary>
     /// No-op implementation that completes immediately without dispatching events.
     /// </summary>

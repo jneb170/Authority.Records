@@ -76,11 +76,12 @@ public class SoftDeleteTests
 
     private class FakeDomainEventDispatcher : IDomainEventDispatcher
     {
-        public Task Dispatch(IDomainEvent domainEvent) => Task.CompletedTask;
+        public Task DispatchAsync(IEnumerable<IDomainEvent> domainEvents, 
+            CancellationToken cancellationToken = default) 
+            => Task.CompletedTask;
 
-        public Task DispatchAsync(IEnumerable<IDomainEvent> domainEvents, CancellationToken cancellationToken = default)
-        {
-            throw new NotImplementedException();
-        }
+        public Task DispatchAsync(IDomainEvent domainEvent, 
+            CancellationToken cancellationToken = default) 
+            => Task.CompletedTask;
     }
 }
