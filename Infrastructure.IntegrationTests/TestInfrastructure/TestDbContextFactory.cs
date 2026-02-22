@@ -5,6 +5,7 @@ using Modules.Records.Application.Abstractions;
 using Modules.Records.Domain.Abstractions;
 using Modules.Records.Domain.DomainEvents;
 using Shared.Infrastructure.Persistence;
+using Infrastructure.IntegrationTests.Common;
 using System;
 using System.Collections.Generic;
 using System.Threading;
@@ -35,9 +36,9 @@ public sealed class SqliteTestDbContextFactory : IDisposable
         var services = new ServiceCollection();
 
         // Register fake tenant provider for testing
-        services.AddSingleton<ITenantProvider>(new FakeTenantProvider(tenantId));
+        services.AddSingleton<ITenantProvider>(new TestTenantProvider(tenantId));
         // Register fake domain event dispatcher that doesn't actually dispatch events
-        services.AddSingleton<IDomainEventDispatcher, FakeDomainEventDispatcher>();
+        services.AddSingleton<IDomainEventDispatcher, TestDomainEventDispatcher>();
 
         // Configure DbContext to use the in-memory SQLite connection
         services.AddDbContext<AppDbContext>(options =>
@@ -72,61 +73,5 @@ public sealed class SqliteTestDbContextFactory : IDisposable
     }
 }
 
-/// <summary>
-/// Fake implementation of <see cref="ITenantProvider"/> for testing purposes.
-/// </summary>
-internal class FakeTenantProvider : ITenantProvider
-{
-    private readonly Guid _tenantId;
 
-    public FakeTenantProvider(Guid tenantId)
-    {
-        _tenantId = tenantId;
-    }
 
-    /// <summary>
-    /// Not implemented for test scenarios.
-    /// </summary>
-    /// <exception cref="NotImplementedException">This method is not used in current tests.</exception>
-    public Guid GetAgencyId()
-    {
-        throw new NotImplementedException();
-    }
-
-    /// <summary>
-    /// Returns the tenant's jurisdiction identifier.
-    /// </summary>
-    /// <returns>The jurisdiction identifier set during construction.</returns>
-    public Guid GetJurisdictionId() => _tenantId;
-
-    /// <summary>
-    /// Not implemented for test scenarios.
-    /// </summary>
-    /// <exception cref="NotImplementedException">This method is not used in current tests.</exception>
-    public Guid GetUserId()
-    {
-        throw new NotImplementedException();
-    }
-}
-
-/// <summary>
-/// Fake implementation of <see cref="IDomainEventDispatcher"/> that doesn't dispatch events.
-/// Used in tests where domain event handling is not the focus.
-/// </summary>
-internal class FakeDomainEventDispatcher : IDomainEventDispatcher
-{
-    public Task DispatchAsync(IDomainEvent domainEvent, 
-        CancellationToken cancellationToken = default) 
-        => Task.CompletedTask;
-
-    /// <summary>
-    /// No-op implementation that completes immediately without dispatching events.
-    /// </summary>
-    /// <param name="domainEvents">The domain events to dispatch (ignored).</param>
-    /// <param name="cancellationToken">Cancellation token.</param>
-    /// <returns>A completed task.</returns>
-    public Task DispatchAsync(
-        IEnumerable<Modules.Records.Domain.DomainEvents.IDomainEvent> domainEvents,
-        CancellationToken cancellationToken = default)
-        => Task.CompletedTask;
-}

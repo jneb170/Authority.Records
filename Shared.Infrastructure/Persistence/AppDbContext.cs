@@ -6,7 +6,7 @@ using Modules.Records.Domain.Abstractions;
 using Modules.Records.Domain.Common;
 using Modules.Records.Domain.DomainEvents;
 using Modules.Records.Domain.Entities;
-using Shared.Infrastructure.Persistence.Outbox;
+using Shared.Infrastructure.Outbox;
 using System.Collections.Generic;
 using System.Linq.Expressions;
 using System.Reflection;
@@ -14,7 +14,7 @@ using System.Reflection.Emit;
 
 namespace Shared.Infrastructure.Persistence;
 
-public sealed class AppDbContext : DbContext, IApplicationDbContext
+public class AppDbContext : DbContext, IApplicationDbContext
 {
     private readonly ITenantProvider _tenantProvider;
     private readonly IDomainEventDispatcher _domainEventDispatcher;
@@ -28,7 +28,10 @@ public sealed class AppDbContext : DbContext, IApplicationDbContext
     public DbSet<Arrest> Arrests => Set<Arrest>();
     public DbSet<Citation> Citations => Set<Citation>();
 
-    public AppDbContext(DbContextOptions<AppDbContext> options, ITenantProvider tenantProvider, IDomainEventDispatcher domainEventDispatcher)
+    public AppDbContext(
+        DbContextOptions options, 
+        ITenantProvider tenantProvider, 
+        IDomainEventDispatcher domainEventDispatcher)
         : base(options)
     {
         _tenantProvider = tenantProvider;
@@ -75,9 +78,11 @@ public sealed class AppDbContext : DbContext, IApplicationDbContext
             .OfType<IDomainEvent>()
             .ToList();
 
+        var tenantId = CurrentTenantId; //DbContext property bound to ITenantProvider
+
         foreach (var domainEvent in domainEvents)
         {
-            OutboxMessages.Add(new OutboxMessage(domainEvent));
+            OutboxMessages.Add(new OutboxMessage(domainEvent, tenantId));
         }
 
         // EF Core handles the transaction automatically for SaveChangesAsync

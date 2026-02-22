@@ -3,9 +3,11 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Modules.Records.Application.Abstractions;
 using Modules.Records.Domain.Abstractions;
+using Modules.Records.Domain.DomainEvents;
 using Shared.Infrastructure.Audit;
 using Shared.Infrastructure.DomainEvents;
 using Shared.Infrastructure.Identity;
+using Shared.Infrastructure.Outbox;
 using Shared.Infrastructure.Persistence;
 
 namespace Shared.Infrastructure;
@@ -51,6 +53,13 @@ public static class DependencyInjection
         // -------------------------------------------------------
 
         services.AddScoped<IDomainEventDispatcher, MediatRDomainEventDispatcher>();
+        
+        // Production will only scan Domain assembly
+        services.AddSingleton(sp =>
+            new DomainEventTypeRegistry(
+                typeof(IDomainEvent).Assembly
+            ));
+
 
         return services;
     }

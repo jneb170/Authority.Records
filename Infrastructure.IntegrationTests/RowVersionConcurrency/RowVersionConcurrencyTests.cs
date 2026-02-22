@@ -5,7 +5,7 @@ using System;
 using System.Threading.Tasks;
 using Xunit;
 
-namespace Infrastructure.IntegrationTests;
+namespace Infrastructure.IntegrationTests.RowVersionConcurrency;
 
 public class RowVersionConcurrencyTests
 {

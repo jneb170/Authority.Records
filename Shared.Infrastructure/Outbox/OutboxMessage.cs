@@ -2,12 +2,14 @@
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 
-namespace Shared.Infrastructure.Persistence.Outbox;
+namespace Shared.Infrastructure.Outbox;
 
 public sealed class OutboxMessage
 {
     [Key]
     public Guid Id { get; private set; }
+
+    public Guid JurisdictionId { get; private set; }
 
     [Required]
     public DateTime OccurredOnUtc { get; private set; }
@@ -24,7 +26,7 @@ public sealed class OutboxMessage
 
     private OutboxMessage() { }
 
-    public OutboxMessage(IDomainEvent domainEvent)
+    public OutboxMessage(IDomainEvent domainEvent, Guid jurisdictionId)
     {
         if (domainEvent is null)
             throw new ArgumentNullException(nameof(domainEvent));
@@ -34,8 +36,9 @@ public sealed class OutboxMessage
                 $"Domain event type {domainEvent.GetType().Name} must be public.");
 
         Id = Guid.NewGuid();
+        JurisdictionId = jurisdictionId;
         OccurredOnUtc = DateTime.UtcNow;
-        Type = domainEvent.GetType().FullName!;
+        Type = domainEvent.GetType().AssemblyQualifiedName!;
         Content = System.Text.Json.JsonSerializer.Serialize(
             domainEvent,
             domainEvent.GetType());

@@ -50,6 +50,11 @@ namespace Shared.Infrastructure.Persistence
             {
                 throw new NotImplementedException();
             }
+
+            public void SetJurisdictionId(Guid jurisdictionId)
+            {
+                throw new NotImplementedException();
+            }
         }
 
         // --- Dummy domain event dispatcher ---
