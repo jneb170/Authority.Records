@@ -6,7 +6,7 @@ using Modules.Records.Domain.DomainEvents;
 using Modules.Records.Domain.Entities;
 using Shared.Infrastructure.Persistence;
 
-namespace Infrastructure.IntegrationTests;
+namespace Infrastructure.IntegrationTests.SoftDelete;
 
 public class SoftDeleteTests
 {
@@ -69,6 +69,11 @@ public class SoftDeleteTests
         public Guid GetJurisdictionId() => Guid.NewGuid();
 
         public Guid GetUserId()
+        {
+            throw new NotImplementedException();
+        }
+
+        public void SetJurisdictionId(Guid jurisdictionId)
         {
             throw new NotImplementedException();
         }

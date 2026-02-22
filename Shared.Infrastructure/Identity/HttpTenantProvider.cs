@@ -7,20 +7,12 @@ namespace Shared.Infrastructure.Identity;
 public sealed class HttpTenantProvider : ITenantProvider
 {
     private readonly IHttpContextAccessor _httpContextAccessor;
+    private Guid? _backgroundTenantId;
 
     public HttpTenantProvider(IHttpContextAccessor httpContextAccessor)
     {
         _httpContextAccessor = httpContextAccessor;
     }
-
-    public Guid JurisdictionId =>
-        GetRequiredGuidClaim("jurisdiction");
-
-    public Guid? AgencyId =>
-        GetOptionalGuidClaim("agency");
-
-    public Guid? UserId =>
-        GetOptionalGuidClaim(ClaimTypes.NameIdentifier);
 
     private Guid GetRequiredGuidClaim(string claimType)
     {
@@ -39,15 +31,27 @@ public sealed class HttpTenantProvider : ITenantProvider
 
     public Guid GetJurisdictionId()
     {
-        throw new NotImplementedException();
+        if (_backgroundTenantId.HasValue)
+            return _backgroundTenantId.Value;
+        else
+            return GetRequiredGuidClaim("jurisdiction");
     }
 
-    public Guid GetAgencyId()
+    public void SetJurisdictionId(Guid jurisdictionId)
+    {
+        _backgroundTenantId = jurisdictionId;
+    }
+
+    public Guid? GetAgencyId() => GetOptionalGuidClaim("agency");
+
+    public Guid? GetUserId() => GetOptionalGuidClaim(ClaimTypes.NameIdentifier);
+
+    Guid ITenantProvider.GetAgencyId()
     {
         throw new NotImplementedException();
     }
 
-    public Guid GetUserId()
+    Guid ITenantProvider.GetUserId()
     {
         throw new NotImplementedException();
     }
