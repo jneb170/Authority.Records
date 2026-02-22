@@ -16,8 +16,8 @@ namespace Shared.Infrastructure.Persistence;
 
 public class AppDbContext : DbContext, IApplicationDbContext
 {
-    private readonly ITenantProvider _tenantProvider;
-    private readonly IDomainEventDispatcher _domainEventDispatcher;
+    protected readonly ITenantProvider _tenantProvider;
+    protected readonly IDomainEventDispatcher _domainEventDispatcher;
 
     public Guid CurrentTenantId => _tenantProvider.GetJurisdictionId();
 
@@ -123,7 +123,12 @@ public class AppDbContext : DbContext, IApplicationDbContext
         // Store these configurations in Persistence/Configurations folder for better organization.
         modelBuilder.ApplyConfigurationsFromAssembly(typeof(AppDbContext).Assembly);
 
+        //OnModelCreatingPartial(modelBuilder);
     }
+
+    //protected virtual void OnModelCreatingPartial(ModelBuilder modelBuilder)
+    //{
+    //}
 
     private void ApplyGlobalFilters(ModelBuilder modelBuilder)
     {

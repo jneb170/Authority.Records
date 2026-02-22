@@ -1,6 +1,7 @@
 ﻿using Modules.Records.Domain.DomainEvents;
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
+using System.Text.Json;
 
 namespace Shared.Infrastructure.Outbox;
 
@@ -22,7 +23,11 @@ public sealed class OutboxMessage
 
     public DateTime? ProcessedOnUtc { get; private set; }
 
+    public int RetryCount { get; private set; }
+
     public string? Error { get; private set; }
+
+    public bool IsFailedPermanently { get; private set; }
 
     private OutboxMessage() { }
 
@@ -39,9 +44,7 @@ public sealed class OutboxMessage
         JurisdictionId = jurisdictionId;
         OccurredOnUtc = DateTime.UtcNow;
         Type = domainEvent.GetType().AssemblyQualifiedName!;
-        Content = System.Text.Json.JsonSerializer.Serialize(
-            domainEvent,
-            domainEvent.GetType());
+        Content = JsonSerializer.Serialize(domainEvent,domainEvent.GetType());
     }
 
     public void MarkProcessed()
@@ -50,8 +53,16 @@ public sealed class OutboxMessage
         Error = null;
     }
 
-    public void MarkFailed(string error)
+    public void MarkFailed(string error, int maxRetries)
     {
+        RetryCount++;
         Error = error;
+
+        if (RetryCount >= maxRetries)
+        {
+            IsFailedPermanently = true;
+        }
     }
+
+    public bool CanBeProcessed() => ProcessedOnUtc == null && !IsFailedPermanently;
 }

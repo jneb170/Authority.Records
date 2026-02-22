@@ -1,7 +1,9 @@
-﻿using Infrastructure.IntegrationTests.Outbox.TenantIsolation;
+﻿using Infrastructure.IntegrationTests.Outbox.RetryBehavior;
+using Infrastructure.IntegrationTests.Outbox.TenantIsolation;
 using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
 using Modules.Records.Application.Abstractions;
 using Modules.Records.Domain.Abstractions;
 using Modules.Records.Domain.DomainEvents;
@@ -41,13 +43,29 @@ namespace Infrastructure.IntegrationTests.Common
             services.AddMediatR(cfg =>
                 cfg.RegisterServicesFromAssembly(typeof(IntegrationTestBase).Assembly));
 
-            services.AddScoped<OutboxProcessor>();
+            //services.AddScoped<OutboxProcessor>();
+            services.AddScoped<OutboxProcessor>(sp =>
+            {
+                return new OutboxProcessor(
+                    sp,
+                    sp.GetRequiredService<IServiceScopeFactory>(),
+                    sp.GetRequiredService<DomainEventTypeRegistry>(),
+                    sp.GetRequiredService<ILogger<OutboxProcessor>>(),
+                    maxRetries: 1);
+            });
+
 
             //adding TestTenantIsolationDomainEvent to DomainEventTypeRegistry
             services.AddSingleton(sp =>
                 new DomainEventTypeRegistry(
                     typeof(IDomainEvent).Assembly,
                     typeof(TestTenantIsolationDomainEvent).Assembly
+                ));
+
+            services.AddSingleton(sp =>
+                new DomainEventTypeRegistry(
+                    typeof(IDomainEvent).Assembly,
+                    typeof(FailingDomainEvent).Assembly
                 ));
 
             ServiceProvider = services.BuildServiceProvider();
