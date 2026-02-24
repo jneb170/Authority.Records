@@ -36,7 +36,7 @@ namespace Infrastructure.IntegrationTests.Outbox.TenantIsolation
 
                 var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
 
-                db.Add(new TestAggregate(Guid.NewGuid(), tenantA));
+                db.Add(new TestTenantIsolationAggregate(Guid.NewGuid(), tenantA));
                 await db.SaveChangesAsync();
             }
 
@@ -48,7 +48,7 @@ namespace Infrastructure.IntegrationTests.Outbox.TenantIsolation
 
                 var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
 
-                db.Add(new TestAggregate(Guid.NewGuid(), tenantB));
+                db.Add(new TestTenantIsolationAggregate(Guid.NewGuid(), tenantB));
                 await db.SaveChangesAsync();
             }
 

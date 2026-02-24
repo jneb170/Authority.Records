@@ -21,7 +21,7 @@ public sealed class OutboxProcessor : BackgroundService
     private readonly DomainEventTypeRegistry _typeRegistry;
     private readonly ILogger<OutboxProcessor> _logger;
 
-    private readonly AsyncRetryPolicy _retryPolicy;
+    //private readonly AsyncRetryPolicy _retryPolicy;
 
     public OutboxProcessor(
         IServiceProvider serviceProvider,
@@ -37,24 +37,24 @@ public sealed class OutboxProcessor : BackgroundService
         _maxRetries = maxRetries;
 
         // Configure retry policy with exponential backoff for transient failures
-        _retryPolicy = Policy
-            .Handle<Exception>()
-            .WaitAndRetryAsync(
-                retryCount: _maxRetries,
-                sleepDurationProvider: attempt =>
+        //_retryPolicy = Policy
+        //    .Handle<Exception>()
+        //    .WaitAndRetryAsync(
+        //        retryCount: _maxRetries,
+        //        sleepDurationProvider: attempt =>
                     
-                    TimeSpan.FromMilliseconds(10), // small delay for tests
-                    //TODO: COMMENT ABOVE AND UNCOMMENT BELOW AFTER TESTING
-                    //TimeSpan.FromSeconds(Math.Pow(2, attempt)), //exponential
+        //            TimeSpan.FromMilliseconds(10), // small delay for tests
+        //            //TODO: COMMENT ABOVE AND UNCOMMENT BELOW AFTER TESTING
+        //            //TimeSpan.FromSeconds(Math.Pow(2, attempt)), //exponential
                     
-                onRetry: (exception, timespan, retryCount, context) =>
-                {
-                    _logger.LogWarning(
-                        exception,
-                        "Retry {RetryCount} after {Delay}s due to error.",
-                        retryCount,
-                        timespan.TotalSeconds);
-                });
+        //        onRetry: (exception, timespan, retryCount, context) =>
+        //        {
+        //            _logger.LogWarning(
+        //                exception,
+        //                "Retry {RetryCount} after {Delay}s due to error.",
+        //                retryCount,
+        //                timespan.TotalSeconds);
+        //        });
     }
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
@@ -74,55 +74,61 @@ public sealed class OutboxProcessor : BackgroundService
         var dispatcher = scope.ServiceProvider.GetRequiredService<IDomainEventDispatcher>();
         var tenantProvider = scope.ServiceProvider.GetRequiredService<ITenantProvider>();
 
-        var messages = await dbContext.OutboxMessages
-            .Where(x => x.ProcessedOnUtc == null)
-            .OrderBy(x => x.OccurredOnUtc)
-            .Take(20)
-            .ToListAsync(cancellationToken);
-
-        foreach (var message in messages)
+        while (true)
         {
+            //NOTE: It seems we could simplify the below to Where(m => m.CanBeProcessed()), but
+            //      EF Core cannot translate arbitrary C# methods into SQL, so we need to
+            //      include all fields in the query.
+            var message = await dbContext.OutboxMessages
+                .Where(m =>
+                    m.ProcessedOnUtc == null &&
+                    !m.IsFailedPermanently &&
+                    m.ProcessingStartedOnUtc == null &&
+                    (m.NextRetryOnUtc == null || m.NextRetryOnUtc <= DateTime.UtcNow))
+                .OrderBy(m => m.OccurredOnUtc)
+                .FirstOrDefaultAsync(cancellationToken);
+
+            if (message is null)
+                break;
+
+            //Distributed Idempotency via Optimistic Concurrency
             try
             {
-                await _retryPolicy.ExecuteAsync(async () =>
-                {
-                    // Restore tenant context
-                    tenantProvider.SetJurisdictionId(message.JurisdictionId);
-                    
-                    if (!_typeRegistry.TryGet(message.Type, out var type))
-                    {
-                        throw new InvalidOperationException(
-                            $"Unknown domain event type: {message.Type}");
-                    }
+                // Attempt atomic claim
+                message.MarkProcessing();
 
-                    var domainEvent = JsonSerializer.Deserialize(message.Content, type!);
+                //await Task.Delay(TimeSpan.FromSeconds(4));
 
-                    // "is not" pattern matching below performs 2 operation simultaneously:
-                    //  1.	Type Check: Tests if domainEvent (which is of type object? from JsonSerializer.Deserialize)
-                    //      implements the IDomainEvent interface
-                    //  2.  Cast + Assignment: If the type check succeeds, casts domainEvent to IDomainEvent and assigns
-                    //      it to a new variable called typedEvent
-                    if (domainEvent is not IDomainEvent typedEvent)
-                    {
-                        throw new InvalidOperationException(
-                            $"Invalid domain event payload: {message.Type}");
-                    }
+                await dbContext.SaveChangesAsync(cancellationToken);
+            }
+            catch (DbUpdateConcurrencyException)
+            {
+                // Another processor claimed it
+                dbContext.Entry(message).State = EntityState.Detached;
+                continue;
+            }
 
-                    await dispatcher.DispatchAsync(typedEvent, cancellationToken);
-                });
+            try
+            {
+                tenantProvider.SetJurisdictionId(message.JurisdictionId);
+
+                if (!_typeRegistry.TryGet(message.Type, out var type) || type is null)
+                    throw new InvalidOperationException($"Unknown type {message.Type}");
+
+                var domainEvent = JsonSerializer.Deserialize(message.Content, type!)
+                    as IDomainEvent
+                    ?? throw new InvalidOperationException($"Invalid domain event payload: {message.Type}");
+
+                await dispatcher.DispatchAsync(new[] { domainEvent }, cancellationToken);
 
                 message.MarkProcessed();
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex,
-                    "Outbox message {MessageId} failed after retries.",
-                    message.Id);
-
                 message.MarkFailed(ex.ToString(), _maxRetries);
             }
-        }
 
-        await dbContext.SaveChangesAsync(cancellationToken);
+            await dbContext.SaveChangesAsync(cancellationToken);
+        }
     }
 }

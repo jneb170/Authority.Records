@@ -1,4 +1,5 @@
-﻿using Infrastructure.IntegrationTests.Outbox.RetryBehavior;
+﻿using Infrastructure.IntegrationTests.Outbox.Idempotency;
+using Infrastructure.IntegrationTests.Outbox.RetryBehavior;
 using Infrastructure.IntegrationTests.Outbox.TenantIsolation;
 using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
@@ -66,6 +67,12 @@ namespace Infrastructure.IntegrationTests.Common
                 new DomainEventTypeRegistry(
                     typeof(IDomainEvent).Assembly,
                     typeof(FailingDomainEvent).Assembly
+                ));
+
+            services.AddSingleton(sp =>
+                new DomainEventTypeRegistry(
+                    typeof(IDomainEvent).Assembly,
+                    typeof(TestIdempotencyDomainEvent).Assembly
                 ));
 
             ServiceProvider = services.BuildServiceProvider();

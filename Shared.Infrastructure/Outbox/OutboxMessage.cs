@@ -23,11 +23,22 @@ public sealed class OutboxMessage
 
     public DateTime? ProcessedOnUtc { get; private set; }
 
+    public DateTime? ProcessingStartedOnUtc { get; private set; }
+
     public int RetryCount { get; private set; }
 
     public string? Error { get; private set; }
 
     public bool IsFailedPermanently { get; private set; }
+
+    // Concurrency token for optimistic locking
+    //  Requires a default value or will generate exception
+    //  Microsoft.Data.Sqlite.SqliteException : SQLite Error 19: 'NOT NULL constraint failed: OutboxMessages.RowVersion'
+    //  when testing.
+    public byte[] RowVersion { get; private set; } = Array.Empty<byte>();
+
+    public DateTime? NextRetryOnUtc { get; private set; }
+
 
     private OutboxMessage() { }
 
@@ -47,9 +58,15 @@ public sealed class OutboxMessage
         Content = JsonSerializer.Serialize(domainEvent,domainEvent.GetType());
     }
 
+    public void MarkProcessing()
+    {
+        ProcessingStartedOnUtc = DateTime.UtcNow;
+    }
+
     public void MarkProcessed()
     {
         ProcessedOnUtc = DateTime.UtcNow;
+        ProcessingStartedOnUtc = null;
         Error = null;
     }
 
@@ -57,12 +74,24 @@ public sealed class OutboxMessage
     {
         RetryCount++;
         Error = error;
+        ProcessingStartedOnUtc = null;
 
         if (RetryCount >= maxRetries)
         {
             IsFailedPermanently = true;
+            NextRetryOnUtc = null;
+            return;
         }
+
+        // Exponential backoff (2^retryCount seconds)
+        var delaySeconds = Math.Pow(2, RetryCount);
+
+        NextRetryOnUtc = DateTime.UtcNow.AddSeconds(delaySeconds);
     }
 
-    public bool CanBeProcessed() => ProcessedOnUtc == null && !IsFailedPermanently;
+    public bool CanBeProcessed() => 
+        ProcessedOnUtc == null 
+        && !IsFailedPermanently
+        && ProcessingStartedOnUtc == null
+        && (NextRetryOnUtc == null || NextRetryOnUtc <= DateTime.UtcNow);
 }
