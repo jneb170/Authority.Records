@@ -4,8 +4,6 @@ using System.ComponentModel.DataAnnotations.Schema;
 using System.Runtime.CompilerServices;
 using System.Text.Json;
 
-[assembly: InternalsVisibleTo("Infrastructure.IntegrationTests")]
-
 namespace Shared.Infrastructure.Outbox;
 
 public sealed class OutboxMessage
