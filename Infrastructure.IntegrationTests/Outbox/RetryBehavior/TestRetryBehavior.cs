@@ -8,7 +8,7 @@ using Xunit;
 
 namespace Infrastructure.IntegrationTests.Outbox.RetryBehavior;
 
-public sealed class OutboxRetryTests : IntegrationTestBase
+public sealed class TestRetryBehavior : IntegrationTestBase
 {
     [Fact]
     public async Task Outbox_Should_Mark_Message_As_Permanently_Failed_After_Max_Retries()

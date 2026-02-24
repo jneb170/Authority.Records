@@ -99,7 +99,11 @@ public class AppDbContext : DbContext, IApplicationDbContext
 
     private void UpdateRowVersions()
     {
-        var entries = ChangeTracker.Entries<AggregateRoot>()
+        //var entries = ChangeTracker.Entries<AggregateRoot>()
+        //    .Where(e => e.State == EntityState.Modified);
+        //changed to below. When AggregateRoot type is specified,
+        //  then Entites like OutboxMessage don't populate RowVersion
+        var entries = ChangeTracker.Entries()
             .Where(e => e.State == EntityState.Modified);
 
         foreach (var entry in entries)
