@@ -55,8 +55,9 @@ namespace Infrastructure.IntegrationTests.Common
                     maxRetries: 1);
             });
 
+            services.AddScoped<OutboxCleanupProcessor>();
 
-            //adding TestTenantIsolationDomainEvent to DomainEventTypeRegistry
+            //adding DomainEvents to DomainEventTypeRegistry
             services.AddSingleton(sp =>
                 new DomainEventTypeRegistry(
                     typeof(IDomainEvent).Assembly,
@@ -73,6 +74,12 @@ namespace Infrastructure.IntegrationTests.Common
                 new DomainEventTypeRegistry(
                     typeof(IDomainEvent).Assembly,
                     typeof(TestIdempotencyDomainEvent).Assembly
+                ));
+
+            services.AddSingleton(sp =>
+                new DomainEventTypeRegistry(
+                    typeof(IDomainEvent).Assembly,
+                    typeof(StubDomainEvent).Assembly
                 ));
 
             ServiceProvider = services.BuildServiceProvider();

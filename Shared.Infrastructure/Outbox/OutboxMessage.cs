@@ -1,7 +1,10 @@
 ﻿using Modules.Records.Domain.DomainEvents;
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
+using System.Runtime.CompilerServices;
 using System.Text.Json;
+
+[assembly: InternalsVisibleTo("Infrastructure.IntegrationTests")]
 
 namespace Shared.Infrastructure.Outbox;
 
@@ -68,6 +71,12 @@ public sealed class OutboxMessage
         ProcessedOnUtc = DateTime.UtcNow;
         ProcessingStartedOnUtc = null;
         Error = null;
+    }
+
+    //visible to Infrastructure.Integration for testing expired messages
+    internal void MarkAsProcessed(DateTime processedOnUtc)
+    {
+        ProcessedOnUtc = processedOnUtc;
     }
 
     public void MarkFailed(string error, int maxRetries)

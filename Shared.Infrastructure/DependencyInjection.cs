@@ -53,7 +53,16 @@ public static class DependencyInjection
         // -------------------------------------------------------
 
         services.AddScoped<IDomainEventDispatcher, MediatRDomainEventDispatcher>();
-        
+
+
+        // -------------------------------------------------------
+        // Outbox Message Cleanup Service
+        // -------------------------------------------------------
+        services.Configure<OutboxCleanupOptions>(configuration.GetSection("OutboxCleanup"));
+        //services.AddHostedService<OutboxCleanupService>();
+        services.AddScoped<OutboxCleanupProcessor>();
+
+
         // Production will only scan Domain assembly
         services.AddSingleton(sp =>
             new DomainEventTypeRegistry(
