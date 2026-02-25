@@ -1,4 +1,6 @@
-﻿namespace Modules.Records.Domain.Common;
+﻿using Modules.Records.Domain.DomainEvents;
+
+namespace Modules.Records.Domain.Common;
 
     public abstract class LockableAggregateRoot : StatefulAggregateRoot
 {
@@ -34,7 +36,7 @@
         LockedByUserId = userId;
         LockedAtUtc = DateTime.UtcNow;
 
-        AddDomainEvent(CreateLockAcquiredEvent(userId, LockedAtUtc.Value));
+        AddDomainEvent(CreateLockAcquiredEvent(userId));
     }
 
     public void ReleaseLock(Guid userId, bool isSupervisor = false)
@@ -71,7 +73,7 @@
 
     protected virtual void EnsureCanLock(Guid userId) { }
 
-    protected abstract object CreateLockAcquiredEvent(Guid userId, DateTime lockedAtUtc);
-    protected abstract object CreateLockReleasedEvent(Guid userId);
+    protected abstract IDomainEvent CreateLockAcquiredEvent(Guid userId);
+    protected abstract IDomainEvent CreateLockReleasedEvent(Guid userId);
 }
 

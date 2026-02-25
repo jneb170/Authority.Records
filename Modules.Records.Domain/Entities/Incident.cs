@@ -92,20 +92,20 @@ public sealed class Incident : LockableAggregateRoot, IMultiTenant
     // ----------------------------------------------------
     // Domain Event Factories
     // ----------------------------------------------------
-    protected override object CreateLockAcquiredEvent(Guid userId, DateTime lockedAtUtc)
-            => new IncidentLockAcquiredDomainEvent(Id, userId, lockedAtUtc);
+    protected override IDomainEvent CreateLockAcquiredEvent(Guid userId)
+            => new IncidentLockAcquiredDomainEvent(Id, userId);
 
-    protected override object CreateLockReleasedEvent(Guid userId)
-        => new IncidentLockReleasedDomainEvent(Id, userId, DateTime.UtcNow);
+    protected override IDomainEvent CreateLockReleasedEvent(Guid userId)
+        => new IncidentLockReleasedDomainEvent(Id, userId);
 
-    protected override object CreateOpenedEvent(Guid userId)
-            => new IncidentOpenedDomainEvent(Id, userId, DateTime.UtcNow);
+    protected override IDomainEvent CreateOpenedEvent(Guid userId)
+            => new IncidentOpenedDomainEvent(Id, userId);
 
-    protected override object CreateClosedEvent(Guid userId, bool forced)
-        => new IncidentClosedDomainEvent(Id, userId, DateTime.UtcNow, forced);
+    protected override IDomainEvent CreateClosedEvent(Guid userId, bool forced)
+        => new IncidentClosedDomainEvent(Id, userId, forced);
 
-    protected override object CreateArchivedEvent(Guid userId)
-        => new IncidentArchivedDomainEvent(Id, userId, DateTime.UtcNow);    
+    protected override IDomainEvent CreateArchivedEvent(Guid userId)
+        => new IncidentArchivedDomainEvent(Id, userId);    
 }
 
 

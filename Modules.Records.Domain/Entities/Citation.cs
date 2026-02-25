@@ -47,7 +47,7 @@ namespace Modules.Records.Domain.Entities
             LockedAtUtc = DateTime.UtcNow;
 
             // Raise domain event
-            AddDomainEvent(new IncidentLockAcquiredDomainEvent(Id, userId, LockedAtUtc.Value));
+            AddDomainEvent(new IncidentLockAcquiredDomainEvent(Id, userId));
         }
 
         public void ReleaseLock(Guid userId)
