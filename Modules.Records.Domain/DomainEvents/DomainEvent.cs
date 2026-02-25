@@ -1,8 +1,9 @@
 ﻿using Modules.Records.Domain.DomainEvents;
 
-namespace Infrastructure.IntegrationTests.Outbox.RetryBehavior;
 
-public sealed record FailingDomainEvent(Guid AggregateId) : IDomainEvent
+namespace Modules.Records.Domain.DomainEvents;
+
+public abstract record DomainEvent : IDomainEvent
 {
     public Guid EventId { get; init; } = Guid.NewGuid();
     public DateTime OccurredOnUtc { get; init; } = DateTime.UtcNow;

@@ -1,18 +1,7 @@
-﻿namespace Modules.Records.Domain.DomainEvents;
+﻿
+namespace Modules.Records.Domain.DomainEvents;
 
-public sealed record IncidentSoftDeletedDomainEvent : IDomainEvent
-{
-    public Guid IncidentId { get; }
-    public Guid UserId { get; }
-    public DateTime OccurredOnUtc { get; }
-
-    public IncidentSoftDeletedDomainEvent(
-        Guid incidentId,
-        Guid userId,
-        DateTime occurredOnUtc)
-    {
-        IncidentId = incidentId;
-        UserId = userId;
-        OccurredOnUtc = occurredOnUtc;
-    }
-}
+public sealed record IncidentSoftDeletedDomainEvent(
+    Guid IncidentId,
+    Guid UserId)
+    : DomainEvent;

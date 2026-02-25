@@ -1,4 +1,6 @@
-﻿namespace Modules.Records.Domain.Common;
+﻿using Modules.Records.Domain.DomainEvents;
+
+namespace Modules.Records.Domain.Common;
 
 public abstract class StatefulAggregateRoot : AggregateRoot
 {
@@ -58,8 +60,8 @@ public abstract class StatefulAggregateRoot : AggregateRoot
 
     protected virtual void ValidateForClose() { }
 
-    protected abstract object CreateOpenedEvent(Guid userId);
-    protected abstract object CreateClosedEvent(Guid userId, bool forced);
-    protected abstract object CreateArchivedEvent(Guid userId);
+    protected abstract IDomainEvent CreateOpenedEvent(Guid userId);
+    protected abstract IDomainEvent CreateClosedEvent(Guid userId, bool forced);
+    protected abstract IDomainEvent CreateArchivedEvent(Guid userId);
 }
 

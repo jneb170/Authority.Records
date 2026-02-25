@@ -1,18 +1,7 @@
-﻿namespace Modules.Records.Domain.DomainEvents;
+﻿
+namespace Modules.Records.Domain.DomainEvents;
 
-public sealed record IncidentLockAcquiredDomainEvent : IDomainEvent
-{
-    public Guid IncidentId { get; }
-    public Guid UserId { get; }
-    public DateTime OccurredOnUtc { get; }
-
-    public IncidentLockAcquiredDomainEvent(
-        Guid incidentId,
-        Guid userId,
-        DateTime occurredOnUtc)
-    {
-        IncidentId = incidentId;
-        UserId = userId;
-        OccurredOnUtc = occurredOnUtc;
-    }
-}
+public sealed record IncidentLockAcquiredDomainEvent(
+    Guid IncidentId,
+    Guid UserId)
+    : DomainEvent;

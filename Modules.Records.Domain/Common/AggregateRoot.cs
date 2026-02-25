@@ -1,12 +1,17 @@
-﻿namespace Modules.Records.Domain.Common
+﻿using Modules.Records.Domain.DomainEvents;
+
+namespace Modules.Records.Domain.Common
 {
     public abstract class AggregateRoot : Entity
     {
-        private readonly List<object> _domainEvents = new();
-        public IReadOnlyCollection<object> DomainEvents => _domainEvents.AsReadOnly();
+        private readonly List<IDomainEvent> _domainEvents = new();
+        public IReadOnlyCollection<IDomainEvent> DomainEvents 
+            => _domainEvents.AsReadOnly();
 
-        protected void AddDomainEvent(object @event) => _domainEvents.Add(@event);
-        public void ClearDomainEvents() => _domainEvents.Clear();
+        protected void AddDomainEvent(IDomainEvent @event) 
+            => _domainEvents.Add(@event);
+        public void ClearDomainEvents() 
+            => _domainEvents.Clear();
 
         // Soft delete support
         public bool IsDeleted { get; protected set; }
