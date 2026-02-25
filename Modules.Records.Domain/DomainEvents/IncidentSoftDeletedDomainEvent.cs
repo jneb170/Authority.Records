@@ -1,12 +1,12 @@
 ﻿namespace Modules.Records.Domain.DomainEvents;
 
-public sealed record IncidentLockAcquiredDomainEvent : IDomainEvent
+public sealed record IncidentSoftDeletedDomainEvent : IDomainEvent
 {
     public Guid IncidentId { get; }
     public Guid UserId { get; }
     public DateTime OccurredOnUtc { get; }
 
-    public IncidentLockAcquiredDomainEvent(
+    public IncidentSoftDeletedDomainEvent(
         Guid incidentId,
         Guid userId,
         DateTime occurredOnUtc)

@@ -34,14 +34,14 @@ public class RowVersionConcurrencyTests
         var incidentA = await contextA.Incidents.FirstAsync(x => x.Id == incidentId);
         var incidentB = await contextB.Incidents.FirstAsync(x => x.Id == incidentId);
 
-        incidentA.UpdateDescription("Updated A");
+        incidentA.UpdateDescription("Updated A", new Guid());
         await contextA.SaveChangesAsync();
 
         var fresh = await contextA.Incidents
             .AsNoTracking()
             .FirstAsync(x => x.Id == incidentId);
 
-        incidentB.UpdateDescription("Updated B");
+        incidentB.UpdateDescription("Updated B", new Guid());
 
         await Assert.ThrowsAsync<DbUpdateConcurrencyException>(() =>
             contextB.SaveChangesAsync());

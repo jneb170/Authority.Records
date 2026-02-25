@@ -1,11 +1,11 @@
-﻿using Modules.Records.Domain.Common;
-using Modules.Records.Domain.DomainEvents;
+﻿using Modules.Records.Domain.DomainEvents;
 using Modules.Records.Domain.Abstractions;
 using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using Modules.Records.Domain.Common;
 
 namespace Modules.Records.Domain.Entities
 {
