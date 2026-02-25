@@ -9,13 +9,13 @@
         public void ClearDomainEvents() => _domainEvents.Clear();
 
         // Soft delete support
-        public bool IsDeleted { get; private set; }
+        public bool IsDeleted { get; protected set; }
 
         // Concurrency token for optimistic locking
         public byte[] RowVersion { get; private set; } = Array.Empty<byte>();
 
 
-        public void SoftDelete()
+        public virtual void SoftDelete()
         {
             if (!IsDeleted)
             {
@@ -25,7 +25,7 @@
             }
         }
 
-        public void Restore()
+        public virtual void Restore()
         {
             if (IsDeleted)
             {
