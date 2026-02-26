@@ -13,7 +13,8 @@ public enum IncidentStatus
     Archived = 3
 }
 
-public sealed class Incident : LockableAggregateRoot, IMultiTenant
+public sealed class Incident 
+    : LockableAggregateRoot<Incident>, IMultiTenant
 {
     public Guid JurisdictionId { get; private set; }
     public Guid AgencyId { get; private set; }
@@ -30,6 +31,35 @@ public sealed class Incident : LockableAggregateRoot, IMultiTenant
         JurisdictionId = jurisdictionId;
         AgencyId = agencyId;
         Description = description;
+    }
+
+    protected override void ValidateTransition(
+        RecordStatus current,
+        RecordStatus target,
+        bool isForced)
+    {
+        if (current == RecordStatus.Draft && target == RecordStatus.Open)
+            return;
+
+        if (current == RecordStatus.Open && target == RecordStatus.Closed)
+        {
+            if (!isForced)
+                ValidateForClose();
+            return;
+        }
+
+        if (current == RecordStatus.Closed && target == RecordStatus.Archived)
+            return;
+
+        throw new DomainException(
+            "incident.invalid.transition",
+            $"Invalid transition from {current} to {target}");
+    }
+
+    private void ValidateForClose()
+    {
+        if (string.IsNullOrWhiteSpace(Description))
+            throw new DomainException("incident.invalid", "Description required before closing.");
     }
 
     public void UpdateDescription(string description, Guid userId)
@@ -51,61 +81,28 @@ public sealed class Incident : LockableAggregateRoot, IMultiTenant
         Description = description;
     }
 
-    protected override void EnsureCanModify(Guid userId)
+    public override void AcquireLock(Guid userId, TimeSpan lockTimeout, bool isSupervisor = false)
     {
-        base.EnsureCanModify(userId);
+        base.AcquireLock(userId, lockTimeout, isSupervisor);
+
+        // Additional checks can be added here if needed
+    }
+
+    protected override void EnsureCanModify(Guid userId, bool isSupervisor = false)
+    {
+        base.EnsureCanModify(userId, isSupervisor);
+
+        // Additional checks can be added here if needed
     }
 
     protected override void EnsureCanLock(Guid userId)
     {
         base.EnsureCanLock(userId);
+
+        // Additional checks can be added here if needed
     }
 
-    // ----------------------------------------------------
-    // Lifecycle
-    // ----------------------------------------------------
-    public void OpenIncident(Guid userId)
-    {
-        EnsureUserOwnsLock(userId);
-        Open(userId);
-    }
-    public void CloseIncident(Guid userId)
-    {
-        EnsureUserOwnsLock(userId);
-        Close(userId);
-    }
-    public void ForceCloseIncident(Guid supervisorId)
-    {
-        Close(supervisorId, true);
-    }
-    public void ArchiveIncident(Guid userId)
-    {
-        Archive(userId);
-    }
-
-    protected override void ValidateForClose()
-    {
-        if (string.IsNullOrWhiteSpace(Description))
-            throw new DomainException("incident.invalid", "Description required before closing.");
-    }
-
-    // ----------------------------------------------------
-    // Domain Event Factories
-    // ----------------------------------------------------
-    protected override IDomainEvent CreateLockAcquiredEvent(Guid userId)
-            => new IncidentLockAcquiredDomainEvent(Id, userId);
-
-    protected override IDomainEvent CreateLockReleasedEvent(Guid userId)
-        => new IncidentLockReleasedDomainEvent(Id, userId);
-
-    protected override IDomainEvent CreateOpenedEvent(Guid userId)
-            => new IncidentOpenedDomainEvent(Id, userId);
-
-    protected override IDomainEvent CreateClosedEvent(Guid userId, bool forced)
-        => new IncidentClosedDomainEvent(Id, userId, forced);
-
-    protected override IDomainEvent CreateArchivedEvent(Guid userId)
-        => new IncidentArchivedDomainEvent(Id, userId);    
+    
 }
 
 

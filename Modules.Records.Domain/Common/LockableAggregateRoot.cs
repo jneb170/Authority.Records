@@ -2,7 +2,9 @@
 
 namespace Modules.Records.Domain.Common;
 
-    public abstract class LockableAggregateRoot : StatefulAggregateRoot
+    public abstract class LockableAggregateRoot<TAggregate> 
+        : StatefulAggregateRoot<TAggregate>
+        where TAggregate : LockableAggregateRoot<TAggregate>
 {
     public Guid? LockedByUserId { get; protected set; }
     public DateTime? LockedAtUtc { get; protected set; }
@@ -15,7 +17,7 @@ namespace Modules.Records.Domain.Common;
     // Public Lock API
     // ----------------------------------------------------
 
-    public void AcquireLock(Guid userId, TimeSpan lockTimeout, bool isSupervisor = false)
+    public virtual void AcquireLock(Guid userId, TimeSpan lockTimeout, bool isSupervisor = false)
     {
         EnsureNotArchived();
         EnsureCanLock(userId);
@@ -36,10 +38,10 @@ namespace Modules.Records.Domain.Common;
         LockedByUserId = userId;
         LockedAtUtc = DateTime.UtcNow;
 
-        AddDomainEvent(CreateLockAcquiredEvent(userId));
+        AddDomainEvent(new LockAcquiredDomainEvent<TAggregate>(Id, userId));
     }
 
-    public void ReleaseLock(Guid userId, bool isSupervisor = false)
+    public virtual void ReleaseLock(Guid userId, bool isSupervisor = false)
     {
         if (!IsLocked)
             return;
@@ -54,10 +56,10 @@ namespace Modules.Records.Domain.Common;
         LockedByUserId = null;
         LockedAtUtc = null;
 
-        AddDomainEvent(CreateLockReleasedEvent(userId));
+        AddDomainEvent(new LockReleasedDomainEvent<TAggregate>(Id, userId));
     }
 
-    protected void EnsureUserOwnsLock(Guid userId)
+    protected virtual void EnsureUserOwnsLock(Guid userId)
     {
         if (!IsLocked || LockedByUserId != userId)
         {
@@ -67,13 +69,53 @@ namespace Modules.Records.Domain.Common;
         }
     }
 
-    // ----------------------------------------------------
-    // Extension Hooks
-    // ----------------------------------------------------
+    protected virtual void EnsureCanLock(Guid userId)
+    {
+        EnsureNotArchived();
 
-    protected virtual void EnsureCanLock(Guid userId) { }
+        if (IsDeleted)
+        {
+            throw new DomainException(
+                "record.deleted",
+                "Deleted records cannot be locked.");
+        }
 
-    protected abstract IDomainEvent CreateLockAcquiredEvent(Guid userId);
-    protected abstract IDomainEvent CreateLockReleasedEvent(Guid userId);
+        if (Status == RecordStatus.Closed)
+        {
+            throw new DomainException(
+                "record.closed.lock",
+                "Closed records cannot be locked.");
+        }
+    }
+
+    protected virtual void EnsureCanModify(Guid userId, bool isSupervisor = false)
+    {
+        EnsureNotArchived();
+
+        // If still Draft and not locked yet, allow modification
+        if (Status == RecordStatus.Draft && !IsLocked)
+            return;
+
+        if (!IsLocked)
+        {
+            throw new DomainException(
+                "record.lock.required",
+                "Record must be locked before modification.");
+        }
+
+        if (LockedByUserId != userId && !isSupervisor)
+        {
+            throw new DomainException(
+                "record.lock.ownership",
+                "Only the locking user may modify this record.");
+        }
+
+        if (Status == RecordStatus.Closed && !isSupervisor)
+        {
+            throw new DomainException(
+                "record.closed.modify",
+                "Closed records cannot be modified.");
+        }
+    }
 }
 
