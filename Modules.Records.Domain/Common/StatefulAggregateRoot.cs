@@ -2,66 +2,61 @@
 
 namespace Modules.Records.Domain.Common;
 
-public abstract class StatefulAggregateRoot : AggregateRoot
+public abstract class StatefulAggregateRoot<TAggregate>
+    : AggregateRoot
+    where TAggregate : AggregateRoot
 {
     public RecordStatus Status { get; protected set; } = RecordStatus.Draft;
 
-    protected void Open(Guid userId)
-    {
-        EnsureNotArchived();
-
-        if (Status != RecordStatus.Draft)
-            throw new DomainException("record.invalid.transition", "Only Draft records can be opened.");
-
-        Status = RecordStatus.Open;
-
-        AddDomainEvent(CreateOpenedEvent(userId));
-    }
-
-    protected void Close(Guid userId, bool isForced = false)
-    {
-        EnsureNotArchived();
-
-        if (Status != RecordStatus.Open)
-            throw new DomainException("record.invalid.transition", "Only Open records can be closed.");
-
-        if (!isForced)
-            ValidateForClose();
-
-        Status = RecordStatus.Closed;
-
-        AddDomainEvent(CreateClosedEvent(userId, isForced));
-    }
-
-    protected void Archive(Guid userId)
-    {
-        if (Status != RecordStatus.Closed)
-            throw new DomainException("record.invalid.transition", "Only Closed records can be archived.");
-
-        Status = RecordStatus.Archived;
-
-        AddDomainEvent(CreateArchivedEvent(userId));
-    }
-
-    protected virtual void EnsureCanModify(Guid userId)
+    protected void ChangeStatus(
+        RecordStatus newStatus,
+        Guid userId,
+        bool isForced = false)
     {
         if (Status == RecordStatus.Archived)
-            throw new DomainException("record.archived", "Archived record cannot be modified.");
+            throw new DomainException(
+                "record.archived",
+                "Archived record cannot transition.");
 
-        if (Status == RecordStatus.Closed)
-            throw new DomainException("record.closed", "Closed record cannot be modified.");
+        if (Status == newStatus)
+            return;
+
+        ValidateTransition(Status, newStatus, isForced);
+
+        var previous = Status;
+        Status = newStatus;
+
+        AddDomainEvent(new LifecycleStatusChangedDomainEvent<TAggregate>(
+            AggregateId: Id,
+            PreviousStatus: previous,
+            NewStatus: newStatus,
+            ChangedByUserId: userId,
+            IsForced: isForced));
     }
 
-    protected virtual void EnsureNotArchived()
+    protected abstract void ValidateTransition(
+        RecordStatus current,
+        RecordStatus target,
+        bool isForced);
+
+    protected void EnsureNotArchived()
     {
         if (Status == RecordStatus.Archived)
-            throw new DomainException("record.archived", "Archived record cannot be modified.");
+        {
+            throw new DomainException(
+                "record.archived",
+                "Archived records cannot be modified.");
+        }
     }
 
-    protected virtual void ValidateForClose() { }
-
-    protected abstract IDomainEvent CreateOpenedEvent(Guid userId);
-    protected abstract IDomainEvent CreateClosedEvent(Guid userId, bool forced);
-    protected abstract IDomainEvent CreateArchivedEvent(Guid userId);
+    protected void EnsureNotClosed(bool allowIfForced = false)
+    {
+        if (Status == RecordStatus.Closed && !allowIfForced)
+        {
+            throw new DomainException(
+                "record.closed",
+                "Closed records cannot be modified.");
+        }
+    }
 }
 
