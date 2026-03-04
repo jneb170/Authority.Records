@@ -1,5 +1,5 @@
 ﻿using Modules.Records.Domain.Abstractions;
-using Modules.Records.Domain.Common;
+using Modules.Records.Domain.Common.Primitives;
 
 namespace Infrastructure.IntegrationTests.Outbox.RetryBehavior;
 

@@ -1,7 +1,6 @@
-﻿
-namespace Modules.Records.Domain.Common
+﻿namespace Modules.Records.Domain.Common.Exceptions
 {
-    public sealed class DomainException : Exception
+    public class DomainException : Exception
     {
         public string Code { get; }
 

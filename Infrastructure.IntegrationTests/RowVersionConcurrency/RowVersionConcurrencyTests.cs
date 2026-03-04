@@ -4,6 +4,8 @@ using Infrastructure.IntegrationTests.TestInfrastructure;
 using System;
 using System.Threading.Tasks;
 using Xunit;
+using Modules.Records.Domain.Factories;
+using Modules.Records.Domain.Common.Implementations;
 
 namespace Infrastructure.IntegrationTests.RowVersionConcurrency;
 
@@ -14,6 +16,7 @@ public class RowVersionConcurrencyTests
     {
         var tenantId = Guid.NewGuid();
         var agencyId = Guid.NewGuid();
+        UserModificationContext userModificationContext = new(Guid.NewGuid(), false, false, false);
 
         using var factory = new SqliteTestDbContextFactory(tenantId);
 
@@ -22,7 +25,7 @@ public class RowVersionConcurrencyTests
         // Seed
         using (var context = factory.CreateContext())
         {
-            var incident = new Incident(tenantId, agencyId, "Original");
+            var incident = new IncidentFactory().Create(tenantId, agencyId, "Original");
             context.Incidents.Add(incident);
             await context.SaveChangesAsync();
             incidentId = incident.Id;
@@ -34,14 +37,14 @@ public class RowVersionConcurrencyTests
         var incidentA = await contextA.Incidents.FirstAsync(x => x.Id == incidentId);
         var incidentB = await contextB.Incidents.FirstAsync(x => x.Id == incidentId);
 
-        incidentA.UpdateDescription("Updated A", new Guid());
+        incidentA.UpdateDescription("Updated A", userModificationContext);
         await contextA.SaveChangesAsync();
 
         var fresh = await contextA.Incidents
             .AsNoTracking()
             .FirstAsync(x => x.Id == incidentId);
 
-        incidentB.UpdateDescription("Updated B", new Guid());
+        incidentB.UpdateDescription("Updated B", userModificationContext);
 
         await Assert.ThrowsAsync<DbUpdateConcurrencyException>(() =>
             contextB.SaveChangesAsync());

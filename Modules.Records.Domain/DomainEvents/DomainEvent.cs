@@ -1,7 +1,4 @@
-﻿using Modules.Records.Domain.DomainEvents;
-
-
-namespace Modules.Records.Domain.DomainEvents;
+﻿namespace Modules.Records.Domain.DomainEvents;
 
 public abstract record DomainEvent : IDomainEvent
 {

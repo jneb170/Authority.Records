@@ -1,6 +1,5 @@
-﻿using Modules.Records.Domain.DomainEvents;
-
-namespace Modules.Records.Application.Abstractions;
+﻿
+namespace Modules.Records.Domain.DomainEvents;
 
 public interface IDomainEventDispatcher
 {

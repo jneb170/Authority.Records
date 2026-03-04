@@ -1,9 +1,9 @@
-﻿using Infrastructure.IntegrationTests.Outbox.RetryBehavior;
+﻿using Infrastructure.IntegrationTests.Outbox.Idempotency;
+using Infrastructure.IntegrationTests.Outbox.RetryBehavior;
 using Infrastructure.IntegrationTests.Outbox.TenantIsolation;
-using Infrastructure.IntegrationTests.Outbox.Idempotency;
 using Microsoft.EntityFrameworkCore;
-using Modules.Records.Application.Abstractions;
 using Modules.Records.Domain.Abstractions;
+using Modules.Records.Domain.DomainEvents;
 using Shared.Infrastructure.Persistence;
 
 namespace Infrastructure.IntegrationTests.Common;

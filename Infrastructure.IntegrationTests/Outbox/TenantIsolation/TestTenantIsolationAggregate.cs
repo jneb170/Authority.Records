@@ -1,7 +1,7 @@
 ﻿using Infrastructure.IntegrationTests.Outbox.Idempotency;
 using Infrastructure.IntegrationTests.Outbox.TenantIsolation;
 using Modules.Records.Domain.Abstractions;
-using Modules.Records.Domain.Common;
+using Modules.Records.Domain.Common.Primitives;
 using System;
 using System.Collections.Generic;
 using System.Linq;

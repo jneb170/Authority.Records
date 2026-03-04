@@ -1,4 +1,4 @@
-﻿using Modules.Records.Domain.Common;
+﻿using Modules.Records.Domain.Common.Primitives;
 
 namespace Modules.Records.Domain.DomainEvents;
 
