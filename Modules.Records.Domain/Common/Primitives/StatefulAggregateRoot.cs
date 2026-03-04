@@ -1,16 +1,20 @@
-﻿using Modules.Records.Domain.DomainEvents;
+﻿using Modules.Records.Domain.Abstractions;
+using Modules.Records.Domain.Common.Exceptions;
+using Modules.Records.Domain.DomainEvents;
 
-namespace Modules.Records.Domain.Common;
+namespace Modules.Records.Domain.Common.Primitives;
 
 public abstract class StatefulAggregateRoot<TAggregate>
     : AggregateRoot
-    where TAggregate : AggregateRoot
+    where TAggregate : StatefulAggregateRoot<TAggregate>
 {
+
     public RecordStatus Status { get; protected set; } = RecordStatus.Draft;
 
     protected void ChangeStatus(
         RecordStatus newStatus,
-        Guid userId,
+        IModificationContext context,
+        ILifecyclePolicy<TAggregate> lifecyclePolicy,
         bool isForced = false)
     {
         if (Status == RecordStatus.Archived)
@@ -21,7 +25,12 @@ public abstract class StatefulAggregateRoot<TAggregate>
         if (Status == newStatus)
             return;
 
-        ValidateTransition(Status, newStatus, isForced);
+        lifecyclePolicy.ValidateTransition(
+            (TAggregate)this,
+            Status,
+            newStatus,
+            context,
+            isForced);
 
         var previous = Status;
         Status = newStatus;
@@ -30,14 +39,9 @@ public abstract class StatefulAggregateRoot<TAggregate>
             AggregateId: Id,
             PreviousStatus: previous,
             NewStatus: newStatus,
-            ChangedByUserId: userId,
+            ChangedByUserId: context.UserId,
             IsForced: isForced));
     }
-
-    protected abstract void ValidateTransition(
-        RecordStatus current,
-        RecordStatus target,
-        bool isForced);
 
     protected void EnsureNotArchived()
     {

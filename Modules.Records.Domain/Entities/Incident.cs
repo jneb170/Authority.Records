@@ -1,28 +1,26 @@
 ﻿using Modules.Records.Domain.Abstractions;
 using Modules.Records.Domain.Common;
-using Modules.Records.Domain.DomainEvents;
-
+using Modules.Records.Domain.Common.Exceptions;
+using Modules.Records.Domain.Common.Implementations;
+using Modules.Records.Domain.Common.Policies;
+using Modules.Records.Domain.Common.Primitives;
 
 namespace Modules.Records.Domain.Entities;
 
-public enum IncidentStatus
-{
-    Draft = 0,
-    Open = 1,
-    Closed = 2,
-    Archived = 3
-}
-
-public sealed class Incident 
+public sealed class Incident
     : LockableAggregateRoot<Incident>, IMultiTenant
 {
     public Guid JurisdictionId { get; private set; }
     public Guid AgencyId { get; private set; }
     public string Description { get; private set; }
 
+    // EF Core requires a parameterless constructor for materialization
     private Incident() { } // EF
 
-    public Incident(Guid jurisdictionId, Guid agencyId, string description)
+    // -------------------------------------------------------
+    // Aggregate construction via factory
+    // -------------------------------------------------------
+    internal Incident(Guid jurisdictionId, Guid agencyId, string description)
     {
         if (string.IsNullOrWhiteSpace(description))
             throw new DomainException("incident.description.empty", "Description cannot be empty.");
@@ -31,48 +29,41 @@ public sealed class Incident
         JurisdictionId = jurisdictionId;
         AgencyId = agencyId;
         Description = description;
+
+        Status = RecordStatus.Draft;
     }
 
-    protected override void ValidateTransition(
-        RecordStatus current,
-        RecordStatus target,
-        bool isForced)
-    {
-        if (current == RecordStatus.Draft && target == RecordStatus.Open)
-            return;
+    // -------------------------------------------------------
+    // State transition methods
+    // -------------------------------------------------------
+    public void Open(
+        IModificationContext context,
+        ILifecyclePolicy<Incident> lifecyclePolicy)
+        => ChangeStatus(RecordStatus.Open, context, lifecyclePolicy);
+    public void Close(
+        IModificationContext context,
+        ILifecyclePolicy<Incident> lifecyclePolicy,
+        bool force = false)
+        => ChangeStatus(RecordStatus.Closed, context, lifecyclePolicy, force);
+    public void Archive(
+        IModificationContext context,
+        ILifecyclePolicy<Incident> lifecyclePolicy)
+        => ChangeStatus(RecordStatus.Archived, context, lifecyclePolicy);
 
-        if (current == RecordStatus.Open && target == RecordStatus.Closed)
+    // -------------------------------------------------------
+    // Behavior methods
+    // -------------------------------------------------------
+    public void UpdateDescription(string description, IModificationContext context)
+    {
+        EnsureCanModify(context);
+
+        if (Status == RecordStatus.Draft)
         {
-            if (!isForced)
-                ValidateForClose();
-            return;
-        }
-
-        if (current == RecordStatus.Closed && target == RecordStatus.Archived)
-            return;
-
-        throw new DomainException(
-            "incident.invalid.transition",
-            $"Invalid transition from {current} to {target}");
-    }
-
-    private void ValidateForClose()
-    {
-        if (string.IsNullOrWhiteSpace(Description))
-            throw new DomainException("incident.invalid", "Description required before closing.");
-    }
-
-    public void UpdateDescription(string description, Guid userId)
-    {
-        EnsureCanModify(userId);
-
-        if (Status == RecordStatus.Draft && !IsLocked)
-        {
-            // Create mode allowed
+            // Draft mode, no lock required
         }
         else
         {
-            EnsureUserOwnsLock(userId);
+            EnsureUserOwnsLock(context.UserId);
         }
 
         if (string.IsNullOrWhiteSpace(description))
@@ -81,28 +72,75 @@ public sealed class Incident
         Description = description;
     }
 
-    public override void AcquireLock(Guid userId, TimeSpan lockTimeout, bool isSupervisor = false)
-    {
-        base.AcquireLock(userId, lockTimeout, isSupervisor);
+    // -------------------------------------------------------
+    // Authorization and locking strategies
+    // -------------------------------------------------------
+    private static readonly IncidentAuthorizationPolicy _authorizationPolicy
+        = new();
+    protected override IAuthorizationPolicy<Incident> AuthorizationPolicy
+        => _authorizationPolicy;
 
+    private static readonly TimeoutLockExpirationStrategy<Incident> _lockExpirationStrategy
+        = new();
+    protected override ILockExpirationStrategy<Incident> LockExpirationStrategy
+        => _lockExpirationStrategy;
+
+    private static readonly SystemClock _clock
+        = new();
+    protected override IClock Clock
+        => _clock;
+
+    // -------------------------------------------------------
+    // Child collections  
+    // -------------------------------------------------------
+    private readonly List<Arrest> _arrests = new();
+    public IReadOnlyCollection<Arrest> Arrests => _arrests.AsReadOnly();
+
+    private readonly List<Citation> _citations = new();
+    public IReadOnlyCollection<Citation> Citations => _citations.AsReadOnly();
+
+
+    // -------------------------------------------------------
+    // Locking Overrides to enforce additional rules if needed
+    // -------------------------------------------------------
+    public override void AcquireLock(IModificationContext context, TimeSpan lockTimeout)
+    {
+        // Override lock aquire to enforce additional rules if needed
+        base.AcquireLock(context, lockTimeout);
         // Additional checks can be added here if needed
     }
-
-    protected override void EnsureCanModify(Guid userId, bool isSupervisor = false)
-    {
-        base.EnsureCanModify(userId, isSupervisor);
-
-        // Additional checks can be added here if needed
-    }
-
-    protected override void EnsureCanLock(Guid userId)
-    {
-        base.EnsureCanLock(userId);
-
-        // Additional checks can be added here if needed
-    }
-
     
+    protected override void EnsureCanModify(IModificationContext context)
+    {
+        // Override lock release to enforce additional rules if needed
+        base.EnsureCanModify(context);
+
+        // Additional checks can be added here if needed
+    }
+
+    protected override void EnsureCanLock(IModificationContext context)
+    {
+        // Override lock to enforce additional rules if needed
+        base.EnsureCanLock(context);
+
+        // Additional checks can be added here if needed
+    }
+
+
+    // -------------------------------------------------------
+    // Methods to manage child entities
+    // -------------------------------------------------------
+    public void AddArrest(Arrest arrest, IModificationContext context)
+    {
+        EnsureCanModify(context);
+        _arrests.Add(arrest);
+    }
+
+    public void AddCitation(Citation citation, IModificationContext context)
+    {
+        EnsureCanModify(context);
+        _citations.Add(citation);
+    }
 }
 
 

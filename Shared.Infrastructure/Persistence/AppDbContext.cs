@@ -4,6 +4,7 @@ using Microsoft.EntityFrameworkCore.Metadata.Builders;
 using Modules.Records.Application.Abstractions;
 using Modules.Records.Domain.Abstractions;
 using Modules.Records.Domain.Common;
+using Modules.Records.Domain.Common.Primitives;
 using Modules.Records.Domain.DomainEvents;
 using Modules.Records.Domain.Entities;
 using Shared.Infrastructure.Outbox;
@@ -27,6 +28,8 @@ public class AppDbContext : DbContext, IApplicationDbContext
     public DbSet<Incident> Incidents => Set<Incident>();
     public DbSet<Arrest> Arrests => Set<Arrest>();
     public DbSet<Citation> Citations => Set<Citation>();
+
+    public DbSet<JurisdictionConfiguration> JurisdictionConfigurations => Set<JurisdictionConfiguration>();
 
     public AppDbContext(
         DbContextOptions options, 
@@ -121,18 +124,16 @@ public class AppDbContext : DbContext, IApplicationDbContext
 
         ApplyGlobalFilters(modelBuilder);
 
+        ApplyJurisdictionConfiguration(modelBuilder);
+
         // Automatically apply all IEntityTypeConfiguration
         // These should be defined in the same assembly as AppDbContext and
         //  implement IEntityTypeConfiguration<T> for each entity type.
         // Store these configurations in Persistence/Configurations folder for better organization.
         modelBuilder.ApplyConfigurationsFromAssembly(typeof(AppDbContext).Assembly);
 
-        //OnModelCreatingPartial(modelBuilder);
     }
 
-    //protected virtual void OnModelCreatingPartial(ModelBuilder modelBuilder)
-    //{
-    //}
 
     private void ApplyGlobalFilters(ModelBuilder modelBuilder)
     {
@@ -173,6 +174,24 @@ public class AppDbContext : DbContext, IApplicationDbContext
             }
         }
     }
+
+    private void ApplyJurisdictionConfiguration(ModelBuilder modelBuilder)
+    {
+        modelBuilder.Entity<JurisdictionConfiguration>(builder =>
+        {
+            builder.HasKey(x => x.Id);
+
+            builder.HasIndex(x => x.JurisdictionId)
+                   .IsUnique();
+
+            builder.Property(x => x.MustCloseAllArrests)
+                   .IsRequired();
+
+            builder.Property(x => x.MustCloseAllCitations)
+                   .IsRequired();
+        });
+    }
+
 
     /// <summary>
     /// Combines the specified filter expression with an existing expression using a logical AND operation.

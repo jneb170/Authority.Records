@@ -2,8 +2,10 @@
 using Microsoft.EntityFrameworkCore;
 using Modules.Records.Application.Abstractions;
 using Modules.Records.Domain.Abstractions;
+using Modules.Records.Domain.Common.Implementations;
 using Modules.Records.Domain.DomainEvents;
 using Modules.Records.Domain.Entities;
+using Modules.Records.Domain.Factories;
 using Shared.Infrastructure.Persistence;
 
 namespace Infrastructure.IntegrationTests.SoftDelete;
@@ -30,8 +32,9 @@ public class SoftDeleteTests
     {
         var incidentJurisdictionId = Guid.NewGuid();
         var incidentAgencyId = Guid.NewGuid();
-        var incident = new Incident(incidentJurisdictionId, incidentAgencyId, "Test Incident");
 
+        UserModificationContext userModificationContext = new(Guid.NewGuid(), false, false, false);
+        var incident = new IncidentFactory().Create(incidentJurisdictionId, incidentAgencyId, "Test Incident");
 
         // Insert a record
         using (var context = new AppDbContext(_options, new FakeTenantProvider(), new FakeDomainEventDispatcher()))
