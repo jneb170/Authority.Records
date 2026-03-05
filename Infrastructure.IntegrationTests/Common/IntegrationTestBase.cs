@@ -52,10 +52,12 @@ namespace Infrastructure.IntegrationTests.Common
                     sp.GetRequiredService<IServiceScopeFactory>(),
                     sp.GetRequiredService<DomainEventTypeRegistry>(),
                     sp.GetRequiredService<ILogger<OutboxProcessor>>(),
+                    sp.GetRequiredService<DeadLetterQueueWriter>(),
                     maxRetries: 1);
             });
 
             services.AddScoped<OutboxCleanupProcessor>();
+            services.AddScoped<DeadLetterQueueWriter>();
 
             //adding DomainEvents to DomainEventTypeRegistry
             services.AddSingleton(sp =>

@@ -37,6 +37,20 @@ public sealed class OutboxCleanupProcessor
                 cutoffDate);
         }
 
-        return deleted;
+        var deadLetterDeleted = await _dbContext.DeadLetterMessages
+            .Where(m =>
+                m.RequeuedOnUtc != null &&
+                m.RequeuedOnUtc < cutoffDate)
+            .ExecuteDeleteAsync(cancellationToken);
+
+        if (deadLetterDeleted > 0)
+        {
+            _logger.LogInformation(
+                "Outbox cleanup removed {Count} dead letter messages older than {Cutoff}.",
+                deadLetterDeleted,
+                cutoffDate);
+        }
+
+        return deleted + deadLetterDeleted;
     }
 }

@@ -1,4 +1,4 @@
-﻿using Modules.Records.Domain.DomainEvents;
+using Modules.Records.Domain.DomainEvents;
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 using System.Runtime.CompilerServices;
@@ -94,6 +94,20 @@ public sealed class OutboxMessage
         var delaySeconds = Math.Pow(2, RetryCount);
 
         NextRetryOnUtc = DateTime.UtcNow.AddSeconds(delaySeconds);
+    }
+
+    public static OutboxMessage FromDeadLetter(DeadLetterMessage deadLetterMessage)
+    {
+        ArgumentNullException.ThrowIfNull(deadLetterMessage);
+
+        return new OutboxMessage
+        {
+            Id = Guid.NewGuid(),
+            JurisdictionId = deadLetterMessage.JurisdictionId,
+            OccurredOnUtc = deadLetterMessage.OccurredOnUtc,
+            Type = deadLetterMessage.Type,
+            Content = deadLetterMessage.Content
+        };
     }
 
     public bool CanBeProcessed() => 

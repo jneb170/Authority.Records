@@ -3,6 +3,7 @@ using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Shared.Infrastructure.Persistence;
 
@@ -11,9 +12,11 @@ using Shared.Infrastructure.Persistence;
 namespace Shared.Infrastructure.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    partial class AppDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260304235940_AddDeadLetterMessages")]
+    partial class AddDeadLetterMessages
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -180,40 +183,6 @@ namespace Shared.Infrastructure.Migrations
                     b.HasKey("Id");
 
                     b.ToTable("Incidents");
-                });
-
-            modelBuilder.Entity("Shared.Infrastructure.Audit.AuditTrailEntry", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("uniqueidentifier");
-
-                    b.Property<Guid>("EventId")
-                        .HasColumnType("uniqueidentifier");
-
-                    b.Property<string>("EventType")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(450)");
-
-                    b.Property<Guid>("JurisdictionId")
-                        .HasColumnType("uniqueidentifier");
-
-                    b.Property<DateTime>("OccurredOnUtc")
-                        .HasColumnType("datetime2");
-
-                    b.Property<string>("Payload")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(max)");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("EventType");
-
-                    b.HasIndex("JurisdictionId");
-
-                    b.HasIndex("OccurredOnUtc");
-
-                    b.ToTable("AuditTrailEntries", (string)null);
                 });
 
             modelBuilder.Entity("Shared.Infrastructure.Outbox.DeadLetterMessage", b =>
