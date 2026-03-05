@@ -8,7 +8,9 @@ using Modules.Records.Domain.Common;
 using Modules.Records.Domain.Common.Policies;
 using Modules.Records.Domain.DomainEvents;
 using Modules.Records.Domain.Entities;
+using Modules.Records.Domain.Common.Implementations;
 using Modules.Records.Domain.Factories;
+using Modules.Records.Domain.Services;
 using Modules.Records.Infrastructure.Services;
 using MediatR;
 using Shared.Infrastructure.Audit;
@@ -16,6 +18,7 @@ using Shared.Infrastructure.DomainEvents;
 using Shared.Infrastructure.Identity;
 using Shared.Infrastructure.Jurisdiction;
 using Shared.Infrastructure.Outbox;
+using Shared.Infrastructure.Arrests;
 using Shared.Infrastructure.Persistence;
 using System;
 
@@ -167,4 +170,5 @@ public static class DependencyInjection
         return services;
     }
 }
+
 
