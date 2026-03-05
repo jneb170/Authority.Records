@@ -32,12 +32,13 @@ namespace Modules.Records.Domain.Entities
 
         private Citation() { } // EF
 
-        public Citation(Guid jurisdictionId, Guid agencyId, string description)
+        public Citation(Guid jurisdictionId, Guid agencyId, string description, DateTime issueDate)
         {
             Id = Guid.NewGuid();
             JurisdictionId = jurisdictionId;
             AgencyId = agencyId;
             Description = description;
+            IssueDate = issueDate;
 
             AddDomainEvent(new CitationCreatedDomainEvent(Id, JurisdictionId, AgencyId, Description, IssueDate));
         }
