@@ -43,7 +43,7 @@ public class SoftDeleteTests
             await context.SaveChangesAsync();
 
             // Soft delete it
-            incident.SoftDelete();
+            incident.SoftDelete(userModificationContext.UserId);
             await context.SaveChangesAsync();
         }
 

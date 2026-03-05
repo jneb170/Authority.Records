@@ -4,6 +4,7 @@ using Modules.Records.Domain.Common.Exceptions;
 using Modules.Records.Domain.Common.Implementations;
 using Modules.Records.Domain.Common.Policies;
 using Modules.Records.Domain.Common.Primitives;
+using Modules.Records.Domain.DomainEvents;
 
 namespace Modules.Records.Domain.Entities;
 
@@ -70,6 +71,21 @@ public sealed class Incident
             throw new DomainException("incident.description.empty", "Description cannot be empty.");
 
         Description = description;
+    }
+
+    // -------------------------------------------------------
+    // Soft delete overrides
+    // -------------------------------------------------------
+    public override void SoftDelete(Guid userId)
+    {
+        base.SoftDelete(userId);
+        AddDomainEvent(new IncidentSoftDeletedDomainEvent(Id, userId));
+    }
+
+    public override void Restore(Guid userId)
+    {
+        base.Restore(userId);
+        AddDomainEvent(new IncidentRestoredDomainEvent(Id, userId));
     }
 
     // -------------------------------------------------------
