@@ -16,6 +16,10 @@ public sealed class AuditTrailEntry
 
     public Guid JurisdictionId { get; private set; }
 
+    public Guid AggregateId { get; private set; }
+
+    public long AggregateVersion { get; private set; }
+
     [Required]
     public string Payload { get; private set; } = default!;
 
@@ -26,6 +30,8 @@ public sealed class AuditTrailEntry
         string eventType,
         DateTime occurredOnUtc,
         Guid jurisdictionId,
+        Guid aggregateId,
+        long aggregateVersion,
         string payload)
     {
         return new AuditTrailEntry
@@ -35,6 +41,8 @@ public sealed class AuditTrailEntry
             EventType = eventType,
             OccurredOnUtc = occurredOnUtc,
             JurisdictionId = jurisdictionId,
+            AggregateId = aggregateId,
+            AggregateVersion = aggregateVersion,
             Payload = payload
         };
     }

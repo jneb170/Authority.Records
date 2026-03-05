@@ -24,6 +24,8 @@ public sealed class AuditTrailDomainEventHandler : INotificationHandler<IDomainE
             eventType: domainEvent.GetType().Name,
             occurredOnUtc: domainEvent.OccurredOnUtc,
             jurisdictionId: _tenantProvider.GetJurisdictionId(),
+            aggregateId: domainEvent.AggregateId,
+            aggregateVersion: domainEvent.AggregateVersion,
             payload: JsonSerializer.Serialize(domainEvent, domainEvent.GetType()));
 
         _dbContext.AuditTrailEntries.Add(entry);
