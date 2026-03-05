@@ -1,6 +1,6 @@
 ﻿using Modules.Records.Domain.Abstractions;
-using Modules.Records.Domain.Common;
 using Modules.Records.Domain.Common.Exceptions;
+using Modules.Records.Domain.DomainInvariants.IncidentClose;
 using Modules.Records.Domain.Entities;
 
 namespace Modules.Records.Domain.Services;
@@ -8,17 +8,17 @@ namespace Modules.Records.Domain.Services;
 public sealed class IncidentCloseDomainService
 {
     private readonly IArrestRepository _arrestRepository;
-    private readonly IJurisdictionConfigurationRepository _configRepository;
+    private readonly IncidentCanBeClosedInvariant _invariant;
 
     public IncidentCloseDomainService(
         IArrestRepository arrestRepository,
-        IJurisdictionConfigurationRepository configRepository)
+        IJurisdictionRulesService jurisdictionRules)
     {
         _arrestRepository = arrestRepository
             ?? throw new ArgumentNullException(nameof(arrestRepository));
 
-        _configRepository = configRepository
-            ?? throw new ArgumentNullException(nameof(configRepository));
+        _invariant = new IncidentCanBeClosedInvariant(
+            jurisdictionRules ?? throw new ArgumentNullException(nameof(jurisdictionRules)));
     }
 
     public async Task ValidateCanCloseAsync(
@@ -29,32 +29,19 @@ public sealed class IncidentCloseDomainService
         if (isForced)
             return;
 
-        var config = await _configRepository
-            .GetByJurisdictionIdAsync(
-                incident.JurisdictionId,
-                cancellationToken);
-
-        if (config is null)
-            return; // default behavior if not configured
-
-        if (!config.MustCloseArrestsBeforeIncidentClose)
-            return;
-
         var arrests = await _arrestRepository
-            .GetByIncidentIdAsync(
-                incident.Id,
-                cancellationToken);
+            .GetByIncidentIdAsync(incident.Id, cancellationToken);
 
-        var openArrests = arrests
-            .Where(a => a.Status != RecordStatus.Closed &&
-                        a.Status != RecordStatus.Archived)
-            .ToList();
+        var citations = (IReadOnlyList<Citation>)incident.Citations.ToList();
 
-        if (openArrests.Any())
+        var context = new IncidentCloseContext(incident, arrests, citations);
+        var result = _invariant.Check(context);
+
+        if (!result.IsValid)
         {
-            throw new DomainException(
-                "incident.close.arrests.open",
-                $"Incident cannot be closed. {openArrests.Count} arrest(s) are not closed.");
+            var reasons = string.Join(" ", result.Violations.Select(v => v.Reason));
+            var code = result.Violations[0].ErrorCode;
+            throw new DomainException(code, reasons);
         }
     }
 }
