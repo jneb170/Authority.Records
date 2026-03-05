@@ -4,6 +4,7 @@ using Modules.Records.Domain.Common.Exceptions;
 using Modules.Records.Domain.Common.Implementations;
 using Modules.Records.Domain.Common.Policies;
 using Modules.Records.Domain.Common.Primitives;
+using Modules.Records.Domain.DomainEvents;
 
 namespace Modules.Records.Domain.Entities
 {
@@ -56,6 +57,8 @@ namespace Modules.Records.Domain.Entities
             ArrestedAt = arrestedAt;
 
             Status = RecordStatus.Draft;
+
+            AddDomainEvent(new ArrestCreatedDomainEvent(Id, IncidentId, JurisdictionId, AgencyId, SuspectName, ArrestedAt));
         }
 
         // ----------------------------------------------------

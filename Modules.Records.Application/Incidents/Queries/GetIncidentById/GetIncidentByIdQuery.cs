@@ -1,12 +1,6 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
+using MediatR;
+using Modules.Records.Application.DTOs;
 
-namespace Modules.Records.Application.Incidents.Queries.GetIncidentById
-{
-    internal class GetIncidentByIdQuery
-    {
-    }
-}
+namespace Modules.Records.Application.Incidents.Queries.GetIncidentById;
+
+public sealed record GetIncidentByIdQuery(Guid IncidentId) : IRequest<IncidentDto?>;
