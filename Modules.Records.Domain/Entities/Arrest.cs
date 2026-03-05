@@ -79,6 +79,8 @@ namespace Modules.Records.Domain.Entities
             ILifecyclePolicy<Arrest> lifecyclePolicy)
             => ChangeStatus(RecordStatus.Archived, context, lifecyclePolicy);
 
+        public void Finalize() => IsFinalized = true;
+
         // -------------------------------------------------------
         // Soft delete overrides
         // -------------------------------------------------------
