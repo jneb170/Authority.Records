@@ -44,6 +44,21 @@ namespace Modules.Records.Domain.Entities
 
         public void Issue() => IsIssued = true;
 
+        // -------------------------------------------------------
+        // Soft delete overrides
+        // -------------------------------------------------------
+        public override void SoftDelete(Guid userId)
+        {
+            base.SoftDelete(userId);
+            AddDomainEvent(new CitationSoftDeletedDomainEvent(Id, userId));
+        }
+
+        public override void Restore(Guid userId)
+        {
+            base.Restore(userId);
+            AddDomainEvent(new CitationRestoredDomainEvent(Id, userId));
+        }
+
         // --- Locking Methods ---
         public void AcquireLock(Guid userId, TimeSpan lockTimeout)
         {

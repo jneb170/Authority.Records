@@ -79,6 +79,21 @@ namespace Modules.Records.Domain.Entities
             ILifecyclePolicy<Arrest> lifecyclePolicy)
             => ChangeStatus(RecordStatus.Archived, context, lifecyclePolicy);
 
+        // -------------------------------------------------------
+        // Soft delete overrides
+        // -------------------------------------------------------
+        public override void SoftDelete(Guid userId)
+        {
+            base.SoftDelete(userId);
+            AddDomainEvent(new ArrestSoftDeletedDomainEvent(Id, userId));
+        }
+
+        public override void Restore(Guid userId)
+        {
+            base.Restore(userId);
+            AddDomainEvent(new ArrestRestoredDomainEvent(Id, userId));
+        }
+
     }
 
 

@@ -31,23 +31,15 @@ public abstract class AggregateRoot : Entity
     public byte[] RowVersion { get; private set; } = Array.Empty<byte>();
 
 
-    public virtual void SoftDelete()
+    public virtual void SoftDelete(Guid userId)
     {
         if (!IsDeleted)
-        {
             IsDeleted = true;
-            // Optionally: add a domain event here
-            // AddDomainEvent(new EntitySoftDeletedDomainEvent(this));
-        }
     }
 
-    public virtual void Restore()
+    public virtual void Restore(Guid userId)
     {
         if (IsDeleted)
-        {
             IsDeleted = false;
-            // Optionally: add a domain event here
-            // AddDomainEvent(new EntityRestoredDomainEvent(this));
-        }
     }
 }
