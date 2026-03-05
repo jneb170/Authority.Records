@@ -1,14 +1,14 @@
 namespace Modules.Records.Application.DTOs;
 
-public sealed record IncidentDto(
+public sealed record ArrestDto(
     Guid Id,
     Guid JurisdictionId,
     Guid AgencyId,
-    string Description,
+    Guid IncidentId,
+    string SuspectName,
+    DateTime ArrestedAt,
     string Status,
-    bool IsDeleted,
     bool IsLocked,
     Guid? LockedByUserId,
-    int ArrestCount,
     DateTime CreatedAtUtc,
     DateTime UpdatedAtUtc);

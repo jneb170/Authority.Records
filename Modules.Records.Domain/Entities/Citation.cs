@@ -38,6 +38,8 @@ namespace Modules.Records.Domain.Entities
             JurisdictionId = jurisdictionId;
             AgencyId = agencyId;
             Description = description;
+
+            AddDomainEvent(new CitationCreatedDomainEvent(Id, JurisdictionId, AgencyId, Description, IssueDate));
         }
 
         public void Issue() => IsIssued = true;

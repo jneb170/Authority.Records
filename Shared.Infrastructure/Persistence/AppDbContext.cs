@@ -2,6 +2,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.ChangeTracking;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
 using Modules.Records.Application.Abstractions;
+using Modules.Records.Application.ReadModels;
 using Modules.Records.Domain.Abstractions;
 using Modules.Records.Domain.Common;
 using Modules.Records.Domain.Common.Primitives;
@@ -26,6 +27,11 @@ public class AppDbContext : DbContext, IApplicationDbContext
     public DbSet<OutboxMessage> OutboxMessages => Set<OutboxMessage>();
     public DbSet<DeadLetterMessage> DeadLetterMessages => Set<DeadLetterMessage>();
     public DbSet<AuditTrailEntry> AuditTrailEntries => Set<AuditTrailEntry>();
+
+    // Read models
+    public DbSet<IncidentReadModel> IncidentReadModels => Set<IncidentReadModel>();
+    public DbSet<ArrestReadModel> ArrestReadModels => Set<ArrestReadModel>();
+    public DbSet<CitationReadModel> CitationReadModels => Set<CitationReadModel>();
 
     // Records module
     public DbSet<Incident> Incidents => Set<Incident>();
@@ -214,4 +220,5 @@ public class AppDbContext : DbContext, IApplicationDbContext
         return currentExpression;
     }
 }
+
 
