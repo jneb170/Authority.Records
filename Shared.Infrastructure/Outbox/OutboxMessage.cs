@@ -13,6 +13,9 @@ public sealed class OutboxMessage
 
     public Guid JurisdictionId { get; private set; }
 
+    public Guid AggregateId { get; private set; }
+
+    public long AggregateVersion { get; private set; }
     [Required]
     public DateTime OccurredOnUtc { get; private set; }
 
@@ -54,6 +57,8 @@ public sealed class OutboxMessage
 
         Id = Guid.NewGuid();
         JurisdictionId = jurisdictionId;
+        AggregateId = domainEvent.AggregateId;
+        AggregateVersion = domainEvent.AggregateVersion;
         OccurredOnUtc = DateTime.UtcNow;
         Type = domainEvent.GetType().AssemblyQualifiedName!;
         Content = JsonSerializer.Serialize(domainEvent,domainEvent.GetType());

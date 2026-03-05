@@ -6,5 +6,6 @@ namespace Infrastructure.IntegrationTests.Outbox.Idempotency
     {
         public Guid EventId { get; init; } = Guid.NewGuid();
         public DateTime OccurredOnUtc { get; init; } = DateTime.UtcNow;
+        public long AggregateVersion { get; init; } = 0;
     }
 }

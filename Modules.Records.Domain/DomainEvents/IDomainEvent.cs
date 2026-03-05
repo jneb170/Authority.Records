@@ -7,5 +7,7 @@ namespace Modules.Records.Domain.DomainEvents
     {
         Guid EventId { get; }
         DateTime OccurredOnUtc { get; }
+        Guid AggregateId { get; }
+        long AggregateVersion { get; }
     }
 }

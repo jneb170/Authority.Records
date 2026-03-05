@@ -8,8 +8,19 @@ public abstract class AggregateRoot : Entity
     public IReadOnlyCollection<IDomainEvent> DomainEvents
         => _domainEvents.AsReadOnly();
 
+    public long Version { get; private set; }
+
     protected void AddDomainEvent(IDomainEvent @event)
-        => _domainEvents.Add(@event);
+    {
+        Version++;
+        if (@event is DomainEvent domainEvent)
+        {
+            domainEvent.AggregateId = Id;
+            domainEvent.AggregateVersion = Version;
+        }
+        _domainEvents.Add(@event);
+    }
+
     public void ClearDomainEvents()
         => _domainEvents.Clear();
 
