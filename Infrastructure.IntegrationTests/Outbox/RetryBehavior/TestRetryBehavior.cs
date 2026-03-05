@@ -48,12 +48,14 @@ public sealed class TestRetryBehavior : IntegrationTestBase
         {
             var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
 
-            var message = await db.OutboxMessages
-                .FirstAsync();
+            // Message should have been moved to the dead letter queue
+            var outboxMessage = await db.OutboxMessages.FirstOrDefaultAsync();
+            Assert.Null(outboxMessage);
 
-            Assert.Null(message.ProcessedOnUtc);
-            Assert.True(message.IsFailedPermanently);
-            Assert.Equal(1, message.RetryCount);
+            var deadLetterMessage = await db.DeadLetterMessages.FirstAsync();
+            Assert.NotNull(deadLetterMessage.LastError);
+            Assert.Equal(1, deadLetterMessage.RetryCount);
+            Assert.Null(deadLetterMessage.RequeuedOnUtc);
         }
 
         Assert.True(AlwaysFailingHandler.ExecutionCount >= 1);

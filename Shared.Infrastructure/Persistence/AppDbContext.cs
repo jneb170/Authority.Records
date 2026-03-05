@@ -1,4 +1,4 @@
-﻿using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.ChangeTracking;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
 using Modules.Records.Application.Abstractions;
@@ -7,6 +7,7 @@ using Modules.Records.Domain.Common;
 using Modules.Records.Domain.Common.Primitives;
 using Modules.Records.Domain.DomainEvents;
 using Modules.Records.Domain.Entities;
+using Shared.Infrastructure.Audit;
 using Shared.Infrastructure.Outbox;
 using System.Collections.Generic;
 using System.Linq.Expressions;
@@ -23,6 +24,8 @@ public class AppDbContext : DbContext, IApplicationDbContext
     public Guid CurrentTenantId => _tenantProvider.GetJurisdictionId();
 
     public DbSet<OutboxMessage> OutboxMessages => Set<OutboxMessage>();
+    public DbSet<DeadLetterMessage> DeadLetterMessages => Set<DeadLetterMessage>();
+    public DbSet<AuditTrailEntry> AuditTrailEntries => Set<AuditTrailEntry>();
 
     // Records module
     public DbSet<Incident> Incidents => Set<Incident>();
@@ -211,3 +214,4 @@ public class AppDbContext : DbContext, IApplicationDbContext
         return currentExpression;
     }
 }
+

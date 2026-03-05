@@ -20,6 +20,7 @@ public sealed class OutboxProcessor : BackgroundService
     private readonly IServiceScopeFactory _scopeFactory;
     private readonly DomainEventTypeRegistry _typeRegistry;
     private readonly ILogger<OutboxProcessor> _logger;
+    private readonly DeadLetterQueueWriter _deadLetterQueueWriter;
 
     //private readonly AsyncRetryPolicy _retryPolicy;
 
@@ -28,12 +29,14 @@ public sealed class OutboxProcessor : BackgroundService
         IServiceScopeFactory scopeFactory,
         DomainEventTypeRegistry typeRegistry,
         ILogger<OutboxProcessor> logger,
+        DeadLetterQueueWriter deadLetterQueueWriter,
         int maxRetries = 5)
     {
         _serviceProvider = serviceProvider;
         _scopeFactory = scopeFactory;
         _typeRegistry = typeRegistry;
         _logger = logger;
+        _deadLetterQueueWriter = deadLetterQueueWriter;
         _maxRetries = maxRetries;
 
         // Configure retry policy with exponential backoff for transient failures
@@ -126,6 +129,18 @@ public sealed class OutboxProcessor : BackgroundService
             catch (Exception ex)
             {
                 message.MarkFailed(ex.ToString(), _maxRetries);
+            }
+
+            if (message.IsFailedPermanently)
+            {
+                _logger.LogError(
+                    "Outbox message {MessageId} ({Type}) permanently failed after {RetryCount} retries. Moving to dead letter queue.",
+                    message.Id,
+                    message.Type,
+                    message.RetryCount);
+
+                await _deadLetterQueueWriter.DeadLetterAsync(message, dbContext, cancellationToken);
+                continue;
             }
 
             await dbContext.SaveChangesAsync(cancellationToken);

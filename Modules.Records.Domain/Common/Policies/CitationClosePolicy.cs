@@ -1,11 +1,12 @@
-﻿using Modules.Records.Domain.Abstractions;
+using Modules.Records.Domain.Abstractions;
 using Modules.Records.Domain.Common.Exceptions;
+using Modules.Records.Domain.Common.Specifications;
+using Modules.Records.Domain.Common.Specifications.Citation;
 using Modules.Records.Domain.Entities;
 
 namespace Modules.Records.Domain.Common.Policies;
 
-public sealed class CitationClosePolicy
-    : IClosePolicy<Citation>
+public sealed class CitationClosePolicy : IClosePolicy<Citation>
 {
     private readonly IJurisdictionRulesService _jurisdictionRules;
 
@@ -14,23 +15,26 @@ public sealed class CitationClosePolicy
         _jurisdictionRules = jurisdictionRules ?? throw new ArgumentNullException(nameof(jurisdictionRules));
     }
 
-    public void ValidateCanClose(
-        Citation aggregate,
-        bool isForced)
+    public void ValidateCanClose(Citation aggregate, bool isForced)
     {
-        if (!isForced)
+        if (isForced) return;
+
+        var specs = new List<ISpecification<Citation>>
         {
-            if (aggregate.IssueDate > DateTime.UtcNow)
-                throw new DomainException("citation.date.invalid", "Citation Issue Date cannot be in the future.");
+            new IssueDateNotFutureSpecification()
+        };
 
-            if (_jurisdictionRules.MustCloseAllCitations(aggregate.JurisdictionId))
-                throw new DomainException(
-                    "citation.close.invalid",
-                    "All citations must have charges before closing.");
-        }
+        var errors = specs
+            .Where(s => !s.IsSatisfiedBy(aggregate))
+            .Select(s => new DomainException(s.ErrorCode, s.Reason))
+            .ToList();
 
-        // Future:
-        // - Must have at least one officer
-        // - Must have at least one charge
+        if (_jurisdictionRules.MustCloseAllCitations(aggregate.JurisdictionId))
+            errors.Add(new DomainException(
+                "citation.close.invalid",
+                "All citations must have charges before closing."));
+
+        if (errors.Any())
+            throw new AggregateDomainException(errors);
     }
 }

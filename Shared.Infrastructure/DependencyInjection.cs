@@ -1,4 +1,4 @@
-﻿using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -10,6 +10,7 @@ using Modules.Records.Domain.DomainEvents;
 using Modules.Records.Domain.Entities;
 using Modules.Records.Domain.Factories;
 using Modules.Records.Infrastructure.Services;
+using MediatR;
 using Shared.Infrastructure.Audit;
 using Shared.Infrastructure.DomainEvents;
 using Shared.Infrastructure.Identity;
@@ -61,6 +62,7 @@ public static class DependencyInjection
         // -------------------------------------------------------
 
         services.AddScoped<IDomainEventDispatcher, MediatRDomainEventDispatcher>();
+        services.AddTransient<INotificationHandler<IDomainEvent>, AuditTrailDomainEventHandler>();
 
 
         // -------------------------------------------------------
@@ -68,6 +70,7 @@ public static class DependencyInjection
         // -------------------------------------------------------
         services.Configure<OutboxCleanupOptions>(configuration.GetSection("OutboxCleanup"));
         services.AddScoped<OutboxCleanupProcessor>();
+        services.AddScoped<DeadLetterQueueWriter>();
 
         // -------------------------------------------------------
         // Domain Services / Repositories
@@ -164,3 +167,4 @@ public static class DependencyInjection
         return services;
     }
 }
+
