@@ -3,6 +3,7 @@ using Microsoft.EntityFrameworkCore;
 using Modules.Records.Application.Abstractions;
 using Modules.Records.Application.ReadModels;
 using Modules.Records.Domain.DomainEvents;
+using Modules.Records.Domain.Entities;
 
 namespace Modules.Records.Application.Incidents.DomainEventHandlers;
 
@@ -12,7 +13,9 @@ public sealed class IncidentProjectionHandler :
     INotificationHandler<IncidentClosedDomainEvent>,
     INotificationHandler<IncidentArchivedDomainEvent>,
     INotificationHandler<IncidentSoftDeletedDomainEvent>,
-    INotificationHandler<IncidentRestoredDomainEvent>
+    INotificationHandler<IncidentRestoredDomainEvent>,
+    INotificationHandler<LockAcquiredDomainEvent<Incident>>,
+    INotificationHandler<LockReleasedDomainEvent<Incident>>
 {
     private readonly IApplicationDbContext _dbContext;
 
@@ -23,6 +26,12 @@ public sealed class IncidentProjectionHandler :
 
     public async Task Handle(IncidentCreatedDomainEvent notification, CancellationToken cancellationToken)
     {
+        // Idempotency: skip if already projected (handles outbox retry / double-dispatch)
+        var exists = await _dbContext.IncidentReadModels
+            .AnyAsync(i => i.Id == notification.IncidentId, cancellationToken);
+        if (exists)
+            return;
+
         var incident = await _dbContext.Incidents
             .FirstOrDefaultAsync(i => i.Id == notification.IncidentId, cancellationToken);
 
@@ -83,6 +92,30 @@ public sealed class IncidentProjectionHandler :
             return;
 
         readModel.ApplyStatusChange(status);
+        await _dbContext.SaveChangesAsync(cancellationToken);
+    }
+
+    public async Task Handle(LockAcquiredDomainEvent<Incident> notification, CancellationToken cancellationToken)
+    {
+        var readModel = await _dbContext.IncidentReadModels
+            .FirstOrDefaultAsync(i => i.Id == notification.AggregateId, cancellationToken);
+
+        if (readModel is null)
+            return;
+
+        readModel.ApplyLockAcquired(notification.UserId);
+        await _dbContext.SaveChangesAsync(cancellationToken);
+    }
+
+    public async Task Handle(LockReleasedDomainEvent<Incident> notification, CancellationToken cancellationToken)
+    {
+        var readModel = await _dbContext.IncidentReadModels
+            .FirstOrDefaultAsync(i => i.Id == notification.AggregateId, cancellationToken);
+
+        if (readModel is null)
+            return;
+
+        readModel.ApplyLockReleased();
         await _dbContext.SaveChangesAsync(cancellationToken);
     }
 }

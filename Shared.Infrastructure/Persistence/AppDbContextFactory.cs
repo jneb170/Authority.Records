@@ -20,8 +20,11 @@ namespace Shared.Infrastructure.Persistence
                 .Build();
 
             var optionsBuilder = new DbContextOptionsBuilder<AppDbContext>();
-            optionsBuilder.UseSqlServer(
-                configuration.GetConnectionString("DefaultConnection"));
+
+            var connectionString = configuration.GetConnectionString("DefaultConnection")
+                ?? configuration["DefaultConnection"];
+
+            optionsBuilder.UseSqlServer(connectionString);
 
             // 2️ Provide dummy implementations for tenantProvider & domainEventDispatcher
             return new AppDbContext(

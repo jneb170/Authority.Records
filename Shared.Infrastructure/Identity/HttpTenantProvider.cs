@@ -42,17 +42,7 @@ public sealed class HttpTenantProvider : ITenantProvider
         _backgroundTenantId = jurisdictionId;
     }
 
-    public Guid? GetAgencyId() => GetOptionalGuidClaim("agency");
+    public Guid GetAgencyId() => GetRequiredGuidClaim("agency");
 
-    public Guid? GetUserId() => GetOptionalGuidClaim(ClaimTypes.NameIdentifier);
-
-    Guid ITenantProvider.GetAgencyId()
-    {
-        throw new NotImplementedException();
-    }
-
-    Guid ITenantProvider.GetUserId()
-    {
-        throw new NotImplementedException();
-    }
+    public Guid GetUserId() => GetRequiredGuidClaim(ClaimTypes.NameIdentifier);
 }

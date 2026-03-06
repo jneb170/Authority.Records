@@ -46,4 +46,6 @@ public sealed class IncidentReadModel
     public void ApplyDeleted() { IsDeleted = true; UpdatedAtUtc = DateTime.UtcNow; }
     public void ApplyRestored() { IsDeleted = false; UpdatedAtUtc = DateTime.UtcNow; }
     public void IncrementArrestCount() { ArrestCount++; UpdatedAtUtc = DateTime.UtcNow; }
+    public void ApplyLockAcquired(Guid userId) { IsLocked = true; LockedByUserId = userId; UpdatedAtUtc = DateTime.UtcNow; }
+    public void ApplyLockReleased() { IsLocked = false; LockedByUserId = null; UpdatedAtUtc = DateTime.UtcNow; }
 }

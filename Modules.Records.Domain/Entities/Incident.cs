@@ -32,6 +32,8 @@ public sealed class Incident
         Description = description;
 
         Status = RecordStatus.Draft;
+
+        AddDomainEvent(new IncidentCreatedDomainEvent(Id, Guid.Empty));
     }
 
     // -------------------------------------------------------

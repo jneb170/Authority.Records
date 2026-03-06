@@ -34,6 +34,7 @@ public sealed class CreateCitationHandler : IRequestHandler<CreateCitationComman
         var citation = new Citation(
             _tenantProvider.GetJurisdictionId(),
             incident.AgencyId,
+            incident.Id,
             request.Description,
             request.IssueDate);
 

@@ -1,0 +1,29 @@
+body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+}
+
+.sidebar {
+    background-color: #212529;
+    min-height: 100vh;
+    width: 220px;
+    flex-shrink: 0;
+}
+
+.sidebar a {
+    color: #adb5bd;
+    text-decoration: none;
+}
+
+.sidebar a:hover,
+.sidebar a.active {
+    color: #fff;
+}
+
+.main-content {
+    flex: 1;
+    padding: 1.5rem;
+}
+
+.action-bar .btn {
+    margin-right: 0.5rem;
+}

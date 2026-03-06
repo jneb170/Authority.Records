@@ -27,6 +27,7 @@ public sealed class GetCitationByIdHandler : IRequestHandler<GetCitationByIdQuer
             rm.Id,
             rm.JurisdictionId,
             rm.AgencyId,
+            rm.IncidentId,
             rm.Description,
             rm.IssueDate,
             rm.IsIssued,

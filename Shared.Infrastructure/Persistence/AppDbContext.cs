@@ -41,8 +41,19 @@ public class AppDbContext : DbContext, IApplicationDbContext
     public DbSet<JurisdictionConfiguration> JurisdictionConfigurations => Set<JurisdictionConfiguration>();
 
     public AppDbContext(
-        DbContextOptions options, 
+        DbContextOptions<AppDbContext> options, 
         ITenantProvider tenantProvider, 
+        IDomainEventDispatcher domainEventDispatcher)
+        : base(options)
+    {
+        _tenantProvider = tenantProvider;
+        _domainEventDispatcher = domainEventDispatcher;
+    }
+
+    // Protected overload for derived test contexts (e.g. TestAppDbContext)
+    protected AppDbContext(
+        DbContextOptions options,
+        ITenantProvider tenantProvider,
         IDomainEventDispatcher domainEventDispatcher)
         : base(options)
     {
@@ -106,6 +117,12 @@ public class AppDbContext : DbContext, IApplicationDbContext
             entity.Entity.ClearDomainEvents();
         }
 
+        // Dispatch synchronously for immediate in-process consistency.
+        // Projection handlers are idempotent, so the outbox processor's later
+        // dispatch is a safe no-op.
+        if (domainEvents.Count > 0)
+            await _domainEventDispatcher.DispatchAsync(domainEvents, cancellationToken);
+
         return result;
     }
 
@@ -120,9 +137,11 @@ public class AppDbContext : DbContext, IApplicationDbContext
 
         foreach (var entry in entries)
         {
+            if (entry.Metadata.FindProperty("RowVersion") is null)
+                continue;
+
             var prop = entry.Property("RowVersion");
-            if (prop != null)
-                prop.CurrentValue = Guid.NewGuid().ToByteArray();
+            prop.CurrentValue = Guid.NewGuid().ToByteArray();
         }
     }
 
