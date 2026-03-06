@@ -2,6 +2,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.AspNetCore.Identity;
 using Modules.Records.Application.Abstractions;
 using Modules.Records.Domain.Abstractions;
 using Modules.Records.Domain.Common;
@@ -48,10 +49,16 @@ public static class DependencyInjection
                 });
 
             options.AddInterceptors(auditInterceptor);
-        });
+        }, ServiceLifetime.Transient);
 
-        // Expose DbContext through abstraction
-        services.AddScoped<IApplicationDbContext>(sp =>
+        services.AddDbContext<AuthDbContext>(options =>
+            options.UseSqlServer(
+                configuration.GetConnectionString("DefaultConnection"),
+                sql => sql.MigrationsAssembly(typeof(AuthDbContext).Assembly.FullName)));
+
+        // Expose DbContext through abstraction — transient so each MediatR handler gets
+        // its own instance, preventing Blazor Server circuit-scope concurrency conflicts.
+        services.AddTransient<IApplicationDbContext>(sp =>
             sp.GetRequiredService<AppDbContext>());
 
         // -------------------------------------------------------
@@ -67,6 +74,11 @@ public static class DependencyInjection
         services.AddScoped<IDomainEventDispatcher, MediatRDomainEventDispatcher>();
         services.AddTransient<INotificationHandler<IDomainEvent>, AuditTrailDomainEventHandler>();
 
+
+        // -------------------------------------------------------
+        // Outbox Message Processing (Background Service)
+        // -------------------------------------------------------
+        services.AddHostedService<OutboxProcessor>();
 
         // -------------------------------------------------------
         // Outbox Message Cleanup Service
@@ -148,6 +160,48 @@ public static class DependencyInjection
             // Or new CitationLifecyclePolicy(closePolicy) if we want to use the extension hook
         });
 
+
+        // -------------------------------------------------------
+        // Identity / Modification Context
+        // -------------------------------------------------------
+        services.AddIdentityCore<ApplicationUser>(options =>
+            {
+                options.Password.RequireDigit = true;
+                options.Password.RequiredLength = 8;
+            })
+            .AddEntityFrameworkStores<AuthDbContext>()
+            .AddSignInManager()
+            .AddDefaultTokenProviders()
+            .AddClaimsPrincipalFactory<RecordsUserClaimsPrincipalFactory>();
+
+        services.AddScoped<IUserClaimsPrincipalFactory<ApplicationUser>, RecordsUserClaimsPrincipalFactory>();
+
+        services.AddAuthentication(options =>
+            {
+                options.DefaultScheme = IdentityConstants.ApplicationScheme;
+                options.DefaultSignInScheme = IdentityConstants.ApplicationScheme;
+            })
+            .AddCookie(IdentityConstants.ApplicationScheme, options =>
+            {
+                options.LoginPath = "/account/login";
+                options.LogoutPath = "/account/logout";
+                options.AccessDeniedPath = "/account/login";
+                options.SlidingExpiration = true;
+                options.ExpireTimeSpan = TimeSpan.FromHours(8);
+            });
+
+        services.AddScoped<IModificationContext>(sp =>
+            new UserModificationContext(sp.GetRequiredService<ITenantProvider>().GetUserId()));
+
+        // -------------------------------------------------------
+        // Arrest Repository
+        // -------------------------------------------------------
+        services.AddScoped<IArrestRepository, EfArrestRepository>();
+
+        // -------------------------------------------------------
+        // Domain Services
+        // -------------------------------------------------------
+        services.AddScoped<IncidentCloseDomainService>();
         // -------------------------------------------------------
         // Aggregates are created via Application Layer / Factories
         // -------------------------------------------------------
@@ -170,5 +224,6 @@ public static class DependencyInjection
         return services;
     }
 }
+
 
 

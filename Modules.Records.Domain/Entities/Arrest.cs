@@ -43,6 +43,8 @@ namespace Modules.Records.Domain.Entities
         // -------------------------------
         // Constructor
         // -------------------------------
+        private Arrest() { } // EF Core materialization — must NOT raise domain events
+
         public Arrest(Guid jurisdictionId, Guid agencyId, Guid incidentId, string suspectName, DateTime arrestedAt)
         {
             Id = Guid.NewGuid();

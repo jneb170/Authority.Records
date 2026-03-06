@@ -5,6 +5,7 @@ public sealed class CitationReadModel
     public Guid Id { get; private set; }
     public Guid JurisdictionId { get; private set; }
     public Guid AgencyId { get; private set; }
+    public Guid IncidentId { get; private set; }
     public string Description { get; private set; } = string.Empty;
     public DateTime IssueDate { get; private set; }
     public bool IsIssued { get; private set; }
@@ -19,6 +20,7 @@ public sealed class CitationReadModel
         Guid id,
         Guid jurisdictionId,
         Guid agencyId,
+        Guid incidentId,
         string description,
         DateTime issueDate,
         DateTime createdAtUtc)
@@ -28,6 +30,7 @@ public sealed class CitationReadModel
             Id = id,
             JurisdictionId = jurisdictionId,
             AgencyId = agencyId,
+            IncidentId = incidentId,
             Description = description,
             IssueDate = issueDate,
             IsIssued = false,
@@ -39,4 +42,6 @@ public sealed class CitationReadModel
     }
 
     public void ApplyIssued() { IsIssued = true; UpdatedAtUtc = DateTime.UtcNow; }
+    public void ApplyLockAcquired(Guid userId) { IsLocked = true; LockedByUserId = userId; UpdatedAtUtc = DateTime.UtcNow; }
+    public void ApplyLockReleased() { IsLocked = false; LockedByUserId = null; UpdatedAtUtc = DateTime.UtcNow; }
 }

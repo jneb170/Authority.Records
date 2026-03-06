@@ -88,6 +88,9 @@ namespace Shared.Infrastructure.Migrations
                         .IsRequired()
                         .HasColumnType("nvarchar(max)");
 
+                    b.Property<Guid>("IncidentId")
+                        .HasColumnType("uniqueidentifier");
+
                     b.Property<bool>("IsIssued")
                         .HasColumnType("bit");
 
@@ -257,7 +260,7 @@ namespace Shared.Infrastructure.Migrations
                         .IsRequired()
                         .HasColumnType("nvarchar(max)");
 
-                    b.Property<Guid?>("IncidentId")
+                    b.Property<Guid>("IncidentId")
                         .HasColumnType("uniqueidentifier");
 
                     b.Property<bool>("IsDeleted")
@@ -489,7 +492,9 @@ namespace Shared.Infrastructure.Migrations
                 {
                     b.HasOne("Modules.Records.Domain.Entities.Incident", null)
                         .WithMany("Citations")
-                        .HasForeignKey("IncidentId");
+                        .HasForeignKey("IncidentId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
                 });
 
             modelBuilder.Entity("Modules.Records.Domain.Entities.Incident", b =>

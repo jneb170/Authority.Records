@@ -4,6 +4,7 @@ public sealed record CitationDto(
     Guid Id,
     Guid JurisdictionId,
     Guid AgencyId,
+    Guid IncidentId,
     string Description,
     DateTime IssueDate,
     bool IsIssued,

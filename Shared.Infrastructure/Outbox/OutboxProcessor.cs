@@ -20,8 +20,6 @@ public sealed class OutboxProcessor : BackgroundService
     private readonly IServiceScopeFactory _scopeFactory;
     private readonly DomainEventTypeRegistry _typeRegistry;
     private readonly ILogger<OutboxProcessor> _logger;
-    private readonly DeadLetterQueueWriter _deadLetterQueueWriter;
-
     //private readonly AsyncRetryPolicy _retryPolicy;
 
     public OutboxProcessor(
@@ -29,14 +27,12 @@ public sealed class OutboxProcessor : BackgroundService
         IServiceScopeFactory scopeFactory,
         DomainEventTypeRegistry typeRegistry,
         ILogger<OutboxProcessor> logger,
-        DeadLetterQueueWriter deadLetterQueueWriter,
         int maxRetries = 5)
     {
         _serviceProvider = serviceProvider;
         _scopeFactory = scopeFactory;
         _typeRegistry = typeRegistry;
         _logger = logger;
-        _deadLetterQueueWriter = deadLetterQueueWriter;
         _maxRetries = maxRetries;
 
         // Configure retry policy with exponential backoff for transient failures
@@ -76,6 +72,7 @@ public sealed class OutboxProcessor : BackgroundService
         var dbContext = scope.ServiceProvider.GetRequiredService<AppDbContext>();
         var dispatcher = scope.ServiceProvider.GetRequiredService<IDomainEventDispatcher>();
         var tenantProvider = scope.ServiceProvider.GetRequiredService<ITenantProvider>();
+        var deadLetterWriter = scope.ServiceProvider.GetRequiredService<DeadLetterQueueWriter>();
 
         while (true)
         {
@@ -93,6 +90,8 @@ public sealed class OutboxProcessor : BackgroundService
 
             if (message is null)
                 break;
+
+            tenantProvider.SetJurisdictionId(message.JurisdictionId);
 
             //Distributed Idempotency via Optimistic Concurrency
             try
@@ -113,7 +112,7 @@ public sealed class OutboxProcessor : BackgroundService
 
             try
             {
-                tenantProvider.SetJurisdictionId(message.JurisdictionId);
+                //tenantProvider.SetJurisdictionId(message.JurisdictionId);
 
                 if (!_typeRegistry.TryGet(message.Type, out var type) || type is null)
                     throw new InvalidOperationException($"Unknown type {message.Type}");
@@ -139,7 +138,7 @@ public sealed class OutboxProcessor : BackgroundService
                     message.Type,
                     message.RetryCount);
 
-                await _deadLetterQueueWriter.DeadLetterAsync(message, dbContext, cancellationToken);
+                await deadLetterWriter.DeadLetterAsync(message, dbContext, cancellationToken);
                 continue;
             }
 

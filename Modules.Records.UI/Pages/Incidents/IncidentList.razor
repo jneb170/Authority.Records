@@ -1,0 +1,69 @@
+@page "/incidents"
+@inject IIncidentService IncidentService
+@inject NavigationManager Nav
+
+<PageTitle>Incidents</PageTitle>
+
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <h1>Incidents</h1>
+    <a class="btn btn-primary" href="/incidents/create">+ New Incident</a>
+</div>
+
+@if (_loading)
+{
+    <p>Loading…</p>
+}
+else if (_error is not null)
+{
+    <div class="alert alert-danger">@_error</div>
+}
+else if (_incidents is not null)
+{
+    <table class="table table-hover">
+        <thead>
+            <tr>
+                <th>Description</th>
+                <th>Status</th>
+                <th>Arrests</th>
+                <th>Lock</th>
+                <th>Created</th>
+                <th></th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var i in _incidents)
+            {
+                <tr>
+                    <td>@i.Description</td>
+                    <td><StatusBadge Status="@i.Status" /></td>
+                    <td>@i.ArrestCount</td>
+                    <td><LockBadge IsLocked="@i.IsLocked" LockedByUserId="@i.LockedByUserId" /></td>
+                    <td>@i.CreatedAtUtc.ToShortDateString()</td>
+                    <td><a class="btn btn-sm btn-outline-primary" href="/incidents/@i.Id">View</a></td>
+                </tr>
+            }
+        </tbody>
+    </table>
+}
+
+@code {
+    private IReadOnlyList<IncidentDto>? _incidents;
+    private bool _loading = true;
+    private string? _error;
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            _incidents = await IncidentService.GetByJurisdictionAsync();
+        }
+        catch (Exception ex)
+        {
+            _error = ex.Message;
+        }
+        finally
+        {
+            _loading = false;
+        }
+    }
+}

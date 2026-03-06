@@ -1,0 +1,13 @@
+@if (IsLocked)
+{
+    <span class="badge bg-danger" title="Locked by @(LockedByUserId?.ToString() ?? "unknown")">🔒 Locked</span>
+}
+else
+{
+    <span class="badge bg-light text-dark">🔓 Unlocked</span>
+}
+
+@code {
+    [Parameter, EditorRequired] public bool IsLocked { get; set; }
+    [Parameter] public Guid? LockedByUserId { get; set; }
+}

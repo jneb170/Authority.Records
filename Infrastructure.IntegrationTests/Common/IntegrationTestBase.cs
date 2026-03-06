@@ -52,7 +52,6 @@ namespace Infrastructure.IntegrationTests.Common
                     sp.GetRequiredService<IServiceScopeFactory>(),
                     sp.GetRequiredService<DomainEventTypeRegistry>(),
                     sp.GetRequiredService<ILogger<OutboxProcessor>>(),
-                    sp.GetRequiredService<DeadLetterQueueWriter>(),
                     maxRetries: 1);
             });
 

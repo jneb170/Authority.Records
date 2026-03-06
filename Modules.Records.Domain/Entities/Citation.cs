@@ -8,6 +8,7 @@ namespace Modules.Records.Domain.Entities
     {
         public Guid JurisdictionId { get; private set; }
         public Guid AgencyId { get; private set; }
+        public Guid IncidentId { get; private set; }
         public string Description { get; private set; }
         public bool IsFinalized { get; private set; }
 
@@ -32,15 +33,16 @@ namespace Modules.Records.Domain.Entities
 
         private Citation() { } // EF
 
-        public Citation(Guid jurisdictionId, Guid agencyId, string description, DateTime issueDate)
+        public Citation(Guid jurisdictionId, Guid agencyId, Guid incidentId, string description, DateTime issueDate)
         {
             Id = Guid.NewGuid();
             JurisdictionId = jurisdictionId;
             AgencyId = agencyId;
+            IncidentId = incidentId;
             Description = description;
             IssueDate = issueDate;
 
-            AddDomainEvent(new CitationCreatedDomainEvent(Id, JurisdictionId, AgencyId, Description, IssueDate));
+            AddDomainEvent(new CitationCreatedDomainEvent(Id, JurisdictionId, AgencyId, IncidentId, Description, IssueDate));
         }
 
         public void Issue() => IsIssued = true;

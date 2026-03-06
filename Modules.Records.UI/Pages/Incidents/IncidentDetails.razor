@@ -1,0 +1,330 @@
+@page "/incidents/{Id:guid}"
+@implements IAsyncDisposable
+@inject IIncidentService IncidentService
+@inject IArrestService ArrestService
+@inject ICitationService CitationService
+@inject ITenantProvider TenantProvider
+@inject NavigationManager Nav
+
+<PageTitle>Incident Details</PageTitle>
+
+@if (_loading)
+{
+    <p>Loading…</p>
+}
+else if (_error is not null)
+{
+    <div class="alert alert-danger">@_error</div>
+}
+else if (_incident is not null)
+{
+    <div class="d-flex justify-content-between align-items-start mb-3">
+        <div>
+            <h1>Incident</h1>
+            <p class="text-muted mb-1">@_incident.Id</p>
+            <p>@_incident.Description</p>
+        </div>
+        <div class="d-flex gap-2">
+            <StatusBadge Status="@_incident.Status" />
+            <LockBadge IsLocked="@_incident.IsLocked" LockedByUserId="@_incident.LockedByUserId" />
+        </div>
+    </div>
+
+    @if (_actionError is not null)
+    {
+        <div class="alert alert-danger alert-dismissible">
+            @_actionError
+            <button type="button" class="btn-close" @onclick="() => _actionError = null"></button>
+        </div>
+    }
+
+    <!-- Modify Mode Bar -->
+    <div class="mb-3">
+        @if (_modifyMode)
+        {
+            <div class="alert alert-warning d-flex align-items-center gap-3 py-2 mb-2">
+                <span>✏️ <strong>Modify mode</strong> — lock expires in @_lockSecondsRemaining s</span>
+                <button class="btn btn-sm btn-outline-dark ms-auto" @onclick="ExitModifyModeAsync">🔓 Release Record</button>
+            </div>
+        }
+        else if (_incident.IsLocked && _incident.LockedByUserId != _currentUserId)
+        {
+            <div class="alert alert-secondary py-2 mb-2">
+                🔒 Record is locked by another user — read only
+            </div>
+        }
+        else
+        {
+            <button class="btn btn-outline-primary btn-sm" @onclick="EnterModifyModeAsync">✏️ Modify</button>
+        }
+    </div>
+
+    <!-- Action Bar (only in modify mode) -->
+    @if (_modifyMode)
+    {
+        <div class="action-bar mb-4 d-flex flex-wrap gap-2">
+            @if (_incident.Status == "Draft")
+            {
+                <button class="btn btn-success btn-sm" @onclick="OpenAsync">Open</button>
+            }
+            @if (_incident.Status == "Open")
+            {
+                <button class="btn btn-warning btn-sm" @onclick="CloseAsync">Close</button>
+            }
+            @if (_incident.Status is "Closed")
+            {
+                <button class="btn btn-secondary btn-sm" @onclick="ArchiveAsync">Archive</button>
+            }
+            @if (!_incident.IsDeleted)
+            {
+                <button class="btn btn-outline-danger btn-sm" @onclick="() => _showDeleteConfirm = true">Delete</button>
+            }
+            else
+            {
+                <button class="btn btn-outline-success btn-sm" @onclick="RestoreAsync">Restore</button>
+            }
+        </div>
+    }
+
+    <ConfirmDialog Visible="_showDeleteConfirm"
+                   Title="Delete Incident"
+                   Message="Are you sure you want to delete this incident? This action can be reversed."
+                   OnConfirm="SoftDeleteAsync"
+                   OnCancel="() => _showDeleteConfirm = false" />
+
+    <!-- Arrests -->
+    <div class="mb-4">
+        <div class="d-flex justify-content-between align-items-center mb-2">
+            <h4>Arrests</h4>
+            @if (_modifyMode)
+            {
+                <a class="btn btn-sm btn-outline-primary" href="/incidents/@Id/arrests/create">+ Add Arrest</a>
+            }
+        </div>
+        @if (_arrests is null)
+        {
+            <p>Loading arrests…</p>
+        }
+        else if (!_arrests.Any())
+        {
+            <p class="text-muted">No arrests recorded.</p>
+        }
+        else
+        {
+            <table class="table table-sm">
+                <thead>
+                    <tr>
+                        <th>Suspect</th>
+                        <th>Arrested At</th>
+                        <th>Status</th>
+                        <th>Lock</th>
+                        <th></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var a in _arrests)
+                    {
+                        <tr>
+                            <td>@a.SuspectName</td>
+                            <td>@a.ArrestedAt.ToShortDateString()</td>
+                            <td><StatusBadge Status="@a.Status" /></td>
+                            <td><LockBadge IsLocked="@a.IsLocked" LockedByUserId="@a.LockedByUserId" /></td>
+                            <td><a class="btn btn-sm btn-outline-primary" href="/incidents/@Id/arrests/@a.Id">View</a></td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        }
+    </div>
+
+    <!-- Citations -->
+    <div class="mb-4">
+        <div class="d-flex justify-content-between align-items-center mb-2">
+            <h4>Citations</h4>
+            @if (_modifyMode)
+            {
+                <a class="btn btn-sm btn-outline-primary" href="/incidents/@Id/citations/create">+ Add Citation</a>
+            }
+        </div>
+        @if (_citations is null)
+        {
+            <p>Loading citations…</p>
+        }
+        else if (!_citations.Any())
+        {
+            <p class="text-muted">No citations recorded.</p>
+        }
+        else
+        {
+            <table class="table table-sm">
+                <thead>
+                    <tr>
+                        <th>Description</th>
+                        <th>Issue Date</th>
+                        <th>Issued</th>
+                        <th>Lock</th>
+                        <th></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var c in _citations)
+                    {
+                        <tr>
+                            <td>@c.Description</td>
+                            <td>@c.IssueDate.ToShortDateString()</td>
+                            <td>@(c.IsIssued ? "✅" : "⏳")</td>
+                            <td><LockBadge IsLocked="@c.IsLocked" LockedByUserId="@c.LockedByUserId" /></td>
+                            <td><a class="btn btn-sm btn-outline-primary" href="/incidents/@Id/citations/@c.Id">View</a></td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        }
+    </div>
+}
+
+@code {
+    [Parameter] public Guid Id { get; set; }
+
+    private IncidentDto? _incident;
+    private IReadOnlyList<ArrestDto>? _arrests;
+    private IReadOnlyList<CitationDto>? _citations;
+    private bool _loading = true;
+    private string? _error;
+    private string? _actionError;
+    private bool _showDeleteConfirm;
+
+    private bool _modifyMode;
+    private Guid _currentUserId;
+    private int _lockSecondsRemaining;
+    private System.Threading.Timer? _lockTimer;
+    private static readonly TimeSpan LockTimeout = TimeSpan.FromMinutes(10);
+
+    protected override async Task OnInitializedAsync()
+    {
+        _currentUserId = TenantProvider.GetUserId();
+        await LoadAsync();
+        RestoreModifyModeIfOwner();
+    }
+
+    private void RestoreModifyModeIfOwner()
+    {
+        if (_incident is not null && _incident.IsLocked && _incident.LockedByUserId == _currentUserId)
+        {
+            _modifyMode = true;
+            StartLockTimer();
+        }
+    }
+
+    private async Task LoadAsync()
+    {
+        _loading = true;
+        _error = null;
+        try
+        {
+            var t1 = IncidentService.GetByIdAsync(Id);
+            var t2 = ArrestService.GetByIncidentAsync(Id);
+            var t3 = CitationService.GetByIncidentAsync(Id);
+            await Task.WhenAll(t1, t2, t3);
+            _incident  = t1.Result;
+            _arrests   = t2.Result;
+            _citations = t3.Result;
+        }
+        catch (Exception ex)
+        {
+            _error = ex.Message;
+        }
+        finally
+        {
+            _loading = false;
+        }
+    }
+
+    private async Task RunActionAsync(Func<Task> action)
+    {
+        _actionError = null;
+        try
+        {
+            await action();
+            await LoadAsync();
+        }
+        catch (Exception ex)
+        {
+            _actionError = ex.Message;
+        }
+    }
+
+    private async Task EnterModifyModeAsync()
+    {
+        _actionError = null;
+        try
+        {
+            await IncidentService.AcquireLockAsync(Id);
+            _modifyMode = true;
+            StartLockTimer();
+            await LoadAsync();
+        }
+        catch (Exception ex)
+        {
+            _actionError = ex.Message;
+        }
+    }
+
+    private async Task ExitModifyModeAsync()
+    {
+        StopLockTimer();
+        _modifyMode = false;
+        try { await IncidentService.ReleaseLockAsync(Id); } catch { /* best-effort */ }
+        await LoadAsync();
+    }
+
+    private void StartLockTimer()
+    {
+        StopLockTimer();
+        _lockSecondsRemaining = (int)LockTimeout.TotalSeconds;
+        _lockTimer = new System.Threading.Timer(async _ =>
+        {
+            _lockSecondsRemaining--;
+            if (_lockSecondsRemaining <= 0)
+            {
+                await InvokeAsync(async () =>
+                {
+                    await ExitModifyModeAsync();
+                    StateHasChanged();
+                });
+            }
+            else
+            {
+                await InvokeAsync(StateHasChanged);
+            }
+        }, null, TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(1));
+    }
+
+    private void StopLockTimer()
+    {
+        _lockTimer?.Dispose();
+        _lockTimer = null;
+    }
+
+    private Task OpenAsync()    => RunActionAsync(() => IncidentService.OpenAsync(Id));
+    private Task CloseAsync()   => RunActionAsync(() => IncidentService.CloseAsync(Id));
+    private Task ArchiveAsync() => RunActionAsync(() => IncidentService.ArchiveAsync(Id));
+
+    private async Task SoftDeleteAsync()
+    {
+        _showDeleteConfirm = false;
+        await RunActionAsync(() => IncidentService.SoftDeleteAsync(Id));
+    }
+
+    private Task RestoreAsync() => RunActionAsync(() => IncidentService.RestoreAsync(Id));
+
+    public ValueTask DisposeAsync()
+    {
+        // Only clean up the timer. The lock is intentionally NOT released here because
+        // the user may be navigating to a child page (e.g. ArrestCreate) that still
+        // requires the lock. The lock is released explicitly via "Release Record" or
+        // automatically when the 10-minute timeout elapses.
+        StopLockTimer();
+        return ValueTask.CompletedTask;
+    }
+}

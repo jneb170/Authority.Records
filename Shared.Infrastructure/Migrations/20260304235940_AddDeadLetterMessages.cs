@@ -11,14 +11,16 @@ namespace Shared.Infrastructure.Migrations
         /// <inheritdoc />
         protected override void Up(MigrationBuilder migrationBuilder)
         {
-            migrationBuilder.AlterColumn<byte[]>(
+            migrationBuilder.DropColumn(
+                name: "RowVersion",
+                table: "Incidents");
+
+            migrationBuilder.AddColumn<byte[]>(
                 name: "RowVersion",
                 table: "Incidents",
                 type: "varbinary(max)",
                 nullable: false,
-                oldClrType: typeof(byte[]),
-                oldType: "rowversion",
-                oldRowVersion: true);
+                defaultValue: new byte[0]);
 
             migrationBuilder.AddColumn<bool>(
                 name: "IsDeleted",
@@ -303,14 +305,16 @@ namespace Shared.Infrastructure.Migrations
                 name: "Status",
                 table: "Arrests");
 
-            migrationBuilder.AlterColumn<byte[]>(
+            migrationBuilder.DropColumn(
+                name: "RowVersion",
+                table: "Incidents");
+
+            migrationBuilder.AddColumn<byte[]>(
                 name: "RowVersion",
                 table: "Incidents",
                 type: "rowversion",
                 rowVersion: true,
-                nullable: false,
-                oldClrType: typeof(byte[]),
-                oldType: "varbinary(max)");
+                nullable: false);
         }
     }
 }

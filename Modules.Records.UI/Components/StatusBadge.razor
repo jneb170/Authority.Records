@@ -1,0 +1,16 @@
+@using Modules.Records.Domain.Common
+
+<span class="badge @BadgeClass">@Status</span>
+
+@code {
+    [Parameter, EditorRequired] public string Status { get; set; } = string.Empty;
+
+    private string BadgeClass => Status switch
+    {
+        nameof(RecordStatus.Draft)     => "bg-secondary",
+        nameof(RecordStatus.Open)      => "bg-primary",
+        nameof(RecordStatus.Closed)    => "bg-success",
+        nameof(RecordStatus.Archived)  => "bg-warning text-dark",
+        _                              => "bg-light text-dark"
+    };
+}

@@ -1,0 +1,62 @@
+@page "/incidents/{IncidentId:guid}/arrests/create"
+@inject IArrestService ArrestService
+@inject NavigationManager Nav
+
+<PageTitle>New Arrest</PageTitle>
+
+<h1>New Arrest</h1>
+
+@if (_vm.ErrorMessage is not null)
+{
+    <div class="alert alert-danger">@_vm.ErrorMessage</div>
+}
+
+<EditForm Model="_vm" OnValidSubmit="SubmitAsync">
+    <DataAnnotationsValidator />
+    <div class="mb-3">
+        <label class="form-label">Suspect Name</label>
+        <InputText class="form-control" @bind-Value="_vm.SuspectName" />
+        <ValidationMessage For="() => _vm.SuspectName" />
+    </div>
+    <div class="mb-3">
+        <label class="form-label">Arrested At</label>
+        <InputDate class="form-control" @bind-Value="_vm.ArrestedAt" />
+        <ValidationMessage For="() => _vm.ArrestedAt" />
+    </div>
+    <button type="submit" class="btn btn-primary" disabled="@_submitting">
+        @(_submitting ? "Creating…" : "Create Arrest")
+    </button>
+    <a class="btn btn-secondary ms-2" href="/incidents/@IncidentId">Cancel</a>
+</EditForm>
+
+@code {
+    [Parameter] public Guid IncidentId { get; set; }
+
+    private readonly CreateArrestViewModel _vm = new();
+    private bool _submitting;
+
+    protected override void OnParametersSet()
+    {
+        _vm.IncidentId = IncidentId;
+    }
+
+    private async Task SubmitAsync()
+    {
+        _submitting = true;
+        _vm.ErrorMessage = null;
+
+        try
+        {
+            await ArrestService.CreateAsync(IncidentId, _vm.SuspectName, _vm.ArrestedAt);
+            Nav.NavigateTo($"/incidents/{IncidentId}");
+        }
+        catch (Exception ex)
+        {
+            _vm.ErrorMessage = ex.Message;
+        }
+        finally
+        {
+            _submitting = false;
+        }
+    }
+}

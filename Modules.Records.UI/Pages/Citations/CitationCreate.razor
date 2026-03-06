@@ -1,0 +1,62 @@
+@page "/incidents/{IncidentId:guid}/citations/create"
+@inject ICitationService CitationService
+@inject NavigationManager Nav
+
+<PageTitle>New Citation</PageTitle>
+
+<h1>New Citation</h1>
+
+@if (_vm.ErrorMessage is not null)
+{
+    <div class="alert alert-danger">@_vm.ErrorMessage</div>
+}
+
+<EditForm Model="_vm" OnValidSubmit="SubmitAsync">
+    <DataAnnotationsValidator />
+    <div class="mb-3">
+        <label class="form-label">Description</label>
+        <InputTextArea class="form-control" @bind-Value="_vm.Description" rows="3" />
+        <ValidationMessage For="() => _vm.Description" />
+    </div>
+    <div class="mb-3">
+        <label class="form-label">Issue Date</label>
+        <InputDate class="form-control" @bind-Value="_vm.IssueDate" />
+        <ValidationMessage For="() => _vm.IssueDate" />
+    </div>
+    <button type="submit" class="btn btn-primary" disabled="@_submitting">
+        @(_submitting ? "Creating…" : "Create Citation")
+    </button>
+    <a class="btn btn-secondary ms-2" href="/incidents/@IncidentId">Cancel</a>
+</EditForm>
+
+@code {
+    [Parameter] public Guid IncidentId { get; set; }
+
+    private readonly CreateCitationViewModel _vm = new();
+    private bool _submitting;
+
+    protected override void OnParametersSet()
+    {
+        _vm.IncidentId = IncidentId;
+    }
+
+    private async Task SubmitAsync()
+    {
+        _submitting = true;
+        _vm.ErrorMessage = null;
+
+        try
+        {
+            await CitationService.CreateAsync(IncidentId, _vm.Description, _vm.IssueDate);
+            Nav.NavigateTo($"/incidents/{IncidentId}");
+        }
+        catch (Exception ex)
+        {
+            _vm.ErrorMessage = ex.Message;
+        }
+        finally
+        {
+            _submitting = false;
+        }
+    }
+}
