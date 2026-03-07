@@ -10,12 +10,14 @@ public interface IApplicationDbContext
     DbSet<Incident> Incidents { get; }
     DbSet<Arrest> Arrests { get; }
     DbSet<Citation> Citations { get; }
+    DbSet<Name> Names { get; }
     DbSet<IncidentArrestLink> IncidentArrestLinks { get; }
     DbSet<IncidentCitationLink> IncidentCitationLinks { get; }
 
     DbSet<IncidentReadModel> IncidentReadModels { get; }
     DbSet<ArrestReadModel> ArrestReadModels { get; }
     DbSet<CitationReadModel> CitationReadModels { get; }
+    DbSet<NameReadModel> NameReadModels { get; }
     DbSet<IncidentArrestLinkReadModel> IncidentArrestLinkReadModels { get; }
     DbSet<IncidentCitationLinkReadModel> IncidentCitationLinkReadModels { get; }
 

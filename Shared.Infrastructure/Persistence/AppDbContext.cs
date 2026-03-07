@@ -34,6 +34,7 @@ public class AppDbContext : DbContext, IApplicationDbContext
     public DbSet<IncidentReadModel> IncidentReadModels => Set<IncidentReadModel>();
     public DbSet<ArrestReadModel> ArrestReadModels => Set<ArrestReadModel>();
     public DbSet<CitationReadModel> CitationReadModels => Set<CitationReadModel>();
+    public DbSet<NameReadModel> NameReadModels => Set<NameReadModel>();
     public DbSet<IncidentArrestLinkReadModel> IncidentArrestLinkReadModels => Set<IncidentArrestLinkReadModel>();
     public DbSet<IncidentCitationLinkReadModel> IncidentCitationLinkReadModels => Set<IncidentCitationLinkReadModel>();
 
@@ -41,6 +42,7 @@ public class AppDbContext : DbContext, IApplicationDbContext
     public DbSet<Incident> Incidents => Set<Incident>();
     public DbSet<Arrest> Arrests => Set<Arrest>();
     public DbSet<Citation> Citations => Set<Citation>();
+    public DbSet<Name> Names => Set<Name>();
     public DbSet<IncidentArrestLink> IncidentArrestLinks => Set<IncidentArrestLink>();
     public DbSet<IncidentCitationLink> IncidentCitationLinks => Set<IncidentCitationLink>();
 

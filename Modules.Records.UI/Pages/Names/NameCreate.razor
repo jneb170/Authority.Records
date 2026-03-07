@@ -1,0 +1,166 @@
+@page "/names/create"
+@inject INameService NameService
+@inject NavigationManager Nav
+@using Modules.Records.Domain.Common
+
+<PageTitle>New Name</PageTitle>
+
+<h1>New Name</h1>
+
+@if (_vm.ErrorMessage is not null)
+{
+    <div class="alert alert-danger">@_vm.ErrorMessage</div>
+}
+
+<EditForm Model="_vm" OnValidSubmit="SubmitAsync">
+    <DataAnnotationsValidator />
+
+    <div class="card mb-3">
+        <div class="card-body">
+            <h6 class="card-title">Identity</h6>
+            <div class="row g-3">
+                <div class="col-sm-6">
+                    <label class="form-label">Name Type <span class="text-danger">*</span></label>
+                    <select class="form-select" @bind="_vm.NameType">
+                        <option value="@NameTypes.Person">Person</option>
+                        <option value="@NameTypes.Business">Business</option>
+                    </select>
+                </div>
+                <div class="col-sm-6">
+                    <label class="form-label">
+                        @(_vm.IsPerson ? "Last Name" : "Business Name")
+                        <span class="text-danger">*</span>
+                    </label>
+                    <InputText class="form-control" @bind-Value="_vm.LastOrBusinessName"
+                               @bind-Value:after="() => _vm.LastOrBusinessName = NameCaseConverter.ToNameCase(_vm.LastOrBusinessName) ?? string.Empty"
+                               placeholder="@(_vm.IsPerson ? "Last name" : "Business name")" />
+                    <ValidationMessage For="() => _vm.LastOrBusinessName" />
+                </div>
+
+                @if (_vm.IsPerson)
+                {
+                    <div class="col-sm-6">
+                        <label class="form-label">First Name</label>
+                        <InputText class="form-control" @bind-Value="_vm.FirstName"
+                                   @bind-Value:after="() => _vm.FirstName = NameCaseConverter.ToNameCase(_vm.FirstName)" />
+                    </div>
+                    <div class="col-sm-6">
+                        <label class="form-label">Middle Name</label>
+                        <InputText class="form-control" @bind-Value="_vm.MiddleName"
+                                   @bind-Value:after="() => _vm.MiddleName = NameCaseConverter.ToNameCase(_vm.MiddleName)" />
+                    </div>
+                }
+            </div>
+        </div>
+    </div>
+
+    @if (_vm.IsPerson)
+    {
+        <div class="card mb-3">
+            <div class="card-body">
+                <h6 class="card-title">Physical Description</h6>
+                <div class="row g-3">
+                    <div class="col-sm-6 col-md-3">
+                        <label class="form-label">Sex</label>
+                        <PicklistSelect PicklistType="@PicklistTypes.Sex" @bind-Value="_vm.SexId" />
+                    </div>
+                    <div class="col-sm-6 col-md-3">
+                        <label class="form-label">Race</label>
+                        <PicklistSelect PicklistType="@PicklistTypes.Race" @bind-Value="_vm.RaceId" />
+                    </div>
+                    <div class="col-sm-6 col-md-3">
+                        <label class="form-label">Date of Birth</label>
+                        <input type="date" class="form-control"
+                               value="@(_vm.DateOfBirth.HasValue ? _vm.DateOfBirth.Value.ToString("yyyy-MM-dd") : "")"
+                               max="@DateTime.Today.ToString("yyyy-MM-dd")"
+                               @onchange="@(e => _vm.DateOfBirth = DateTime.TryParse(e.Value?.ToString(), out var d) ? d : null)" />
+                    </div>
+                    <div class="col-sm-6 col-md-3">
+                        <label class="form-label">Height</label>
+                        <div class="d-flex gap-1">
+                            <div class="input-group input-group-sm">
+                                <InputNumber class="form-control" @bind-Value="_vm.HeightFeet" placeholder="ft" />
+                                <span class="input-group-text">ft</span>
+                            </div>
+                            <div class="input-group input-group-sm">
+                                <InputNumber class="form-control" @bind-Value="_vm.HeightInchesRemainder" placeholder="in" />
+                                <span class="input-group-text">in</span>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-sm-6 col-md-3">
+                        <label class="form-label">Weight (lbs)</label>
+                        <InputNumber class="form-control" @bind-Value="_vm.WeightLbs" />
+                    </div>
+                    <div class="col-sm-6 col-md-3">
+                        <label class="form-label">Hair Color</label>
+                        <PicklistSelect PicklistType="@PicklistTypes.HairColor" @bind-Value="_vm.HairColorId" />
+                    </div>
+                    <div class="col-sm-6 col-md-3">
+                        <label class="form-label">Eye Color</label>
+                        <PicklistSelect PicklistType="@PicklistTypes.EyeColor" @bind-Value="_vm.EyeColorId" />
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="card mb-3">
+            <div class="card-body">
+                <h6 class="card-title">Driver's License</h6>
+                <div class="row g-3">
+                    <div class="col-sm-6">
+                        <label class="form-label">DL Number</label>
+                        <InputText class="form-control" @bind-Value="_vm.DriversLicenseNumber" placeholder="License #" />
+                    </div>
+                    <div class="col-sm-6">
+                        <label class="form-label">DL State</label>
+                        <StateSelect @bind-Value="_vm.DriversLicenseStateId" />
+                    </div>
+                </div>
+            </div>
+        </div>
+    }
+
+    <button type="submit" class="btn btn-primary" disabled="@_submitting">
+        @(_submitting ? "Creating…" : "Create Name")
+    </button>
+    <a class="btn btn-secondary ms-2" href="/names">Cancel</a>
+</EditForm>
+
+@code {
+    private readonly CreateNameViewModel _vm = new();
+    private bool _submitting;
+
+    private async Task SubmitAsync()
+    {
+        _submitting = true;
+        _vm.ErrorMessage = null;
+        try
+        {
+            var recordNumber = await NameService.CreateAsync(
+                _vm.NameType,
+                _vm.LastOrBusinessName,
+                _vm.IsPerson ? _vm.FirstName : null,
+                _vm.IsPerson ? _vm.MiddleName : null,
+                _vm.IsPerson ? _vm.SexId : null,
+                _vm.IsPerson ? _vm.RaceId : null,
+                _vm.IsPerson ? _vm.DateOfBirth : null,
+                _vm.IsPerson ? _vm.DriversLicenseNumber : null,
+                _vm.IsPerson ? _vm.DriversLicenseStateId : null,
+                _vm.IsPerson ? _vm.HeightInches : null,
+                _vm.IsPerson ? _vm.WeightLbs : null,
+                _vm.IsPerson ? _vm.HairColorId : null,
+                _vm.IsPerson ? _vm.EyeColorId : null);
+
+            Nav.NavigateTo($"/names/{recordNumber}?autoModify=true");
+        }
+        catch (Exception ex)
+        {
+            _vm.ErrorMessage = ex.Message;
+        }
+        finally
+        {
+            _submitting = false;
+        }
+    }
+}
