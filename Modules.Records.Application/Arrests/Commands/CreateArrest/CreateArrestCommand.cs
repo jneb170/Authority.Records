@@ -3,6 +3,7 @@ using MediatR;
 namespace Modules.Records.Application.Arrests.Commands.CreateArrest;
 
 public sealed record CreateArrestCommand(
-    Guid IncidentId,
     string SuspectName,
-    DateTime ArrestedAt) : IRequest<Guid>;
+    DateTime ArrestedAt,
+    IReadOnlyList<long> IncidentRecordNumbers,
+    string ArrestNum = "") : IRequest<long>;

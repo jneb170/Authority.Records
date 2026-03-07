@@ -11,7 +11,7 @@ public sealed record IncidentDetails
 {
     public required string IncidentNum { get; init; }
     public required string LocalNum { get; init; }
-    public required string Description { get; init; }
+    public          string Description { get; init; } = string.Empty;
     public          string CFSNum      { get; init; } = string.Empty;
 
     // C# records give structural equality for free — no GetEqualityComponents() needed.
@@ -22,10 +22,7 @@ public sealed record IncidentDetails
         if (string.IsNullOrWhiteSpace(IncidentNum))
             throw new DomainException("incident.incidentnum.empty", "IncidentNum is required.");
 
-        if (string.IsNullOrWhiteSpace(Description))
-            throw new DomainException("incident.description.empty", "Description is required.");
-
-        if (CFSNum.Length > 30)
+        if(CFSNum.Length > 30)
             throw new DomainException("incident.cfsnum.length", "CFSNum must not exceed 30 characters.");
 
         return this;

@@ -1,4 +1,4 @@
-﻿using Modules.Records.Domain.Abstractions;
+using Modules.Records.Domain.Abstractions;
 using Modules.Records.Domain.Common.Primitives;
 using Modules.Records.Domain.DomainEvents;
 
@@ -8,11 +8,19 @@ namespace Modules.Records.Domain.Entities
     {
         public Guid JurisdictionId { get; private set; }
         public Guid AgencyId { get; private set; }
-        public Guid IncidentId { get; private set; }
         public string Description { get; private set; }
         public bool IsFinalized { get; private set; }
 
         public DateTime IssueDate { get; private set; }
+
+        /// <summary>DB-generated auto-increment number. Use this in URLs and display; the GUID is for internal identity.</summary>
+        public long RecordNumber { get; private set; }
+
+        /// <summary>Agency-formatted citation number, e.g. "CT-2026-000001". Auto-generated on create.</summary>
+        public string CitationNum { get; private set; } = string.Empty;
+
+        /// <summary>Optional reference to the agency-configured Court picklist item.</summary>
+        public Guid? CourtId { get; private set; }
 
         private static ILifecyclePolicy<Citation> _lifecyclePolicy;
 
@@ -33,26 +41,28 @@ namespace Modules.Records.Domain.Entities
 
         private Citation() { } // EF
 
-        public Citation(Guid jurisdictionId, Guid agencyId, Guid incidentId, string description, DateTime issueDate)
+        public Citation(Guid jurisdictionId, Guid agencyId, string description, DateTime issueDate, string citationNum)
         {
             Id = Guid.NewGuid();
             JurisdictionId = jurisdictionId;
             AgencyId = agencyId;
-            IncidentId = incidentId;
             Description = description;
             IssueDate = issueDate;
+            CitationNum = citationNum;
 
-            AddDomainEvent(new CitationCreatedDomainEvent(Id, JurisdictionId, AgencyId, IncidentId, Description, IssueDate));
+            AddDomainEvent(new CitationCreatedDomainEvent(Id, JurisdictionId, Description, IssueDate, CitationNum));
         }
 
         public void Issue() => IsIssued = true;
 
-        public void UpdateDetails(string description, DateTime issueDate, IModificationContext context)
+        public void UpdateDetails(string description, DateTime issueDate, Guid? courtId, string citationNum, IModificationContext context)
         {
             Description = description;
             IssueDate   = issueDate;
+            CourtId     = courtId;
+            CitationNum = citationNum;
 
-            AddDomainEvent(new CitationDetailsUpdatedDomainEvent(Id, Description, IssueDate));
+            AddDomainEvent(new CitationDetailsUpdatedDomainEvent(Id, Description, IssueDate, CourtId, CitationNum));
         }
 
         // -------------------------------------------------------

@@ -41,6 +41,7 @@ public sealed class IncidentProjectionHandler :
 
         var readModel = IncidentReadModel.Create(
             id: incident.Id,
+            recordNumber: incident.RecordNumber,
             jurisdictionId: incident.JurisdictionId,
             agencyId: incident.AgencyId,
             details: incident.Details,

@@ -19,24 +19,17 @@ public sealed class GetArrestsByIncidentHandler
         GetArrestsByIncidentQuery request,
         CancellationToken cancellationToken)
     {
-        var results = await _dbContext.ArrestReadModels
+        var arrestIds = await _dbContext.IncidentArrestLinkReadModels
             .AsNoTracking()
-            .Where(a => a.IncidentId == request.IncidentId)
+            .Where(l => l.IncidentId == request.IncidentId)
+            .Select(l => l.ArrestId)
             .ToListAsync(cancellationToken);
 
-        return results.Select(rm => new ArrestDto(
-            rm.Id,
-            rm.JurisdictionId,
-            rm.AgencyId,
-            rm.IncidentId,
-            rm.SuspectName,
-            rm.ArrestedAt,
-            rm.Status,
-            rm.IsLocked,
-            rm.LockedByUserId,
-            rm.CreatedBy,
-            rm.ModifiedBy,
-            rm.CreatedAtUtc,
-            rm.UpdatedAtUtc)).ToList();
+        var results = await _dbContext.ArrestReadModels
+            .AsNoTracking()
+            .Where(a => arrestIds.Contains(a.Id))
+            .ToListAsync(cancellationToken);
+
+        return results.Select(rm => rm.ToDto()).ToList();
     }
 }

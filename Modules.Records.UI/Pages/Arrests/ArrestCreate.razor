@@ -1,5 +1,8 @@
-@page "/incidents/{IncidentId:guid}/arrests/create"
+@page "/arrests/create"
+@page "/incidents/{IncidentRecordNumber:long}/arrests/create"
 @inject IArrestService ArrestService
+@inject IIncidentService IncidentService
+@inject IAgencyConfigurationService ConfigService
 @inject NavigationManager Nav
 
 <PageTitle>New Arrest</PageTitle>
@@ -23,21 +26,80 @@
         <InputDate class="form-control" @bind-Value="_vm.ArrestedAt" />
         <ValidationMessage For="() => _vm.ArrestedAt" />
     </div>
+    <div class="mb-3">
+        <label class="form-label">Arrest Number <span class="text-muted">(auto-generated if blank)</span></label>
+        <div class="input-group">
+            <InputText class="form-control" @bind-Value="_vm.ArrestNum" placeholder="e.g. AR-2026-000001" />
+            <button type="button" class="btn btn-outline-secondary" @onclick="GenerateArrestNumAsync" disabled="@_generatingNum">
+                @(_generatingNum ? "…" : "🔁 Generate")
+            </button>
+        </div>
+    </div>
+    {
+        <div class="mb-3">
+            <label class="form-label">Link to Incident <span class="text-muted">(optional)</span></label>
+            <select class="form-select" multiple @onchange="OnIncidentSelectionChanged">
+                @foreach (var i in _incidents)
+                {
+                    <option value="@i.RecordNumber" selected="@(_selectedIncidentRecordNumbers.Contains(i.RecordNumber))">
+                        @i.RecordNumber — @i.Details.IncidentNum (@i.Status)
+                    </option>
+                }
+            </select>
+            <div class="form-text">Hold Ctrl/Cmd to select multiple</div>
+        </div>
+    }
     <button type="submit" class="btn btn-primary" disabled="@_submitting">
         @(_submitting ? "Creating…" : "Create Arrest")
     </button>
-    <a class="btn btn-secondary ms-2" href="/incidents/@IncidentId">Cancel</a>
+    @if (IncidentRecordNumber.HasValue)
+    {
+        <a class="btn btn-secondary ms-2" href="/incidents/@IncidentRecordNumber">Cancel</a>
+    }
+    else
+    {
+        <a class="btn btn-secondary ms-2" href="/arrests">Cancel</a>
+    }
 </EditForm>
 
 @code {
-    [Parameter] public Guid IncidentId { get; set; }
+    [Parameter] public long? IncidentRecordNumber { get; set; }
 
     private readonly CreateArrestViewModel _vm = new();
     private bool _submitting;
+    private bool _generatingNum;
+    private IReadOnlyList<IncidentDto>? _incidents = new List<IncidentDto>();
+    private readonly List<long> _selectedIncidentRecordNumbers = new();
 
-    protected override void OnParametersSet()
+    protected override async Task OnParametersSetAsync()
     {
-        _vm.IncidentId = IncidentId;
+        _incidents = await IncidentService.GetByJurisdictionAsync();
+
+        // Pre-select if coming from an incident page
+        if (IncidentRecordNumber.HasValue)
+        {
+            _selectedIncidentRecordNumbers.Clear();
+            _selectedIncidentRecordNumbers.Add(IncidentRecordNumber.Value);
+        }
+    }
+
+    private void OnIncidentSelectionChanged(ChangeEventArgs e)
+    {
+        _selectedIncidentRecordNumbers.Clear();
+        if (e.Value is string[] selected)
+        {
+            foreach (var s in selected)
+                if (long.TryParse(s, out var rn))
+                    _selectedIncidentRecordNumbers.Add(rn);
+        }
+    }
+
+    private async Task GenerateArrestNumAsync()
+    {
+        _generatingNum = true;
+        try { _vm.ArrestNum = await ConfigService.GenerateArrestNumAsync(); }
+        catch (Exception ex) { _vm.ErrorMessage = ex.Message; }
+        finally { _generatingNum = false; }
     }
 
     private async Task SubmitAsync()
@@ -47,8 +109,16 @@
 
         try
         {
-            await ArrestService.CreateAsync(IncidentId, _vm.SuspectName, _vm.ArrestedAt);
-            Nav.NavigateTo($"/incidents/{IncidentId}");
+            var recordNumber = await ArrestService.CreateAsync(
+                _vm.SuspectName,
+                _vm.ArrestedAt,
+                _selectedIncidentRecordNumbers.AsReadOnly(),
+                _vm.ArrestNum);
+
+            if (IncidentRecordNumber.HasValue)
+                Nav.NavigateTo($"/incidents/{IncidentRecordNumber}");
+            else
+                Nav.NavigateTo($"/arrests/{recordNumber}?autoModify=true");
         }
         catch (Exception ex)
         {
@@ -60,3 +130,4 @@
         }
     }
 }
+

@@ -1,0 +1,50 @@
+@page "/admin/picklists"
+@attribute [Authorize(Roles = "Admin,Supervisor")]
+@inject IPicklistService PicklistService
+@inject NavigationManager Nav
+@using Microsoft.AspNetCore.Authorization
+@using Modules.Records.Domain.Common
+
+<PageTitle>Picklist Types</PageTitle>
+
+<h1>🗂 Picklist Management</h1>
+<p class="text-muted">Configure the dropdown options used across arrests, citations, and other records.</p>
+
+@if (_loading)
+{
+    <p>Loading…</p>
+}
+else
+{
+    <div class="list-group">
+        @foreach (var type in _types)
+        {
+            <a class="list-group-item list-group-item-action d-flex justify-content-between align-items-center"
+               href="/admin/picklists/@type">
+                <span>
+                    <strong>@FriendlyType(type)</strong>
+                    <br /><small class="text-muted">@type</small>
+                </span>
+                <span class="text-secondary">›</span>
+            </a>
+        }
+    </div>
+}
+
+@code {
+    private IReadOnlyList<string> _types = [];
+    private bool _loading = true;
+
+    protected override async Task OnInitializedAsync()
+    {
+        _types = await PicklistService.GetPicklistTypesAsync();
+        _loading = false;
+    }
+
+    private static string FriendlyType(string type) => type switch
+    {
+        PicklistTypes.ArrestType => "Arrest Type",
+        PicklistTypes.Court      => "Court",
+        _                        => type
+    };
+}

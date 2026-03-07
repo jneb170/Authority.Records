@@ -13,9 +13,7 @@ public sealed class ArrestsMustBeClosedInvariantTests
     private readonly ArrestsMustBeClosedInvariant _sut = new();
 
     private static Arrest MakeArrest() =>
-        new ArrestFactory().Create(
-            Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(),
-            "Jane Smith", DateTime.UtcNow.AddDays(-2));
+        new ArrestFactory().Create(Guid.NewGuid(), Guid.NewGuid(), "Jane Smith", DateTime.UtcNow.AddDays(-2));
 
     private static Arrest MakeClosedArrest()
     {

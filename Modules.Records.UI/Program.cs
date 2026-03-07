@@ -1,4 +1,5 @@
 using Microsoft.AspNetCore.Identity;
+using Microsoft.EntityFrameworkCore;
 using Modules.Records.Application;
 using Modules.Records.Domain.Abstractions;
 using Modules.Records.UI.Authorization;
@@ -25,6 +26,8 @@ builder.Services.AddScoped<ITenantProvider, BlazorTenantProvider>();
 builder.Services.AddScoped<IIncidentService, IncidentService>();
 builder.Services.AddScoped<IArrestService, ArrestService>();
 builder.Services.AddScoped<ICitationService, CitationService>();
+builder.Services.AddScoped<IAgencyConfigurationService, AgencyConfigurationService>();
+builder.Services.AddScoped<IPicklistService, PicklistService>();
 
 builder.Services.AddHttpContextAccessor();
 
@@ -62,12 +65,22 @@ app.Run();
 static async Task SeedDevUserAsync(IServiceProvider services)
 {
     var authDb = services.GetRequiredService<AuthDbContext>();
-    await authDb.Database.EnsureCreatedAsync();
+    await authDb.Database.MigrateAsync();
 
+    var roleMgr = services.GetRequiredService<RoleManager<IdentityRole>>();
     var userMgr = services.GetRequiredService<UserManager<ApplicationUser>>();
 
+    // Ensure roles exist
+    foreach (var role in new[] { "Admin", "Supervisor", "Officer" })
+    {
+        if (!await roleMgr.RoleExistsAsync(role))
+            await roleMgr.CreateAsync(new IdentityRole(role));
+    }
+
     const string email = "admin@authority.local";
-    if (await userMgr.FindByEmailAsync(email) is null)
+    var existing = await userMgr.FindByEmailAsync(email);
+
+    if (existing is null)
     {
         var user = new ApplicationUser
         {
@@ -79,6 +92,11 @@ static async Task SeedDevUserAsync(IServiceProvider services)
         };
 
         await userMgr.CreateAsync(user, "Test@1234");
+        existing = await userMgr.FindByEmailAsync(email);
     }
+
+    // Ensure dev user is in Admin role
+    if (existing is not null && !await userMgr.IsInRoleAsync(existing, "Admin"))
+        await userMgr.AddToRoleAsync(existing, "Admin");
 }
 

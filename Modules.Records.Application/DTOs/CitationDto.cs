@@ -2,9 +2,9 @@ namespace Modules.Records.Application.DTOs;
 
 public sealed record CitationDto(
     Guid Id,
+    long RecordNumber,
     Guid JurisdictionId,
     Guid AgencyId,
-    Guid IncidentId,
     string Description,
     DateTime IssueDate,
     bool IsIssued,
@@ -13,4 +13,6 @@ public sealed record CitationDto(
     Guid CreatedBy,
     Guid? ModifiedBy,
     DateTime CreatedAtUtc,
-    DateTime UpdatedAtUtc);
+    DateTime UpdatedAtUtc,
+    Guid? CourtId = null,
+    string CitationNum = "");

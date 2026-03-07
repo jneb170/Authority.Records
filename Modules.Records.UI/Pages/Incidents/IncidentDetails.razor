@@ -1,6 +1,7 @@
-@page "/incidents/{Id:guid}"
+@page "/incidents/{RecordNumber:long}"
 @implements IAsyncDisposable
 @using IncidentDetailsVo = Modules.Records.Domain.ValueObjects.IncidentDetails
+@using Modules.Records.Application.Abstractions
 @using Modules.Records.Domain.Abstractions
 @inject IIncidentService IncidentService
 @inject IArrestService ArrestService
@@ -111,10 +112,10 @@ else if (_incident is not null)
                            @bind="_editIncidentNum" placeholder="@(_modifyMode ? "(optional)" : "—")" />
                 </div>
                 <div class="col-sm-4">
-                    <label class="form-label mb-1">Description @if (_modifyMode) { <span class="text-danger">*</span> }</label>
+                    <label class="form-label mb-1">Description</label>
                     <input type="text" class="@(_modifyMode ? "form-control form-control-sm" : "form-control-plaintext form-control-sm ps-0")"
                            readonly="@(!_modifyMode)"
-                           @bind="_editDescription" placeholder="@(_modifyMode ? "Required" : "—")" />
+                           @bind="_editDescription" placeholder="—" />
                 </div>
                 <div class="col-sm-4">
                     <label class="form-label mb-1">CFS Number</label>
@@ -144,7 +145,7 @@ else if (_incident is not null)
             <h4>Arrests</h4>
             @if (_modifyMode)
             {
-                <a class="btn btn-sm btn-outline-primary" href="/incidents/@Id/arrests/create">+ Add Arrest</a>
+                <a class="btn btn-sm btn-outline-primary" href="/incidents/@RecordNumber/arrests/create">+ Add Arrest</a>
             }
         </div>
         @if (_arrests is null)
@@ -175,7 +176,7 @@ else if (_incident is not null)
                             <td>@a.ArrestedAt.ToShortDateString()</td>
                             <td><StatusBadge Status="@a.Status" /></td>
                             <td><LockBadge IsLocked="@a.IsLocked" LockedByUserId="@a.LockedByUserId" /></td>
-                            <td><a class="btn btn-sm btn-outline-primary" href="/incidents/@Id/arrests/@a.Id">View</a></td>
+                            <td><a class="btn btn-sm btn-outline-primary" href="/arrests/@a.RecordNumber">View</a></td>
                         </tr>
                     }
                 </tbody>
@@ -189,7 +190,7 @@ else if (_incident is not null)
             <h4>Citations</h4>
             @if (_modifyMode)
             {
-                <a class="btn btn-sm btn-outline-primary" href="/incidents/@Id/citations/create">+ Add Citation</a>
+                <a class="btn btn-sm btn-outline-primary" href="/incidents/@RecordNumber/citations/create">+ Add Citation</a>
             }
         </div>
         @if (_citations is null)
@@ -220,7 +221,7 @@ else if (_incident is not null)
                             <td>@c.IssueDate.ToShortDateString()</td>
                             <td>@(c.IsIssued ? "✅" : "⏳")</td>
                             <td><LockBadge IsLocked="@c.IsLocked" LockedByUserId="@c.LockedByUserId" /></td>
-                            <td><a class="btn btn-sm btn-outline-primary" href="/incidents/@Id/citations/@c.Id">View</a></td>
+                            <td><a class="btn btn-sm btn-outline-primary" href="/citations/@c.RecordNumber">View</a></td>
                         </tr>
                     }
                 </tbody>
@@ -236,8 +237,9 @@ else if (_incident is not null)
 }
 
 @code {
-    [Parameter] public Guid Id { get; set; }
+    [Parameter] public long RecordNumber { get; set; }
 
+    private Guid _incidentId;
     private IncidentDto? _incident;
     private IReadOnlyList<ArrestDto>? _arrests;
     private IReadOnlyList<CitationDto>? _citations;
@@ -293,13 +295,16 @@ else if (_incident is not null)
         _error = null;
         try
         {
-            var t1 = IncidentService.GetByIdAsync(Id);
-            var t2 = ArrestService.GetByIncidentAsync(Id);
-            var t3 = CitationService.GetByIncidentAsync(Id);
-            await Task.WhenAll(t1, t2, t3);
-            _incident  = t1.Result;
-            _arrests   = t2.Result;
-            _citations = t3.Result;
+            _incident = await IncidentService.GetByRecordNumberAsync(RecordNumber);
+            if (_incident is not null)
+            {
+                _incidentId = _incident.Id;
+                var t2 = ArrestService.GetByIncidentAsync(_incidentId);
+                var t3 = CitationService.GetByIncidentAsync(_incidentId);
+                await Task.WhenAll(t2, t3);
+                _arrests   = t2.Result;
+                _citations = t3.Result;
+            }
 
             // Keep edit fields in sync so the unified card always shows current values
             if (_incident is not null && !_modifyMode)
@@ -348,7 +353,7 @@ else if (_incident is not null)
         _actionError = null;
         try
         {
-            await IncidentService.AcquireLockAsync(Id);
+            await IncidentService.AcquireLockAsync(_incidentId);
             _modifyMode = true;
             _editIncidentNum = _incident?.Details.IncidentNum ?? string.Empty;
             _editDescription = _incident?.Details.Description ?? string.Empty;
@@ -367,7 +372,7 @@ else if (_incident is not null)
     {
         StopLockTimer();
         _modifyMode = false;
-        try { await IncidentService.ReleaseLockAsync(Id); } catch { /* best-effort */ }
+        try { await IncidentService.ReleaseLockAsync(_incidentId); } catch { /* best-effort */ }
         await LoadAsync();
     }
 
@@ -399,9 +404,9 @@ else if (_incident is not null)
         _lockTimer = null;
     }
 
-    private Task OpenAsync()    => RunActionAsync(() => IncidentService.OpenAsync(Id));
-    private Task CloseAsync()   => RunActionAsync(() => IncidentService.CloseAsync(Id));
-    private Task ArchiveAsync() => RunActionAsync(() => IncidentService.ArchiveAsync(Id));
+    private Task OpenAsync()    => RunActionAsync(() => IncidentService.OpenAsync(_incidentId));
+    private Task CloseAsync()   => RunActionAsync(() => IncidentService.CloseAsync(_incidentId));
+    private Task ArchiveAsync() => RunActionAsync(() => IncidentService.ArchiveAsync(_incidentId));
 
     private async Task SaveDetailsAsync()
     {
@@ -409,7 +414,7 @@ else if (_incident is not null)
         _saveSuccessMessage = null;
         try
         {
-            await IncidentService.UpdateDetailsAsync(Id, 
+            await IncidentService.UpdateDetailsAsync(_incidentId, 
                 new IncidentDetailsVo { 
                     IncidentNum = _editIncidentNum,
                     LocalNum = _editLocalNum,
@@ -434,10 +439,10 @@ else if (_incident is not null)
     private async Task SoftDeleteAsync()
     {
         _showDeleteConfirm = false;
-        await RunActionAsync(() => IncidentService.SoftDeleteAsync(Id));
+        await RunActionAsync(() => IncidentService.SoftDeleteAsync(_incidentId));
     }
 
-    private Task RestoreAsync() => RunActionAsync(() => IncidentService.RestoreAsync(Id));
+    private Task RestoreAsync() => RunActionAsync(() => IncidentService.RestoreAsync(_incidentId));
 
     public ValueTask DisposeAsync()
     {

@@ -18,8 +18,13 @@ public sealed class EfArrestRepository : IArrestRepository
         Guid incidentId,
         CancellationToken cancellationToken)
     {
+        var arrestIds = await _dbContext.IncidentArrestLinks
+            .Where(l => l.IncidentId == incidentId)
+            .Select(l => l.ArrestId)
+            .ToListAsync(cancellationToken);
+
         return await _dbContext.Arrests
-            .Where(a => a.IncidentId == incidentId)
+            .Where(a => arrestIds.Contains(a.Id))
             .ToListAsync(cancellationToken);
     }
 }

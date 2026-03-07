@@ -7,11 +7,7 @@ public sealed class CreateCitationCommandValidator : AbstractValidator<CreateCit
 {
     public CreateCitationCommandValidator()
     {
-        RuleFor(x => x.IncidentId)
-            .NotEmpty().WithMessage("IncidentId is required.");
-
         RuleFor(x => x.Description)
-            .NotEmpty().WithMessage("Description is required.")
             .MaximumLength(500).WithMessage("Description must not exceed 500 characters.");
 
         RuleFor(x => x.IssueDate)

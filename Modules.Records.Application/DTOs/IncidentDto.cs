@@ -8,6 +8,7 @@ namespace Modules.Records.Application.DTOs;
 /// </summary>
 public sealed record IncidentDto(
     Guid            Id,
+    long            RecordNumber,
     Guid            JurisdictionId,
     Guid            AgencyId,
     IncidentDetails Details,
@@ -16,6 +17,7 @@ public sealed record IncidentDto(
     bool            IsLocked,
     Guid?           LockedByUserId,
     int             ArrestCount,
+    int             CitationCount,
     Guid            CreatedBy,
     Guid?           ModifiedBy,
     DateTime        CreatedAtUtc,

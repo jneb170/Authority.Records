@@ -22,7 +22,6 @@ public sealed class CitationProjectionHandler :
 
     public async Task Handle(CitationCreatedDomainEvent notification, CancellationToken cancellationToken)
     {
-        // Idempotency: skip if already projected (handles outbox retry / double-dispatch)
         var exists = await _dbContext.CitationReadModels
             .AnyAsync(c => c.Id == notification.CitationId, cancellationToken);
         if (exists)
@@ -34,13 +33,14 @@ public sealed class CitationProjectionHandler :
 
         var readModel = CitationReadModel.Create(
             id: notification.CitationId,
+            recordNumber: citation?.RecordNumber ?? 0,
             jurisdictionId: notification.JurisdictionId,
-            agencyId: notification.AgencyId,
-            incidentId: notification.IncidentId,
+            agencyId: citation?.AgencyId ?? Guid.Empty,
             description: notification.Description,
             issueDate: notification.IssueDate,
             createdAtUtc: notification.OccurredOnUtc,
-            createdBy: citation?.CreatedBy ?? Guid.Empty);
+            createdBy: citation?.CreatedBy ?? Guid.Empty,
+            citationNum: notification.CitationNum);
 
         _dbContext.CitationReadModels.Add(readModel);
         await _dbContext.SaveChangesAsync(cancellationToken);
@@ -58,7 +58,7 @@ public sealed class CitationProjectionHandler :
             .AsNoTracking()
             .FirstOrDefaultAsync(c => c.Id == notification.CitationId, cancellationToken);
 
-        readModel.ApplyDetailsChanged(notification.Description, notification.IssueDate);
+        readModel.ApplyDetailsChanged(notification.Description, notification.IssueDate, notification.CourtId, notification.CitationNum);
         readModel.ApplyModifiedAudit(citation?.ModifiedBy);
         await _dbContext.SaveChangesAsync(cancellationToken);
     }

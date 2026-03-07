@@ -22,7 +22,6 @@ public sealed class ArrestProjectionHandler :
 
     public async Task Handle(ArrestCreatedDomainEvent notification, CancellationToken cancellationToken)
     {
-        // Idempotency: skip if already projected (handles outbox retry / double-dispatch)
         var exists = await _dbContext.ArrestReadModels
             .AnyAsync(a => a.Id == notification.ArrestId, cancellationToken);
         if (exists)
@@ -34,21 +33,16 @@ public sealed class ArrestProjectionHandler :
 
         var readModel = ArrestReadModel.Create(
             id: notification.ArrestId,
+            recordNumber: arrest?.RecordNumber ?? 0,
             jurisdictionId: notification.JurisdictionId,
-            agencyId: notification.AgencyId,
-            incidentId: notification.IncidentId,
+            agencyId: arrest?.AgencyId ?? Guid.Empty,
             suspectName: notification.SuspectName,
             arrestedAt: notification.ArrestedAt,
             createdAtUtc: notification.OccurredOnUtc,
-            createdBy: arrest?.CreatedBy ?? Guid.Empty);
+            createdBy: arrest?.CreatedBy ?? Guid.Empty,
+            arrestNum: notification.ArrestNum);
 
         _dbContext.ArrestReadModels.Add(readModel);
-
-        var incidentReadModel = await _dbContext.IncidentReadModels
-            .FirstOrDefaultAsync(i => i.Id == notification.IncidentId, cancellationToken);
-
-        incidentReadModel?.IncrementArrestCount();
-
         await _dbContext.SaveChangesAsync(cancellationToken);
     }
 
@@ -64,7 +58,7 @@ public sealed class ArrestProjectionHandler :
             .AsNoTracking()
             .FirstOrDefaultAsync(a => a.Id == notification.ArrestId, cancellationToken);
 
-        readModel.ApplyDetailsChanged(notification.SuspectName, notification.ArrestedAt);
+        readModel.ApplyDetailsChanged(notification.SuspectName, notification.ArrestedAt, notification.ArrestTypeId, notification.ArrestNum);
         readModel.ApplyModifiedAudit(arrest?.ModifiedBy);
         await _dbContext.SaveChangesAsync(cancellationToken);
     }

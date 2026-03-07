@@ -7,6 +7,7 @@ namespace Modules.Records.Application.ReadModels;
 public sealed class IncidentReadModel
 {
     public Guid    Id             { get; private set; }
+    public long    RecordNumber   { get; private set; }
     public Guid    JurisdictionId { get; private set; }
     public Guid    AgencyId       { get; private set; }
 
@@ -21,6 +22,7 @@ public sealed class IncidentReadModel
     public bool   IsLocked        { get; private set; }
     public Guid?  LockedByUserId  { get; private set; }
     public int    ArrestCount     { get; private set; }
+    public int    CitationCount   { get; private set; }
     public Guid   CreatedBy       { get; private set; }
     public Guid?  ModifiedBy      { get; private set; }
     public DateTime CreatedAtUtc  { get; private set; }
@@ -29,13 +31,14 @@ public sealed class IncidentReadModel
     private IncidentReadModel() { } // EF
 
     public static IncidentReadModel Create(
-        Guid id, Guid jurisdictionId, Guid agencyId,
+        Guid id, long recordNumber, Guid jurisdictionId, Guid agencyId,
         IncidentDetails details,
         RecordStatus status, DateTime createdAtUtc, Guid createdBy)
     {
         return new IncidentReadModel
         {
             Id             = id,
+            RecordNumber   = recordNumber,
             JurisdictionId = jurisdictionId,
             AgencyId       = agencyId,
             IncidentNum    = details.IncidentNum,
@@ -46,6 +49,7 @@ public sealed class IncidentReadModel
             IsDeleted      = false,
             IsLocked       = false,
             ArrestCount    = 0,
+            CitationCount  = 0,
             CreatedBy      = createdBy,
             ModifiedBy     = null,
             CreatedAtUtc   = createdAtUtc,
@@ -58,13 +62,13 @@ public sealed class IncidentReadModel
     /// Both query handlers call this — they never need changing for new fields.
     /// </summary>
     public IncidentDto ToDto() => new(
-        Id, JurisdictionId, AgencyId,
+        Id, RecordNumber, JurisdictionId, AgencyId,
         new IncidentDetails { 
             IncidentNum = IncidentNum, 
             LocalNum    = LocalNum,
             Description = Description, 
             CFSNum = CFSNum },
-        Status, IsDeleted, IsLocked, LockedByUserId, ArrestCount,
+        Status, IsDeleted, IsLocked, LockedByUserId, ArrestCount, CitationCount,
         CreatedBy, ModifiedBy, CreatedAtUtc, UpdatedAtUtc);
 
     public void ApplyDetailsChanged(IncidentDetails d) { 
@@ -80,6 +84,9 @@ public sealed class IncidentReadModel
     public void ApplyDeleted()                             { IsDeleted = true;  UpdatedAtUtc = DateTime.UtcNow; }
     public void ApplyRestored()                            { IsDeleted = false; UpdatedAtUtc = DateTime.UtcNow; }
     public void IncrementArrestCount()                     { ArrestCount++; UpdatedAtUtc = DateTime.UtcNow; }
+    public void DecrementArrestCount()                     { if (ArrestCount > 0) ArrestCount--; UpdatedAtUtc = DateTime.UtcNow; }
+    public void IncrementCitationCount()                   { CitationCount++; UpdatedAtUtc = DateTime.UtcNow; }
+    public void DecrementCitationCount()                   { if (CitationCount > 0) CitationCount--; UpdatedAtUtc = DateTime.UtcNow; }
     public void ApplyLockAcquired(Guid userId)             { IsLocked = true;  LockedByUserId = userId; UpdatedAtUtc = DateTime.UtcNow; }
     public void ApplyLockReleased()                        { IsLocked = false; LockedByUserId = null;   UpdatedAtUtc = DateTime.UtcNow; }
 }

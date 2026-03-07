@@ -1,0 +1,268 @@
+@page "/admin/configurations"
+@attribute [Authorize(Roles = "Admin,Supervisor")]
+@inject IAgencyConfigurationService ConfigService
+@inject NavigationManager Nav
+@using Microsoft.AspNetCore.Authorization
+@using Modules.Records.Domain.Common
+@using Modules.Records.Domain.Common.Implementations
+
+<PageTitle>Agency Configurations</PageTitle>
+
+<h1>⚙️ Agency Configurations</h1>
+<p class="text-muted">Manage system settings for your agency. Changes take effect immediately.</p>
+
+@if (_error is not null)
+{
+    <div class="alert alert-danger">@_error</div>
+}
+@if (_successMessage is not null)
+{
+    <div class="alert alert-success">@_successMessage</div>
+}
+
+@if (_loading)
+{
+    <p>Loading…</p>
+}
+else
+{
+    <div class="card mb-4">
+        <div class="card-header d-flex justify-content-between align-items-center">
+            <strong>Configurations</strong>
+            <button class="btn btn-sm btn-outline-primary" @onclick="ShowAddForm">+ Add Configuration</button>
+        </div>
+        <div class="card-body p-0">
+            @if (!_configs.Any())
+            {
+                <p class="p-3 text-muted mb-0">No configurations defined yet.</p>
+            }
+            else
+            {
+                <table class="table table-sm mb-0">
+                    <thead>
+                        <tr>
+                            <th>Key</th>
+                            <th>Value</th>
+                            <th>Preview</th>
+                            <th>Last Modified</th>
+                            <th></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var cfg in _configs)
+                        {
+                            <tr>
+                                <td>
+                                    <span class="fw-semibold">@FriendlyKey(cfg.Key)</span>
+                                    <br /><small class="text-muted">@cfg.Key</small>
+                                </td>
+                                <td>
+                                    @if (_editingKey == cfg.Key)
+                                    {
+                                        <input class="form-control form-control-sm" @bind="_editValue" @oninput="OnEditValueChanged" />
+                                    }
+                                    else
+                                    {
+                                        <code>@cfg.Value</code>
+                                    }
+                                </td>
+                                <td>
+                                    @if (_editingKey == cfg.Key && !string.IsNullOrWhiteSpace(_editValue))
+                                    {
+                                        <small class="text-success">@TryPreview(_editValue)</small>
+                                    }
+                                    else if ((cfg.Key == ConfigurationKeys.IncidentFormat ||
+                                              cfg.Key == ConfigurationKeys.ArrestFormat ||
+                                              cfg.Key == ConfigurationKeys.CitationFormat) &&
+                                             !string.IsNullOrWhiteSpace(cfg.Value))
+                                    {
+                                        <small class="text-muted">@TryPreview(cfg.Value)</small>
+                                    }
+                                </td>
+                                <td><small class="text-muted">@(cfg.UpdatedAtUtc?.ToString("g") ?? "—")</small></td>
+                                <td class="text-end">
+                                    @if (_editingKey == cfg.Key)
+                                    {
+                                        <button class="btn btn-sm btn-success me-1" @onclick="() => SaveEditAsync(cfg.Key)">Save</button>
+                                        <button class="btn btn-sm btn-outline-secondary" @onclick="CancelEdit">Cancel</button>
+                                    }
+                                    else
+                                    {
+                                        <button class="btn btn-sm btn-outline-secondary me-1" @onclick="() => StartEdit(cfg)">Edit</button>
+                                        <button class="btn btn-sm btn-outline-danger" @onclick="() => DeleteAsync(cfg.Key)">Delete</button>
+                                    }
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            }
+        </div>
+    </div>
+
+    @if (_showAddForm)
+    {
+        <div class="card mb-4">
+            <div class="card-header"><strong>New Configuration</strong></div>
+            <div class="card-body">
+                <div class="mb-3">
+                    <label class="form-label">Key</label>
+                    <input class="form-control" @bind="_newKey" placeholder="e.g. IncidentFormat" list="known-keys" />
+                    <datalist id="known-keys">
+                        <option value="@ConfigurationKeys.IncidentFormat" />
+                        <option value="@ConfigurationKeys.ArrestFormat" />
+                        <option value="@ConfigurationKeys.CitationFormat" />
+                    </datalist>
+                    <div class="form-text">Well-known keys: <code>@ConfigurationKeys.IncidentFormat</code>, <code>@ConfigurationKeys.ArrestFormat</code>, <code>@ConfigurationKeys.CitationFormat</code> — control auto-generated record numbers.</div>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">Value</label>
+                    <input class="form-control" @bind="_newValue" @oninput="OnNewValueChanged"
+                           placeholder="e.g. yyyy-mmdd-xxxxxx" />
+                    @if (!string.IsNullOrWhiteSpace(_newValue))
+                    {
+                        <div class="form-text text-success">Preview: <strong>@TryPreview(_newValue)</strong></div>
+                    }
+                </div>
+                @if (_addError is not null)
+                {
+                    <div class="text-danger small mb-2">@_addError</div>
+                }
+                <button class="btn btn-primary" @onclick="AddAsync">Add</button>
+                <button class="btn btn-outline-secondary ms-2" @onclick="() => _showAddForm = false">Cancel</button>
+            </div>
+        </div>
+    }
+
+    <div class="mt-4">
+        <h5>Format Token Reference</h5>
+        <table class="table table-sm w-auto">
+            <tbody>
+                <tr><td><code>yyyy</code></td><td>4-digit year</td></tr>
+                <tr><td><code>yy</code></td><td>2-digit year</td></tr>
+                <tr><td><code>mm</code></td><td>2-digit month</td></tr>
+                <tr><td><code>dd</code></td><td>2-digit day</td></tr>
+                <tr><td><code>xxxxx</code></td><td>zero-padded sequence (width = number of x's)</td></tr>
+            </tbody>
+        </table>
+        <p class="text-muted small">Example: <code>yyyy-mmdd-xxxxxx</code> → <strong>@_examplePreview</strong></p>
+    </div>
+}
+
+@code {
+    private IReadOnlyList<AgencyConfigurationDto> _configs = Array.Empty<AgencyConfigurationDto>();
+    private bool _loading = true;
+    private string? _error;
+    private string? _successMessage;
+
+    private string? _editingKey;
+    private string _editValue = string.Empty;
+
+    private bool _showAddForm;
+    private string _newKey = string.Empty;
+    private string _newValue = string.Empty;
+    private string? _addError;
+
+    private string _examplePreview = string.Empty;
+
+    protected override async Task OnInitializedAsync()
+    {
+        _examplePreview = IncidentNumFormatter.Preview("yyyy-mmdd-xxxxxx");
+        await LoadAsync();
+    }
+
+    private async Task LoadAsync()
+    {
+        _loading = true;
+        _error = null;
+        try
+        {
+            _configs = await ConfigService.GetAllAsync();
+        }
+        catch (Exception ex)
+        {
+            _error = ex.Message;
+        }
+        finally
+        {
+            _loading = false;
+        }
+    }
+
+    private void StartEdit(AgencyConfigurationDto cfg)
+    {
+        _editingKey = cfg.Key;
+        _editValue = cfg.Value;
+    }
+
+    private void CancelEdit() => _editingKey = null;
+
+    private void OnEditValueChanged(ChangeEventArgs e) => _editValue = e.Value?.ToString() ?? string.Empty;
+    private void OnNewValueChanged(ChangeEventArgs e) => _newValue = e.Value?.ToString() ?? string.Empty;
+
+    private async Task SaveEditAsync(string key)
+    {
+        await RunActionAsync(() => ConfigService.SetAsync(key, _editValue), "Configuration saved.");
+        _editingKey = null;
+    }
+
+    private async Task DeleteAsync(string key)
+    {
+        await RunActionAsync(() => ConfigService.DeleteAsync(key), "Configuration deleted.");
+    }
+
+    private void ShowAddForm()
+    {
+        _showAddForm = true;
+        _newKey = string.Empty;
+        _newValue = string.Empty;
+        _addError = null;
+    }
+
+    private async Task AddAsync()
+    {
+        _addError = null;
+        if (string.IsNullOrWhiteSpace(_newKey)) { _addError = "Key is required."; return; }
+        if (string.IsNullOrWhiteSpace(_newValue)) { _addError = "Value is required."; return; }
+
+        await RunActionAsync(() => ConfigService.SetAsync(_newKey.Trim(), _newValue.Trim()), "Configuration added.");
+        _showAddForm = false;
+        _newKey = string.Empty;
+        _newValue = string.Empty;
+    }
+
+    private async Task RunActionAsync(Func<Task> action, string successMsg)
+    {
+        _error = null;
+        _successMessage = null;
+        try
+        {
+            await action();
+            await LoadAsync();
+            _successMessage = successMsg;
+            _ = Task.Delay(3000).ContinueWith(_ => InvokeAsync(() =>
+            {
+                _successMessage = null;
+                StateHasChanged();
+            }));
+        }
+        catch (Exception ex)
+        {
+            _error = ex.Message;
+        }
+    }
+
+    private static string FriendlyKey(string key) => key switch
+    {
+        ConfigurationKeys.IncidentFormat => "Incident Number Format",
+        ConfigurationKeys.ArrestFormat   => "Arrest Number Format",
+        ConfigurationKeys.CitationFormat => "Citation Number Format",
+        _ => key
+    };
+
+    private static string TryPreview(string template)
+    {
+        try { return IncidentNumFormatter.Preview(template); }
+        catch { return "(invalid format)"; }
+    }
+}

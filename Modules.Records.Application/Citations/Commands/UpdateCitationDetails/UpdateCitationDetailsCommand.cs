@@ -5,4 +5,6 @@ namespace Modules.Records.Application.Citations.Commands.UpdateCitationDetails;
 public sealed record UpdateCitationDetailsCommand(
     Guid     CitationId,
     string   Description,
-    DateTime IssueDate) : IRequest;
+    DateTime IssueDate,
+    Guid?    CourtId,
+    string   CitationNum = "") : IRequest;

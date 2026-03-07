@@ -1,0 +1,78 @@
+@page "/citations"
+@inject ICitationService CitationService
+@inject NavigationManager Nav
+
+<PageTitle>Citations</PageTitle>
+
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <h1>Citations</h1>
+    <a class="btn btn-primary" href="/citations/create">+ New Citation</a>
+</div>
+
+@if (_loading)
+{
+    <p>Loading…</p>
+}
+else if (_error is not null)
+{
+    <div class="alert alert-danger">@_error</div>
+}
+else if (_citations is not null)
+{
+    @if (!_citations.Any())
+    {
+        <p class="text-muted">No citations recorded.</p>
+    }
+    else
+    {
+        <table class="table table-hover">
+            <thead>
+                <tr>
+                    <th>#</th>
+                    <th>Citation #</th>
+                    <th>Description</th>
+                    <th>Issue Date</th>
+                    <th>Issued</th>
+                    <th>Lock</th>
+                    <th></th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var c in _citations)
+                {
+                    <tr>
+                        <td>@c.RecordNumber</td>
+                        <td>@c.CitationNum</td>
+                        <td>@c.Description</td>
+                        <td>@c.IssueDate.ToShortDateString()</td>
+                        <td>@(c.IsIssued ? "✅" : "⏳")</td>
+                        <td><LockBadge IsLocked="@c.IsLocked" LockedByUserId="@c.LockedByUserId" /></td>
+                        <td><a class="btn btn-sm btn-outline-primary" href="/citations/@c.RecordNumber">View</a></td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    }
+}
+
+@code {
+    private IReadOnlyList<CitationDto>? _citations;
+    private bool _loading = true;
+    private string? _error;
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            _citations = await CitationService.GetByJurisdictionAsync();
+        }
+        catch (Exception ex)
+        {
+            _error = ex.Message;
+        }
+        finally
+        {
+            _loading = false;
+        }
+    }
+}

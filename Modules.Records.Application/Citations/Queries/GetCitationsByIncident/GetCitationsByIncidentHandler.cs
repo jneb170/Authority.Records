@@ -19,24 +19,17 @@ public sealed class GetCitationsByIncidentHandler
         GetCitationsByIncidentQuery request,
         CancellationToken cancellationToken)
     {
-        var results = await _dbContext.CitationReadModels
+        var citationIds = await _dbContext.IncidentCitationLinkReadModels
             .AsNoTracking()
-            .Where(c => c.IncidentId == request.IncidentId)
+            .Where(l => l.IncidentId == request.IncidentId)
+            .Select(l => l.CitationId)
             .ToListAsync(cancellationToken);
 
-        return results.Select(rm => new CitationDto(
-            rm.Id,
-            rm.JurisdictionId,
-            rm.AgencyId,
-            rm.IncidentId,
-            rm.Description,
-            rm.IssueDate,
-            rm.IsIssued,
-            rm.IsLocked,
-            rm.LockedByUserId,
-            rm.CreatedBy,
-            rm.ModifiedBy,
-            rm.CreatedAtUtc,
-            rm.UpdatedAtUtc)).ToList();
+        var results = await _dbContext.CitationReadModels
+            .AsNoTracking()
+            .Where(c => citationIds.Contains(c.Id))
+            .ToListAsync(cancellationToken);
+
+        return results.Select(rm => rm.ToDto()).ToList();
     }
 }

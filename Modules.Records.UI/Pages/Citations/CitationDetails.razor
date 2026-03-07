@@ -1,9 +1,14 @@
-@page "/incidents/{IncidentId:guid}/citations/{Id:guid}"
+@page "/citations/{RecordNumber:long}"
+@page "/incidents/{IncidentRecordNumber:long}/citations/{RecordNumber:long}"
 @implements IAsyncDisposable
 @inject ICitationService CitationService
+@inject IIncidentService IncidentService
+@inject IPicklistService PicklistService
+@inject IAgencyConfigurationService ConfigService
 @inject ITenantProvider TenantProvider
 @inject IUserLookupService UserLookupService
 @inject NavigationManager Nav
+@using Modules.Records.Domain.Common
 
 <PageTitle>Citation Details</PageTitle>
 
@@ -19,8 +24,12 @@ else if (_citation is not null)
 {
     <nav aria-label="breadcrumb" class="mb-3">
         <ol class="breadcrumb">
-            <li class="breadcrumb-item"><a href="/incidents/@IncidentId">Incident</a></li>
-            <li class="breadcrumb-item active">Citation</li>
+            <li class="breadcrumb-item"><a href="/citations">Citations</a></li>
+            @if (IncidentRecordNumber.HasValue)
+            {
+                <li class="breadcrumb-item"><a href="/incidents/@IncidentRecordNumber">Incident</a></li>
+            }
+            <li class="breadcrumb-item active">Citation #@RecordNumber</li>
         </ol>
     </nav>
 
@@ -90,16 +99,47 @@ else if (_citation is not null)
             <h6 class="card-title">Citation Details</h6>
             <div class="row g-3">
                 <div class="col-sm-6">
-                    <label class="form-label mb-1">Description @if (_modifyMode) { <span class="text-danger">*</span> }</label>
+                    <label class="form-label mb-1">Citation Number</label>
+                    @if (_modifyMode)
+                    {
+                        <div class="input-group input-group-sm">
+                            <input type="text" class="form-control form-control-sm"
+                                   @bind="_editCitationNum" placeholder="e.g. CT-2026-000001" />
+                            <button type="button" class="btn btn-outline-secondary btn-sm"
+                                    @onclick="GenerateCitationNumAsync" disabled="@_generatingCitationNum">
+                                @(_generatingCitationNum ? "…" : "🔁")
+                            </button>
+                        </div>
+                    }
+                    else
+                    {
+                        <p class="form-control-plaintext form-control-sm ps-0">@(string.IsNullOrWhiteSpace(_citation.CitationNum) ? "—" : _citation.CitationNum)</p>
+                    }
+                </div>
+                <div class="col-sm-6">
+                    <label class="form-label mb-1">Description</label>
                     <input type="text" class="@(_modifyMode ? "form-control form-control-sm" : "form-control-plaintext form-control-sm ps-0")"
                            readonly="@(!_modifyMode)"
-                           @bind="_editDescription" placeholder="@(_modifyMode ? "Required" : "—")" />
+                           @bind="_editDescription" placeholder="—" />
                 </div>
                 <div class="col-sm-6">
                     <label class="form-label mb-1">Issue Date</label>
                     <input type="datetime-local" class="@(_modifyMode ? "form-control form-control-sm" : "form-control-plaintext form-control-sm ps-0")"
                            readonly="@(!_modifyMode)"
                            @bind="_editIssueDate" />
+                </div>
+                <div class="col-sm-6">
+                    <label class="form-label mb-1">Court</label>
+                    @if (_modifyMode)
+                    {
+                        <PicklistSelect PicklistType="@PicklistTypes.Court"
+                                        @bind-Value="_editCourtId"
+                                        IsRequired="@_courtRequired" />
+                    }
+                    else
+                    {
+                        <p class="form-control-plaintext form-control-sm ps-0">@(_courtLabel ?? "—")</p>
+                    }
                 </div>
                 <div class="col-sm-6">
                     <label class="form-label mb-1">Issued</label>
@@ -119,13 +159,74 @@ else if (_citation is not null)
                       CreatedByName="@_createdByName"
                       ModifiedAt="@(_citation.ModifiedBy.HasValue ? _citation.UpdatedAtUtc : null)"
                       ModifiedByName="@_modifiedByName" />
+
+    <!-- Linked Incidents -->
+    <div class="mb-4">
+        <div class="d-flex justify-content-between align-items-center mb-2">
+            <h4>Linked Incidents</h4>
+        </div>
+        @if (_linkedIncidents is null)
+        {
+            <p>Loading…</p>
+        }
+        else if (!_linkedIncidents.Any())
+        {
+            <p class="text-muted">Not linked to any incidents.</p>
+        }
+        else
+        {
+            <table class="table table-sm">
+                <thead>
+                    <tr><th>#</th><th>Incident</th><th>Linked At</th><th></th></tr>
+                </thead>
+                <tbody>
+                    @foreach (var link in _linkedIncidents)
+                    {
+                        <tr>
+                            <td>@link.IncidentRecordNumber</td>
+                            <td>@link.IncidentNum</td>
+                            <td>@link.LinkedAtUtc.ToShortDateString()</td>
+                            <td>
+                                <a class="btn btn-sm btn-outline-secondary" href="/incidents/@link.IncidentRecordNumber">View</a>
+                                @if (_modifyMode)
+                                {
+                                    <button class="btn btn-sm btn-outline-danger ms-1" @onclick="() => UnlinkFromIncidentAsync(link.IncidentId)">Unlink</button>
+                                }
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        }
+        @if (_modifyMode)
+        {
+            <div class="d-flex gap-2 mt-2 align-items-center">
+                <select class="form-select form-select-sm" style="max-width:300px" @bind="_linkIncidentId">
+                    <option value="@Guid.Empty">— select incident to link —</option>
+                    @if (_allIncidents is not null)
+                    {
+                        @foreach (var i in _allIncidents)
+                        {
+                            <option value="@i.Id">@i.RecordNumber — @i.Details.IncidentNum</option>
+                        }
+                    }
+                </select>
+                <button class="btn btn-sm btn-outline-primary" @onclick="LinkToIncidentAsync"
+                        disabled="@(_linkIncidentId == Guid.Empty)">+ Link</button>
+            </div>
+        }
+    </div>
 }
 
 @code {
-    [Parameter] public Guid IncidentId { get; set; }
-    [Parameter] public Guid Id { get; set; }
+    [Parameter] public long? IncidentRecordNumber { get; set; }
+    [Parameter] public long RecordNumber { get; set; }
 
+    private Guid _citationId;
     private CitationDto? _citation;
+    private IReadOnlyList<IncidentCitationLinkDto>? _linkedIncidents;
+    private IReadOnlyList<IncidentDto>? _allIncidents;
+    private Guid _linkIncidentId = Guid.Empty;
     private bool _loading = true;
     private string? _error;
     private string? _actionError;
@@ -140,6 +241,11 @@ else if (_citation is not null)
 
     private string _editDescription = string.Empty;
     private DateTime _editIssueDate = DateTime.Now;
+    private string _editCitationNum = string.Empty;
+    private bool _generatingCitationNum;
+    private Guid? _editCourtId;
+    private string? _courtLabel;
+    private bool _courtRequired;
 
     private string? _createdByName;
     private string? _modifiedByName;
@@ -165,6 +271,8 @@ else if (_citation is not null)
             _modifyMode = true;
             _editDescription = _citation.Description;
             _editIssueDate   = _citation.IssueDate;
+            _editCitationNum = _citation.CitationNum;
+            _editCourtId     = _citation.CourtId;
             StartLockTimer();
         }
     }
@@ -175,13 +283,17 @@ else if (_citation is not null)
         _error = null;
         try
         {
-            _citation = await CitationService.GetByIdAsync(Id);
+            _citation = await CitationService.GetByRecordNumberAsync(RecordNumber);
+            if (_citation is not null)
+                _citationId = _citation.Id;
             if (_citation is null) _error = "Citation not found.";
 
             if (_citation is not null && !_modifyMode)
             {
                 _editDescription = _citation.Description;
                 _editIssueDate   = _citation.IssueDate;
+                _editCitationNum = _citation.CitationNum;
+                _editCourtId     = _citation.CourtId;
             }
 
             if (_citation is not null)
@@ -190,6 +302,24 @@ else if (_citation is not null)
                 _modifiedByName = _citation.ModifiedBy.HasValue
                     ? await UserLookupService.GetDisplayNameAsync(_citation.ModifiedBy.Value)
                     : null;
+
+                _linkedIncidents = await CitationService.GetLinkedIncidentsAsync(_citationId);
+
+                if (_modifyMode)
+                    _allIncidents = await IncidentService.GetByJurisdictionAsync();
+
+                // Resolve Court label for read-only display
+                var setting = await PicklistService.GetSettingAsync(PicklistTypes.Court);
+                _courtRequired = setting?.IsRequired ?? false;
+                if (_citation.CourtId.HasValue)
+                {
+                    var labels = await PicklistService.GetItemsByIdsAsync([_citation.CourtId.Value]);
+                    _courtLabel = labels.GetValueOrDefault(_citation.CourtId.Value);
+                }
+                else
+                {
+                    _courtLabel = null;
+                }
             }
         }
         catch (Exception ex)
@@ -221,10 +351,12 @@ else if (_citation is not null)
         _actionError = null;
         try
         {
-            await CitationService.AcquireLockAsync(Id);
+            await CitationService.AcquireLockAsync(_citationId);
             _modifyMode = true;
             _editDescription = _citation?.Description ?? string.Empty;
             _editIssueDate   = _citation?.IssueDate ?? DateTime.Now;
+            _editCitationNum = _citation?.CitationNum ?? string.Empty;
+            _editCourtId     = _citation?.CourtId;
             StartLockTimer();
             await LoadAsync();
         }
@@ -238,8 +370,16 @@ else if (_citation is not null)
     {
         StopLockTimer();
         _modifyMode = false;
-        try { await CitationService.ReleaseLockAsync(Id); } catch { /* best-effort */ }
+        try { await CitationService.ReleaseLockAsync(_citationId); } catch { /* best-effort */ }
         await LoadAsync();
+    }
+
+    private async Task GenerateCitationNumAsync()
+    {
+        _generatingCitationNum = true;
+        try { _editCitationNum = await ConfigService.GenerateCitationNumAsync(); }
+        catch (Exception ex) { _actionError = ex.Message; }
+        finally { _generatingCitationNum = false; }
     }
 
     private async Task SaveDetailsAsync()
@@ -248,7 +388,7 @@ else if (_citation is not null)
         _saveSuccessMessage = null;
         try
         {
-            await CitationService.UpdateDetailsAsync(Id, _editDescription, _editIssueDate);
+            await CitationService.UpdateDetailsAsync(_citationId, _editDescription, _editIssueDate, _editCourtId, _editCitationNum);
             await LoadAsync();
             _saveSuccessMessage = "Details saved successfully.";
             _ = Task.Delay(3000).ContinueWith(_ => InvokeAsync(() =>
@@ -262,6 +402,16 @@ else if (_citation is not null)
             _actionError = ex.Message;
         }
     }
+
+    private async Task LinkToIncidentAsync()
+    {
+        if (_linkIncidentId == Guid.Empty) return;
+        await RunActionAsync(() => CitationService.LinkToIncidentAsync(_citationId, _linkIncidentId));
+        _linkIncidentId = Guid.Empty;
+    }
+
+    private Task UnlinkFromIncidentAsync(Guid incidentId) =>
+        RunActionAsync(() => CitationService.UnlinkFromIncidentAsync(_citationId, incidentId));
 
     private void StartLockTimer()
     {
@@ -291,13 +441,16 @@ else if (_citation is not null)
         _lockTimer = null;
     }
 
-    private Task IssueAsync() => RunActionAsync(() => CitationService.IssueAsync(Id));
+    private Task IssueAsync() => RunActionAsync(() => CitationService.IssueAsync(_citationId));
 
     private async Task SoftDeleteAsync()
     {
         _showDeleteConfirm = false;
-        await RunActionAsync(() => CitationService.SoftDeleteAsync(Id));
-        Nav.NavigateTo($"/incidents/{IncidentId}");
+        await RunActionAsync(() => CitationService.SoftDeleteAsync(_citationId));
+        if (IncidentRecordNumber.HasValue)
+            Nav.NavigateTo($"/incidents/{IncidentRecordNumber}");
+        else
+            Nav.NavigateTo("/citations");
     }
 
     public ValueTask DisposeAsync()

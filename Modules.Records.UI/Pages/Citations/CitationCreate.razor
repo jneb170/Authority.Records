@@ -1,5 +1,8 @@
-@page "/incidents/{IncidentId:guid}/citations/create"
+@page "/citations/create"
+@page "/incidents/{IncidentRecordNumber:long}/citations/create"
 @inject ICitationService CitationService
+@inject IIncidentService IncidentService
+@inject IAgencyConfigurationService ConfigService
 @inject NavigationManager Nav
 
 <PageTitle>New Citation</PageTitle>
@@ -23,21 +26,80 @@
         <InputDate class="form-control" @bind-Value="_vm.IssueDate" />
         <ValidationMessage For="() => _vm.IssueDate" />
     </div>
+    <div class="mb-3">
+        <label class="form-label">Citation Number <span class="text-muted">(auto-generated if blank)</span></label>
+        <div class="input-group">
+            <InputText class="form-control" @bind-Value="_vm.CitationNum" placeholder="e.g. CT-2026-000001" />
+            <button type="button" class="btn btn-outline-secondary" @onclick="GenerateCitationNumAsync" disabled="@_generatingNum">
+                @(_generatingNum ? "…" : "🔁 Generate")
+            </button>
+        </div>
+    </div>
+    @if (_incidents is not null && _incidents.Any())
+    {
+        <div class="mb-3">
+            <label class="form-label">Link to Incident <span class="text-muted">(optional)</span></label>
+            <select class="form-select" multiple @onchange="OnIncidentSelectionChanged">
+                @foreach (var i in _incidents)
+                {
+                    <option value="@i.RecordNumber" selected="@(_selectedIncidentRecordNumbers.Contains(i.RecordNumber))">
+                        @i.RecordNumber — @i.Details.IncidentNum (@i.Status)
+                    </option>
+                }
+            </select>
+            <div class="form-text">Hold Ctrl/Cmd to select multiple</div>
+        </div>
+    }
     <button type="submit" class="btn btn-primary" disabled="@_submitting">
         @(_submitting ? "Creating…" : "Create Citation")
     </button>
-    <a class="btn btn-secondary ms-2" href="/incidents/@IncidentId">Cancel</a>
+    @if (IncidentRecordNumber.HasValue)
+    {
+        <a class="btn btn-secondary ms-2" href="/incidents/@IncidentRecordNumber">Cancel</a>
+    }
+    else
+    {
+        <a class="btn btn-secondary ms-2" href="/citations">Cancel</a>
+    }
 </EditForm>
 
 @code {
-    [Parameter] public Guid IncidentId { get; set; }
+    [Parameter] public long? IncidentRecordNumber { get; set; }
 
     private readonly CreateCitationViewModel _vm = new();
     private bool _submitting;
+    private bool _generatingNum;
+    private IReadOnlyList<IncidentDto>? _incidents;
+    private readonly List<long> _selectedIncidentRecordNumbers = new();
 
-    protected override void OnParametersSet()
+    protected override async Task OnParametersSetAsync()
     {
-        _vm.IncidentId = IncidentId;
+        _incidents = await IncidentService.GetByJurisdictionAsync();
+
+        if (IncidentRecordNumber.HasValue)
+        {
+            _selectedIncidentRecordNumbers.Clear();
+            _selectedIncidentRecordNumbers.Add(IncidentRecordNumber.Value);
+        }
+    }
+
+    private void OnIncidentSelectionChanged(ChangeEventArgs e)
+    {
+        _selectedIncidentRecordNumbers.Clear();
+        if (e.Value is string[] selected)
+        {
+            foreach (var s in selected)
+                if (long.TryParse(s, out var rn))
+                    _selectedIncidentRecordNumbers.Add(rn);
+        }
+    }
+
+    private async Task GenerateCitationNumAsync()
+    {
+        _generatingNum = true;
+        try { _vm.CitationNum = await ConfigService.GenerateCitationNumAsync(); }
+        catch (Exception ex) { _vm.ErrorMessage = ex.Message; }
+        finally { _generatingNum = false; }
     }
 
     private async Task SubmitAsync()
@@ -47,8 +109,16 @@
 
         try
         {
-            await CitationService.CreateAsync(IncidentId, _vm.Description, _vm.IssueDate);
-            Nav.NavigateTo($"/incidents/{IncidentId}");
+            var recordNumber = await CitationService.CreateAsync(
+                _vm.Description,
+                _vm.IssueDate,
+                _selectedIncidentRecordNumbers.AsReadOnly(),
+                _vm.CitationNum);
+
+            if (IncidentRecordNumber.HasValue)
+                Nav.NavigateTo($"/incidents/{IncidentRecordNumber}");
+            else
+                Nav.NavigateTo($"/citations/{recordNumber}?autoModify=true");
         }
         catch (Exception ex)
         {
@@ -60,3 +130,4 @@
         }
     }
 }
+

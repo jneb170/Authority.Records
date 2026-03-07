@@ -14,9 +14,7 @@ public sealed class IncidentCanBeClosedInvariantTests
         new(new StubJurisdictionRules(mustCloseArrests));
 
     private static Arrest MakeArrest() =>
-        new ArrestFactory().Create(
-            Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(),
-            "Test Subject", DateTime.UtcNow.AddDays(-1));
+        new ArrestFactory().Create(Guid.NewGuid(), Guid.NewGuid(), "Test Subject", DateTime.UtcNow.AddDays(-1));
 
     private static Arrest MakeFinalizedClosedArrest()
     {
@@ -31,7 +29,7 @@ public sealed class IncidentCanBeClosedInvariantTests
 
     private static Citation MakeIssuedCitation()
     {
-        var c = new Citation(Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), "Test", DateTime.UtcNow.AddDays(-1));
+        var c = new Citation(Guid.NewGuid(), Guid.NewGuid(), "Test", DateTime.UtcNow.AddDays(-1));
         c.Issue();
         return c;
     }
@@ -78,7 +76,7 @@ public sealed class IncidentCanBeClosedInvariantTests
     [Fact]
     public void Check_UnissuedCitation_ReturnsViolation()
     {
-        var citation = new Citation(Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), "Test", DateTime.UtcNow.AddDays(-1)); // not issued
+        var citation = new Citation(Guid.NewGuid(), Guid.NewGuid(), "Test", DateTime.UtcNow.AddDays(-1)); // not issued
         var context = new IncidentCloseContext(
             new IncidentFactory().Create(new CreateIncidentRequest { JurisdictionId = Guid.NewGuid(), AgencyId = Guid.NewGuid(), Details = new IncidentDetails { IncidentNum = "INC-001", Description = "Test", LocalNum = "" } }),
             [], [citation]);
@@ -124,7 +122,7 @@ public sealed class IncidentCanBeClosedInvariantTests
     public void Check_MultipleViolations_AllCollected()
     {
         var arrest = MakeArrest();       // not finalized
-        var citation = new Citation(Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), "Speeding", DateTime.UtcNow.AddDays(-1)); // not issued
+        var citation = new Citation(Guid.NewGuid(), Guid.NewGuid(), "Speeding", DateTime.UtcNow.AddDays(-1)); // not issued
         var context = new IncidentCloseContext(
             new IncidentFactory().Create(new CreateIncidentRequest { JurisdictionId = Guid.NewGuid(), AgencyId = Guid.NewGuid(), Details = new IncidentDetails { IncidentNum = "INC-001", Description = "Test", LocalNum = "" } }),
             [arrest], [citation]);
