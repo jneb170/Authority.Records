@@ -1,10 +1,13 @@
-﻿using Modules.Records.Domain.Abstractions;
+using Modules.Records.Domain.Abstractions;
 using Modules.Records.Domain.Common;
 using Modules.Records.Domain.Common.Exceptions;
 using Modules.Records.Domain.Common.Implementations;
 using Modules.Records.Domain.Common.Policies;
 using Modules.Records.Domain.Common.Primitives;
 using Modules.Records.Domain.DomainEvents;
+using Modules.Records.Domain.Factories;
+using Modules.Records.Domain.ValueObjects;
+using System.ComponentModel.DataAnnotations.Schema;
 
 namespace Modules.Records.Domain.Entities;
 
@@ -13,23 +16,38 @@ public sealed class Incident
 {
     public Guid JurisdictionId { get; private set; }
     public Guid AgencyId { get; private set; }
-    public string Description { get; private set; }
+
+    // Flat EF-mapped columns — kept separate so no migration is needed
+    public string IncidentNum { get; private set; } = string.Empty;
+    public string LocalNum { get; private set; } = string.Empty;
+    public string Description { get; private set; } = string.Empty;
+    public string CFSNum      { get; private set; } = string.Empty;
+
+    /// <summary>Computed VO that groups editable fields. Not stored in DB.</summary>
+    [NotMapped]
+    public IncidentDetails Details => new() {
+        IncidentNum = IncidentNum, 
+        LocalNum = LocalNum,
+        Description = Description, 
+        CFSNum = CFSNum };
 
     // EF Core requires a parameterless constructor for materialization
-    private Incident() { } // EF
+    private Incident() { }
 
     // -------------------------------------------------------
     // Aggregate construction via factory
     // -------------------------------------------------------
-    internal Incident(Guid jurisdictionId, Guid agencyId, string description)
+    internal Incident(CreateIncidentRequest request)
     {
-        if (string.IsNullOrWhiteSpace(description))
-            throw new DomainException("incident.description.empty", "Description cannot be empty.");
+        request.Details.Validate();
 
-        Id = Guid.NewGuid();
-        JurisdictionId = jurisdictionId;
-        AgencyId = agencyId;
-        Description = description;
+        Id             = Guid.NewGuid();
+        JurisdictionId = request.JurisdictionId;
+        AgencyId       = request.AgencyId;
+        IncidentNum    = request.Details.IncidentNum;
+        LocalNum       = request.Details.LocalNum;
+        Description    = request.Details.Description;
+        CFSNum         = request.Details.CFSNum;
 
         Status = RecordStatus.Draft;
 
@@ -56,23 +74,25 @@ public sealed class Incident
     // -------------------------------------------------------
     // Behavior methods
     // -------------------------------------------------------
-    public void UpdateDescription(string description, IModificationContext context)
+
+    /// <summary>
+    /// Updates all editable details in one call.
+    /// Add new fields to <see cref="IncidentDetails"/> — this method never changes signature.
+    /// </summary>
+    public void UpdateDetails(IncidentDetails details, IModificationContext context)
     {
+        details.Validate();
         EnsureCanModify(context);
 
-        if (Status == RecordStatus.Draft)
-        {
-            // Draft mode, no lock required
-        }
-        else
-        {
+        if (Status != RecordStatus.Draft)
             EnsureUserOwnsLock(context.UserId);
-        }
 
-        if (string.IsNullOrWhiteSpace(description))
-            throw new DomainException("incident.description.empty", "Description cannot be empty.");
+        Description = details.Description;
+        CFSNum      = details.CFSNum;
+        IncidentNum = details.IncidentNum;
+        LocalNum    = details.LocalNum;
 
-        Description = description;
+        AddDomainEvent(new IncidentDetailsUpdatedDomainEvent(Id, Details));
     }
 
     // -------------------------------------------------------
@@ -123,25 +143,17 @@ public sealed class Incident
     // -------------------------------------------------------
     public override void AcquireLock(IModificationContext context, TimeSpan lockTimeout)
     {
-        // Override lock aquire to enforce additional rules if needed
         base.AcquireLock(context, lockTimeout);
-        // Additional checks can be added here if needed
     }
     
     protected override void EnsureCanModify(IModificationContext context)
     {
-        // Override lock release to enforce additional rules if needed
         base.EnsureCanModify(context);
-
-        // Additional checks can be added here if needed
     }
 
     protected override void EnsureCanLock(IModificationContext context)
     {
-        // Override lock to enforce additional rules if needed
         base.EnsureCanLock(context);
-
-        // Additional checks can be added here if needed
     }
 
 
@@ -160,5 +172,3 @@ public sealed class Incident
         _citations.Add(citation);
     }
 }
-
-

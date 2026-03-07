@@ -20,20 +20,6 @@ public sealed class GetIncidentByIdHandler : IRequestHandler<GetIncidentByIdQuer
             .AsNoTracking()
             .FirstOrDefaultAsync(i => i.Id == request.IncidentId, cancellationToken);
 
-        if (rm is null)
-            return null;
-
-        return new IncidentDto(
-            rm.Id,
-            rm.JurisdictionId,
-            rm.AgencyId,
-            rm.Description,
-            rm.Status,
-            rm.IsDeleted,
-            rm.IsLocked,
-            rm.LockedByUserId,
-            rm.ArrestCount,
-            rm.CreatedAtUtc,
-            rm.UpdatedAtUtc);
+        return rm?.ToDto();
     }
 }

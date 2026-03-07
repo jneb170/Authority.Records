@@ -1,5 +1,6 @@
 using MediatR;
+using Modules.Records.Domain.ValueObjects;
 
 namespace Modules.Records.Application.Incidents.Commands.CreateIncident;
 
-public sealed record CreateIncidentCommand(Guid AgencyId, string Description) : IRequest<Guid>;
+public sealed record CreateIncidentCommand(Guid AgencyId, IncidentDetails Details) : IRequest<Guid>;

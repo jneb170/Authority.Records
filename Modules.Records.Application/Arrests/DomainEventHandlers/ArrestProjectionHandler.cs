@@ -9,6 +9,7 @@ namespace Modules.Records.Application.Arrests.DomainEventHandlers;
 
 public sealed class ArrestProjectionHandler :
     INotificationHandler<ArrestCreatedDomainEvent>,
+    INotificationHandler<ArrestDetailsUpdatedDomainEvent>,
     INotificationHandler<LockAcquiredDomainEvent<Arrest>>,
     INotificationHandler<LockReleasedDomainEvent<Arrest>>
 {
@@ -27,6 +28,10 @@ public sealed class ArrestProjectionHandler :
         if (exists)
             return;
 
+        var arrest = await _dbContext.Arrests
+            .AsNoTracking()
+            .FirstOrDefaultAsync(a => a.Id == notification.ArrestId, cancellationToken);
+
         var readModel = ArrestReadModel.Create(
             id: notification.ArrestId,
             jurisdictionId: notification.JurisdictionId,
@@ -34,7 +39,8 @@ public sealed class ArrestProjectionHandler :
             incidentId: notification.IncidentId,
             suspectName: notification.SuspectName,
             arrestedAt: notification.ArrestedAt,
-            createdAtUtc: notification.OccurredOnUtc);
+            createdAtUtc: notification.OccurredOnUtc,
+            createdBy: arrest?.CreatedBy ?? Guid.Empty);
 
         _dbContext.ArrestReadModels.Add(readModel);
 
@@ -43,6 +49,23 @@ public sealed class ArrestProjectionHandler :
 
         incidentReadModel?.IncrementArrestCount();
 
+        await _dbContext.SaveChangesAsync(cancellationToken);
+    }
+
+    public async Task Handle(ArrestDetailsUpdatedDomainEvent notification, CancellationToken cancellationToken)
+    {
+        var readModel = await _dbContext.ArrestReadModels
+            .FirstOrDefaultAsync(a => a.Id == notification.ArrestId, cancellationToken);
+
+        if (readModel is null)
+            return;
+
+        var arrest = await _dbContext.Arrests
+            .AsNoTracking()
+            .FirstOrDefaultAsync(a => a.Id == notification.ArrestId, cancellationToken);
+
+        readModel.ApplyDetailsChanged(notification.SuspectName, notification.ArrestedAt);
+        readModel.ApplyModifiedAudit(arrest?.ModifiedBy);
         await _dbContext.SaveChangesAsync(cancellationToken);
     }
 

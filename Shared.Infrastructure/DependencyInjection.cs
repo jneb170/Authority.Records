@@ -18,6 +18,7 @@ using Shared.Infrastructure.Audit;
 using Shared.Infrastructure.DomainEvents;
 using Shared.Infrastructure.Identity;
 using Shared.Infrastructure.Jurisdiction;
+using Shared.Infrastructure.Locks;
 using Shared.Infrastructure.Outbox;
 using Shared.Infrastructure.Arrests;
 using Shared.Infrastructure.Persistence;
@@ -72,8 +73,17 @@ public static class DependencyInjection
         // -------------------------------------------------------
 
         services.AddScoped<IDomainEventDispatcher, MediatRDomainEventDispatcher>();
-        services.AddTransient<INotificationHandler<IDomainEvent>, AuditTrailDomainEventHandler>();
+        // Note: AuditTrail entries are written directly in AppDbContext.SaveChangesAsync
+        // alongside OutboxMessages, so they are in the same transaction. A MediatR
+        // INotificationHandler<IDomainEvent> cannot work because MediatR dispatches by
+        // concrete type, not interface.
 
+
+        // -------------------------------------------------------
+        // Lock Expiration Cleanup (Background Service)
+        // -------------------------------------------------------
+        services.Configure<LockCleanupOptions>(configuration.GetSection("LockCleanup"));
+        services.AddHostedService<LockCleanupService>();
 
         // -------------------------------------------------------
         // Outbox Message Processing (Background Service)
@@ -191,7 +201,18 @@ public static class DependencyInjection
             });
 
         services.AddScoped<IModificationContext>(sp =>
-            new UserModificationContext(sp.GetRequiredService<ITenantProvider>().GetUserId()));
+        {
+            var provider = sp.GetRequiredService<ITenantProvider>();
+            Guid userId;
+            try   { userId = provider.GetUserId(); }
+            catch { userId = Guid.Empty; }           // Background service — no HTTP user
+            return new UserModificationContext(userId);
+        });
+
+        // -------------------------------------------------------
+        // User Lookup (display names for audit info)
+        // -------------------------------------------------------
+        services.AddScoped<IUserLookupService, UserLookupService>();
 
         // -------------------------------------------------------
         // Arrest Repository

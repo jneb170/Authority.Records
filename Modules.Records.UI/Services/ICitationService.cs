@@ -8,6 +8,7 @@ public interface ICitationService
     Task<IReadOnlyList<CitationDto>> GetByIncidentAsync(Guid incidentId);
     Task<Guid> CreateAsync(Guid incidentId, string description, DateTime issueDate);
     Task IssueAsync(Guid id);
+    Task UpdateDetailsAsync(Guid id, string description, DateTime issueDate);
     Task AcquireLockAsync(Guid id);
     Task ReleaseLockAsync(Guid id);
     Task SoftDeleteAsync(Guid id);

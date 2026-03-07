@@ -8,6 +8,7 @@ using Modules.Records.Application.Arrests.Commands.OpenArrest;
 using Modules.Records.Application.Arrests.Commands.ReleaseArrestLock;
 using Modules.Records.Application.Arrests.Commands.RestoreArrest;
 using Modules.Records.Application.Arrests.Commands.SoftDeleteArrest;
+using Modules.Records.Application.Arrests.Commands.UpdateArrestDetails;
 using Modules.Records.Application.Arrests.Queries.GetArrestById;
 using Modules.Records.Application.Arrests.Queries.GetArrestsByIncident;
 using Modules.Records.Application.DTOs;
@@ -43,6 +44,9 @@ public sealed class ArrestService : IArrestService
 
     public Task FinalizeAsync(Guid id) =>
         _sender.Send(new FinalizeArrestCommand(id));
+
+    public Task UpdateDetailsAsync(Guid id, string suspectName, DateTime arrestedAt) =>
+        _sender.Send(new UpdateArrestDetailsCommand(id, suspectName, arrestedAt));
 
     public Task AcquireLockAsync(Guid id) =>
         _sender.Send(new AcquireArrestLockCommand(id));

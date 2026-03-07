@@ -13,6 +13,8 @@ public sealed class ArrestReadModel
     public string Status { get; private set; } = string.Empty;
     public bool IsLocked { get; private set; }
     public Guid? LockedByUserId { get; private set; }
+    public Guid   CreatedBy     { get; private set; }
+    public Guid?  ModifiedBy    { get; private set; }
     public DateTime CreatedAtUtc { get; private set; }
     public DateTime UpdatedAtUtc { get; private set; }
 
@@ -25,7 +27,8 @@ public sealed class ArrestReadModel
         Guid incidentId,
         string suspectName,
         DateTime arrestedAt,
-        DateTime createdAtUtc)
+        DateTime createdAtUtc,
+        Guid createdBy)
     {
         return new ArrestReadModel
         {
@@ -38,9 +41,19 @@ public sealed class ArrestReadModel
             Status = RecordStatus.Draft.ToString(),
             IsLocked = false,
             LockedByUserId = null,
+            CreatedBy = createdBy,
+            ModifiedBy = null,
             CreatedAtUtc = createdAtUtc,
             UpdatedAtUtc = createdAtUtc
         };
+    }
+
+    public void ApplyModifiedAudit(Guid? modifiedBy) { ModifiedBy = modifiedBy; }
+    public void ApplyDetailsChanged(string suspectName, DateTime arrestedAt)
+    {
+        SuspectName  = suspectName;
+        ArrestedAt   = arrestedAt;
+        UpdatedAtUtc = DateTime.UtcNow;
     }
 
     public void ApplyStatusChange(string status) { Status = status; UpdatedAtUtc = DateTime.UtcNow; }

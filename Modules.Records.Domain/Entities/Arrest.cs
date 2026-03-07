@@ -83,6 +83,17 @@ namespace Modules.Records.Domain.Entities
 
         public void Finalize() => IsFinalized = true;
 
+        public void UpdateDetails(string suspectName, DateTime arrestedAt, IModificationContext context)
+        {
+            if (string.IsNullOrWhiteSpace(suspectName))
+                throw new DomainException("arrest.suspect.empty", "Suspect name cannot be empty.");
+
+            SuspectName = suspectName;
+            ArrestedAt  = arrestedAt;
+
+            AddDomainEvent(new ArrestDetailsUpdatedDomainEvent(Id, SuspectName, ArrestedAt));
+        }
+
         // -------------------------------------------------------
         // Soft delete overrides
         // -------------------------------------------------------

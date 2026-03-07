@@ -1,4 +1,4 @@
-﻿using Microsoft.Data.Sqlite;
+using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
 using Modules.Records.Application.Abstractions;
 using Modules.Records.Domain.Abstractions;
@@ -34,7 +34,7 @@ public class SoftDeleteTests
         var incidentAgencyId = Guid.NewGuid();
 
         UserModificationContext userModificationContext = new(Guid.NewGuid(), false, false, false);
-        var incident = new IncidentFactory().Create(incidentJurisdictionId, incidentAgencyId, "Test Incident");
+        var incident = new IncidentFactory().Create(new CreateIncidentRequest { JurisdictionId = incidentJurisdictionId, AgencyId = incidentAgencyId, Details = new Modules.Records.Domain.ValueObjects.IncidentDetails { IncidentNum = "INC-001", Description = "Test Incident", LocalNum = "" } });
 
         // Insert a record
         using (var context = new AppDbContext(_options, new FakeTenantProvider(), new FakeDomainEventDispatcher()))
@@ -93,3 +93,4 @@ public class SoftDeleteTests
             => Task.CompletedTask;
     }
 }
+

@@ -1,3 +1,4 @@
+using Modules.Records.Domain.ValueObjects;
 using Modules.Records.Domain.Common;
 using Modules.Records.Domain.Common.Implementations;
 using Modules.Records.Domain.Common.Policies;
@@ -27,7 +28,7 @@ public sealed class ArrestsMustBeClosedInvariantTests
     }
 
     private static IncidentCloseContext ContextWith(params Arrest[] arrests) =>
-        new(new IncidentFactory().Create(Guid.NewGuid(), Guid.NewGuid(), "Test"), arrests, []);
+        new(new IncidentFactory().Create(new CreateIncidentRequest { JurisdictionId = Guid.NewGuid(), AgencyId = Guid.NewGuid(), Details = new IncidentDetails { IncidentNum = "INC-001", Description = "Test", LocalNum = "" } }), arrests, []);
 
     [Fact]
     public void Check_NoArrests_ReturnsValid()
@@ -74,3 +75,6 @@ public sealed class ArrestsMustBeClosedInvariantTests
         Assert.Contains("1 arrest(s)", result.Violations[0].Reason);
     }
 }
+
+
+

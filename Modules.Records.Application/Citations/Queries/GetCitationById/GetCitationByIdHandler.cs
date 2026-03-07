@@ -33,6 +33,8 @@ public sealed class GetCitationByIdHandler : IRequestHandler<GetCitationByIdQuer
             rm.IsIssued,
             rm.IsLocked,
             rm.LockedByUserId,
+            rm.CreatedBy,
+            rm.ModifiedBy,
             rm.CreatedAtUtc,
             rm.UpdatedAtUtc);
     }

@@ -34,6 +34,8 @@ public sealed class GetArrestsByIncidentHandler
             rm.Status,
             rm.IsLocked,
             rm.LockedByUserId,
+            rm.CreatedBy,
+            rm.ModifiedBy,
             rm.CreatedAtUtc,
             rm.UpdatedAtUtc)).ToList();
     }

@@ -1,4 +1,4 @@
-﻿using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore;
 using Modules.Records.Domain.Entities;
 using Infrastructure.IntegrationTests.TestInfrastructure;
 using System;
@@ -25,7 +25,12 @@ public class RowVersionConcurrencyTests
         // Seed
         using (var context = factory.CreateContext())
         {
-            var incident = new IncidentFactory().Create(tenantId, agencyId, "Original");
+            var incident = new IncidentFactory().Create(new CreateIncidentRequest
+            {
+                JurisdictionId = tenantId,
+                AgencyId       = agencyId,
+                Details        = new Modules.Records.Domain.ValueObjects.IncidentDetails { IncidentNum = "INC-001", Description = "Original", LocalNum = "" },
+            });
             context.Incidents.Add(incident);
             await context.SaveChangesAsync();
             incidentId = incident.Id;
@@ -37,17 +42,18 @@ public class RowVersionConcurrencyTests
         var incidentA = await contextA.Incidents.FirstAsync(x => x.Id == incidentId);
         var incidentB = await contextB.Incidents.FirstAsync(x => x.Id == incidentId);
 
-        incidentA.UpdateDescription("Updated A", userModificationContext);
+        incidentA.UpdateDetails(new Modules.Records.Domain.ValueObjects.IncidentDetails { IncidentNum = "INC-001", Description = "Updated A", LocalNum = "" }, userModificationContext);
         await contextA.SaveChangesAsync();
 
         var fresh = await contextA.Incidents
             .AsNoTracking()
             .FirstAsync(x => x.Id == incidentId);
 
-        incidentB.UpdateDescription("Updated B", userModificationContext);
+        incidentB.UpdateDetails(new Modules.Records.Domain.ValueObjects.IncidentDetails { IncidentNum = "INC-001", Description = "Updated B", LocalNum = "" }, userModificationContext);
 
         await Assert.ThrowsAsync<DbUpdateConcurrencyException>(() =>
             contextB.SaveChangesAsync());
     }
 
 }
+

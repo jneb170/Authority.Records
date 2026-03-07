@@ -1,4 +1,5 @@
 using Modules.Records.Application.DTOs;
+using Modules.Records.Domain.ValueObjects;
 
 namespace Modules.Records.UI.Services;
 
@@ -6,11 +7,11 @@ public interface IIncidentService
 {
     Task<IReadOnlyList<IncidentDto>> GetByJurisdictionAsync();
     Task<IncidentDto?> GetByIdAsync(Guid id);
-    Task<Guid> CreateAsync(string description);
+    Task<Guid> CreateAsync(IncidentDetails details);
     Task OpenAsync(Guid id);
     Task CloseAsync(Guid id);
     Task ArchiveAsync(Guid id);
-    Task UpdateDescriptionAsync(Guid id, string description);
+    Task UpdateDetailsAsync(Guid id, IncidentDetails details);
     Task AcquireLockAsync(Guid id);
     Task ReleaseLockAsync(Guid id);
     Task SoftDeleteAsync(Guid id);

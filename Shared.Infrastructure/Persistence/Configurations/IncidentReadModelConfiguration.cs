@@ -13,6 +13,8 @@ public sealed class IncidentReadModelConfiguration : IEntityTypeConfiguration<In
         builder.HasKey(x => x.Id);
 
         builder.Property(x => x.Description).IsRequired();
+        builder.Property(x => x.CFSNum).HasMaxLength(30).IsRequired().HasDefaultValue(string.Empty);
+        builder.Property(x => x.LocalNum).HasMaxLength(30).IsRequired().HasDefaultValue(string.Empty);
         builder.Property(x => x.Status).IsRequired().HasMaxLength(50);
 
         builder.HasIndex(x => x.JurisdictionId);

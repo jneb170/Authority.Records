@@ -10,8 +10,20 @@ public sealed class IncidentConfiguration : IEntityTypeConfiguration<Incident>
     {
         builder.HasKey(x => x.Id);
 
+        builder.Property(x => x.CFSNum)
+               .HasMaxLength(30)
+               .IsRequired()
+               .HasDefaultValue(string.Empty);
+
+        builder.Property(x => x.LocalNum)
+               .HasMaxLength(30)
+               .HasDefaultValue(string.Empty);
+
         builder.Property(x => x.RowVersion)
                .IsConcurrencyToken()
                .ValueGeneratedNever();
+
+        // Details is a computed [NotMapped] property — EF must not try to map it
+        builder.Ignore(x => x.Details);
     }
 }

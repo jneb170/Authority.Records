@@ -33,6 +33,8 @@ public sealed class GetArrestByIdHandler : IRequestHandler<GetArrestByIdQuery, A
             rm.Status,
             rm.IsLocked,
             rm.LockedByUserId,
+            rm.CreatedBy,
+            rm.ModifiedBy,
             rm.CreatedAtUtc,
             rm.UpdatedAtUtc);
     }

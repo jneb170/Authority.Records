@@ -14,6 +14,7 @@ public sealed class IncidentProjectionHandler :
     INotificationHandler<IncidentArchivedDomainEvent>,
     INotificationHandler<IncidentSoftDeletedDomainEvent>,
     INotificationHandler<IncidentRestoredDomainEvent>,
+    INotificationHandler<IncidentDetailsUpdatedDomainEvent>,
     INotificationHandler<LockAcquiredDomainEvent<Incident>>,
     INotificationHandler<LockReleasedDomainEvent<Incident>>
 {
@@ -42,11 +43,29 @@ public sealed class IncidentProjectionHandler :
             id: incident.Id,
             jurisdictionId: incident.JurisdictionId,
             agencyId: incident.AgencyId,
-            description: incident.Description,
+            details: incident.Details,
             status: incident.Status,
-            createdAtUtc: notification.OccurredOnUtc);
+            createdAtUtc: notification.OccurredOnUtc,
+            createdBy: incident.CreatedBy);
 
         _dbContext.IncidentReadModels.Add(readModel);
+        await _dbContext.SaveChangesAsync(cancellationToken);
+    }
+
+    public async Task Handle(IncidentDetailsUpdatedDomainEvent notification, CancellationToken cancellationToken)
+    {
+        var readModel = await _dbContext.IncidentReadModels
+            .FirstOrDefaultAsync(i => i.Id == notification.IncidentId, cancellationToken);
+
+        if (readModel is null)
+            return;
+
+        var incident = await _dbContext.Incidents
+            .AsNoTracking()
+            .FirstOrDefaultAsync(i => i.Id == notification.IncidentId, cancellationToken);
+
+        readModel.ApplyDetailsChanged(notification.Details);
+        readModel.ApplyModifiedAudit(incident?.ModifiedBy);
         await _dbContext.SaveChangesAsync(cancellationToken);
     }
 

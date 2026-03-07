@@ -24,10 +24,12 @@ public sealed class CreateIncidentHandler : IRequestHandler<CreateIncidentComman
 
     public async Task<Guid> Handle(CreateIncidentCommand request, CancellationToken cancellationToken)
     {
-        var incident = _factory.Create(
-            _tenantProvider.GetJurisdictionId(),
-            request.AgencyId,
-            request.Description);
+        var incident = _factory.Create(new CreateIncidentRequest
+        {
+            JurisdictionId = _tenantProvider.GetJurisdictionId(),
+            AgencyId       = request.AgencyId,
+            Details        = request.Details,
+        });
 
         _dbContext.Incidents.Add(incident);
         await _dbContext.SaveChangesAsync(cancellationToken);

@@ -10,5 +10,7 @@ public sealed record CitationDto(
     bool IsIssued,
     bool IsLocked,
     Guid? LockedByUserId,
+    Guid CreatedBy,
+    Guid? ModifiedBy,
     DateTime CreatedAtUtc,
     DateTime UpdatedAtUtc);

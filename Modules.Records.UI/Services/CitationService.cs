@@ -5,6 +5,7 @@ using Modules.Records.Application.Citations.Commands.IssueCitation;
 using Modules.Records.Application.Citations.Commands.ReleaseCitationLock;
 using Modules.Records.Application.Citations.Commands.RestoreCitation;
 using Modules.Records.Application.Citations.Commands.SoftDeleteCitation;
+using Modules.Records.Application.Citations.Commands.UpdateCitationDetails;
 using Modules.Records.Application.Citations.Queries.GetCitationById;
 using Modules.Records.Application.Citations.Queries.GetCitationsByIncident;
 using Modules.Records.Application.DTOs;
@@ -31,6 +32,9 @@ public sealed class CitationService : ICitationService
 
     public Task IssueAsync(Guid id) =>
         _sender.Send(new IssueCitationCommand(id));
+
+    public Task UpdateDetailsAsync(Guid id, string description, DateTime issueDate) =>
+        _sender.Send(new UpdateCitationDetailsCommand(id, description, issueDate));
 
     public Task AcquireLockAsync(Guid id) =>
         _sender.Send(new AcquireCitationLockCommand(id));
