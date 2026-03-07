@@ -1,0 +1,29 @@
+@* Reusable audit info section — drop at the bottom of any record detail page *@
+<div class="mt-4 pt-3 border-top text-muted small">
+    <div>
+        <span>Created</span>
+        <strong>@CreatedAt.ToLocalTime().ToString("g")</strong>
+        @if (!string.IsNullOrWhiteSpace(CreatedByName))
+        {
+            <span> by <strong>@CreatedByName</strong></span>
+        }
+    </div>
+    @if (ModifiedAt.HasValue)
+    {
+        <div class="mt-1">
+            <span>Last modified</span>
+            <strong>@ModifiedAt.Value.ToLocalTime().ToString("g")</strong>
+            @if (!string.IsNullOrWhiteSpace(ModifiedByName))
+            {
+                <span> by <strong>@ModifiedByName</strong></span>
+            }
+        </div>
+    }
+</div>
+
+@code {
+    [Parameter, EditorRequired] public DateTime CreatedAt { get; set; }
+    [Parameter] public string? CreatedByName { get; set; }
+    [Parameter] public DateTime? ModifiedAt { get; set; }
+    [Parameter] public string? ModifiedByName { get; set; }
+}

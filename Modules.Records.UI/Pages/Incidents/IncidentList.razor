@@ -22,7 +22,7 @@ else if (_incidents is not null)
     <table class="table table-hover">
         <thead>
             <tr>
-                <th>Description</th>
+                <th>Incident</th>
                 <th>Status</th>
                 <th>Arrests</th>
                 <th>Lock</th>
@@ -34,7 +34,7 @@ else if (_incidents is not null)
             @foreach (var i in _incidents)
             {
                 <tr>
-                    <td>@i.Description</td>
+                    <td>@i.Details.IncidentNum</td>
                     <td><StatusBadge Status="@i.Status" /></td>
                     <td>@i.ArrestCount</td>
                     <td><LockBadge IsLocked="@i.IsLocked" LockedByUserId="@i.LockedByUserId" /></td>

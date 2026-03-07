@@ -30,7 +30,7 @@ namespace Modules.Records.Domain.Entities.Tests
         }
 
         [TestMethod()]
-        public void UpdateDescriptionTest()
+        public void UpdateDetailsTest()
         {
             Assert.Fail();
         }

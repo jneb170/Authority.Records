@@ -1,3 +1,4 @@
+using Modules.Records.Domain.ValueObjects;
 using Modules.Records.Domain.Abstractions;
 using Modules.Records.Domain.Common.Implementations;
 using Modules.Records.Domain.Common.Policies;
@@ -36,7 +37,7 @@ public sealed class IncidentCanBeClosedInvariantTests
     }
 
     private static IncidentCloseContext EmptyContext() =>
-        new(new IncidentFactory().Create(Guid.NewGuid(), Guid.NewGuid(), "Test"), [], []);
+        new(new IncidentFactory().Create(new CreateIncidentRequest { JurisdictionId = Guid.NewGuid(), AgencyId = Guid.NewGuid(), Details = new IncidentDetails { IncidentNum = "INC-001", Description = "Test", LocalNum = "" } }), [], []);
 
     [Fact]
     public void Check_NoChildRecords_ReturnsValid()
@@ -52,7 +53,7 @@ public sealed class IncidentCanBeClosedInvariantTests
         var arrest = MakeFinalizedClosedArrest();
         var citation = MakeIssuedCitation();
         var context = new IncidentCloseContext(
-            new IncidentFactory().Create(Guid.NewGuid(), Guid.NewGuid(), "Test"),
+            new IncidentFactory().Create(new CreateIncidentRequest { JurisdictionId = Guid.NewGuid(), AgencyId = Guid.NewGuid(), Details = new IncidentDetails { IncidentNum = "INC-001", Description = "Test", LocalNum = "" } }),
             [arrest], [citation]);
 
         var result = MakeSut(mustCloseArrests: true).Check(context);
@@ -65,7 +66,7 @@ public sealed class IncidentCanBeClosedInvariantTests
     {
         var arrest = MakeArrest(); // not finalized
         var context = new IncidentCloseContext(
-            new IncidentFactory().Create(Guid.NewGuid(), Guid.NewGuid(), "Test"),
+            new IncidentFactory().Create(new CreateIncidentRequest { JurisdictionId = Guid.NewGuid(), AgencyId = Guid.NewGuid(), Details = new IncidentDetails { IncidentNum = "INC-001", Description = "Test", LocalNum = "" } }),
             [arrest], []);
 
         var result = MakeSut(mustCloseArrests: false).Check(context);
@@ -79,7 +80,7 @@ public sealed class IncidentCanBeClosedInvariantTests
     {
         var citation = new Citation(Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), "Test", DateTime.UtcNow.AddDays(-1)); // not issued
         var context = new IncidentCloseContext(
-            new IncidentFactory().Create(Guid.NewGuid(), Guid.NewGuid(), "Test"),
+            new IncidentFactory().Create(new CreateIncidentRequest { JurisdictionId = Guid.NewGuid(), AgencyId = Guid.NewGuid(), Details = new IncidentDetails { IncidentNum = "INC-001", Description = "Test", LocalNum = "" } }),
             [], [citation]);
 
         var result = MakeSut(mustCloseArrests: false).Check(context);
@@ -93,7 +94,7 @@ public sealed class IncidentCanBeClosedInvariantTests
     {
         var arrest = MakeArrest(); // Draft — not closed and not finalized
         var context = new IncidentCloseContext(
-            new IncidentFactory().Create(Guid.NewGuid(), Guid.NewGuid(), "Test"),
+            new IncidentFactory().Create(new CreateIncidentRequest { JurisdictionId = Guid.NewGuid(), AgencyId = Guid.NewGuid(), Details = new IncidentDetails { IncidentNum = "INC-001", Description = "Test", LocalNum = "" } }),
             [arrest], []);
 
         var result = MakeSut(mustCloseArrests: true).Check(context);
@@ -111,7 +112,7 @@ public sealed class IncidentCanBeClosedInvariantTests
         var arrest = MakeArrest();
         arrest.Finalize();
         var context = new IncidentCloseContext(
-            new IncidentFactory().Create(Guid.NewGuid(), Guid.NewGuid(), "Test"),
+            new IncidentFactory().Create(new CreateIncidentRequest { JurisdictionId = Guid.NewGuid(), AgencyId = Guid.NewGuid(), Details = new IncidentDetails { IncidentNum = "INC-001", Description = "Test", LocalNum = "" } }),
             [arrest], []);
 
         var result = MakeSut(mustCloseArrests: false).Check(context);
@@ -125,7 +126,7 @@ public sealed class IncidentCanBeClosedInvariantTests
         var arrest = MakeArrest();       // not finalized
         var citation = new Citation(Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), "Speeding", DateTime.UtcNow.AddDays(-1)); // not issued
         var context = new IncidentCloseContext(
-            new IncidentFactory().Create(Guid.NewGuid(), Guid.NewGuid(), "Test"),
+            new IncidentFactory().Create(new CreateIncidentRequest { JurisdictionId = Guid.NewGuid(), AgencyId = Guid.NewGuid(), Details = new IncidentDetails { IncidentNum = "INC-001", Description = "Test", LocalNum = "" } }),
             [arrest], [citation]);
 
         var result = MakeSut(mustCloseArrests: false).Check(context);
@@ -146,5 +147,8 @@ public sealed class IncidentCanBeClosedInvariantTests
         public bool MustCloseAllCitations(Guid jurisdictionId) => false;
     }
 }
+
+
+
 
 

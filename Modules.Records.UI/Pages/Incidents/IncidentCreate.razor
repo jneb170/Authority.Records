@@ -1,6 +1,7 @@
 @page "/incidents/create"
 @inject IIncidentService IncidentService
 @inject NavigationManager Nav
+@using IncidentDetailsVo = Modules.Records.Domain.ValueObjects.IncidentDetails
 
 <PageTitle>New Incident</PageTitle>
 
@@ -14,9 +15,24 @@
 <EditForm Model="_vm" OnValidSubmit="SubmitAsync">
     <DataAnnotationsValidator />
     <div class="mb-3">
+        <label class="form-label">Incident Number</label>
+        <InputText class="form-control" @bind-Value="_vm.IncidentNum" />
+        <ValidationMessage For="() => _vm.IncidentNum" />
+    </div>
+    <div class="mb-3">
         <label class="form-label">Description</label>
         <InputTextArea class="form-control" @bind-Value="_vm.Description" rows="3" />
         <ValidationMessage For="() => _vm.Description" />
+    </div>
+    <div class="mb-3">
+        <label class="form-label">CFS Number <span class="text-muted">(optional, max 30 chars)</span></label>
+        <InputText class="form-control" @bind-Value="_vm.CFSNum" maxlength="30" />
+        <ValidationMessage For="() => _vm.CFSNum" />
+    </div>
+    <div class="mb-3">
+        <label class="form-label">Local Number <span class="text-muted">(optional)</span></label>
+        <InputText class="form-control" @bind-Value="_vm.LocalNum" />
+        <ValidationMessage For="() => _vm.LocalNum" />
     </div>
     <button type="submit" class="btn btn-primary" disabled="@_submitting">
         @(_submitting ? "Creating…" : "Create Incident")
@@ -35,8 +51,14 @@
 
         try
         {
-            var id = await IncidentService.CreateAsync(_vm.Description);
-            Nav.NavigateTo($"/incidents/{id}");
+            var id = await IncidentService.CreateAsync(new IncidentDetailsVo
+            {
+                IncidentNum = _vm.IncidentNum,
+                Description = _vm.Description,
+                CFSNum      = _vm.CFSNum,
+                LocalNum    = _vm.LocalNum
+            });
+            Nav.NavigateTo($"/incidents/{id}?autoModify=true");
         }
         catch (Exception ex)
         {

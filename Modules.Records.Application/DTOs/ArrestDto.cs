@@ -10,5 +10,7 @@ public sealed record ArrestDto(
     string Status,
     bool IsLocked,
     Guid? LockedByUserId,
+    Guid CreatedBy,
+    Guid? ModifiedBy,
     DateTime CreatedAtUtc,
     DateTime UpdatedAtUtc);

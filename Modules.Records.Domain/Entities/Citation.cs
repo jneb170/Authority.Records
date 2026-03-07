@@ -47,6 +47,14 @@ namespace Modules.Records.Domain.Entities
 
         public void Issue() => IsIssued = true;
 
+        public void UpdateDetails(string description, DateTime issueDate, IModificationContext context)
+        {
+            Description = description;
+            IssueDate   = issueDate;
+
+            AddDomainEvent(new CitationDetailsUpdatedDomainEvent(Id, Description, IssueDate));
+        }
+
         // -------------------------------------------------------
         // Soft delete overrides
         // -------------------------------------------------------

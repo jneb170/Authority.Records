@@ -14,6 +14,7 @@ using System.Collections.Generic;
 using System.Linq.Expressions;
 using System.Reflection;
 using System.Reflection.Emit;
+using System.Text.Json;
 
 namespace Shared.Infrastructure.Persistence;
 
@@ -101,11 +102,29 @@ public class AppDbContext : DbContext, IApplicationDbContext
             .OfType<IDomainEvent>()
             .ToList();
 
-        var tenantId = CurrentTenantId; //DbContext property bound to ITenantProvider
 
-        foreach (var domainEvent in domainEvents)
+        //TODO: Find a better way to differentiate between Non-Tenant and Tenant services
+        // Only call CurrentTenantId when there are domain events to write.
+        // Background services (e.g. LockCleanupService) may call SaveChangesAsync
+        // without an HTTP context — those saves carry no domain events and must not
+        // attempt to resolve the tenant from the request pipeline.
+        if (domainEvents.Count > 0)
         {
-            OutboxMessages.Add(new OutboxMessage(domainEvent, tenantId));
+            var tenantId = CurrentTenantId;
+
+            foreach (var domainEvent in domainEvents)
+            {
+                OutboxMessages.Add(new OutboxMessage(domainEvent, tenantId));
+
+                AuditTrailEntries.Add(AuditTrailEntry.Create(
+                    eventId:          domainEvent.EventId,
+                    eventType:        domainEvent.GetType().Name,
+                    occurredOnUtc:    domainEvent.OccurredOnUtc,
+                    jurisdictionId:   tenantId,
+                    aggregateId:      domainEvent.AggregateId,
+                    aggregateVersion: domainEvent.AggregateVersion,
+                    payload:          JsonSerializer.Serialize(domainEvent, domainEvent.GetType())));
+            }
         }
 
         // EF Core handles the transaction automatically for SaveChangesAsync

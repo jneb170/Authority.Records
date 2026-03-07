@@ -34,6 +34,8 @@ public sealed class GetCitationsByIncidentHandler
             rm.IsIssued,
             rm.IsLocked,
             rm.LockedByUserId,
+            rm.CreatedBy,
+            rm.ModifiedBy,
             rm.CreatedAtUtc,
             rm.UpdatedAtUtc)).ToList();
     }

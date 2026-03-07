@@ -9,6 +9,7 @@ namespace Modules.Records.Application.Citations.DomainEventHandlers;
 
 public sealed class CitationProjectionHandler :
     INotificationHandler<CitationCreatedDomainEvent>,
+    INotificationHandler<CitationDetailsUpdatedDomainEvent>,
     INotificationHandler<LockAcquiredDomainEvent<Citation>>,
     INotificationHandler<LockReleasedDomainEvent<Citation>>
 {
@@ -27,6 +28,10 @@ public sealed class CitationProjectionHandler :
         if (exists)
             return;
 
+        var citation = await _dbContext.Citations
+            .AsNoTracking()
+            .FirstOrDefaultAsync(c => c.Id == notification.CitationId, cancellationToken);
+
         var readModel = CitationReadModel.Create(
             id: notification.CitationId,
             jurisdictionId: notification.JurisdictionId,
@@ -34,9 +39,27 @@ public sealed class CitationProjectionHandler :
             incidentId: notification.IncidentId,
             description: notification.Description,
             issueDate: notification.IssueDate,
-            createdAtUtc: notification.OccurredOnUtc);
+            createdAtUtc: notification.OccurredOnUtc,
+            createdBy: citation?.CreatedBy ?? Guid.Empty);
 
         _dbContext.CitationReadModels.Add(readModel);
+        await _dbContext.SaveChangesAsync(cancellationToken);
+    }
+
+    public async Task Handle(CitationDetailsUpdatedDomainEvent notification, CancellationToken cancellationToken)
+    {
+        var readModel = await _dbContext.CitationReadModels
+            .FirstOrDefaultAsync(c => c.Id == notification.CitationId, cancellationToken);
+
+        if (readModel is null)
+            return;
+
+        var citation = await _dbContext.Citations
+            .AsNoTracking()
+            .FirstOrDefaultAsync(c => c.Id == notification.CitationId, cancellationToken);
+
+        readModel.ApplyDetailsChanged(notification.Description, notification.IssueDate);
+        readModel.ApplyModifiedAudit(citation?.ModifiedBy);
         await _dbContext.SaveChangesAsync(cancellationToken);
     }
 

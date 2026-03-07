@@ -19,22 +19,12 @@ public sealed class GetIncidentsByJurisdictionHandler
         GetIncidentsByJurisdictionQuery request,
         CancellationToken cancellationToken)
     {
-        return await _dbContext.IncidentReadModels
+        var items = await _dbContext.IncidentReadModels
             .AsNoTracking()
             .Where(i => i.JurisdictionId == request.JurisdictionId && !i.IsDeleted)
             .OrderByDescending(i => i.UpdatedAtUtc)
-            .Select(rm => new IncidentDto(
-                rm.Id,
-                rm.JurisdictionId,
-                rm.AgencyId,
-                rm.Description,
-                rm.Status,
-                rm.IsDeleted,
-                rm.IsLocked,
-                rm.LockedByUserId,
-                rm.ArrestCount,
-                rm.CreatedAtUtc,
-                rm.UpdatedAtUtc))
             .ToListAsync(cancellationToken);
+
+        return items.Select(rm => rm.ToDto()).ToList();
     }
 }

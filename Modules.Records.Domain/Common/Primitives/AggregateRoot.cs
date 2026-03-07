@@ -10,6 +10,27 @@ public abstract class AggregateRoot : Entity
 
     public long Version { get; private set; }
 
+    // Audit fields — set automatically by AuditInterceptor; never set directly by domain code.
+    public DateTime CreatedAt    { get; private set; }
+    public Guid     CreatedBy    { get; private set; }
+    public DateTime? ModifiedAt  { get; private set; }
+    public Guid?    ModifiedBy   { get; private set; }
+
+    // Called by AuditInterceptor only.
+    internal void SetCreatedAudit(Guid userId, DateTime utcNow)
+    {
+        CreatedAt  = utcNow;
+        CreatedBy  = userId;
+        ModifiedAt = utcNow;
+        ModifiedBy = userId;
+    }
+
+    internal void SetModifiedAudit(Guid userId, DateTime utcNow)
+    {
+        ModifiedAt = utcNow;
+        ModifiedBy = userId;
+    }
+
     protected void AddDomainEvent(IDomainEvent @event)
     {
         Version++;

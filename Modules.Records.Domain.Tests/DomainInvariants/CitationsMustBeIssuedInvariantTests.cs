@@ -1,3 +1,4 @@
+using Modules.Records.Domain.ValueObjects;
 using Modules.Records.Domain.DomainInvariants.IncidentClose;
 using Modules.Records.Domain.Entities;
 using Modules.Records.Domain.Factories;
@@ -12,7 +13,7 @@ public sealed class CitationsMustBeIssuedInvariantTests
         new Citation(Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), "Speeding", DateTime.UtcNow.AddDays(-1));
 
     private static IncidentCloseContext ContextWith(params Citation[] citations) =>
-        new(new IncidentFactory().Create(Guid.NewGuid(), Guid.NewGuid(), "Test"), [], citations);
+        new(new IncidentFactory().Create(new CreateIncidentRequest { JurisdictionId = Guid.NewGuid(), AgencyId = Guid.NewGuid(), Details = new IncidentDetails { IncidentNum = "INC-001", Description = "Test", LocalNum = "" } }), [], citations);
 
     [Fact]
     public void Check_NoCitations_ReturnsValid()
@@ -58,5 +59,8 @@ public sealed class CitationsMustBeIssuedInvariantTests
         Assert.Contains("1 citation(s)", result.Violations[0].Reason);
     }
 }
+
+
+
 
 
