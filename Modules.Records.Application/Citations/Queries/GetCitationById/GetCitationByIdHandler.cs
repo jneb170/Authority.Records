@@ -23,19 +23,6 @@ public sealed class GetCitationByIdHandler : IRequestHandler<GetCitationByIdQuer
         if (rm is null)
             return null;
 
-        return new CitationDto(
-            rm.Id,
-            rm.JurisdictionId,
-            rm.AgencyId,
-            rm.IncidentId,
-            rm.Description,
-            rm.IssueDate,
-            rm.IsIssued,
-            rm.IsLocked,
-            rm.LockedByUserId,
-            rm.CreatedBy,
-            rm.ModifiedBy,
-            rm.CreatedAtUtc,
-            rm.UpdatedAtUtc);
+        return rm.ToDto();
     }
 }

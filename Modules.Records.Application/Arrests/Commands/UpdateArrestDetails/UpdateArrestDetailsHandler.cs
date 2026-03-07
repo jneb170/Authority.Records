@@ -30,7 +30,7 @@ public sealed class UpdateArrestDetailsHandler : IRequestHandler<UpdateArrestDet
                 cancellationToken)
             ?? throw new InvalidOperationException("Arrest not found.");
 
-        arrest.UpdateDetails(request.SuspectName, request.ArrestedAt, _modificationContext);
+        arrest.UpdateDetails(request.SuspectName, request.ArrestedAt, request.ArrestTypeId, request.ArrestNum, _modificationContext);
 
         await _dbContext.SaveChangesAsync(cancellationToken);
     }

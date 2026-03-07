@@ -7,11 +7,7 @@ public sealed class CreateArrestCommandValidator : AbstractValidator<CreateArres
 {
     public CreateArrestCommandValidator()
     {
-        RuleFor(x => x.IncidentId)
-            .NotEmpty().WithMessage("IncidentId is required.");
-
         RuleFor(x => x.SuspectName)
-            .NotEmpty().WithMessage("Suspect name is required.")
             .MaximumLength(250).WithMessage("Suspect name must not exceed 250 characters.");
 
         RuleFor(x => x.ArrestedAt)

@@ -7,6 +7,24 @@
     <NavLink class="nav-link px-2 py-1" href="incidents">
         📋 Incidents
     </NavLink>
+    <NavLink class="nav-link px-2 py-1" href="arrests">
+        🚨 Arrests
+    </NavLink>
+    <NavLink class="nav-link px-2 py-1" href="citations">
+        📄 Citations
+    </NavLink>
+
+    <AuthorizeView Roles="Admin,Supervisor">
+        <div class="mt-3 mb-1 px-2">
+            <small class="text-secondary text-uppercase fw-semibold" style="font-size:0.7rem;">Admin</small>
+        </div>
+        <NavLink class="nav-link px-2 py-1" href="admin/configurations">
+            ⚙️ Configurations
+        </NavLink>
+        <NavLink class="nav-link px-2 py-1" href="admin/picklists">
+            🗂 Picklist Items
+        </NavLink>
+    </AuthorizeView>
 
     <div class="mt-auto pt-3 border-top border-secondary">
         <a href="/account/logout" class="nav-link px-2 py-1">

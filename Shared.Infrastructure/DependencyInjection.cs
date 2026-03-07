@@ -21,6 +21,7 @@ using Shared.Infrastructure.Jurisdiction;
 using Shared.Infrastructure.Locks;
 using Shared.Infrastructure.Outbox;
 using Shared.Infrastructure.Arrests;
+using Shared.Infrastructure.Citations;
 using Shared.Infrastructure.Persistence;
 using System;
 
@@ -179,12 +180,11 @@ public static class DependencyInjection
                 options.Password.RequireDigit = true;
                 options.Password.RequiredLength = 8;
             })
+            .AddRoles<IdentityRole>()
             .AddEntityFrameworkStores<AuthDbContext>()
             .AddSignInManager()
             .AddDefaultTokenProviders()
             .AddClaimsPrincipalFactory<RecordsUserClaimsPrincipalFactory>();
-
-        services.AddScoped<IUserClaimsPrincipalFactory<ApplicationUser>, RecordsUserClaimsPrincipalFactory>();
 
         services.AddAuthentication(options =>
             {
@@ -218,6 +218,7 @@ public static class DependencyInjection
         // Arrest Repository
         // -------------------------------------------------------
         services.AddScoped<IArrestRepository, EfArrestRepository>();
+        services.AddScoped<ICitationRepository, EfCitationRepository>();
 
         // -------------------------------------------------------
         // Domain Services

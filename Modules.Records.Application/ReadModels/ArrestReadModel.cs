@@ -1,3 +1,4 @@
+using Modules.Records.Application.DTOs;
 using Modules.Records.Domain.Common;
 
 namespace Modules.Records.Application.ReadModels;
@@ -5,9 +6,9 @@ namespace Modules.Records.Application.ReadModels;
 public sealed class ArrestReadModel
 {
     public Guid Id { get; private set; }
+    public long RecordNumber { get; private set; }
     public Guid JurisdictionId { get; private set; }
     public Guid AgencyId { get; private set; }
-    public Guid IncidentId { get; private set; }
     public string SuspectName { get; private set; } = string.Empty;
     public DateTime ArrestedAt { get; private set; }
     public string Status { get; private set; } = string.Empty;
@@ -17,25 +18,28 @@ public sealed class ArrestReadModel
     public Guid?  ModifiedBy    { get; private set; }
     public DateTime CreatedAtUtc { get; private set; }
     public DateTime UpdatedAtUtc { get; private set; }
+    public Guid? ArrestTypeId { get; private set; }
+    public string ArrestNum { get; private set; } = string.Empty;
 
     private ArrestReadModel() { } // EF
 
     public static ArrestReadModel Create(
         Guid id,
+        long recordNumber,
         Guid jurisdictionId,
         Guid agencyId,
-        Guid incidentId,
         string suspectName,
         DateTime arrestedAt,
         DateTime createdAtUtc,
-        Guid createdBy)
+        Guid createdBy,
+        string arrestNum = "")
     {
         return new ArrestReadModel
         {
             Id = id,
+            RecordNumber = recordNumber,
             JurisdictionId = jurisdictionId,
             AgencyId = agencyId,
-            IncidentId = incidentId,
             SuspectName = suspectName,
             ArrestedAt = arrestedAt,
             Status = RecordStatus.Draft.ToString(),
@@ -44,15 +48,24 @@ public sealed class ArrestReadModel
             CreatedBy = createdBy,
             ModifiedBy = null,
             CreatedAtUtc = createdAtUtc,
-            UpdatedAtUtc = createdAtUtc
+            UpdatedAtUtc = createdAtUtc,
+            ArrestNum = arrestNum
         };
     }
 
     public void ApplyModifiedAudit(Guid? modifiedBy) { ModifiedBy = modifiedBy; }
-    public void ApplyDetailsChanged(string suspectName, DateTime arrestedAt)
+
+    public ArrestDto ToDto() => new(
+        Id, RecordNumber, JurisdictionId, AgencyId,
+        SuspectName, ArrestedAt, Status, IsLocked, LockedByUserId,
+        CreatedBy, ModifiedBy, CreatedAtUtc, UpdatedAtUtc, ArrestTypeId, ArrestNum);
+
+    public void ApplyDetailsChanged(string suspectName, DateTime arrestedAt, Guid? arrestTypeId, string arrestNum)
     {
         SuspectName  = suspectName;
         ArrestedAt   = arrestedAt;
+        ArrestTypeId = arrestTypeId;
+        ArrestNum    = arrestNum;
         UpdatedAtUtc = DateTime.UtcNow;
     }
 

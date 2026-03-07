@@ -32,7 +32,6 @@ public sealed class CloseIncidentHandler : IRequestHandler<CloseIncidentCommand>
     public async Task Handle(CloseIncidentCommand request, CancellationToken cancellationToken)
     {
         var incident = await _dbContext.Incidents
-            .Include(i => i.Citations)
             .FirstOrDefaultAsync(i =>
                 i.Id == request.IncidentId &&
                 i.JurisdictionId == _tenantProvider.GetJurisdictionId(),

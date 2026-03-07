@@ -2,9 +2,9 @@ namespace Modules.Records.Application.DTOs;
 
 public sealed record ArrestDto(
     Guid Id,
+    long RecordNumber,
     Guid JurisdictionId,
     Guid AgencyId,
-    Guid IncidentId,
     string SuspectName,
     DateTime ArrestedAt,
     string Status,
@@ -13,4 +13,6 @@ public sealed record ArrestDto(
     Guid CreatedBy,
     Guid? ModifiedBy,
     DateTime CreatedAtUtc,
-    DateTime UpdatedAtUtc);
+    DateTime UpdatedAtUtc,
+    Guid? ArrestTypeId = null,
+    string ArrestNum = "");

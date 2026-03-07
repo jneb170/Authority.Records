@@ -5,6 +5,7 @@ using Modules.Records.Application.Abstractions;
 using Modules.Records.Application.ReadModels;
 using Modules.Records.Domain.Abstractions;
 using Modules.Records.Domain.Common;
+using Modules.Records.Domain.Common.Implementations;
 using Modules.Records.Domain.Common.Primitives;
 using Modules.Records.Domain.DomainEvents;
 using Modules.Records.Domain.Entities;
@@ -33,13 +34,25 @@ public class AppDbContext : DbContext, IApplicationDbContext
     public DbSet<IncidentReadModel> IncidentReadModels => Set<IncidentReadModel>();
     public DbSet<ArrestReadModel> ArrestReadModels => Set<ArrestReadModel>();
     public DbSet<CitationReadModel> CitationReadModels => Set<CitationReadModel>();
+    public DbSet<IncidentArrestLinkReadModel> IncidentArrestLinkReadModels => Set<IncidentArrestLinkReadModel>();
+    public DbSet<IncidentCitationLinkReadModel> IncidentCitationLinkReadModels => Set<IncidentCitationLinkReadModel>();
 
     // Records module
     public DbSet<Incident> Incidents => Set<Incident>();
     public DbSet<Arrest> Arrests => Set<Arrest>();
     public DbSet<Citation> Citations => Set<Citation>();
+    public DbSet<IncidentArrestLink> IncidentArrestLinks => Set<IncidentArrestLink>();
+    public DbSet<IncidentCitationLink> IncidentCitationLinks => Set<IncidentCitationLink>();
 
     public DbSet<JurisdictionConfiguration> JurisdictionConfigurations => Set<JurisdictionConfiguration>();
+    public DbSet<AgencyConfiguration> AgencyConfigurations => Set<AgencyConfiguration>();
+    public DbSet<AgencySequenceCounter> AgencySequenceCounters => Set<AgencySequenceCounter>();
+
+    public DbSet<PicklistItem> PicklistItems => Set<PicklistItem>();
+    public DbSet<PicklistSetting> PicklistSettings => Set<PicklistSetting>();
+
+    public void Detach<TEntity>(TEntity entity) where TEntity : class
+        => Entry(entity).State = EntityState.Detached;
 
     public AppDbContext(
         DbContextOptions<AppDbContext> options, 
@@ -237,6 +250,10 @@ public class AppDbContext : DbContext, IApplicationDbContext
             builder.Property(x => x.MustCloseAllCitations)
                    .IsRequired();
         });
+
+        // AgencySequenceCounter is not an AggregateRoot so the global filter doesn't apply; add tenant filter manually
+        modelBuilder.Entity<AgencySequenceCounter>()
+            .HasQueryFilter(c => c.JurisdictionId == CurrentTenantId);
     }
 
 

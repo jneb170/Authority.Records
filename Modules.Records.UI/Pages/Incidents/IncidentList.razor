@@ -39,7 +39,7 @@ else if (_incidents is not null)
                     <td>@i.ArrestCount</td>
                     <td><LockBadge IsLocked="@i.IsLocked" LockedByUserId="@i.LockedByUserId" /></td>
                     <td>@i.CreatedAtUtc.ToShortDateString()</td>
-                    <td><a class="btn btn-sm btn-outline-primary" href="/incidents/@i.Id">View</a></td>
+                    <td><a class="btn btn-sm btn-outline-primary" href="/incidents/@i.RecordNumber">View</a></td>
                 </tr>
             }
         </tbody>

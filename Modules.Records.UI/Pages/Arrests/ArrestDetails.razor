@@ -1,9 +1,14 @@
-@page "/incidents/{IncidentId:guid}/arrests/{Id:guid}"
+@page "/arrests/{RecordNumber:long}"
+@page "/incidents/{IncidentRecordNumber:long}/arrests/{RecordNumber:long}"
 @implements IAsyncDisposable
 @inject IArrestService ArrestService
+@inject IIncidentService IncidentService
+@inject IPicklistService PicklistService
+@inject IAgencyConfigurationService ConfigService
 @inject ITenantProvider TenantProvider
 @inject IUserLookupService UserLookupService
 @inject NavigationManager Nav
+@using Modules.Records.Domain.Common
 
 <PageTitle>Arrest Details</PageTitle>
 
@@ -19,8 +24,12 @@ else if (_arrest is not null)
 {
     <nav aria-label="breadcrumb" class="mb-3">
         <ol class="breadcrumb">
-            <li class="breadcrumb-item"><a href="/incidents/@IncidentId">Incident</a></li>
-            <li class="breadcrumb-item active">Arrest</li>
+            <li class="breadcrumb-item"><a href="/arrests">Arrests</a></li>
+            @if (IncidentRecordNumber.HasValue)
+            {
+                <li class="breadcrumb-item"><a href="/incidents/@IncidentRecordNumber">Incident</a></li>
+            }
+            <li class="breadcrumb-item active">Arrest #@RecordNumber</li>
         </ol>
     </nav>
 
@@ -102,16 +111,47 @@ else if (_arrest is not null)
             <h6 class="card-title">Arrest Details</h6>
             <div class="row g-3">
                 <div class="col-sm-6">
-                    <label class="form-label mb-1">Suspect Name @if (_modifyMode) { <span class="text-danger">*</span> }</label>
+                    <label class="form-label mb-1">Suspect Name</label>
                     <input type="text" class="@(_modifyMode ? "form-control form-control-sm" : "form-control-plaintext form-control-sm ps-0")"
                            readonly="@(!_modifyMode)"
-                           @bind="_editSuspectName" placeholder="@(_modifyMode ? "Required" : "—")" />
+                           @bind="_editSuspectName" placeholder="—" />
                 </div>
                 <div class="col-sm-6">
                     <label class="form-label mb-1">Arrested At</label>
                     <input type="datetime-local" class="@(_modifyMode ? "form-control form-control-sm" : "form-control-plaintext form-control-sm ps-0")"
                            readonly="@(!_modifyMode)"
                            @bind="_editArrestedAt" />
+                </div>
+                <div class="col-sm-6">
+                    <label class="form-label mb-1">Arrest Number</label>
+                    @if (_modifyMode)
+                    {
+                        <div class="input-group input-group-sm">
+                            <input type="text" class="form-control form-control-sm"
+                                   @bind="_editArrestNum" placeholder="e.g. AR-2026-000001" />
+                            <button type="button" class="btn btn-outline-secondary btn-sm"
+                                    @onclick="GenerateArrestNumAsync" disabled="@_generatingArrestNum">
+                                @(_generatingArrestNum ? "…" : "🔁")
+                            </button>
+                        </div>
+                    }
+                    else
+                    {
+                        <p class="form-control-plaintext form-control-sm ps-0">@(string.IsNullOrWhiteSpace(_arrest.ArrestNum) ? "—" : _arrest.ArrestNum)</p>
+                    }
+                </div>
+                <div class="col-sm-6">
+                    <label class="form-label mb-1">Arrest Type</label>
+                    @if (_modifyMode)
+                    {
+                        <PicklistSelect PicklistType="@PicklistTypes.ArrestType"
+                                        @bind-Value="_editArrestTypeId"
+                                        IsRequired="@_arrestTypeRequired" />
+                    }
+                    else
+                    {
+                        <p class="form-control-plaintext form-control-sm ps-0">@(_arrestTypeLabel ?? "—")</p>
+                    }
                 </div>
             </div>
             @if (_modifyMode)
@@ -127,13 +167,74 @@ else if (_arrest is not null)
                       CreatedByName="@_createdByName"
                       ModifiedAt="@(_arrest.ModifiedBy.HasValue ? _arrest.UpdatedAtUtc : null)"
                       ModifiedByName="@_modifiedByName" />
+
+    <!-- Linked Incidents -->
+    <div class="mb-4">
+        <div class="d-flex justify-content-between align-items-center mb-2">
+            <h4>Linked Incidents</h4>
+        </div>
+        @if (_linkedIncidents is null)
+        {
+            <p>Loading…</p>
+        }
+        else if (!_linkedIncidents.Any())
+        {
+            <p class="text-muted">Not linked to any incidents.</p>
+        }
+        else
+        {
+            <table class="table table-sm">
+                <thead>
+                    <tr><th>#</th><th>Incident</th><th>Linked At</th><th></th></tr>
+                </thead>
+                <tbody>
+                    @foreach (var link in _linkedIncidents)
+                    {
+                        <tr>
+                            <td>@link.IncidentRecordNumber</td>
+                            <td>@link.IncidentNum</td>
+                            <td>@link.LinkedAtUtc.ToShortDateString()</td>
+                            <td>
+                                <a class="btn btn-sm btn-outline-secondary" href="/incidents/@link.IncidentRecordNumber">View</a>
+                                @if (_modifyMode)
+                                {
+                                    <button class="btn btn-sm btn-outline-danger ms-1" @onclick="() => UnlinkFromIncidentAsync(link.IncidentId)">Unlink</button>
+                                }
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        }
+        @if (_modifyMode)
+        {
+            <div class="d-flex gap-2 mt-2 align-items-center">
+                <select class="form-select form-select-sm" style="max-width:300px" @bind="_linkIncidentId">
+                    <option value="@Guid.Empty">— select incident to link —</option>
+                    @if (_allIncidents is not null)
+                    {
+                        @foreach (var i in _allIncidents)
+                        {
+                            <option value="@i.Id">@i.RecordNumber — @i.Details.IncidentNum</option>
+                        }
+                    }
+                </select>
+                <button class="btn btn-sm btn-outline-primary" @onclick="LinkToIncidentAsync"
+                        disabled="@(_linkIncidentId == Guid.Empty)">+ Link</button>
+            </div>
+        }
+    </div>
 }
 
 @code {
-    [Parameter] public Guid IncidentId { get; set; }
-    [Parameter] public Guid Id { get; set; }
+    [Parameter] public long? IncidentRecordNumber { get; set; }
+    [Parameter] public long RecordNumber { get; set; }
 
+    private Guid _arrestId;
     private ArrestDto? _arrest;
+    private IReadOnlyList<IncidentArrestLinkDto>? _linkedIncidents;
+    private IReadOnlyList<IncidentDto>? _allIncidents;
+    private Guid _linkIncidentId = Guid.Empty;
     private bool _loading = true;
     private string? _error;
     private string? _actionError;
@@ -148,6 +249,11 @@ else if (_arrest is not null)
 
     private string _editSuspectName = string.Empty;
     private DateTime _editArrestedAt = DateTime.Now;
+    private string _editArrestNum = string.Empty;
+    private bool _generatingArrestNum;
+    private Guid? _editArrestTypeId;
+    private string? _arrestTypeLabel;
+    private bool _arrestTypeRequired;
 
     private string? _createdByName;
     private string? _modifiedByName;
@@ -171,8 +277,10 @@ else if (_arrest is not null)
         if (_arrest is not null && _arrest.IsLocked && _arrest.LockedByUserId == _currentUserId)
         {
             _modifyMode = true;
-            _editSuspectName = _arrest.SuspectName;
-            _editArrestedAt  = _arrest.ArrestedAt;
+            _editSuspectName  = _arrest.SuspectName;
+            _editArrestedAt   = _arrest.ArrestedAt;
+            _editArrestNum    = _arrest.ArrestNum;
+            _editArrestTypeId = _arrest.ArrestTypeId;
             StartLockTimer();
         }
     }
@@ -183,13 +291,17 @@ else if (_arrest is not null)
         _error = null;
         try
         {
-            _arrest = await ArrestService.GetByIdAsync(Id);
+            _arrest = await ArrestService.GetByRecordNumberAsync(RecordNumber);
+            if (_arrest is not null)
+                _arrestId = _arrest.Id;
             if (_arrest is null) _error = "Arrest not found.";
 
             if (_arrest is not null && !_modifyMode)
             {
-                _editSuspectName = _arrest.SuspectName;
-                _editArrestedAt  = _arrest.ArrestedAt;
+                _editSuspectName  = _arrest.SuspectName;
+                _editArrestedAt   = _arrest.ArrestedAt;
+                _editArrestNum    = _arrest.ArrestNum;
+                _editArrestTypeId = _arrest.ArrestTypeId;
             }
 
             if (_arrest is not null)
@@ -198,6 +310,24 @@ else if (_arrest is not null)
                 _modifiedByName = _arrest.ModifiedBy.HasValue
                     ? await UserLookupService.GetDisplayNameAsync(_arrest.ModifiedBy.Value)
                     : null;
+
+                _linkedIncidents = await ArrestService.GetLinkedIncidentsAsync(_arrestId);
+
+                if (_modifyMode)
+                    _allIncidents = await IncidentService.GetByJurisdictionAsync();
+
+                // Resolve ArrestType label for read-only display
+                var setting = await PicklistService.GetSettingAsync(PicklistTypes.ArrestType);
+                _arrestTypeRequired = setting?.IsRequired ?? false;
+                if (_arrest.ArrestTypeId.HasValue)
+                {
+                    var labels = await PicklistService.GetItemsByIdsAsync([_arrest.ArrestTypeId.Value]);
+                    _arrestTypeLabel = labels.GetValueOrDefault(_arrest.ArrestTypeId.Value);
+                }
+                else
+                {
+                    _arrestTypeLabel = null;
+                }
             }
         }
         catch (Exception ex)
@@ -229,10 +359,12 @@ else if (_arrest is not null)
         _actionError = null;
         try
         {
-            await ArrestService.AcquireLockAsync(Id);
+            await ArrestService.AcquireLockAsync(_arrestId);
             _modifyMode = true;
-            _editSuspectName = _arrest?.SuspectName ?? string.Empty;
-            _editArrestedAt  = _arrest?.ArrestedAt ?? DateTime.Now;
+            _editSuspectName  = _arrest?.SuspectName ?? string.Empty;
+            _editArrestedAt   = _arrest?.ArrestedAt ?? DateTime.Now;
+            _editArrestNum    = _arrest?.ArrestNum ?? string.Empty;
+            _editArrestTypeId = _arrest?.ArrestTypeId;
             StartLockTimer();
             await LoadAsync();
         }
@@ -246,8 +378,16 @@ else if (_arrest is not null)
     {
         StopLockTimer();
         _modifyMode = false;
-        try { await ArrestService.ReleaseLockAsync(Id); } catch { /* best-effort */ }
+        try { await ArrestService.ReleaseLockAsync(_arrestId); } catch { /* best-effort */ }
         await LoadAsync();
+    }
+
+    private async Task GenerateArrestNumAsync()
+    {
+        _generatingArrestNum = true;
+        try { _editArrestNum = await ConfigService.GenerateArrestNumAsync(); }
+        catch (Exception ex) { _actionError = ex.Message; }
+        finally { _generatingArrestNum = false; }
     }
 
     private async Task SaveDetailsAsync()
@@ -256,7 +396,7 @@ else if (_arrest is not null)
         _saveSuccessMessage = null;
         try
         {
-            await ArrestService.UpdateDetailsAsync(Id, _editSuspectName, _editArrestedAt);
+            await ArrestService.UpdateDetailsAsync(_arrestId, _editSuspectName, _editArrestedAt, _editArrestTypeId, _editArrestNum);
             await LoadAsync();
             _saveSuccessMessage = "Details saved successfully.";
             _ = Task.Delay(3000).ContinueWith(_ => InvokeAsync(() =>
@@ -270,6 +410,16 @@ else if (_arrest is not null)
             _actionError = ex.Message;
         }
     }
+
+    private async Task LinkToIncidentAsync()
+    {
+        if (_linkIncidentId == Guid.Empty) return;
+        await RunActionAsync(() => ArrestService.LinkToIncidentAsync(_arrestId, _linkIncidentId));
+        _linkIncidentId = Guid.Empty;
+    }
+
+    private Task UnlinkFromIncidentAsync(Guid incidentId) =>
+        RunActionAsync(() => ArrestService.UnlinkFromIncidentAsync(_arrestId, incidentId));
 
     private void StartLockTimer()
     {
@@ -299,16 +449,19 @@ else if (_arrest is not null)
         _lockTimer = null;
     }
 
-    private Task OpenAsync()        => RunActionAsync(() => ArrestService.OpenAsync(Id));
-    private Task CloseAsync()       => RunActionAsync(() => ArrestService.CloseAsync(Id));
-    private Task ArchiveAsync()     => RunActionAsync(() => ArrestService.ArchiveAsync(Id));
-    private Task FinalizeAsync()    => RunActionAsync(() => ArrestService.FinalizeAsync(Id));
+    private Task OpenAsync()        => RunActionAsync(() => ArrestService.OpenAsync(_arrestId));
+    private Task CloseAsync()       => RunActionAsync(() => ArrestService.CloseAsync(_arrestId));
+    private Task ArchiveAsync()     => RunActionAsync(() => ArrestService.ArchiveAsync(_arrestId));
+    private Task FinalizeAsync()    => RunActionAsync(() => ArrestService.FinalizeAsync(_arrestId));
 
     private async Task SoftDeleteAsync()
     {
         _showDeleteConfirm = false;
-        await RunActionAsync(() => ArrestService.SoftDeleteAsync(Id));
-        Nav.NavigateTo($"/incidents/{IncidentId}");
+        await RunActionAsync(() => ArrestService.SoftDeleteAsync(_arrestId));
+        if (IncidentRecordNumber.HasValue)
+            Nav.NavigateTo($"/incidents/{IncidentRecordNumber}");
+        else
+            Nav.NavigateTo("/arrests");
     }
 
     public ValueTask DisposeAsync()

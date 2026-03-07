@@ -1,0 +1,78 @@
+@page "/arrests"
+@inject IArrestService ArrestService
+@inject NavigationManager Nav
+
+<PageTitle>Arrests</PageTitle>
+
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <h1>Arrests</h1>
+    <a class="btn btn-primary" href="/arrests/create">+ New Arrest</a>
+</div>
+
+@if (_loading)
+{
+    <p>Loading…</p>
+}
+else if (_error is not null)
+{
+    <div class="alert alert-danger">@_error</div>
+}
+else if (_arrests is not null)
+{
+    @if (!_arrests.Any())
+    {
+        <p class="text-muted">No arrests recorded.</p>
+    }
+    else
+    {
+        <table class="table table-hover">
+            <thead>
+                <tr>
+                    <th>#</th>
+                    <th>Arrest #</th>
+                    <th>Suspect</th>
+                    <th>Arrested At</th>
+                    <th>Status</th>
+                    <th>Lock</th>
+                    <th></th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var a in _arrests)
+                {
+                    <tr>
+                        <td>@a.RecordNumber</td>
+                        <td>@a.ArrestNum</td>
+                        <td>@a.SuspectName</td>
+                        <td>@a.ArrestedAt.ToShortDateString()</td>
+                        <td><StatusBadge Status="@a.Status" /></td>
+                        <td><LockBadge IsLocked="@a.IsLocked" LockedByUserId="@a.LockedByUserId" /></td>
+                        <td><a class="btn btn-sm btn-outline-primary" href="/arrests/@a.RecordNumber">View</a></td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    }
+}
+
+@code {
+    private IReadOnlyList<ArrestDto>? _arrests;
+    private bool _loading = true;
+    private string? _error;
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            _arrests = await ArrestService.GetByJurisdictionAsync();
+        }
+        catch (Exception ex)
+        {
+            _error = ex.Message;
+        }
+        finally
+        {
+            _loading = false;
+        }
+    }
+}

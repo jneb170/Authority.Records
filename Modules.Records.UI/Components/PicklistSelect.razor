@@ -1,0 +1,63 @@
+@inject IPicklistService PicklistService
+
+@if (_items is null)
+{
+    <select class="form-select" disabled>
+        <option>Loading...</option>
+    </select>
+}
+else if (_items.Count == 0 && !IsRequired)
+{
+    <select class="form-select" @onchange="OnChanged" value="@ValueStr">
+        <option value="">— None —</option>
+    </select>
+}
+else
+{
+    <select class="form-select @(IsRequired && string.IsNullOrEmpty(ValueStr) ? "is-invalid" : "")"
+            @onchange="OnChanged"
+            value="@ValueStr">
+        @if (!IsRequired)
+        {
+            <option value="">— Select —</option>
+        }
+        else
+        {
+            <option value="" disabled selected="@(Value is null)">— Select —</option>
+        }
+        @foreach (var item in _items)
+        {
+            <option value="@item.Id">@item.Label</option>
+        }
+    </select>
+    @if (IsRequired && string.IsNullOrEmpty(ValueStr))
+    {
+        <div class="invalid-feedback">This field is required.</div>
+    }
+}
+
+@code {
+    [Parameter, EditorRequired] public string PicklistType { get; set; } = string.Empty;
+
+    [Parameter] public Guid? Value { get; set; }
+    [Parameter] public EventCallback<Guid?> ValueChanged { get; set; }
+
+    /// <summary>When true, a selection is required and an empty option triggers invalid styling.</summary>
+    [Parameter] public bool IsRequired { get; set; }
+
+    private IReadOnlyList<PicklistItemDto>? _items;
+    private string ValueStr => Value?.ToString() ?? string.Empty;
+
+    protected override async Task OnParametersSetAsync()
+    {
+        if (_items is null)
+            _items = await PicklistService.GetItemsAsync(PicklistType, activeOnly: true);
+    }
+
+    private async Task OnChanged(ChangeEventArgs e)
+    {
+        var raw = e.Value?.ToString();
+        Guid? parsed = Guid.TryParse(raw, out var g) ? g : null;
+        await ValueChanged.InvokeAsync(parsed);
+    }
+}

@@ -5,12 +5,13 @@ using Microsoft.Extensions.Options;
 namespace Shared.Infrastructure.Identity;
 
 public sealed class RecordsUserClaimsPrincipalFactory
-    : UserClaimsPrincipalFactory<ApplicationUser>
+    : UserClaimsPrincipalFactory<ApplicationUser, IdentityRole>
 {
     public RecordsUserClaimsPrincipalFactory(
         UserManager<ApplicationUser> userManager,
+        RoleManager<IdentityRole> roleManager,
         IOptions<IdentityOptions> optionsAccessor)
-        : base(userManager, optionsAccessor) { }
+        : base(userManager, roleManager, optionsAccessor) { }
 
     protected override async Task<ClaimsIdentity> GenerateClaimsAsync(ApplicationUser user)
     {

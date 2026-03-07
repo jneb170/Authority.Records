@@ -1,5 +1,6 @@
 @page "/incidents/create"
 @inject IIncidentService IncidentService
+@inject IAgencyConfigurationService ConfigService
 @inject NavigationManager Nav
 @using IncidentDetailsVo = Modules.Records.Domain.ValueObjects.IncidentDetails
 
@@ -16,8 +17,22 @@
     <DataAnnotationsValidator />
     <div class="mb-3">
         <label class="form-label">Incident Number</label>
-        <InputText class="form-control" @bind-Value="_vm.IncidentNum" />
+        <div class="input-group">
+            <InputText class="form-control" @bind-Value="_vm.IncidentNum"
+                       placeholder="@(_hasFormat ? "Leave blank to auto-generate" : "")" />
+            @if (_hasFormat)
+            {
+                <button type="button" class="btn btn-outline-secondary" @onclick="GenerateAsync"
+                        disabled="@_generating" title="Generate next incident number">
+                    @(_generating ? "…" : "🔁 Generate")
+                </button>
+            }
+        </div>
         <ValidationMessage For="() => _vm.IncidentNum" />
+        @if (_hasFormat)
+        {
+            <div class="form-text text-muted">A number will be auto-generated if you leave this blank.</div>
+        }
     </div>
     <div class="mb-3">
         <label class="form-label">Description</label>
@@ -43,6 +58,33 @@
 @code {
     private readonly CreateIncidentViewModel _vm = new();
     private bool _submitting;
+    private bool _hasFormat;
+    private bool _generating;
+
+    protected override async Task OnInitializedAsync()
+    {
+        // Generate button is always available; format config only affects the format used
+        _hasFormat = true;
+        await Task.CompletedTask;
+    }
+
+    private async Task GenerateAsync()
+    {
+        _generating = true;
+        _vm.ErrorMessage = null;
+        try
+        {
+            _vm.IncidentNum = await ConfigService.GenerateIncidentNumAsync();
+        }
+        catch (Exception ex)
+        {
+            _vm.ErrorMessage = ex.Message;
+        }
+        finally
+        {
+            _generating = false;
+        }
+    }
 
     private async Task SubmitAsync()
     {

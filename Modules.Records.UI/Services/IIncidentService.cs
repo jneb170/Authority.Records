@@ -7,7 +7,8 @@ public interface IIncidentService
 {
     Task<IReadOnlyList<IncidentDto>> GetByJurisdictionAsync();
     Task<IncidentDto?> GetByIdAsync(Guid id);
-    Task<Guid> CreateAsync(IncidentDetails details);
+    Task<IncidentDto?> GetByRecordNumberAsync(long recordNumber);
+    Task<long> CreateAsync(IncidentDetails details);
     Task OpenAsync(Guid id);
     Task CloseAsync(Guid id);
     Task ArchiveAsync(Guid id);

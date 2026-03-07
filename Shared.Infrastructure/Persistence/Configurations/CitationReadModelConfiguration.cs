@@ -13,6 +13,7 @@ public sealed class CitationReadModelConfiguration : IEntityTypeConfiguration<Ci
         builder.HasKey(x => x.Id);
 
         builder.Property(x => x.Description).IsRequired();
+        builder.Property(x => x.CitationNum).HasMaxLength(50).IsRequired(false);
 
         builder.HasIndex(x => x.JurisdictionId);
         builder.HasIndex(x => x.IsIssued);

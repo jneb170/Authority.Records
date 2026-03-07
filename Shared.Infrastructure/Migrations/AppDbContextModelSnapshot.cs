@@ -31,6 +31,13 @@ namespace Shared.Infrastructure.Migrations
                     b.Property<Guid>("AgencyId")
                         .HasColumnType("uniqueidentifier");
 
+                    b.Property<string>("ArrestNum")
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.Property<Guid?>("ArrestTypeId")
+                        .HasColumnType("uniqueidentifier");
+
                     b.Property<DateTime>("ArrestedAt")
                         .HasColumnType("datetime2");
 
@@ -38,9 +45,6 @@ namespace Shared.Infrastructure.Migrations
                         .HasColumnType("datetime2");
 
                     b.Property<Guid>("CreatedBy")
-                        .HasColumnType("uniqueidentifier");
-
-                    b.Property<Guid>("IncidentId")
                         .HasColumnType("uniqueidentifier");
 
                     b.Property<bool>("IsLocked")
@@ -55,6 +59,9 @@ namespace Shared.Infrastructure.Migrations
                     b.Property<Guid?>("ModifiedBy")
                         .HasColumnType("uniqueidentifier");
 
+                    b.Property<long>("RecordNumber")
+                        .HasColumnType("bigint");
+
                     b.Property<string>("Status")
                         .IsRequired()
                         .HasMaxLength(50)
@@ -68,8 +75,6 @@ namespace Shared.Infrastructure.Migrations
                         .HasColumnType("datetime2");
 
                     b.HasKey("Id");
-
-                    b.HasIndex("IncidentId");
 
                     b.HasIndex("JurisdictionId");
 
@@ -87,6 +92,13 @@ namespace Shared.Infrastructure.Migrations
                     b.Property<Guid>("AgencyId")
                         .HasColumnType("uniqueidentifier");
 
+                    b.Property<string>("CitationNum")
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.Property<Guid?>("CourtId")
+                        .HasColumnType("uniqueidentifier");
+
                     b.Property<DateTime>("CreatedAtUtc")
                         .HasColumnType("datetime2");
 
@@ -96,9 +108,6 @@ namespace Shared.Infrastructure.Migrations
                     b.Property<string>("Description")
                         .IsRequired()
                         .HasColumnType("nvarchar(max)");
-
-                    b.Property<Guid>("IncidentId")
-                        .HasColumnType("uniqueidentifier");
 
                     b.Property<bool>("IsIssued")
                         .HasColumnType("bit");
@@ -118,6 +127,9 @@ namespace Shared.Infrastructure.Migrations
                     b.Property<Guid?>("ModifiedBy")
                         .HasColumnType("uniqueidentifier");
 
+                    b.Property<long>("RecordNumber")
+                        .HasColumnType("bigint");
+
                     b.Property<DateTime>("UpdatedAtUtc")
                         .HasColumnType("datetime2");
 
@@ -130,6 +142,76 @@ namespace Shared.Infrastructure.Migrations
                     b.HasIndex("UpdatedAtUtc");
 
                     b.ToTable("CitationReadModels", (string)null);
+                });
+
+            modelBuilder.Entity("Modules.Records.Application.ReadModels.IncidentArrestLinkReadModel", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("ArrestId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("IncidentId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("IncidentNum")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<long>("IncidentRecordNumber")
+                        .HasColumnType("bigint");
+
+                    b.Property<Guid>("JurisdictionId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime>("LinkedAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ArrestId");
+
+                    b.HasIndex("IncidentId");
+
+                    b.ToTable("IncidentArrestLinkReadModels", (string)null);
+                });
+
+            modelBuilder.Entity("Modules.Records.Application.ReadModels.IncidentCitationLinkReadModel", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("CitationId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("IncidentId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("IncidentNum")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<long>("IncidentRecordNumber")
+                        .HasColumnType("bigint");
+
+                    b.Property<Guid>("JurisdictionId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime>("LinkedAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CitationId");
+
+                    b.HasIndex("IncidentId");
+
+                    b.ToTable("IncidentCitationLinkReadModels", (string)null);
                 });
 
             modelBuilder.Entity("Modules.Records.Application.ReadModels.IncidentReadModel", b =>
@@ -150,6 +232,9 @@ namespace Shared.Infrastructure.Migrations
                         .HasMaxLength(30)
                         .HasColumnType("nvarchar(30)")
                         .HasDefaultValue("");
+
+                    b.Property<int>("CitationCount")
+                        .HasColumnType("int");
 
                     b.Property<DateTime>("CreatedAtUtc")
                         .HasColumnType("datetime2");
@@ -187,6 +272,9 @@ namespace Shared.Infrastructure.Migrations
                     b.Property<Guid?>("ModifiedBy")
                         .HasColumnType("uniqueidentifier");
 
+                    b.Property<long>("RecordNumber")
+                        .HasColumnType("bigint");
+
                     b.Property<string>("Status")
                         .IsRequired()
                         .HasMaxLength(50)
@@ -204,6 +292,43 @@ namespace Shared.Infrastructure.Migrations
                     b.HasIndex("UpdatedAtUtc");
 
                     b.ToTable("IncidentReadModels", (string)null);
+                });
+
+            modelBuilder.Entity("Modules.Records.Domain.Common.Implementations.AgencySequenceCounter", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("AgencyId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("CounterKey")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<Guid>("JurisdictionId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<long>("NextValue")
+                        .HasColumnType("bigint");
+
+                    b.Property<byte[]>("RowVersion")
+                        .IsConcurrencyToken()
+                        .IsRequired()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("rowversion");
+
+                    b.Property<int>("Year")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("JurisdictionId", "AgencyId", "CounterKey", "Year")
+                        .IsUnique();
+
+                    b.ToTable("AgencySequenceCounters");
                 });
 
             modelBuilder.Entity("Modules.Records.Domain.Common.JurisdictionConfiguration", b =>
@@ -232,6 +357,60 @@ namespace Shared.Infrastructure.Migrations
                     b.ToTable("JurisdictionConfigurations");
                 });
 
+            modelBuilder.Entity("Modules.Records.Domain.Entities.AgencyConfiguration", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("AgencyId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid>("CreatedBy")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("bit");
+
+                    b.Property<Guid>("JurisdictionId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("Key")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<DateTime?>("ModifiedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid?>("ModifiedBy")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<byte[]>("RowVersion")
+                        .IsConcurrencyToken()
+                        .IsRequired()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("rowversion");
+
+                    b.Property<string>("Value")
+                        .IsRequired()
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<long>("Version")
+                        .HasColumnType("bigint");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("JurisdictionId", "AgencyId", "Key")
+                        .IsUnique();
+
+                    b.ToTable("AgencyConfigurations");
+                });
+
             modelBuilder.Entity("Modules.Records.Domain.Entities.Arrest", b =>
                 {
                     b.Property<Guid>("Id")
@@ -241,6 +420,13 @@ namespace Shared.Infrastructure.Migrations
                     b.Property<Guid>("AgencyId")
                         .HasColumnType("uniqueidentifier");
 
+                    b.Property<string>("ArrestNum")
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.Property<Guid?>("ArrestTypeId")
+                        .HasColumnType("uniqueidentifier");
+
                     b.Property<DateTime>("ArrestedAt")
                         .HasColumnType("datetime2");
 
@@ -248,9 +434,6 @@ namespace Shared.Infrastructure.Migrations
                         .HasColumnType("datetime2");
 
                     b.Property<Guid>("CreatedBy")
-                        .HasColumnType("uniqueidentifier");
-
-                    b.Property<Guid>("IncidentId")
                         .HasColumnType("uniqueidentifier");
 
                     b.Property<bool>("IsDeleted")
@@ -274,6 +457,12 @@ namespace Shared.Infrastructure.Migrations
                     b.Property<Guid?>("ModifiedBy")
                         .HasColumnType("uniqueidentifier");
 
+                    b.Property<long>("RecordNumber")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("RecordNumber"), 10000L);
+
                     b.Property<byte[]>("RowVersion")
                         .IsRequired()
                         .HasColumnType("varbinary(max)");
@@ -290,7 +479,8 @@ namespace Shared.Infrastructure.Migrations
 
                     b.HasKey("Id");
 
-                    b.HasIndex("IncidentId");
+                    b.HasIndex("RecordNumber")
+                        .IsUnique();
 
                     b.ToTable("Arrests");
                 });
@@ -304,6 +494,13 @@ namespace Shared.Infrastructure.Migrations
                     b.Property<Guid>("AgencyId")
                         .HasColumnType("uniqueidentifier");
 
+                    b.Property<string>("CitationNum")
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.Property<Guid?>("CourtId")
+                        .HasColumnType("uniqueidentifier");
+
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("datetime2");
 
@@ -313,9 +510,6 @@ namespace Shared.Infrastructure.Migrations
                     b.Property<string>("Description")
                         .IsRequired()
                         .HasColumnType("nvarchar(max)");
-
-                    b.Property<Guid>("IncidentId")
-                        .HasColumnType("uniqueidentifier");
 
                     b.Property<bool>("IsDeleted")
                         .HasColumnType("bit");
@@ -344,6 +538,12 @@ namespace Shared.Infrastructure.Migrations
                     b.Property<Guid?>("ModifiedBy")
                         .HasColumnType("uniqueidentifier");
 
+                    b.Property<long>("RecordNumber")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("RecordNumber"), 10000L);
+
                     b.Property<byte[]>("RowVersion")
                         .IsRequired()
                         .HasColumnType("varbinary(max)");
@@ -353,7 +553,8 @@ namespace Shared.Infrastructure.Migrations
 
                     b.HasKey("Id");
 
-                    b.HasIndex("IncidentId");
+                    b.HasIndex("RecordNumber")
+                        .IsUnique();
 
                     b.ToTable("Citations");
                 });
@@ -386,7 +587,7 @@ namespace Shared.Infrastructure.Migrations
 
                     b.Property<string>("IncidentNum")
                         .IsRequired()
-                        .HasColumnType("nvarchar(max)");
+                        .HasColumnType("nvarchar(450)");
 
                     b.Property<bool>("IsDeleted")
                         .HasColumnType("bit");
@@ -413,6 +614,12 @@ namespace Shared.Infrastructure.Migrations
                     b.Property<Guid?>("ModifiedBy")
                         .HasColumnType("uniqueidentifier");
 
+                    b.Property<long>("RecordNumber")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("RecordNumber"), 10000L);
+
                     b.Property<byte[]>("RowVersion")
                         .IsConcurrencyToken()
                         .IsRequired()
@@ -426,7 +633,240 @@ namespace Shared.Infrastructure.Migrations
 
                     b.HasKey("Id");
 
+                    b.HasIndex("RecordNumber")
+                        .IsUnique();
+
+                    b.HasIndex("JurisdictionId", "AgencyId", "IncidentNum")
+                        .IsUnique()
+                        .HasFilter("[IncidentNum] <> ''");
+
                     b.ToTable("Incidents");
+                });
+
+            modelBuilder.Entity("Modules.Records.Domain.Entities.IncidentArrestLink", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("ArrestId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid>("CreatedBy")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("IncidentId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("bit");
+
+                    b.Property<Guid>("JurisdictionId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime>("LinkedAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid>("LinkedByUserId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime?>("ModifiedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid?>("ModifiedBy")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<byte[]>("RowVersion")
+                        .IsRequired()
+                        .HasColumnType("varbinary(max)");
+
+                    b.Property<long>("Version")
+                        .HasColumnType("bigint");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ArrestId");
+
+                    b.HasIndex("IncidentId");
+
+                    b.HasIndex("IncidentId", "ArrestId")
+                        .IsUnique();
+
+                    b.ToTable("IncidentArrestLinks");
+                });
+
+            modelBuilder.Entity("Modules.Records.Domain.Entities.IncidentCitationLink", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("CitationId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid>("CreatedBy")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("IncidentId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("bit");
+
+                    b.Property<Guid>("JurisdictionId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime>("LinkedAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid>("LinkedByUserId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime?>("ModifiedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid?>("ModifiedBy")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<byte[]>("RowVersion")
+                        .IsRequired()
+                        .HasColumnType("varbinary(max)");
+
+                    b.Property<long>("Version")
+                        .HasColumnType("bigint");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CitationId");
+
+                    b.HasIndex("IncidentId");
+
+                    b.HasIndex("IncidentId", "CitationId")
+                        .IsUnique();
+
+                    b.ToTable("IncidentCitationLinks");
+                });
+
+            modelBuilder.Entity("Modules.Records.Domain.Entities.PicklistItem", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("AgencyId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid>("CreatedBy")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("bit");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("bit");
+
+                    b.Property<bool>("IsSystemDefault")
+                        .HasColumnType("bit");
+
+                    b.Property<Guid>("JurisdictionId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("Label")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<DateTime?>("ModifiedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid?>("ModifiedBy")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("PicklistType")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<byte[]>("RowVersion")
+                        .IsRequired()
+                        .HasColumnType("varbinary(max)");
+
+                    b.Property<int>("SortOrder")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Value")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<long>("Version")
+                        .HasColumnType("bigint");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("JurisdictionId", "AgencyId", "PicklistType", "Value")
+                        .IsUnique();
+
+                    b.ToTable("PicklistItems");
+                });
+
+            modelBuilder.Entity("Modules.Records.Domain.Entities.PicklistSetting", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("AgencyId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid>("CreatedBy")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("bit");
+
+                    b.Property<bool>("IsRequired")
+                        .HasColumnType("bit");
+
+                    b.Property<Guid>("JurisdictionId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime?>("ModifiedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid?>("ModifiedBy")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("PicklistType")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<byte[]>("RowVersion")
+                        .IsRequired()
+                        .HasColumnType("varbinary(max)");
+
+                    b.Property<long>("Version")
+                        .HasColumnType("bigint");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("JurisdictionId", "AgencyId", "PicklistType")
+                        .IsUnique();
+
+                    b.ToTable("PicklistSettings");
                 });
 
             modelBuilder.Entity("Shared.Infrastructure.Audit.AuditTrailEntry", b =>
@@ -567,31 +1007,6 @@ namespace Shared.Infrastructure.Migrations
                     b.HasKey("Id");
 
                     b.ToTable("OutboxMessages");
-                });
-
-            modelBuilder.Entity("Modules.Records.Domain.Entities.Arrest", b =>
-                {
-                    b.HasOne("Modules.Records.Domain.Entities.Incident", null)
-                        .WithMany("Arrests")
-                        .HasForeignKey("IncidentId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-                });
-
-            modelBuilder.Entity("Modules.Records.Domain.Entities.Citation", b =>
-                {
-                    b.HasOne("Modules.Records.Domain.Entities.Incident", null)
-                        .WithMany("Citations")
-                        .HasForeignKey("IncidentId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-                });
-
-            modelBuilder.Entity("Modules.Records.Domain.Entities.Incident", b =>
-                {
-                    b.Navigation("Arrests");
-
-                    b.Navigation("Citations");
                 });
 #pragma warning restore 612, 618
         }

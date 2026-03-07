@@ -23,19 +23,6 @@ public sealed class GetArrestByIdHandler : IRequestHandler<GetArrestByIdQuery, A
         if (rm is null)
             return null;
 
-        return new ArrestDto(
-            rm.Id,
-            rm.JurisdictionId,
-            rm.AgencyId,
-            rm.IncidentId,
-            rm.SuspectName,
-            rm.ArrestedAt,
-            rm.Status,
-            rm.IsLocked,
-            rm.LockedByUserId,
-            rm.CreatedBy,
-            rm.ModifiedBy,
-            rm.CreatedAtUtc,
-            rm.UpdatedAtUtc);
+        return rm.ToDto();
     }
 }

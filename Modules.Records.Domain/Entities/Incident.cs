@@ -17,7 +17,10 @@ public sealed class Incident
     public Guid JurisdictionId { get; private set; }
     public Guid AgencyId { get; private set; }
 
-    // Flat EF-mapped columns — kept separate so no migration is needed
+    /// <summary>DB-generated auto-increment number. Use this in URLs and display; the GUID is for internal identity.</summary>
+    public long RecordNumber { get; private set; }
+
+    // Flat EF-mapped columns— kept separate so no migration is needed
     public string IncidentNum { get; private set; } = string.Empty;
     public string LocalNum { get; private set; } = string.Empty;
     public string Description { get; private set; } = string.Empty;
@@ -129,16 +132,6 @@ public sealed class Incident
         => _clock;
 
     // -------------------------------------------------------
-    // Child collections  
-    // -------------------------------------------------------
-    private readonly List<Arrest> _arrests = new();
-    public IReadOnlyCollection<Arrest> Arrests => _arrests.AsReadOnly();
-
-    private readonly List<Citation> _citations = new();
-    public IReadOnlyCollection<Citation> Citations => _citations.AsReadOnly();
-
-
-    // -------------------------------------------------------
     // Locking Overrides to enforce additional rules if needed
     // -------------------------------------------------------
     public override void AcquireLock(IModificationContext context, TimeSpan lockTimeout)
@@ -157,18 +150,4 @@ public sealed class Incident
     }
 
 
-    // -------------------------------------------------------
-    // Methods to manage child entities
-    // -------------------------------------------------------
-    public void AddArrest(Arrest arrest, IModificationContext context)
-    {
-        EnsureCanModify(context);
-        _arrests.Add(arrest);
-    }
-
-    public void AddCitation(Citation citation, IModificationContext context)
-    {
-        EnsureCanModify(context);
-        _citations.Add(citation);
-    }
 }

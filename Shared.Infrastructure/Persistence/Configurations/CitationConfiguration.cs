@@ -1,12 +1,28 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Metadata.Builders;
+using Modules.Records.Domain.Entities;
 
 namespace Shared.Infrastructure.Persistence.Configurations
 {
-    internal class CitationConfiguration
+    internal class CitationConfiguration : IEntityTypeConfiguration<Citation>
     {
+        public void Configure(EntityTypeBuilder<Citation> builder)
+        {
+            builder.HasKey(x => x.Id);
+
+            builder.Property(x => x.RecordNumber)
+                   .ValueGeneratedOnAdd()
+                   .UseIdentityColumn(seed: 10000, increment: 1);
+
+            builder.HasIndex(x => x.RecordNumber)
+                   .IsUnique();
+
+            builder.Property(x => x.CourtId)
+                   .IsRequired(false);
+
+            builder.Property(x => x.CitationNum)
+                   .HasMaxLength(50)
+                   .IsRequired(false);
+        }
     }
 }

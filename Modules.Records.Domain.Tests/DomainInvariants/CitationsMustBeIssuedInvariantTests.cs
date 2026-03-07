@@ -10,7 +10,7 @@ public sealed class CitationsMustBeIssuedInvariantTests
     private readonly CitationsMustBeIssuedInvariant _sut = new();
 
     private static Citation MakeCitation() =>
-        new Citation(Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), "Speeding", DateTime.UtcNow.AddDays(-1));
+        new Citation(Guid.NewGuid(), Guid.NewGuid(), "Speeding", DateTime.UtcNow.AddDays(-1));
 
     private static IncidentCloseContext ContextWith(params Citation[] citations) =>
         new(new IncidentFactory().Create(new CreateIncidentRequest { JurisdictionId = Guid.NewGuid(), AgencyId = Guid.NewGuid(), Details = new IncidentDetails { IncidentNum = "INC-001", Description = "Test", LocalNum = "" } }), [], citations);

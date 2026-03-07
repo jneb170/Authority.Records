@@ -4,14 +4,20 @@ using Modules.Records.Application.Arrests.Commands.ArchiveArrest;
 using Modules.Records.Application.Arrests.Commands.CloseArrest;
 using Modules.Records.Application.Arrests.Commands.CreateArrest;
 using Modules.Records.Application.Arrests.Commands.FinalizeArrest;
+using Modules.Records.Application.Arrests.Commands.LinkArrestToIncident;
 using Modules.Records.Application.Arrests.Commands.OpenArrest;
 using Modules.Records.Application.Arrests.Commands.ReleaseArrestLock;
 using Modules.Records.Application.Arrests.Commands.RestoreArrest;
 using Modules.Records.Application.Arrests.Commands.SoftDeleteArrest;
+using Modules.Records.Application.Arrests.Commands.UnlinkArrestFromIncident;
 using Modules.Records.Application.Arrests.Commands.UpdateArrestDetails;
 using Modules.Records.Application.Arrests.Queries.GetArrestById;
+using Modules.Records.Application.Arrests.Queries.GetArrestByRecordNumber;
 using Modules.Records.Application.Arrests.Queries.GetArrestsByIncident;
+using Modules.Records.Application.Arrests.Queries.GetArrestsByJurisdiction;
+using Modules.Records.Application.Arrests.Queries.GetIncidentsByArrest;
 using Modules.Records.Application.DTOs;
+using Modules.Records.Application.Incidents.Queries.GetIncidentById;
 
 namespace Modules.Records.UI.Services;
 
@@ -27,11 +33,35 @@ public sealed class ArrestService : IArrestService
     public Task<ArrestDto?> GetByIdAsync(Guid id) =>
         _sender.Send(new GetArrestByIdQuery(id));
 
+    public Task<ArrestDto?> GetByRecordNumberAsync(long recordNumber) =>
+        _sender.Send(new GetArrestByRecordNumberQuery(recordNumber));
+
+    public Task<IReadOnlyList<ArrestDto>> GetByJurisdictionAsync() =>
+        _sender.Send(new GetArrestsByJurisdictionQuery());
+
     public Task<IReadOnlyList<ArrestDto>> GetByIncidentAsync(Guid incidentId) =>
         _sender.Send(new GetArrestsByIncidentQuery(incidentId));
 
-    public Task<Guid> CreateAsync(Guid incidentId, string suspectName, DateTime arrestedAt) =>
-        _sender.Send(new CreateArrestCommand(incidentId, suspectName, arrestedAt));
+    public Task<IReadOnlyList<IncidentArrestLinkDto>> GetLinkedIncidentsAsync(Guid arrestId) =>
+        _sender.Send(new GetIncidentsByArrestQuery(arrestId));
+
+    public Task<long> CreateAsync(string suspectName, DateTime arrestedAt, IReadOnlyList<long> incidentRecordNumbers, string arrestNum = "") =>
+        _sender.Send(new CreateArrestCommand(suspectName, arrestedAt, incidentRecordNumbers, arrestNum));
+
+    public async Task<long> CreateAsync(Guid incidentId, string suspectName, DateTime arrestedAt)
+    {
+        var incident = await _sender.Send(new GetIncidentByIdQuery(incidentId));
+        var recordNumbers = incident is not null
+            ? new List<long> { incident.RecordNumber } as IReadOnlyList<long>
+            : new List<long>() as IReadOnlyList<long>;
+        return await _sender.Send(new CreateArrestCommand(suspectName, arrestedAt, recordNumbers));
+    }
+
+    public Task LinkToIncidentAsync(Guid arrestId, Guid incidentId) =>
+        _sender.Send(new LinkArrestToIncidentCommand(arrestId, incidentId));
+
+    public Task UnlinkFromIncidentAsync(Guid arrestId, Guid incidentId) =>
+        _sender.Send(new UnlinkArrestFromIncidentCommand(arrestId, incidentId));
 
     public Task OpenAsync(Guid id) =>
         _sender.Send(new OpenArrestCommand(id));
@@ -45,8 +75,8 @@ public sealed class ArrestService : IArrestService
     public Task FinalizeAsync(Guid id) =>
         _sender.Send(new FinalizeArrestCommand(id));
 
-    public Task UpdateDetailsAsync(Guid id, string suspectName, DateTime arrestedAt) =>
-        _sender.Send(new UpdateArrestDetailsCommand(id, suspectName, arrestedAt));
+    public Task UpdateDetailsAsync(Guid id, string suspectName, DateTime arrestedAt, Guid? arrestTypeId = null, string arrestNum = "") =>
+        _sender.Send(new UpdateArrestDetailsCommand(id, suspectName, arrestedAt, arrestTypeId, arrestNum));
 
     public Task AcquireLockAsync(Guid id) =>
         _sender.Send(new AcquireArrestLockCommand(id));

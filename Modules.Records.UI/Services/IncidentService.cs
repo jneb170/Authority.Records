@@ -10,6 +10,7 @@ using Modules.Records.Application.Incidents.Commands.RestoreIncident;
 using Modules.Records.Application.Incidents.Commands.SoftDeleteIncident;
 using Modules.Records.Application.Incidents.Commands.UpdateIncidentDetails;
 using Modules.Records.Application.Incidents.Queries.GetIncidentById;
+using Modules.Records.Application.Incidents.Queries.GetIncidentByRecordNumber;
 using Modules.Records.Application.Incidents.Queries.GetIncidentsByJurisdiction;
 using Modules.Records.Domain.Abstractions;
 using Modules.Records.Domain.ValueObjects;
@@ -33,7 +34,10 @@ public sealed class IncidentService : IIncidentService
     public Task<IncidentDto?> GetByIdAsync(Guid id) =>
         _sender.Send(new GetIncidentByIdQuery(id));
 
-    public Task<Guid> CreateAsync(IncidentDetails details) =>
+    public Task<IncidentDto?> GetByRecordNumberAsync(long recordNumber) =>
+        _sender.Send(new GetIncidentByRecordNumberQuery(recordNumber));
+
+    public Task<long> CreateAsync(IncidentDetails details) =>
         _sender.Send(new CreateIncidentCommand(_tenantProvider.GetAgencyId(), details));
 
     public Task OpenAsync(Guid id) =>

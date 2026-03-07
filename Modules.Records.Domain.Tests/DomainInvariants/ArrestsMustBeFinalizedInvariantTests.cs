@@ -12,9 +12,7 @@ public sealed class ArrestsMustBeFinalizedInvariantTests
     private readonly ArrestsMustBeFinalizedInvariant _sut = new();
 
     private static Arrest MakeArrest() =>
-        new ArrestFactory().Create(
-            Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(),
-            "John Doe", DateTime.UtcNow.AddDays(-1));
+        new ArrestFactory().Create(Guid.NewGuid(), Guid.NewGuid(), "John Doe", DateTime.UtcNow.AddDays(-1));
 
     private static IncidentCloseContext ContextWith(params Arrest[] arrests) =>
         new(new IncidentFactory().Create(new CreateIncidentRequest { JurisdictionId = Guid.NewGuid(), AgencyId = Guid.NewGuid(), Details = new IncidentDetails { IncidentNum = "INC-001", Description = "Test", LocalNum = "" } }), arrests, []);

@@ -14,9 +14,9 @@ public sealed class ArrestReadModelConfiguration : IEntityTypeConfiguration<Arre
 
         builder.Property(x => x.SuspectName).IsRequired();
         builder.Property(x => x.Status).IsRequired().HasMaxLength(50);
+        builder.Property(x => x.ArrestNum).HasMaxLength(50).IsRequired(false);
 
         builder.HasIndex(x => x.JurisdictionId);
-        builder.HasIndex(x => x.IncidentId);
         builder.HasIndex(x => x.Status);
     }
 }

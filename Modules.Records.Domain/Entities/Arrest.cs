@@ -1,4 +1,4 @@
-﻿using Modules.Records.Domain.Abstractions;
+using Modules.Records.Domain.Abstractions;
 using Modules.Records.Domain.Common;
 using Modules.Records.Domain.Common.Exceptions;
 using Modules.Records.Domain.Common.Implementations;
@@ -12,10 +12,18 @@ namespace Modules.Records.Domain.Entities
     {
         public Guid JurisdictionId { get; private set; }
         public Guid AgencyId { get; private set; }
-        public Guid IncidentId { get; private set; }
         public string SuspectName { get; private set; }
         public DateTime ArrestedAt { get; private set; }
         public bool IsFinalized { get; private set; }
+
+        /// <summary>DB-generated auto-increment number. Use this in URLs and display; the GUID is for internal identity.</summary>
+        public long RecordNumber { get; private set; }
+
+        /// <summary>Agency-formatted arrest number, e.g. "AR-2026-000001". Auto-generated on create.</summary>
+        public string ArrestNum { get; private set; } = string.Empty;
+
+        /// <summary>Optional reference to the agency-configured ArrestType picklist item.</summary>
+        public Guid? ArrestTypeId { get; private set; }
 
         private static ILifecyclePolicy<Arrest> _lifecyclePolicy;
 
@@ -45,22 +53,19 @@ namespace Modules.Records.Domain.Entities
         // -------------------------------
         private Arrest() { } // EF Core materialization — must NOT raise domain events
 
-        public Arrest(Guid jurisdictionId, Guid agencyId, Guid incidentId, string suspectName, DateTime arrestedAt)
+        public Arrest(Guid jurisdictionId, Guid agencyId, string suspectName, DateTime arrestedAt, string arrestNum)
         {
             Id = Guid.NewGuid();
             JurisdictionId = jurisdictionId;
             AgencyId = agencyId;
-            IncidentId = incidentId;
-
-            SuspectName = !string.IsNullOrWhiteSpace(suspectName)
-                ? suspectName
-                : throw new DomainException("arrest.suspect.empty", "Suspect name cannot be empty.");
+            SuspectName = suspectName ?? string.Empty;
 
             ArrestedAt = arrestedAt;
+            ArrestNum  = arrestNum;
 
             Status = RecordStatus.Draft;
 
-            AddDomainEvent(new ArrestCreatedDomainEvent(Id, IncidentId, JurisdictionId, AgencyId, SuspectName, ArrestedAt));
+            AddDomainEvent(new ArrestCreatedDomainEvent(Id, JurisdictionId, SuspectName, ArrestedAt, ArrestNum));
         }
 
         // ----------------------------------------------------
@@ -83,15 +88,14 @@ namespace Modules.Records.Domain.Entities
 
         public void Finalize() => IsFinalized = true;
 
-        public void UpdateDetails(string suspectName, DateTime arrestedAt, IModificationContext context)
+        public void UpdateDetails(string suspectName, DateTime arrestedAt, Guid? arrestTypeId, string arrestNum, IModificationContext context)
         {
-            if (string.IsNullOrWhiteSpace(suspectName))
-                throw new DomainException("arrest.suspect.empty", "Suspect name cannot be empty.");
+            SuspectName  = suspectName ?? string.Empty;
+            ArrestedAt   = arrestedAt;
+            ArrestTypeId = arrestTypeId;
+            ArrestNum    = arrestNum;
 
-            SuspectName = suspectName;
-            ArrestedAt  = arrestedAt;
-
-            AddDomainEvent(new ArrestDetailsUpdatedDomainEvent(Id, SuspectName, ArrestedAt));
+            AddDomainEvent(new ArrestDetailsUpdatedDomainEvent(Id, SuspectName, ArrestedAt, ArrestTypeId, ArrestNum));
         }
 
         // -------------------------------------------------------

@@ -1,4 +1,4 @@
-﻿using Modules.Records.Domain.Abstractions;
+using Modules.Records.Domain.Abstractions;
 using Modules.Records.Domain.Common.Exceptions;
 using Modules.Records.Domain.DomainInvariants.IncidentClose;
 using Modules.Records.Domain.Entities;
@@ -8,14 +8,18 @@ namespace Modules.Records.Domain.Services;
 public sealed class IncidentCloseDomainService
 {
     private readonly IArrestRepository _arrestRepository;
+    private readonly ICitationRepository _citationRepository;
     private readonly IncidentCanBeClosedInvariant _invariant;
 
     public IncidentCloseDomainService(
         IArrestRepository arrestRepository,
+        ICitationRepository citationRepository,
         IJurisdictionRulesService jurisdictionRules)
     {
         _arrestRepository = arrestRepository
             ?? throw new ArgumentNullException(nameof(arrestRepository));
+        _citationRepository = citationRepository
+            ?? throw new ArgumentNullException(nameof(citationRepository));
 
         _invariant = new IncidentCanBeClosedInvariant(
             jurisdictionRules ?? throw new ArgumentNullException(nameof(jurisdictionRules)));
@@ -32,7 +36,8 @@ public sealed class IncidentCloseDomainService
         var arrests = await _arrestRepository
             .GetByIncidentIdAsync(incident.Id, cancellationToken);
 
-        var citations = (IReadOnlyList<Citation>)incident.Citations.ToList();
+        var citations = await _citationRepository
+            .GetByIncidentIdAsync(incident.Id, cancellationToken);
 
         var context = new IncidentCloseContext(incident, arrests, citations);
         var result = _invariant.Check(context);

@@ -1,0 +1,245 @@
+@page "/admin/picklists/{PicklistType}"
+@attribute [Authorize(Roles = "Admin,Supervisor")]
+@inject IPicklistService PicklistService
+@inject NavigationManager Nav
+@using Microsoft.AspNetCore.Authorization
+@using Modules.Records.Domain.Common
+
+<PageTitle>@FriendlyType(PicklistType) — Picklist Items</PageTitle>
+
+<nav aria-label="breadcrumb" class="mb-3">
+    <ol class="breadcrumb">
+        <li class="breadcrumb-item"><a href="/admin/picklists">Picklists</a></li>
+        <li class="breadcrumb-item active">@FriendlyType(PicklistType)</li>
+    </ol>
+</nav>
+
+<div class="d-flex align-items-center justify-content-between mb-3">
+    <h1 class="mb-0">@FriendlyType(PicklistType)</h1>
+    <div class="d-flex gap-3 align-items-center">
+        <div class="form-check form-switch mb-0">
+            <input class="form-check-input" type="checkbox" id="reqSwitch"
+                   checked="@_isRequired" @onchange="ToggleRequiredAsync" />
+            <label class="form-check-label" for="reqSwitch">Required</label>
+        </div>
+        <button class="btn btn-sm btn-primary" @onclick="() => _showAddForm = true">+ Add Item</button>
+    </div>
+</div>
+
+@if (_error is not null)
+{
+    <div class="alert alert-danger">@_error</div>
+}
+@if (_successMessage is not null)
+{
+    <div class="alert alert-success">@_successMessage</div>
+}
+
+@if (_loading)
+{
+    <p>Loading…</p>
+}
+else
+{
+    @if (_showAddForm)
+    {
+        <div class="card mb-3">
+            <div class="card-body">
+                <h6 class="card-title">New Item</h6>
+                <div class="row g-2">
+                    <div class="col-sm-4">
+                        <label class="form-label">Value <small class="text-muted">(stable key)</small></label>
+                        <input class="form-control form-control-sm" @bind="_newValue" placeholder="e.g. OnView" />
+                    </div>
+                    <div class="col-sm-4">
+                        <label class="form-label">Label <small class="text-muted">(display text)</small></label>
+                        <input class="form-control form-control-sm" @bind="_newLabel" placeholder="e.g. On View" />
+                    </div>
+                    <div class="col-sm-2">
+                        <label class="form-label">Sort Order</label>
+                        <input type="number" class="form-control form-control-sm" @bind="_newSortOrder" />
+                    </div>
+                </div>
+                <div class="mt-2">
+                    <button class="btn btn-sm btn-success" @onclick="AddItemAsync">Add</button>
+                    <button class="btn btn-sm btn-outline-secondary ms-2" @onclick="() => _showAddForm = false">Cancel</button>
+                </div>
+            </div>
+        </div>
+    }
+
+    @if (!_items.Any())
+    {
+        <p class="text-muted">No items yet. Add the first one above.</p>
+    }
+    else
+    {
+        <table class="table table-sm align-middle">
+            <thead>
+                <tr>
+                    <th>Sort</th>
+                    <th>Value</th>
+                    <th>Label</th>
+                    <th>Active</th>
+                    <th>System Default</th>
+                    <th></th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var item in _items.OrderBy(i => i.SortOrder))
+                {
+                    <tr class="@(item.IsActive ? "" : "text-muted")">
+                        <td>
+                            @if (_editingId == item.Id)
+                            {
+                                <input type="number" class="form-control form-control-sm" style="width:70px"
+                                       @bind="_editSortOrder" />
+                            }
+                            else
+                            {
+                                @item.SortOrder
+                            }
+                        </td>
+                        <td><code>@item.Value</code></td>
+                        <td>
+                            @if (_editingId == item.Id)
+                            {
+                                <input class="form-control form-control-sm" @bind="_editLabel" />
+                            }
+                            else
+                            {
+                                @item.Label
+                            }
+                        </td>
+                        <td>@(item.IsActive ? "✅" : "❌")</td>
+                        <td>@(item.IsSystemDefault ? "⚙️" : "")</td>
+                        <td class="text-end">
+                            @if (_editingId == item.Id)
+                            {
+                                <button class="btn btn-sm btn-success me-1" @onclick="() => SaveEditAsync(item.Id)">Save</button>
+                                <button class="btn btn-sm btn-outline-secondary" @onclick="CancelEdit">Cancel</button>
+                            }
+                            else
+                            {
+                                <button class="btn btn-sm btn-outline-secondary me-1" @onclick="() => StartEdit(item)">Edit</button>
+                                @if (item.IsActive)
+                                {
+                                    <button class="btn btn-sm btn-outline-warning" @onclick="() => DeactivateAsync(item.Id)">Deactivate</button>
+                                }
+                                else
+                                {
+                                    <button class="btn btn-sm btn-outline-success" @onclick="() => ActivateAsync(item.Id)">Activate</button>
+                                }
+                            }
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    }
+}
+
+@code {
+    [Parameter] public string PicklistType { get; set; } = string.Empty;
+
+    private IReadOnlyList<PicklistItemDto> _items = [];
+    private bool _isRequired;
+    private bool _loading = true;
+    private string? _error;
+    private string? _successMessage;
+
+    private bool _showAddForm;
+    private string _newValue = string.Empty;
+    private string _newLabel = string.Empty;
+    private int _newSortOrder;
+
+    private Guid? _editingId;
+    private string _editLabel = string.Empty;
+    private int _editSortOrder;
+
+    protected override async Task OnInitializedAsync() => await LoadAsync();
+
+    private async Task LoadAsync()
+    {
+        _loading = true;
+        try
+        {
+            _items = await PicklistService.GetItemsAsync(PicklistType, activeOnly: false);
+            _newSortOrder = _items.Count;
+            var setting = await PicklistService.GetSettingAsync(PicklistType);
+            _isRequired = setting?.IsRequired ?? false;
+        }
+        catch (Exception ex)
+        {
+            _error = ex.Message;
+        }
+        finally
+        {
+            _loading = false;
+        }
+    }
+
+    private async Task AddItemAsync()
+    {
+        if (string.IsNullOrWhiteSpace(_newValue) || string.IsNullOrWhiteSpace(_newLabel)) return;
+        await RunAsync(async () =>
+        {
+            await PicklistService.CreateItemAsync(PicklistType, _newValue.Trim(), _newLabel.Trim(), _newSortOrder);
+            _showAddForm = false;
+            _newValue = _newLabel = string.Empty;
+        }, "Item added.");
+    }
+
+    private void StartEdit(PicklistItemDto item)
+    {
+        _editingId = item.Id;
+        _editLabel = item.Label;
+        _editSortOrder = item.SortOrder;
+    }
+
+    private void CancelEdit() => _editingId = null;
+
+    private Task SaveEditAsync(Guid id) =>
+        RunAsync(() => PicklistService.UpdateItemAsync(id, _editLabel, _editSortOrder), "Item updated.");
+
+    private Task DeactivateAsync(Guid id) =>
+        RunAsync(() => PicklistService.DeactivateItemAsync(id), "Item deactivated.");
+
+    private Task ActivateAsync(Guid id) =>
+        RunAsync(() => PicklistService.ActivateItemAsync(id), "Item activated.");
+
+    private async Task ToggleRequiredAsync(ChangeEventArgs e)
+    {
+        var val = (bool)(e.Value ?? false);
+        await RunAsync(() => PicklistService.SetSettingAsync(PicklistType, val), val ? "Field marked required." : "Field marked optional.");
+    }
+
+    private async Task RunAsync(Func<Task> action, string successMsg)
+    {
+        _error = null;
+        _successMessage = null;
+        try
+        {
+            await action();
+            _editingId = null;
+            await LoadAsync();
+            _successMessage = successMsg;
+            _ = Task.Delay(3000).ContinueWith(_ => InvokeAsync(() =>
+            {
+                _successMessage = null;
+                StateHasChanged();
+            }));
+        }
+        catch (Exception ex)
+        {
+            _error = ex.Message;
+        }
+    }
+
+    private static string FriendlyType(string type) => type switch
+    {
+        PicklistTypes.ArrestType => "Arrest Type",
+        PicklistTypes.Court      => "Court",
+        _                        => type
+    };
+}

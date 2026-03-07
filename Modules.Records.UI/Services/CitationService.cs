@@ -2,13 +2,19 @@ using MediatR;
 using Modules.Records.Application.Citations.Commands.AcquireCitationLock;
 using Modules.Records.Application.Citations.Commands.CreateCitation;
 using Modules.Records.Application.Citations.Commands.IssueCitation;
+using Modules.Records.Application.Citations.Commands.LinkCitationToIncident;
 using Modules.Records.Application.Citations.Commands.ReleaseCitationLock;
 using Modules.Records.Application.Citations.Commands.RestoreCitation;
 using Modules.Records.Application.Citations.Commands.SoftDeleteCitation;
+using Modules.Records.Application.Citations.Commands.UnlinkCitationFromIncident;
 using Modules.Records.Application.Citations.Commands.UpdateCitationDetails;
 using Modules.Records.Application.Citations.Queries.GetCitationById;
+using Modules.Records.Application.Citations.Queries.GetCitationByRecordNumber;
 using Modules.Records.Application.Citations.Queries.GetCitationsByIncident;
+using Modules.Records.Application.Citations.Queries.GetCitationsByJurisdiction;
+using Modules.Records.Application.Citations.Queries.GetIncidentsByCitation;
 using Modules.Records.Application.DTOs;
+using Modules.Records.Application.Incidents.Queries.GetIncidentById;
 
 namespace Modules.Records.UI.Services;
 
@@ -24,17 +30,41 @@ public sealed class CitationService : ICitationService
     public Task<CitationDto?> GetByIdAsync(Guid id) =>
         _sender.Send(new GetCitationByIdQuery(id));
 
+    public Task<CitationDto?> GetByRecordNumberAsync(long recordNumber) =>
+        _sender.Send(new GetCitationByRecordNumberQuery(recordNumber));
+
+    public Task<IReadOnlyList<CitationDto>> GetByJurisdictionAsync() =>
+        _sender.Send(new GetCitationsByJurisdictionQuery());
+
     public Task<IReadOnlyList<CitationDto>> GetByIncidentAsync(Guid incidentId) =>
         _sender.Send(new GetCitationsByIncidentQuery(incidentId));
 
-    public Task<Guid> CreateAsync(Guid incidentId, string description, DateTime issueDate) =>
-        _sender.Send(new CreateCitationCommand(incidentId, description, issueDate));
+    public Task<IReadOnlyList<IncidentCitationLinkDto>> GetLinkedIncidentsAsync(Guid citationId) =>
+        _sender.Send(new GetIncidentsByCitationQuery(citationId));
+
+    public Task<long> CreateAsync(string description, DateTime issueDate, IReadOnlyList<long> incidentRecordNumbers, string citationNum = "") =>
+        _sender.Send(new CreateCitationCommand(description, issueDate, incidentRecordNumbers, citationNum));
+
+    public async Task<long> CreateAsync(Guid incidentId, string description, DateTime issueDate)
+    {
+        var incident = await _sender.Send(new GetIncidentByIdQuery(incidentId));
+        var recordNumbers = incident is not null
+            ? new List<long> { incident.RecordNumber } as IReadOnlyList<long>
+            : new List<long>() as IReadOnlyList<long>;
+        return await _sender.Send(new CreateCitationCommand(description, issueDate, recordNumbers));
+    }
+
+    public Task LinkToIncidentAsync(Guid citationId, Guid incidentId) =>
+        _sender.Send(new LinkCitationToIncidentCommand(citationId, incidentId));
+
+    public Task UnlinkFromIncidentAsync(Guid citationId, Guid incidentId) =>
+        _sender.Send(new UnlinkCitationFromIncidentCommand(citationId, incidentId));
 
     public Task IssueAsync(Guid id) =>
         _sender.Send(new IssueCitationCommand(id));
 
-    public Task UpdateDetailsAsync(Guid id, string description, DateTime issueDate) =>
-        _sender.Send(new UpdateCitationDetailsCommand(id, description, issueDate));
+    public Task UpdateDetailsAsync(Guid id, string description, DateTime issueDate, Guid? courtId = null, string citationNum = "") =>
+        _sender.Send(new UpdateCitationDetailsCommand(id, description, issueDate, courtId, citationNum));
 
     public Task AcquireLockAsync(Guid id) =>
         _sender.Send(new AcquireCitationLockCommand(id));

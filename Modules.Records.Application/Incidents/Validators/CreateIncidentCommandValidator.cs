@@ -11,7 +11,6 @@ public sealed class CreateIncidentCommandValidator : AbstractValidator<CreateInc
             .NotEmpty().WithMessage("AgencyId is required.");
 
         RuleFor(x => x.Details.Description)
-            .NotEmpty().WithMessage("Description is required.")
             .MaximumLength(500).WithMessage("Description must not exceed 500 characters.");
 
         RuleFor(x => x.Details.CFSNum)
