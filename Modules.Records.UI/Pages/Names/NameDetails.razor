@@ -1,0 +1,541 @@
+@page "/names/{RecordNumber:long}"
+@implements IAsyncDisposable
+@inject INameService NameService
+@inject IPicklistService PicklistService
+@inject ITenantProvider TenantProvider
+@inject IUserLookupService UserLookupService
+@inject NavigationManager Nav
+@using Modules.Records.Application.DTOs
+@using Modules.Records.Domain.Common
+
+<PageTitle>Name Details</PageTitle>
+
+@if (_loading)
+{
+    <p>Loading…</p>
+}
+else if (_error is not null)
+{
+    <div class="alert alert-danger">@_error</div>
+}
+else if (_name is not null)
+{
+    <nav aria-label="breadcrumb" class="mb-3">
+        <ol class="breadcrumb">
+            <li class="breadcrumb-item"><a href="/names">Names</a></li>
+            <li class="breadcrumb-item active">@(_name.NameType == NameTypes.Person ? $"{_name.LastOrBusinessName}, {_name.FirstName}" : _name.LastOrBusinessName)</li>
+        </ol>
+    </nav>
+
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <h1 class="mb-0">
+            @if (_name.NameType == NameTypes.Person)
+            {
+                @($"{_name.LastOrBusinessName}{(string.IsNullOrEmpty(_name.FirstName) ? "" : ", " + _name.FirstName)}{(string.IsNullOrEmpty(_name.MiddleName) ? "" : " " + _name.MiddleName)}")
+            }
+            else
+            {
+                @_name.LastOrBusinessName
+            }
+        </h1>
+        <div class="d-flex gap-2">
+            <span class="badge @(_name.NameType == NameTypes.Person ? "bg-primary" : "bg-secondary") align-self-center">@_name.NameType</span>
+            <LockBadge IsLocked="@_name.IsLocked" LockedByUserId="@_name.LockedByUserId" />
+        </div>
+    </div>
+
+    @if (_actionError is not null)
+    {
+        <div class="alert alert-danger alert-dismissible">
+            @_actionError
+            <button type="button" class="btn-close" @onclick="() => _actionError = null"></button>
+        </div>
+    }
+
+    @if (_saveSuccessMessage is not null)
+    {
+        <div class="alert alert-success alert-dismissible">
+            @_saveSuccessMessage
+            <button type="button" class="btn-close" @onclick="() => _saveSuccessMessage = null"></button>
+        </div>
+    }
+
+    <!-- Modify Mode Bar -->
+    <div class="mb-3">
+        @if (_modifyMode)
+        {
+            <div class="alert alert-warning d-flex align-items-center gap-3 py-2 mb-2">
+                <span>✏️ <strong>Modify mode</strong> — lock expires in @_lockSecondsRemaining s</span>
+                <button class="btn btn-sm btn-outline-dark ms-auto" @onclick="ExitModifyModeAsync">🔓 Release Record</button>
+            </div>
+        }
+        else if (_name.IsLocked && _name.LockedByUserId != _currentUserId)
+        {
+            <div class="alert alert-secondary py-2 mb-2">
+                🔒 Record is locked by another user — read only
+            </div>
+        }
+        else
+        {
+            <button class="btn btn-outline-primary btn-sm" @onclick="EnterModifyModeAsync">✏️ Modify</button>
+        }
+    </div>
+
+    <!-- Action Bar (modify mode only) -->
+    @if (_modifyMode)
+    {
+        <div class="action-bar mb-4 d-flex flex-wrap gap-2">
+            <button class="btn btn-outline-danger btn-sm" @onclick="() => _showDeleteConfirm = true">Delete</button>
+        </div>
+    }
+
+    <ConfirmDialog Visible="_showDeleteConfirm"
+                   Title="Delete Name"
+                   Message="Are you sure you want to delete this name record?"
+                   OnConfirm="SoftDeleteAsync"
+                   OnCancel="() => _showDeleteConfirm = false" />
+
+    <!-- Identity Fields -->
+    <div class="card mb-4">
+        <div class="card-body">
+            <h6 class="card-title">Identity</h6>
+            <div class="row g-3">
+                <div class="col-sm-6 col-md-3">
+                    <label class="form-label mb-1">Name Type</label>
+                    @if (_modifyMode)
+                    {
+                        <select class="form-select form-select-sm" @bind="_editNameType">
+                            <option value="@NameTypes.Person">Person</option>
+                            <option value="@NameTypes.Business">Business</option>
+                        </select>
+                    }
+                    else
+                    {
+                        <p class="form-control-plaintext form-control-sm ps-0">@_name.NameType</p>
+                    }
+                </div>
+                <div class="col-sm-6 col-md-3">
+                    <label class="form-label mb-1">@(_editNameType == NameTypes.Person ? "Last Name" : "Business Name")</label>
+                    <input type="text"
+                           class="@(_modifyMode ? "form-control form-control-sm" : "form-control-plaintext form-control-sm ps-0")"
+                           readonly="@(!_modifyMode)"
+                           @bind="_editLastOrBusinessName"
+                           @bind:after="() => _editLastOrBusinessName = NameCaseConverter.ToNameCase(_editLastOrBusinessName) ?? string.Empty" />
+                </div>
+                @if (_editNameType == NameTypes.Person)
+                {
+                    <div class="col-sm-6 col-md-3">
+                        <label class="form-label mb-1">First Name</label>
+                        <input type="text"
+                               class="@(_modifyMode ? "form-control form-control-sm" : "form-control-plaintext form-control-sm ps-0")"
+                               readonly="@(!_modifyMode)"
+                               @bind="_editFirstName"
+                               @bind:after="() => _editFirstName = NameCaseConverter.ToNameCase(_editFirstName)"
+                               placeholder="—" />
+                    </div>
+                    <div class="col-sm-6 col-md-3">
+                        <label class="form-label mb-1">Middle Name</label>
+                        <input type="text"
+                               class="@(_modifyMode ? "form-control form-control-sm" : "form-control-plaintext form-control-sm ps-0")"
+                               readonly="@(!_modifyMode)"
+                               @bind="_editMiddleName"
+                               @bind:after="() => _editMiddleName = NameCaseConverter.ToNameCase(_editMiddleName)"
+                               placeholder="—" />
+                    </div>
+                }
+            </div>
+        </div>
+    </div>
+
+    @if (_editNameType == NameTypes.Person)
+    {
+        <!-- Physical Description -->
+        <div class="card mb-4">
+            <div class="card-body">
+                <h6 class="card-title">Physical Description</h6>
+                <div class="row g-3">
+                    <div class="col-sm-6 col-md-3">
+                        <label class="form-label mb-1">Sex</label>
+                        @if (_modifyMode)
+                        {
+                            <PicklistSelect PicklistType="@PicklistTypes.Sex" @bind-Value="_editSexId" />
+                        }
+                        else
+                        {
+                            <p class="form-control-plaintext form-control-sm ps-0">@(_sexLabel ?? "—")</p>
+                        }
+                    </div>
+                    <div class="col-sm-6 col-md-3">
+                        <label class="form-label mb-1">Race</label>
+                        @if (_modifyMode)
+                        {
+                            <PicklistSelect PicklistType="@PicklistTypes.Race" @bind-Value="_editRaceId" />
+                        }
+                        else
+                        {
+                            <p class="form-control-plaintext form-control-sm ps-0">@(_raceLabel ?? "—")</p>
+                        }
+                    </div>
+                    <div class="col-sm-6 col-md-3">
+                        <label class="form-label mb-1">Date of Birth</label>
+                        @if (_modifyMode)
+                        {
+                            <input type="date" class="form-control form-control-sm"
+                                   value="@(_editDateOfBirth.HasValue ? _editDateOfBirth.Value.ToString("yyyy-MM-dd") : "")"
+                                   max="@DateTime.Today.ToString("yyyy-MM-dd")"
+                                   @onchange="@(e => _editDateOfBirth = DateTime.TryParse(e.Value?.ToString(), out var d) ? d : null)" />
+                        }
+                        else
+                        {
+                            <p class="form-control-plaintext form-control-sm ps-0">@(_name.DateOfBirth.HasValue ? _name.DateOfBirth.Value.ToShortDateString() : "—")</p>
+                        }
+                    </div>
+                    <div class="col-sm-6 col-md-3">
+                        <label class="form-label mb-1">Height</label>
+                        @if (_modifyMode)
+                        {
+                            <div class="d-flex gap-1">
+                                <div class="input-group input-group-sm">
+                                    <input type="number" class="form-control form-control-sm" @bind="_editHeightFeet" placeholder="ft" />
+                                    <span class="input-group-text">ft</span>
+                                </div>
+                                <div class="input-group input-group-sm">
+                                    <input type="number" class="form-control form-control-sm" @bind="_editHeightInchesRemainder" placeholder="in" />
+                                    <span class="input-group-text">in</span>
+                                </div>
+                            </div>
+                        }
+                        else
+                        {
+                            <p class="form-control-plaintext form-control-sm ps-0">@HeightDisplay</p>
+                        }
+                    </div>
+                    <div class="col-sm-6 col-md-3">
+                        <label class="form-label mb-1">Weight (lbs)</label>
+                        <input type="number"
+                               class="@(_modifyMode ? "form-control form-control-sm" : "form-control-plaintext form-control-sm ps-0")"
+                               readonly="@(!_modifyMode)"
+                               @bind="_editWeightLbs" placeholder="—" />
+                    </div>
+                    <div class="col-sm-6 col-md-3">
+                        <label class="form-label mb-1">Hair Color</label>
+                        @if (_modifyMode)
+                        {
+                            <PicklistSelect PicklistType="@PicklistTypes.HairColor" @bind-Value="_editHairColorId" />
+                        }
+                        else
+                        {
+                            <p class="form-control-plaintext form-control-sm ps-0">@(_hairColorLabel ?? "—")</p>
+                        }
+                    </div>
+                    <div class="col-sm-6 col-md-3">
+                        <label class="form-label mb-1">Eye Color</label>
+                        @if (_modifyMode)
+                        {
+                            <PicklistSelect PicklistType="@PicklistTypes.EyeColor" @bind-Value="_editEyeColorId" />
+                        }
+                        else
+                        {
+                            <p class="form-control-plaintext form-control-sm ps-0">@(_eyeColorLabel ?? "—")</p>
+                        }
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Driver's License -->
+        <div class="card mb-4">
+            <div class="card-body">
+                <h6 class="card-title">Driver's License</h6>
+                <div class="row g-3">
+                    <div class="col-sm-6">
+                        <label class="form-label mb-1">DL Number</label>
+                        <input type="text"
+                               class="@(_modifyMode ? "form-control form-control-sm" : "form-control-plaintext form-control-sm ps-0")"
+                               readonly="@(!_modifyMode)"
+                               @bind="_editDlNumber" placeholder="—" />
+                    </div>
+                    <div class="col-sm-6">
+                        <label class="form-label mb-1">DL State</label>
+                        @if (_modifyMode)
+                        {
+                            <StateSelect @bind-Value="_editDlStateId" />
+                        }
+                        else
+                        {
+                            <p class="form-control-plaintext form-control-sm ps-0">@(_dlStateLabel ?? "—")</p>
+                        }
+                    </div>
+                </div>
+            </div>
+        </div>
+    }
+
+    @if (_modifyMode)
+    {
+        <div class="mb-4">
+            <button class="btn btn-sm btn-primary" @onclick="SaveDetailsAsync">Save Details</button>
+        </div>
+    }
+
+    <AuditInfoSection CreatedAt="@_name.CreatedAtUtc"
+                      CreatedByName="@_createdByName"
+                      ModifiedAt="@(_name.ModifiedBy.HasValue ? _name.UpdatedAtUtc : null)"
+                      ModifiedByName="@_modifiedByName" />
+}
+
+@code {
+    [Parameter] public long RecordNumber { get; set; }
+
+    [SupplyParameterFromQuery(Name = "autoModify")]
+    public bool AutoModify { get; set; }
+
+    private Guid _nameId;
+    private NameDto? _name;
+    private bool _loading = true;
+    private string? _error;
+    private string? _actionError;
+    private bool _showDeleteConfirm;
+    private string? _saveSuccessMessage;
+
+    private bool _modifyMode;
+    private Guid _currentUserId;
+    private int _lockSecondsRemaining;
+    private System.Threading.Timer? _lockTimer;
+    private static readonly TimeSpan LockTimeout = TimeSpan.FromMinutes(10);
+
+    // Edit fields
+    private string _editNameType = NameTypes.Person;
+    private string _editLastOrBusinessName = string.Empty;
+    private string? _editFirstName;
+    private string? _editMiddleName;
+    private Guid? _editSexId;
+    private Guid? _editRaceId;
+    private DateTime? _editDateOfBirth;
+    private string? _editDlNumber;
+    private Guid? _editDlStateId;
+    private int? _editHeightFeet;
+    private int? _editHeightInchesRemainder;
+    private int? _editWeightLbs;
+    private Guid? _editHairColorId;
+    private Guid? _editEyeColorId;
+
+    // Read-only picklist labels
+    private string? _sexLabel;
+    private string? _raceLabel;
+    private string? _hairColorLabel;
+    private string? _eyeColorLabel;
+    private string? _dlStateLabel;
+
+    private string? _createdByName;
+    private string? _modifiedByName;
+
+    private int? EditHeightInches =>
+        (_editHeightFeet.HasValue || _editHeightInchesRemainder.HasValue)
+            ? (_editHeightFeet ?? 0) * 12 + (_editHeightInchesRemainder ?? 0)
+            : null;
+
+    private string HeightDisplay
+    {
+        get
+        {
+            if (!_name!.HeightInches.HasValue) return "—";
+            var ft = _name.HeightInches.Value / 12;
+            var inches = _name.HeightInches.Value % 12;
+            return $"{ft}′ {inches}″";
+        }
+    }
+
+    protected override async Task OnInitializedAsync()
+    {
+        _currentUserId = TenantProvider.GetUserId();
+        await LoadAsync();
+
+        if (AutoModify)
+            await EnterModifyModeAsync();
+        else
+            RestoreModifyModeIfOwner();
+    }
+
+    private void RestoreModifyModeIfOwner()
+    {
+        if (_name is not null && _name.IsLocked && _name.LockedByUserId == _currentUserId)
+        {
+            _modifyMode = true;
+            LoadEditFields();
+            StartLockTimer();
+        }
+    }
+
+    private void LoadEditFields()
+    {
+        if (_name is null) return;
+        _editNameType              = _name.NameType;
+        _editLastOrBusinessName    = _name.LastOrBusinessName;
+        _editFirstName             = _name.FirstName;
+        _editMiddleName            = _name.MiddleName;
+        _editSexId                 = _name.SexId;
+        _editRaceId                = _name.RaceId;
+        _editDateOfBirth           = _name.DateOfBirth;
+        _editDlNumber              = _name.DriversLicenseNumber;
+        _editDlStateId             = _name.DriversLicenseStateId;
+        _editHeightFeet            = _name.HeightInches.HasValue ? _name.HeightInches.Value / 12 : null;
+        _editHeightInchesRemainder = _name.HeightInches.HasValue ? _name.HeightInches.Value % 12 : null;
+        _editWeightLbs             = _name.WeightLbs;
+        _editHairColorId           = _name.HairColorId;
+        _editEyeColorId            = _name.EyeColorId;
+    }
+
+    private async Task LoadAsync()
+    {
+        _loading = true;
+        _error = null;
+        try
+        {
+            _name = await NameService.GetByRecordNumberAsync(RecordNumber);
+            if (_name is null) { _error = "Name not found."; return; }
+            _nameId = _name.Id;
+
+            if (!_modifyMode)
+                LoadEditFields();
+
+            _createdByName  = await UserLookupService.GetDisplayNameAsync(_name.CreatedBy);
+            _modifiedByName = _name.ModifiedBy.HasValue
+                ? await UserLookupService.GetDisplayNameAsync(_name.ModifiedBy.Value)
+                : null;
+
+            // Resolve picklist labels for read-only display
+            var picklistIds = new List<Guid>();
+            if (_name.SexId.HasValue)       picklistIds.Add(_name.SexId.Value);
+            if (_name.RaceId.HasValue)       picklistIds.Add(_name.RaceId.Value);
+            if (_name.HairColorId.HasValue)  picklistIds.Add(_name.HairColorId.Value);
+            if (_name.EyeColorId.HasValue)   picklistIds.Add(_name.EyeColorId.Value);
+            if (_name.DriversLicenseStateId.HasValue) picklistIds.Add(_name.DriversLicenseStateId.Value);
+
+            if (picklistIds.Count > 0)
+            {
+                var labels = await PicklistService.GetItemsByIdsAsync(picklistIds);
+                _sexLabel      = _name.SexId.HasValue       ? labels.GetValueOrDefault(_name.SexId.Value) : null;
+                _raceLabel     = _name.RaceId.HasValue       ? labels.GetValueOrDefault(_name.RaceId.Value) : null;
+                _hairColorLabel = _name.HairColorId.HasValue ? labels.GetValueOrDefault(_name.HairColorId.Value) : null;
+                _eyeColorLabel = _name.EyeColorId.HasValue  ? labels.GetValueOrDefault(_name.EyeColorId.Value) : null;
+                _dlStateLabel  = _name.DriversLicenseStateId.HasValue ? labels.GetValueOrDefault(_name.DriversLicenseStateId.Value) : null;
+            }
+        }
+        catch (Exception ex)
+        {
+            _error = ex.Message;
+        }
+        finally
+        {
+            _loading = false;
+        }
+    }
+
+    private async Task RunActionAsync(Func<Task> action)
+    {
+        _actionError = null;
+        try { await action(); await LoadAsync(); }
+        catch (Exception ex) { _actionError = ex.Message; }
+    }
+
+    private async Task EnterModifyModeAsync()
+    {
+        _actionError = null;
+        try
+        {
+            await NameService.AcquireLockAsync(_nameId);
+            _modifyMode = true;
+            LoadEditFields();
+            StartLockTimer();
+            await LoadAsync();
+        }
+        catch (Exception ex)
+        {
+            _actionError = ex.Message;
+        }
+    }
+
+    private async Task ExitModifyModeAsync()
+    {
+        StopLockTimer();
+        _modifyMode = false;
+        try { await NameService.ReleaseLockAsync(_nameId); } catch { /* best-effort */ }
+        await LoadAsync();
+    }
+
+    private async Task SaveDetailsAsync()
+    {
+        _actionError = null;
+        _saveSuccessMessage = null;
+        try
+        {
+            await NameService.UpdateDetailsAsync(
+                _nameId, _editNameType, _editLastOrBusinessName,
+                _editNameType == NameTypes.Person ? _editFirstName : null,
+                _editNameType == NameTypes.Person ? _editMiddleName : null,
+                _editNameType == NameTypes.Person ? _editSexId : null,
+                _editNameType == NameTypes.Person ? _editRaceId : null,
+                _editNameType == NameTypes.Person ? _editDateOfBirth : null,
+                _editNameType == NameTypes.Person ? _editDlNumber : null,
+                _editNameType == NameTypes.Person ? _editDlStateId : null,
+                _editNameType == NameTypes.Person ? EditHeightInches : null,
+                _editNameType == NameTypes.Person ? _editWeightLbs : null,
+                _editNameType == NameTypes.Person ? _editHairColorId : null,
+                _editNameType == NameTypes.Person ? _editEyeColorId : null);
+
+            await LoadAsync();
+            _saveSuccessMessage = "Details saved successfully.";
+            _ = Task.Delay(3000).ContinueWith(_ => InvokeAsync(() =>
+            {
+                _saveSuccessMessage = null;
+                StateHasChanged();
+            }));
+        }
+        catch (Exception ex)
+        {
+            _actionError = ex.Message;
+        }
+    }
+
+    private async Task SoftDeleteAsync()
+    {
+        _showDeleteConfirm = false;
+        await RunActionAsync(() => NameService.SoftDeleteAsync(_nameId));
+        Nav.NavigateTo("/names");
+    }
+
+    private void StartLockTimer()
+    {
+        StopLockTimer();
+        _lockSecondsRemaining = (int)LockTimeout.TotalSeconds;
+        _lockTimer = new System.Threading.Timer(async _ =>
+        {
+            _lockSecondsRemaining--;
+            if (_lockSecondsRemaining <= 0)
+            {
+                await InvokeAsync(async () =>
+                {
+                    await ExitModifyModeAsync();
+                    StateHasChanged();
+                });
+            }
+            else
+            {
+                await InvokeAsync(StateHasChanged);
+            }
+        }, null, TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(1));
+    }
+
+    private void StopLockTimer()
+    {
+        _lockTimer?.Dispose();
+        _lockTimer = null;
+    }
+
+    public ValueTask DisposeAsync()
+    {
+        StopLockTimer();
+        return ValueTask.CompletedTask;
+    }
+}

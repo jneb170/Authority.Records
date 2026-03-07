@@ -1,0 +1,26 @@
+namespace Modules.Records.Application.DTOs;
+
+public sealed record NameDto(
+    Guid Id,
+    long RecordNumber,
+    Guid JurisdictionId,
+    Guid AgencyId,
+    string NameType,
+    string LastOrBusinessName,
+    bool IsLocked,
+    Guid? LockedByUserId,
+    Guid CreatedBy,
+    Guid? ModifiedBy,
+    DateTime CreatedAtUtc,
+    DateTime UpdatedAtUtc,
+    string? FirstName = null,
+    string? MiddleName = null,
+    Guid? SexId = null,
+    Guid? RaceId = null,
+    DateTime? DateOfBirth = null,
+    string? DriversLicenseNumber = null,
+    Guid? DriversLicenseStateId = null,
+    int? HeightInches = null,
+    int? WeightLbs = null,
+    Guid? HairColorId = null,
+    Guid? EyeColorId = null);
