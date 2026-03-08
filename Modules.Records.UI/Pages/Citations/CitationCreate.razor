@@ -1,8 +1,10 @@
 @page "/citations/create"
 @page "/incidents/{IncidentRecordNumber:long}/citations/create"
+@implements IAsyncDisposable
 @inject ICitationService CitationService
 @inject IIncidentService IncidentService
 @inject IAgencyConfigurationService ConfigService
+@inject IKeyboardShortcutService ShortcutService
 @inject NavigationManager Nav
 
 <PageTitle>New Citation</PageTitle>
@@ -63,14 +65,62 @@
     }
 </EditForm>
 
+<UnsavedChangesDialog Visible="_showCancelConfirm"
+                      SaveLabel="Submit Record"
+                      DiscardLabel="Discard"
+                      ActionDescription="leaving the form"
+                      OnSaveAndRelease="SubmitFromDialogAsync"
+                      OnDiscard="DiscardAndCancelAsync"
+                      OnCancel="() => _showCancelConfirm = false" />
+
 @code {
     [Parameter] public long? IncidentRecordNumber { get; set; }
 
     private readonly CreateCitationViewModel _vm = new();
     private bool _submitting;
     private bool _generatingNum;
+    private bool _showCancelConfirm;
     private IReadOnlyList<IncidentDto>? _incidents;
     private readonly List<long> _selectedIncidentRecordNumbers = new();
+
+    private bool HasEnteredData =>
+        !string.IsNullOrEmpty(_vm.Description) ||
+        !string.IsNullOrEmpty(_vm.CitationNum) ||
+        _selectedIncidentRecordNumbers.Count > 0;
+
+    private string CancelUrl =>
+        IncidentRecordNumber.HasValue ? $"/incidents/{IncidentRecordNumber}" : "/citations";
+
+    protected override Task OnInitializedAsync()
+    {
+        ShortcutService.OnRelease += HandleShortcutRelease;
+        return Task.CompletedTask;
+    }
+
+    private void HandleShortcutRelease()
+        => InvokeAsync(() => { HandleEscape(); StateHasChanged(); });
+
+    private void HandleEscape()
+    {
+        if (HasEnteredData)
+            _showCancelConfirm = true;
+        else
+            Nav.NavigateTo(CancelUrl);
+    }
+
+    private async Task SubmitFromDialogAsync()
+    {
+        _showCancelConfirm = false;
+        await SubmitAsync();
+    }
+
+    private void DiscardAndCancelAsync() => Nav.NavigateTo(CancelUrl);
+
+    public ValueTask DisposeAsync()
+    {
+        ShortcutService.OnRelease -= HandleShortcutRelease;
+        return ValueTask.CompletedTask;
+    }
 
     protected override async Task OnParametersSetAsync()
     {

@@ -15,4 +15,11 @@ public sealed record CreateNameCommand(
     int? HeightInches,
     int? WeightLbs,
     Guid? HairColorId,
-    Guid? EyeColorId) : IRequest<long>;
+    Guid? EyeColorId,
+    Guid? SuffixId,
+    string? PlaceOfBirth,
+    string? FbiNumber,
+    string? LocalNumber,
+    string? SocialSecurityNumber,
+    bool IsCitizen,
+    DateTime? DeceasedDate) : IRequest<long>;

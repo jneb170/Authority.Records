@@ -1,0 +1,191 @@
+@page "/admin/read-model-rebuild"
+@attribute [Authorize(Roles = "Admin,Supervisor")]
+@inject IAdminService AdminService
+@using Microsoft.AspNetCore.Authorization
+@using Modules.Records.Application.Admin.Commands.RebuildReadModels
+
+<PageTitle>Read Model Rebuild</PageTitle>
+
+<h1>🔄 Read Model Rebuild</h1>
+<p class="text-muted">
+    Synchronise the read (projection) tables from the authoritative aggregate tables.
+    Use this if records appear out of sync or after recovering from a failed projection.
+</p>
+
+@if (_error is not null)
+{
+    <div class="alert alert-danger">@_error</div>
+}
+
+<div class="row g-4">
+
+    <!-- Schedule Card -->
+    <div class="col-12 col-md-5">
+        <div class="card">
+            <div class="card-header"><strong>⏱ Scheduled Rebuild</strong></div>
+            <div class="card-body">
+                @if (_loading)
+                {
+                    <p class="text-muted">Loading…</p>
+                }
+                else
+                {
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold">Auto-Rebuild Frequency</label>
+                        <select class="form-select" @bind="_schedule" @bind:after="SaveScheduleAsync">
+                            <option value="Off">Off (manual only)</option>
+                            <option value="Hourly">Hourly</option>
+                            <option value="TwiceDaily">Twice Daily</option>
+                            <option value="Daily">Daily</option>
+                        </select>
+                    </div>
+                    <dl class="row mb-0 small">
+                        <dt class="col-5 text-secondary">Last rebuild</dt>
+                        <dd class="col-7">
+                            @(_lastRebuildUtc.HasValue
+                                ? _lastRebuildUtc.Value.ToLocalTime().ToString("g")
+                                : "Never")
+                        </dd>
+                        @if (_schedule != "Off" && _lastRebuildUtc.HasValue)
+                        {
+                            <dt class="col-5 text-secondary">Next rebuild</dt>
+                            <dd class="col-7">@NextRebuildText</dd>
+                        }
+                    </dl>
+                }
+                @if (_scheduleSaved)
+                {
+                    <div class="alert alert-success mt-2 py-1 small">Schedule saved.</div>
+                }
+            </div>
+        </div>
+    </div>
+
+    <!-- Run Now Card -->
+    <div class="col-12 col-md-7">
+        <div class="card">
+            <div class="card-header"><strong>▶ Manual Rebuild</strong></div>
+            <div class="card-body">
+                @if (!_confirming && !_running && _result is null)
+                {
+                    <p class="text-muted small">
+                        Clears all read-model rows for this jurisdiction and repopulates them
+                        from the aggregate tables. This may take a few seconds.
+                    </p>
+                    <button class="btn btn-primary" @onclick="RequestConfirm">Run Now</button>
+                }
+
+                @if (_confirming)
+                {
+                    <div class="alert alert-warning">
+                        This will clear and repopulate all projection tables. Continue?
+                    </div>
+                    <button class="btn btn-danger me-2" @onclick="RunRebuildAsync">Yes, rebuild now</button>
+                    <button class="btn btn-secondary" @onclick="CancelConfirm">Cancel</button>
+                }
+
+                @if (_running)
+                {
+                    <p><span class="spinner-border spinner-border-sm me-2"></span>Rebuilding…</p>
+                }
+
+                @if (_result is not null)
+                {
+                    <div class="alert alert-success">
+                        <strong>Rebuild complete</strong> in @_result.Elapsed.TotalSeconds.ToString("F2")s
+                    </div>
+                    <table class="table table-sm table-bordered mb-3">
+                        <thead class="table-light">
+                            <tr><th>Entity</th><th class="text-end">Records rebuilt</th></tr>
+                        </thead>
+                        <tbody>
+                            <tr><td>Names</td><td class="text-end">@_result.NamesRebuilt</td></tr>
+                            <tr><td>Arrests</td><td class="text-end">@_result.ArrestsRebuilt</td></tr>
+                            <tr><td>Citations</td><td class="text-end">@_result.CitationsRebuilt</td></tr>
+                            <tr><td>Incidents</td><td class="text-end">@_result.IncidentsRebuilt</td></tr>
+                            <tr><td>Arrest Links</td><td class="text-end">@_result.ArrestLinksRebuilt</td></tr>
+                            <tr><td>Citation Links</td><td class="text-end">@_result.CitationLinksRebuilt</td></tr>
+                        </tbody>
+                    </table>
+                    <button class="btn btn-outline-secondary btn-sm" @onclick="Reset">Run Again</button>
+                }
+            </div>
+        </div>
+    </div>
+</div>
+
+@code {
+    private bool   _loading     = true;
+    private bool   _confirming  = false;
+    private bool   _running     = false;
+    private bool   _scheduleSaved = false;
+    private string _schedule    = "Off";
+    private DateTime? _lastRebuildUtc;
+    private RebuildReadModelsResult? _result;
+    private string? _error;
+
+    private string NextRebuildText
+    {
+        get
+        {
+            if (!_lastRebuildUtc.HasValue) return "Soon";
+            var interval = _schedule switch
+            {
+                "Hourly"     => TimeSpan.FromHours(1),
+                "TwiceDaily" => TimeSpan.FromHours(12),
+                "Daily"      => TimeSpan.FromHours(24),
+                _            => (TimeSpan?)null
+            };
+            if (interval is null) return "N/A";
+            var next = _lastRebuildUtc.Value.Add(interval.Value).ToLocalTime();
+            return next < DateTime.Now ? "Overdue" : next.ToString("g");
+        }
+    }
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            _schedule       = await AdminService.GetRebuildScheduleAsync();
+            _lastRebuildUtc = await AdminService.GetLastRebuildUtcAsync();
+        }
+        catch (Exception ex) { _error = ex.Message; }
+        finally { _loading = false; }
+    }
+
+    private async Task SaveScheduleAsync()
+    {
+        try
+        {
+            await AdminService.SetRebuildScheduleAsync(_schedule);
+            _scheduleSaved = true;
+            await Task.Delay(2000);
+            _scheduleSaved = false;
+            StateHasChanged();
+        }
+        catch (Exception ex) { _error = ex.Message; }
+    }
+
+    private void RequestConfirm() => _confirming = true;
+    private void CancelConfirm()  => _confirming = false;
+
+    private async Task RunRebuildAsync()
+    {
+        _confirming = false;
+        _running    = true;
+        _error      = null;
+        try
+        {
+            _result = await AdminService.RebuildReadModelsAsync();
+            _lastRebuildUtc = DateTime.UtcNow;
+        }
+        catch (Exception ex) { _error = ex.Message; }
+        finally { _running = false; }
+    }
+
+    private void Reset()
+    {
+        _result     = null;
+        _confirming = false;
+    }
+}

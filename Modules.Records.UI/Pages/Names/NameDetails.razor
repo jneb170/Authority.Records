@@ -5,8 +5,10 @@
 @inject ITenantProvider TenantProvider
 @inject IUserLookupService UserLookupService
 @inject NavigationManager Nav
+@inject IKeyboardShortcutService ShortcutService
 @using Modules.Records.Application.DTOs
 @using Modules.Records.Domain.Common
+@using Modules.Records.UI.Services
 
 <PageTitle>Name Details</PageTitle>
 
@@ -27,20 +29,37 @@ else if (_name is not null)
         </ol>
     </nav>
 
-    <div class="d-flex justify-content-between align-items-center mb-3">
-        <h1 class="mb-0">
-            @if (_name.NameType == NameTypes.Person)
-            {
-                @($"{_name.LastOrBusinessName}{(string.IsNullOrEmpty(_name.FirstName) ? "" : ", " + _name.FirstName)}{(string.IsNullOrEmpty(_name.MiddleName) ? "" : " " + _name.MiddleName)}")
-            }
-            else
-            {
-                @_name.LastOrBusinessName
-            }
-        </h1>
-        <div class="d-flex gap-2">
-            <span class="badge @(_name.NameType == NameTypes.Person ? "bg-primary" : "bg-secondary") align-self-center">@_name.NameType</span>
+    <div class="d-flex justify-content-between align-items-center border-bottom pb-3 mb-4">
+        <div>
+            <p class="text-muted small mb-0">
+                👤 @(_name.NameType == NameTypes.Person ? "Person Record" : "Business Record")
+            </p>
+            <h2 class="fw-bold mb-0">
+                @if (_name.NameType == NameTypes.Person)
+                {
+                    @($"{_name.LastOrBusinessName}{(string.IsNullOrEmpty(_name.FirstName) ? "" : ", " + _name.FirstName)}{(string.IsNullOrEmpty(_name.MiddleName) ? "" : " " + _name.MiddleName)}{(!string.IsNullOrEmpty(_suffixLabel) ? " " + _suffixLabel : "")}")
+                    @if (ComputeAge(_name.DateOfBirth) is int age)
+                    {
+                        <span class="text-muted fs-5 fw-normal ms-2">(Age @age)</span>
+                    }
+                    @if (_name.DeceasedDate.HasValue)
+                    {
+                        <span class="badge bg-dark ms-2 align-middle" style="font-size: 0.55rem; letter-spacing: 0.1em; vertical-align: middle">DECEASED</span>
+                    }
+                }
+                else
+                {
+                    @_name.LastOrBusinessName
+                }
+            </h2>
+        </div>
+        <div class="d-flex gap-2 align-items-center">
+            <span class="badge @(_name.NameType == NameTypes.Person ? "bg-primary" : "bg-secondary")">@_name.NameType</span>
             <LockBadge IsLocked="@_name.IsLocked" LockedByUserId="@_name.LockedByUserId" />
+            <a href="/names/@RecordNumber/print" target="_blank"
+               class="btn btn-outline-secondary btn-sm" title="Print / Save as PDF">
+                🖨 Print
+            </a>
         </div>
     </div>
 
@@ -66,7 +85,7 @@ else if (_name is not null)
         {
             <div class="alert alert-warning d-flex align-items-center gap-3 py-2 mb-2">
                 <span>✏️ <strong>Modify mode</strong> — lock expires in @_lockSecondsRemaining s</span>
-                <button class="btn btn-sm btn-outline-dark ms-auto" @onclick="ExitModifyModeAsync">🔓 Release Record</button>
+                <button class="btn btn-sm btn-outline-dark ms-auto" title="Release Record (Esc)" @onclick="RequestReleaseAsync">🔓 Release Record</button>
             </div>
         }
         else if (_name.IsLocked && _name.LockedByUserId != _currentUserId)
@@ -77,7 +96,7 @@ else if (_name is not null)
         }
         else
         {
-            <button class="btn btn-outline-primary btn-sm" @onclick="EnterModifyModeAsync">✏️ Modify</button>
+            <button class="btn btn-outline-primary btn-sm" title="Modify (F2)" @onclick="EnterModifyModeAsync">✏️ Modify</button>
         }
     </div>
 
@@ -95,13 +114,21 @@ else if (_name is not null)
                    OnConfirm="SoftDeleteAsync"
                    OnCancel="() => _showDeleteConfirm = false" />
 
+    <UnsavedChangesDialog Visible="_showReleaseConfirm"
+                          SaveLabel="@(_pendingNewRecord ? "Save & New" : "Save & Release")"
+                          DiscardLabel="@(_pendingNewRecord ? "Discard & New" : "Discard")"
+                          ActionDescription="@(_pendingNewRecord ? "creating a new record" : "releasing the record")"
+                          OnSaveAndRelease="SaveAndReleaseAsync"
+                          OnDiscard="DiscardAndReleaseAsync"
+                          OnCancel="CancelRelease" />
+
     <!-- Identity Fields -->
     <div class="card mb-4">
         <div class="card-body">
             <h6 class="card-title">Identity</h6>
             <div class="row g-3">
                 <div class="col-sm-6 col-md-3">
-                    <label class="form-label mb-1">Name Type</label>
+                    <label class="@LabelClass">Name Type</label>
                     @if (_modifyMode)
                     {
                         <select class="form-select form-select-sm" @bind="_editNameType">
@@ -111,13 +138,13 @@ else if (_name is not null)
                     }
                     else
                     {
-                        <p class="form-control-plaintext form-control-sm ps-0">@_name.NameType</p>
+                        <p class="form-control-plaintext form-control-sm ps-0 fw-semibold mb-0">@_name.NameType</p>
                     }
                 </div>
                 <div class="col-sm-6 col-md-3">
-                    <label class="form-label mb-1">@(_editNameType == NameTypes.Person ? "Last Name" : "Business Name")</label>
+                    <label class="@LabelClass">@(_editNameType == NameTypes.Person ? "Last Name" : "Business Name")</label>
                     <input type="text"
-                           class="@(_modifyMode ? "form-control form-control-sm" : "form-control-plaintext form-control-sm ps-0")"
+                           class="@(_modifyMode ? "form-control form-control-sm" : "form-control-plaintext form-control-sm ps-0 fw-semibold mb-0")"
                            readonly="@(!_modifyMode)"
                            @bind="_editLastOrBusinessName"
                            @bind:after="() => _editLastOrBusinessName = NameCaseConverter.ToNameCase(_editLastOrBusinessName) ?? string.Empty" />
@@ -125,22 +152,70 @@ else if (_name is not null)
                 @if (_editNameType == NameTypes.Person)
                 {
                     <div class="col-sm-6 col-md-3">
-                        <label class="form-label mb-1">First Name</label>
+                        <label class="@LabelClass">First Name</label>
                         <input type="text"
-                               class="@(_modifyMode ? "form-control form-control-sm" : "form-control-plaintext form-control-sm ps-0")"
+                               class="@(_modifyMode ? "form-control form-control-sm" : "form-control-plaintext form-control-sm ps-0 fw-semibold mb-0")"
                                readonly="@(!_modifyMode)"
                                @bind="_editFirstName"
                                @bind:after="() => _editFirstName = NameCaseConverter.ToNameCase(_editFirstName)"
                                placeholder="—" />
                     </div>
                     <div class="col-sm-6 col-md-3">
-                        <label class="form-label mb-1">Middle Name</label>
+                        <label class="@LabelClass">Middle Name</label>
                         <input type="text"
-                               class="@(_modifyMode ? "form-control form-control-sm" : "form-control-plaintext form-control-sm ps-0")"
+                               class="@(_modifyMode ? "form-control form-control-sm" : "form-control-plaintext form-control-sm ps-0 fw-semibold mb-0")"
                                readonly="@(!_modifyMode)"
                                @bind="_editMiddleName"
                                @bind:after="() => _editMiddleName = NameCaseConverter.ToNameCase(_editMiddleName)"
                                placeholder="—" />
+                    </div>
+                    <div class="col-sm-6 col-md-3">
+                        <label class="@LabelClass">Suffix</label>
+                        @if (_modifyMode)
+                        {
+                            <PicklistSelect PicklistType="@PicklistTypes.Suffix" @bind-Value="_editSuffixId" />
+                        }
+                        else
+                        {
+                            <p class="form-control-plaintext form-control-sm ps-0 fw-semibold mb-0">@(_suffixLabel ?? "—")</p>
+                        }
+                    </div>
+                    <div class="col-sm-6 col-md-3">
+                        <label class="@LabelClass">Place of Birth</label>
+                        <input type="text"
+                               class="@(_modifyMode ? "form-control form-control-sm" : "form-control-plaintext form-control-sm ps-0 fw-semibold mb-0")"
+                               readonly="@(!_modifyMode)"
+                               @bind="_editPlaceOfBirth"
+                               placeholder="—" />
+                    </div>
+                    <div class="col-sm-6 col-md-3">
+                        <label class="@LabelClass">Deceased Date</label>
+                        @if (_modifyMode)
+                        {
+                            <input type="date" class="form-control form-control-sm"
+                                   value="@(_editDeceasedDate.HasValue ? _editDeceasedDate.Value.ToString("yyyy-MM-dd") : "")"
+                                   @onchange="@(e => _editDeceasedDate = DateTime.TryParse(e.Value?.ToString(), out var d) ? d : null)" />
+                        }
+                        else
+                        {
+                            <p class="form-control-plaintext form-control-sm ps-0 fw-semibold mb-0">@(_name.DeceasedDate.HasValue ? _name.DeceasedDate.Value.ToShortDateString() : "—")</p>
+                        }
+                    </div>
+                    <div class="col-sm-6 col-md-3 d-flex align-items-end pb-1">
+                        @if (_modifyMode)
+                        {
+                            <div class="form-check">
+                                <input type="checkbox" class="form-check-input" id="cbCitizen" @bind="_editIsCitizen" />
+                                <label class="form-check-label" for="cbCitizen">US Citizen</label>
+                            </div>
+                        }
+                        else
+                        {
+                            <div>
+                                <small class="text-uppercase fw-semibold text-muted d-block" style="font-size: 0.7rem; letter-spacing: 0.05em">US Citizen</small>
+                                <span class="fw-medium">@(_name.IsCitizen ? "Yes" : "No")</span>
+                            </div>
+                        }
                     </div>
                 }
             </div>
@@ -155,29 +230,29 @@ else if (_name is not null)
                 <h6 class="card-title">Physical Description</h6>
                 <div class="row g-3">
                     <div class="col-sm-6 col-md-3">
-                        <label class="form-label mb-1">Sex</label>
+                        <label class="@LabelClass">Sex</label>
                         @if (_modifyMode)
                         {
                             <PicklistSelect PicklistType="@PicklistTypes.Sex" @bind-Value="_editSexId" />
                         }
                         else
                         {
-                            <p class="form-control-plaintext form-control-sm ps-0">@(_sexLabel ?? "—")</p>
+                            <p class="form-control-plaintext form-control-sm ps-0 fw-semibold mb-0">@(_sexLabel ?? "—")</p>
                         }
                     </div>
                     <div class="col-sm-6 col-md-3">
-                        <label class="form-label mb-1">Race</label>
+                        <label class="@LabelClass">Race</label>
                         @if (_modifyMode)
                         {
                             <PicklistSelect PicklistType="@PicklistTypes.Race" @bind-Value="_editRaceId" />
                         }
                         else
                         {
-                            <p class="form-control-plaintext form-control-sm ps-0">@(_raceLabel ?? "—")</p>
+                            <p class="form-control-plaintext form-control-sm ps-0 fw-semibold mb-0">@(_raceLabel ?? "—")</p>
                         }
                     </div>
                     <div class="col-sm-6 col-md-3">
-                        <label class="form-label mb-1">Date of Birth</label>
+                        <label class="@LabelClass">Date of Birth</label>
                         @if (_modifyMode)
                         {
                             <input type="date" class="form-control form-control-sm"
@@ -187,11 +262,24 @@ else if (_name is not null)
                         }
                         else
                         {
-                            <p class="form-control-plaintext form-control-sm ps-0">@(_name.DateOfBirth.HasValue ? _name.DateOfBirth.Value.ToShortDateString() : "—")</p>
+                            <p class="form-control-plaintext form-control-sm ps-0 fw-semibold mb-0">
+                                @if (_name.DateOfBirth.HasValue)
+                                {
+                                    @_name.DateOfBirth.Value.ToShortDateString()
+                                    @if (ComputeAge(_name.DateOfBirth) is int age)
+                                    {
+                                        <span class="text-muted ms-1">• Age @age</span>
+                                    }
+                                }
+                                else
+                                {
+                                    @("—")
+                                }
+                            </p>
                         }
                     </div>
                     <div class="col-sm-6 col-md-3">
-                        <label class="form-label mb-1">Height</label>
+                        <label class="@LabelClass">Height</label>
                         @if (_modifyMode)
                         {
                             <div class="d-flex gap-1">
@@ -207,37 +295,72 @@ else if (_name is not null)
                         }
                         else
                         {
-                            <p class="form-control-plaintext form-control-sm ps-0">@HeightDisplay</p>
+                            <p class="form-control-plaintext form-control-sm ps-0 fw-semibold mb-0">@HeightDisplay</p>
                         }
                     </div>
                     <div class="col-sm-6 col-md-3">
-                        <label class="form-label mb-1">Weight (lbs)</label>
+                        <label class="@LabelClass">Weight (lbs)</label>
                         <input type="number"
-                               class="@(_modifyMode ? "form-control form-control-sm" : "form-control-plaintext form-control-sm ps-0")"
+                               class="@(_modifyMode ? "form-control form-control-sm" : "form-control-plaintext form-control-sm ps-0 fw-semibold mb-0")"
                                readonly="@(!_modifyMode)"
                                @bind="_editWeightLbs" placeholder="—" />
                     </div>
                     <div class="col-sm-6 col-md-3">
-                        <label class="form-label mb-1">Hair Color</label>
+                        <label class="@LabelClass">Hair Color</label>
                         @if (_modifyMode)
                         {
                             <PicklistSelect PicklistType="@PicklistTypes.HairColor" @bind-Value="_editHairColorId" />
                         }
                         else
                         {
-                            <p class="form-control-plaintext form-control-sm ps-0">@(_hairColorLabel ?? "—")</p>
+                            <p class="form-control-plaintext form-control-sm ps-0 fw-semibold mb-0">@(_hairColorLabel ?? "—")</p>
                         }
                     </div>
                     <div class="col-sm-6 col-md-3">
-                        <label class="form-label mb-1">Eye Color</label>
+                        <label class="@LabelClass">Eye Color</label>
                         @if (_modifyMode)
                         {
                             <PicklistSelect PicklistType="@PicklistTypes.EyeColor" @bind-Value="_editEyeColorId" />
                         }
                         else
                         {
-                            <p class="form-control-plaintext form-control-sm ps-0">@(_eyeColorLabel ?? "—")</p>
+                            <p class="form-control-plaintext form-control-sm ps-0 fw-semibold mb-0">@(_eyeColorLabel ?? "—")</p>
                         }
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Identification -->
+        <div class="card mb-4">
+            <div class="card-body">
+                <h6 class="card-title">Identification</h6>
+                <div class="row g-3">
+                    <div class="col-sm-6 col-md-4">
+                        <label class="@LabelClass">SSN</label>
+                        @if (_modifyMode)
+                        {
+                            <input type="text" class="form-control form-control-sm" @bind="_editSsn"
+                                   placeholder="XXX-XX-XXXX" maxlength="11" />
+                        }
+                        else
+                        {
+                            <p class="form-control-plaintext form-control-sm ps-0 fw-semibold mb-0">@SsnDisplay</p>
+                        }
+                    </div>
+                    <div class="col-sm-6 col-md-4">
+                        <label class="@LabelClass">FBI #</label>
+                        <input type="text"
+                               class="@(_modifyMode ? "form-control form-control-sm" : "form-control-plaintext form-control-sm ps-0 fw-semibold mb-0")"
+                               readonly="@(!_modifyMode)"
+                               @bind="_editFbiNumber" placeholder="—" />
+                    </div>
+                    <div class="col-sm-6 col-md-4">
+                        <label class="@LabelClass">Local #</label>
+                        <input type="text"
+                               class="@(_modifyMode ? "form-control form-control-sm" : "form-control-plaintext form-control-sm ps-0 fw-semibold mb-0")"
+                               readonly="@(!_modifyMode)"
+                               @bind="_editLocalNumber" placeholder="—" />
                     </div>
                 </div>
             </div>
@@ -249,21 +372,21 @@ else if (_name is not null)
                 <h6 class="card-title">Driver's License</h6>
                 <div class="row g-3">
                     <div class="col-sm-6">
-                        <label class="form-label mb-1">DL Number</label>
+                        <label class="@LabelClass">DL Number</label>
                         <input type="text"
-                               class="@(_modifyMode ? "form-control form-control-sm" : "form-control-plaintext form-control-sm ps-0")"
+                               class="@(_modifyMode ? "form-control form-control-sm" : "form-control-plaintext form-control-sm ps-0 fw-semibold mb-0")"
                                readonly="@(!_modifyMode)"
                                @bind="_editDlNumber" placeholder="—" />
                     </div>
                     <div class="col-sm-6">
-                        <label class="form-label mb-1">DL State</label>
+                        <label class="@LabelClass">DL State</label>
                         @if (_modifyMode)
                         {
                             <StateSelect @bind-Value="_editDlStateId" />
                         }
                         else
                         {
-                            <p class="form-control-plaintext form-control-sm ps-0">@(_dlStateLabel ?? "—")</p>
+                            <p class="form-control-plaintext form-control-sm ps-0 fw-semibold mb-0">@(_dlStateLabel ?? "—")</p>
                         }
                     </div>
                 </div>
@@ -274,7 +397,7 @@ else if (_name is not null)
     @if (_modifyMode)
     {
         <div class="mb-4">
-            <button class="btn btn-sm btn-primary" @onclick="SaveDetailsAsync">Save Details</button>
+            <button class="btn btn-sm btn-primary" title="Save Details (Alt+S)" @onclick="SaveDetailsAsync">Save Details</button>
         </div>
     }
 
@@ -299,6 +422,9 @@ else if (_name is not null)
     private string? _saveSuccessMessage;
 
     private bool _modifyMode;
+    private bool _showReleaseConfirm;
+    private bool _pendingNewRecord;
+    private string _editSnapshot = string.Empty;
     private Guid _currentUserId;
     private int _lockSecondsRemaining;
     private System.Threading.Timer? _lockTimer;
@@ -319,6 +445,13 @@ else if (_name is not null)
     private int? _editWeightLbs;
     private Guid? _editHairColorId;
     private Guid? _editEyeColorId;
+    private Guid? _editSuffixId;
+    private string? _editPlaceOfBirth;
+    private string? _editFbiNumber;
+    private string? _editLocalNumber;
+    private string? _editSsn;
+    private bool _editIsCitizen;
+    private DateTime? _editDeceasedDate;
 
     // Read-only picklist labels
     private string? _sexLabel;
@@ -326,6 +459,7 @@ else if (_name is not null)
     private string? _hairColorLabel;
     private string? _eyeColorLabel;
     private string? _dlStateLabel;
+    private string? _suffixLabel;
 
     private string? _createdByName;
     private string? _modifiedByName;
@@ -346,6 +480,23 @@ else if (_name is not null)
         }
     }
 
+    /// <summary>Field label style: small muted in read mode; standard in edit mode.</summary>
+    private string LabelClass => _modifyMode
+        ? "form-label mb-1"
+        : "form-label mb-0 small text-muted d-block";
+
+    /// <summary>Masks SSN as ***-**-XXXX in view mode. Returns "—" when null.</summary>
+    private string SsnDisplay
+    {
+        get
+        {
+            if (string.IsNullOrWhiteSpace(_name?.SocialSecurityNumber)) return "—";
+            var ssn = _name.SocialSecurityNumber.Replace("-", "");
+            if (ssn.Length < 4) return "***-**-??";
+            return $"***-**-{ssn[^4..]}";
+        }
+    }
+
     protected override async Task OnInitializedAsync()
     {
         _currentUserId = TenantProvider.GetUserId();
@@ -355,7 +506,24 @@ else if (_name is not null)
             await EnterModifyModeAsync();
         else
             RestoreModifyModeIfOwner();
+
+        ShortcutService.OnNew     += HandleShortcutNew;
+        ShortcutService.OnModify  += HandleShortcutModify;
+        ShortcutService.OnRelease += HandleShortcutRelease;
+        ShortcutService.OnSave    += HandleShortcutSave;
     }
+
+    private void HandleShortcutNew()
+        => InvokeAsync(async () => { await RequestNewAsync(); StateHasChanged(); });
+
+    private void HandleShortcutModify()
+        => InvokeAsync(async () => { if (!_modifyMode) { await EnterModifyModeAsync(); StateHasChanged(); } });
+
+    private void HandleShortcutRelease()
+        => InvokeAsync(async () => { if (_modifyMode) { await RequestReleaseAsync(); StateHasChanged(); } });
+
+    private void HandleShortcutSave()
+        => InvokeAsync(async () => { if (_modifyMode) { await SaveDetailsAsync(); StateHasChanged(); } });
 
     private void RestoreModifyModeIfOwner()
     {
@@ -384,6 +552,80 @@ else if (_name is not null)
         _editWeightLbs             = _name.WeightLbs;
         _editHairColorId           = _name.HairColorId;
         _editEyeColorId            = _name.EyeColorId;
+        _editSuffixId              = _name.SuffixId;
+        _editPlaceOfBirth          = _name.PlaceOfBirth;
+        _editFbiNumber             = _name.FbiNumber;
+        _editLocalNumber           = _name.LocalNumber;
+        _editSsn                   = _name.SocialSecurityNumber;
+        _editIsCitizen             = _name.IsCitizen;
+        _editDeceasedDate          = _name.DeceasedDate;
+        _editSnapshot = ComputeEditSnapshot();
+    }
+
+    private string ComputeEditSnapshot() =>
+        string.Join("§", _editNameType, _editLastOrBusinessName, _editFirstName, _editMiddleName,
+            _editSexId, _editRaceId, _editDateOfBirth, _editDlNumber, _editDlStateId,
+            _editHeightFeet, _editHeightInchesRemainder, _editWeightLbs,
+            _editHairColorId, _editEyeColorId, _editSuffixId, _editPlaceOfBirth,
+            _editFbiNumber, _editLocalNumber, _editSsn, _editIsCitizen, _editDeceasedDate);
+
+    private bool HasPendingChanges => _modifyMode && _editSnapshot != ComputeEditSnapshot();
+
+    private async Task RequestReleaseAsync()
+    {
+        if (HasPendingChanges)
+            _showReleaseConfirm = true;
+        else
+            await ExitModifyModeAsync();
+    }
+
+    private async Task RequestNewAsync()
+    {
+        if (_modifyMode)
+        {
+            if (HasPendingChanges)
+            {
+                _pendingNewRecord = true;
+                _showReleaseConfirm = true;
+            }
+            else
+            {
+                await ExitModifyModeAsync();
+                Nav.NavigateTo("/names/create");
+            }
+        }
+        else
+        {
+            Nav.NavigateTo("/names/create");
+        }
+    }
+
+    private void CancelRelease()
+    {
+        _showReleaseConfirm = false;
+        _pendingNewRecord = false;
+    }
+
+    private async Task SaveAndReleaseAsync()
+    {
+        _showReleaseConfirm = false;
+        var navigateToNew = _pendingNewRecord;
+        _pendingNewRecord = false;
+        await SaveDetailsAsync();
+        if (_actionError is null)
+        {
+            await ExitModifyModeAsync();
+            if (navigateToNew) Nav.NavigateTo("/names/create");
+        }
+    }
+
+    private async Task DiscardAndReleaseAsync()
+    {
+        _showReleaseConfirm = false;
+        var navigateToNew = _pendingNewRecord;
+        _pendingNewRecord = false;
+        await ExitModifyModeAsync();
+        if (navigateToNew) Nav.NavigateTo("/names/create");
     }
 
     private async Task LoadAsync()
@@ -411,6 +653,7 @@ else if (_name is not null)
             if (_name.HairColorId.HasValue)  picklistIds.Add(_name.HairColorId.Value);
             if (_name.EyeColorId.HasValue)   picklistIds.Add(_name.EyeColorId.Value);
             if (_name.DriversLicenseStateId.HasValue) picklistIds.Add(_name.DriversLicenseStateId.Value);
+            if (_name.SuffixId.HasValue)     picklistIds.Add(_name.SuffixId.Value);
 
             if (picklistIds.Count > 0)
             {
@@ -420,6 +663,7 @@ else if (_name is not null)
                 _hairColorLabel = _name.HairColorId.HasValue ? labels.GetValueOrDefault(_name.HairColorId.Value) : null;
                 _eyeColorLabel = _name.EyeColorId.HasValue  ? labels.GetValueOrDefault(_name.EyeColorId.Value) : null;
                 _dlStateLabel  = _name.DriversLicenseStateId.HasValue ? labels.GetValueOrDefault(_name.DriversLicenseStateId.Value) : null;
+                _suffixLabel   = _name.SuffixId.HasValue     ? labels.GetValueOrDefault(_name.SuffixId.Value) : null;
             }
         }
         catch (Exception ex)
@@ -482,9 +726,17 @@ else if (_name is not null)
                 _editNameType == NameTypes.Person ? EditHeightInches : null,
                 _editNameType == NameTypes.Person ? _editWeightLbs : null,
                 _editNameType == NameTypes.Person ? _editHairColorId : null,
-                _editNameType == NameTypes.Person ? _editEyeColorId : null);
+                _editNameType == NameTypes.Person ? _editEyeColorId : null,
+                _editNameType == NameTypes.Person ? _editSuffixId : null,
+                _editNameType == NameTypes.Person ? _editPlaceOfBirth : null,
+                _editNameType == NameTypes.Person ? _editFbiNumber : null,
+                _editNameType == NameTypes.Person ? _editLocalNumber : null,
+                _editNameType == NameTypes.Person ? _editSsn : null,
+                _editNameType == NameTypes.Person && _editIsCitizen,
+                _editNameType == NameTypes.Person ? _editDeceasedDate : null);
 
             await LoadAsync();
+            _editSnapshot = ComputeEditSnapshot();
             _saveSuccessMessage = "Details saved successfully.";
             _ = Task.Delay(3000).ContinueWith(_ => InvokeAsync(() =>
             {
@@ -535,7 +787,20 @@ else if (_name is not null)
 
     public ValueTask DisposeAsync()
     {
+        ShortcutService.OnNew     -= HandleShortcutNew;
+        ShortcutService.OnModify  -= HandleShortcutModify;
+        ShortcutService.OnRelease -= HandleShortcutRelease;
+        ShortcutService.OnSave    -= HandleShortcutSave;
         StopLockTimer();
         return ValueTask.CompletedTask;
+    }
+
+    private static int? ComputeAge(DateTime? dob)
+    {
+        if (!dob.HasValue) return null;
+        var today = DateTime.Today;
+        var age   = today.Year - dob.Value.Year;
+        if (dob.Value.AddYears(age) > today) age--;
+        return age;
     }
 }

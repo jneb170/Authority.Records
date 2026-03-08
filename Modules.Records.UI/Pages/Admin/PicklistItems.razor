@@ -1,9 +1,12 @@
 @page "/admin/picklists/{PicklistType}"
 @attribute [Authorize(Roles = "Admin,Supervisor")]
+@implements IDisposable
 @inject IPicklistService PicklistService
 @inject NavigationManager Nav
+@inject IKeyboardShortcutService ShortcutService
 @using Microsoft.AspNetCore.Authorization
 @using Modules.Records.Domain.Common
+@using Modules.Records.UI.Services
 
 <PageTitle>@FriendlyType(PicklistType) — Picklist Items</PageTitle>
 
@@ -22,7 +25,7 @@
                    checked="@_isRequired" @onchange="ToggleRequiredAsync" />
             <label class="form-check-label" for="reqSwitch">Required</label>
         </div>
-        <button class="btn btn-sm btn-primary" @onclick="() => _showAddForm = true">+ Add Item</button>
+        <button class="btn btn-sm btn-primary" title="Add Item (Alt+N)" @onclick="() => _showAddForm = true">+ Add Item</button>
     </div>
 </div>
 
@@ -157,7 +160,15 @@ else
     private string _editLabel = string.Empty;
     private int _editSortOrder;
 
-    protected override async Task OnInitializedAsync() => await LoadAsync();
+    protected override async Task OnInitializedAsync()
+    {
+        ShortcutService.OnNew += HandleShortcutNew;
+        await LoadAsync();
+    }
+
+    private void HandleShortcutNew() => InvokeAsync(() => { _showAddForm = true; StateHasChanged(); });
+
+    public void Dispose() => ShortcutService.OnNew -= HandleShortcutNew;
 
     private async Task LoadAsync()
     {

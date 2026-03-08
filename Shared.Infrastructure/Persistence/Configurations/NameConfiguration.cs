@@ -31,5 +31,14 @@ internal sealed class NameConfiguration : IEntityTypeConfiguration<Name>
         builder.Property(x => x.WeightLbs).IsRequired(false);
         builder.Property(x => x.HairColorId).IsRequired(false);
         builder.Property(x => x.EyeColorId).IsRequired(false);
+
+        // Extended person-only fields
+        builder.Property(x => x.SuffixId).IsRequired(false);
+        builder.Property(x => x.PlaceOfBirth).HasMaxLength(100).IsRequired(false);
+        builder.Property(x => x.FbiNumber).HasMaxLength(20).IsRequired(false);
+        builder.Property(x => x.LocalNumber).HasMaxLength(20).IsRequired(false);
+        builder.Property(x => x.SocialSecurityNumber).HasMaxLength(11).IsRequired(false);
+        builder.Property(x => x.IsCitizen).HasDefaultValue(false);
+        builder.Property(x => x.DeceasedDate).IsRequired(false);
     }
 }

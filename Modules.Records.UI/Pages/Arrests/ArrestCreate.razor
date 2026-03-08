@@ -1,8 +1,10 @@
 @page "/arrests/create"
 @page "/incidents/{IncidentRecordNumber:long}/arrests/create"
+@implements IAsyncDisposable
 @inject IArrestService ArrestService
 @inject IIncidentService IncidentService
 @inject IAgencyConfigurationService ConfigService
+@inject IKeyboardShortcutService ShortcutService
 @inject NavigationManager Nav
 
 <PageTitle>New Arrest</PageTitle>
@@ -62,14 +64,37 @@
     }
 </EditForm>
 
+<UnsavedChangesDialog Visible="_showCancelConfirm"
+                      SaveLabel="Submit Record"
+                      DiscardLabel="Discard"
+                      ActionDescription="leaving the form"
+                      OnSaveAndRelease="SubmitFromDialogAsync"
+                      OnDiscard="DiscardAndCancelAsync"
+                      OnCancel="() => _showCancelConfirm = false" />
+
 @code {
     [Parameter] public long? IncidentRecordNumber { get; set; }
 
     private readonly CreateArrestViewModel _vm = new();
     private bool _submitting;
     private bool _generatingNum;
+    private bool _showCancelConfirm;
     private IReadOnlyList<IncidentDto>? _incidents = new List<IncidentDto>();
     private readonly List<long> _selectedIncidentRecordNumbers = new();
+
+    private bool HasEnteredData =>
+        !string.IsNullOrEmpty(_vm.SuspectName) ||
+        !string.IsNullOrEmpty(_vm.ArrestNum)   ||
+        _selectedIncidentRecordNumbers.Count > 0;
+
+    private string CancelUrl =>
+        IncidentRecordNumber.HasValue ? $"/incidents/{IncidentRecordNumber}" : "/arrests";
+
+    protected override Task OnInitializedAsync()
+    {
+        ShortcutService.OnRelease += HandleShortcutRelease;
+        return Task.CompletedTask;
+    }
 
     protected override async Task OnParametersSetAsync()
     {
@@ -92,6 +117,31 @@
                 if (long.TryParse(s, out var rn))
                     _selectedIncidentRecordNumbers.Add(rn);
         }
+    }
+
+    private void HandleShortcutRelease()
+        => InvokeAsync(() => { HandleEscape(); StateHasChanged(); });
+
+    private void HandleEscape()
+    {
+        if (HasEnteredData)
+            _showCancelConfirm = true;
+        else
+            Nav.NavigateTo(CancelUrl);
+    }
+
+    private async Task SubmitFromDialogAsync()
+    {
+        _showCancelConfirm = false;
+        await SubmitAsync();
+    }
+
+    private void DiscardAndCancelAsync() => Nav.NavigateTo(CancelUrl);
+
+    public ValueTask DisposeAsync()
+    {
+        ShortcutService.OnRelease -= HandleShortcutRelease;
+        return ValueTask.CompletedTask;
     }
 
     private async Task GenerateArrestNumAsync()

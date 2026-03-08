@@ -64,12 +64,21 @@ public sealed class NameService : INameService
         int? heightInches,
         int? weightLbs,
         Guid? hairColorId,
-        Guid? eyeColorId) =>
+        Guid? eyeColorId,
+        Guid? suffixId = null,
+        string? placeOfBirth = null,
+        string? fbiNumber = null,
+        string? localNumber = null,
+        string? socialSecurityNumber = null,
+        bool isCitizen = false,
+        DateTime? deceasedDate = null) =>
         _sender.Send(new CreateNameCommand(
             nameType, lastOrBusinessName, firstName, middleName,
             sexId, raceId, dateOfBirth,
             driversLicenseNumber, driversLicenseStateId,
-            heightInches, weightLbs, hairColorId, eyeColorId));
+            heightInches, weightLbs, hairColorId, eyeColorId,
+            suffixId, placeOfBirth, fbiNumber, localNumber,
+            socialSecurityNumber, isCitizen, deceasedDate));
 
     public Task UpdateDetailsAsync(
         Guid id,
@@ -85,12 +94,21 @@ public sealed class NameService : INameService
         int? heightInches,
         int? weightLbs,
         Guid? hairColorId,
-        Guid? eyeColorId) =>
+        Guid? eyeColorId,
+        Guid? suffixId = null,
+        string? placeOfBirth = null,
+        string? fbiNumber = null,
+        string? localNumber = null,
+        string? socialSecurityNumber = null,
+        bool isCitizen = false,
+        DateTime? deceasedDate = null) =>
         _sender.Send(new UpdateNameDetailsCommand(
             id, nameType, lastOrBusinessName, firstName, middleName,
             sexId, raceId, dateOfBirth,
             driversLicenseNumber, driversLicenseStateId,
-            heightInches, weightLbs, hairColorId, eyeColorId));
+            heightInches, weightLbs, hairColorId, eyeColorId,
+            suffixId, placeOfBirth, fbiNumber, localNumber,
+            socialSecurityNumber, isCitizen, deceasedDate));
 
     public Task AcquireLockAsync(Guid id) =>
         _sender.Send(new AcquireNameLockCommand(id));

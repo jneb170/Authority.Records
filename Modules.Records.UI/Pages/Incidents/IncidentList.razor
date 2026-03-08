@@ -1,12 +1,18 @@
 @page "/incidents"
+@implements IDisposable
 @inject IIncidentService IncidentService
 @inject NavigationManager Nav
+@inject IKeyboardShortcutService ShortcutService
+@using Modules.Records.UI.Services
 
 <PageTitle>Incidents</PageTitle>
 
-<div class="d-flex justify-content-between align-items-center mb-3">
-    <h1>Incidents</h1>
-    <a class="btn btn-primary" href="/incidents/create">+ New Incident</a>
+<div class="d-flex justify-content-between align-items-center border-bottom pb-3 mb-4">
+    <div>
+        <h2 class="fw-bold mb-0">📋 Incidents</h2>
+        <small class="text-muted">Incident Reports</small>
+    </div>
+    <a class="btn btn-primary" title="New Incident (Alt+N)" href="/incidents/create">+ New Incident</a>
 </div>
 
 @if (_loading)
@@ -22,37 +28,84 @@ else if (_incidents is not null)
     <table class="table table-hover">
         <thead>
             <tr>
-                <th>Incident</th>
-                <th>Status</th>
-                <th>Arrests</th>
+                <th style="width:3rem"></th>
+                <SortableColumnHeader ColumnKey="id"        Label="ID"
+                    CurrentSortColumn="@_sortColumn" SortAscending="@_sortAscending" OnSort="SortBy" />
+                <SortableColumnHeader ColumnKey="incident"  Label="Incident #"
+                    CurrentSortColumn="@_sortColumn" SortAscending="@_sortAscending" OnSort="SortBy" />
+                <SortableColumnHeader ColumnKey="status"    Label="Status"
+                    CurrentSortColumn="@_sortColumn" SortAscending="@_sortAscending" OnSort="SortBy" />
+                <SortableColumnHeader ColumnKey="arrests"   Label="Arrests"
+                    CurrentSortColumn="@_sortColumn" SortAscending="@_sortAscending" OnSort="SortBy" />
                 <th>Lock</th>
-                <th>Created</th>
-                <th></th>
+                <SortableColumnHeader ColumnKey="created"   Label="Created"
+                    CurrentSortColumn="@_sortColumn" SortAscending="@_sortAscending" OnSort="SortBy" />
             </tr>
         </thead>
         <tbody>
-            @foreach (var i in _incidents)
+            @foreach (var i in SortedIncidents)
             {
                 <tr>
-                    <td>@i.Details.IncidentNum</td>
+                    <td>
+                        <button class="btn btn-sm btn-outline-danger" title="Delete"
+                                @onclick="() => InitiateDelete(i.Id, i.Details.IncidentNum)">🗑</button>
+                    </td>
+                    <td><a href="/incidents/@i.RecordNumber">@i.RecordNumber</a></td>
+                    <td><a href="/incidents/@i.RecordNumber">@i.Details.IncidentNum</a></td>
                     <td><StatusBadge Status="@i.Status" /></td>
                     <td>@i.ArrestCount</td>
                     <td><LockBadge IsLocked="@i.IsLocked" LockedByUserId="@i.LockedByUserId" /></td>
                     <td>@i.CreatedAtUtc.ToShortDateString()</td>
-                    <td><a class="btn btn-sm btn-outline-primary" href="/incidents/@i.RecordNumber">View</a></td>
                 </tr>
             }
         </tbody>
     </table>
 }
 
+<ConfirmDialog Visible="_showDeleteConfirm"
+               Title="Delete Incident"
+               Message="@($"Are you sure you want to delete incident \"{_deleteTargetName}\"?")"
+               OnConfirm="ExecuteDeleteAsync"
+               OnCancel="() => _showDeleteConfirm = false" />
+
 @code {
     private IReadOnlyList<IncidentDto>? _incidents;
     private bool _loading = true;
     private string? _error;
 
+    // Delete state
+    private bool   _showDeleteConfirm;
+    private Guid   _deleteTargetId;
+    private string _deleteTargetName = string.Empty;
+
+    private string _sortColumn    = "created";
+    private bool   _sortAscending = false;
+
+    private IEnumerable<IncidentDto> SortedIncidents =>
+        _incidents is null ? [] :
+        (_sortColumn, _sortAscending) switch
+        {
+            ("id",       true)  => _incidents.OrderBy(x => x.RecordNumber),
+            ("id",       false) => _incidents.OrderByDescending(x => x.RecordNumber),
+            ("incident", true)  => _incidents.OrderBy(x => x.Details.IncidentNum),
+            ("incident", false) => _incidents.OrderByDescending(x => x.Details.IncidentNum),
+            ("status",   true)  => _incidents.OrderBy(x => x.Status),
+            ("status",   false) => _incidents.OrderByDescending(x => x.Status),
+            ("arrests",  true)  => _incidents.OrderBy(x => x.ArrestCount),
+            ("arrests",  false) => _incidents.OrderByDescending(x => x.ArrestCount),
+            ("created",  true)  => _incidents.OrderBy(x => x.CreatedAtUtc),
+            _                   => _incidents.OrderByDescending(x => x.CreatedAtUtc),
+        };
+
+    private void SortBy(string column)
+    {
+        if (_sortColumn == column) _sortAscending = !_sortAscending;
+        else { _sortColumn = column; _sortAscending = true; }
+    }
+
     protected override async Task OnInitializedAsync()
     {
+        ShortcutService.OnNew += HandleShortcutNew;
         try
         {
             _incidents = await IncidentService.GetByJurisdictionAsync();
@@ -65,5 +118,27 @@ else if (_incidents is not null)
         {
             _loading = false;
         }
+    }
+
+    private void HandleShortcutNew() => InvokeAsync(() => Nav.NavigateTo("/incidents/create"));
+
+    public void Dispose() => ShortcutService.OnNew -= HandleShortcutNew;
+
+    private void InitiateDelete(Guid id, string name)
+    {
+        _deleteTargetId    = id;
+        _deleteTargetName  = name;
+        _showDeleteConfirm = true;
+    }
+
+    private async Task ExecuteDeleteAsync()
+    {
+        _showDeleteConfirm = false;
+        try
+        {
+            await IncidentService.SoftDeleteAsync(_deleteTargetId);
+            _incidents = await IncidentService.GetByJurisdictionAsync();
+        }
+        catch (Exception ex) { _error = ex.Message; }
     }
 }

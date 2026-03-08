@@ -34,7 +34,14 @@ public sealed class CreateNameHandler : IRequestHandler<CreateNameCommand, long>
             request.HeightInches,
             request.WeightLbs,
             request.HairColorId,
-            request.EyeColorId);
+            request.EyeColorId,
+            request.SuffixId,
+            request.PlaceOfBirth,
+            request.FbiNumber,
+            request.LocalNumber,
+            request.SocialSecurityNumber,
+            request.IsCitizen,
+            request.DeceasedDate);
 
         _dbContext.Names.Add(name);
         await _dbContext.SaveChangesAsync(cancellationToken);

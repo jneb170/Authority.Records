@@ -9,6 +9,8 @@
 @inject ITenantProvider TenantProvider
 @inject IUserLookupService UserLookupService
 @inject NavigationManager Nav
+@inject IKeyboardShortcutService ShortcutService
+@using Modules.Records.UI.Services
 
 <PageTitle>Incident Details</PageTitle>
 
@@ -22,8 +24,22 @@ else if (_error is not null)
 }
 else if (_incident is not null)
 {
-    <div class="d-flex justify-content-between align-items-center mb-3">
-        <h1 class="mb-0">Incident</h1>
+    <nav aria-label="breadcrumb" class="mb-2">
+        <ol class="breadcrumb">
+            <li class="breadcrumb-item"><a href="/incidents">Incidents</a></li>
+            <li class="breadcrumb-item active">Incident #@RecordNumber</li>
+        </ol>
+    </nav>
+
+    <div class="d-flex justify-content-between align-items-center border-bottom pb-3 mb-4">
+        <div>
+            <p class="text-muted small mb-0">📋 Incident Report</p>
+            <h2 class="fw-bold mb-0">
+                @(string.IsNullOrWhiteSpace(_incident.Details.IncidentNum)
+                    ? $"Incident #{RecordNumber}"
+                    : _incident.Details.IncidentNum)
+            </h2>
+        </div>
         <div class="d-flex gap-2">
             <StatusBadge Status="@_incident.Status" />
             <LockBadge IsLocked="@_incident.IsLocked" LockedByUserId="@_incident.LockedByUserId" />
@@ -52,7 +68,7 @@ else if (_incident is not null)
         {
             <div class="alert alert-warning d-flex align-items-center gap-3 py-2 mb-2">
                 <span>✏️ <strong>Modify mode</strong> — lock expires in @_lockSecondsRemaining s</span>
-                <button class="btn btn-sm btn-outline-dark ms-auto" @onclick="ExitModifyModeAsync">🔓 Release Record</button>
+                <button class="btn btn-sm btn-outline-dark ms-auto" title="Release Record (Esc)" @onclick="RequestReleaseAsync">🔓 Release Record</button>
             </div>
         }
         else if (_incident.IsLocked && _incident.LockedByUserId != _currentUserId)
@@ -63,7 +79,7 @@ else if (_incident is not null)
         }
         else
         {
-            <button class="btn btn-outline-primary btn-sm" @onclick="EnterModifyModeAsync">✏️ Modify</button>
+            <button class="btn btn-outline-primary btn-sm" title="Modify (F2)" @onclick="EnterModifyModeAsync">✏️ Modify</button>
         }
     </div>
 
@@ -100,6 +116,14 @@ else if (_incident is not null)
                    OnConfirm="SoftDeleteAsync"
                    OnCancel="() => _showDeleteConfirm = false" />
 
+    <UnsavedChangesDialog Visible="_showReleaseConfirm"
+                          SaveLabel="@(_pendingNewRecord ? "Save & New" : "Save & Release")"
+                          DiscardLabel="@(_pendingNewRecord ? "Discard & New" : "Discard")"
+                          ActionDescription="@(_pendingNewRecord ? "creating a new record" : "releasing the record")"
+                          OnSaveAndRelease="SaveAndReleaseAsync"
+                          OnDiscard="DiscardAndReleaseAsync"
+                          OnCancel="CancelRelease" />
+
     <!-- Incident Fields (always visible; inputs become editable in modify mode) -->
     <div class="card mb-4">
         <div class="card-body">
@@ -133,7 +157,7 @@ else if (_incident is not null)
             @if (_modifyMode)
             {
                 <div class="mt-3">
-                    <button class="btn btn-sm btn-primary" @onclick="SaveDetailsAsync">Save Details</button>
+                    <button class="btn btn-sm btn-primary" title="Save Details (Alt+S)" @onclick="SaveDetailsAsync">Save Details</button>
                 </div>
             }
         </div>
@@ -249,6 +273,9 @@ else if (_incident is not null)
     private bool _showDeleteConfirm;
 
     private bool _modifyMode;
+    private bool _showReleaseConfirm;
+    private bool _pendingNewRecord;
+    private string _editSnapshot = string.Empty;
     private Guid _currentUserId;
     private int _lockSecondsRemaining;
     private System.Threading.Timer? _lockTimer;
@@ -273,7 +300,24 @@ else if (_incident is not null)
             await EnterModifyModeAsync();
         else
             RestoreModifyModeIfOwner();
+
+        ShortcutService.OnNew     += HandleShortcutNew;
+        ShortcutService.OnModify  += HandleShortcutModify;
+        ShortcutService.OnRelease += HandleShortcutRelease;
+        ShortcutService.OnSave    += HandleShortcutSave;
     }
+
+    private void HandleShortcutNew()
+        => InvokeAsync(async () => { await RequestNewAsync(); StateHasChanged(); });
+
+    private void HandleShortcutModify()
+        => InvokeAsync(async () => { if (!_modifyMode) { await EnterModifyModeAsync(); StateHasChanged(); } });
+
+    private void HandleShortcutRelease()
+        => InvokeAsync(async () => { if (_modifyMode) { await RequestReleaseAsync(); StateHasChanged(); } });
+
+    private void HandleShortcutSave()
+        => InvokeAsync(async () => { if (_modifyMode) { await SaveDetailsAsync(); StateHasChanged(); } });
 
     private void RestoreModifyModeIfOwner()
     {
@@ -284,7 +328,7 @@ else if (_incident is not null)
             _editLocalNum = _incident.Details.LocalNum;
             _editDescription = _incident.Details.Description;
             _editCFSNum = _incident.Details.CFSNum;
-
+            _editSnapshot = ComputeEditSnapshot();
             StartLockTimer();
         }
     }
@@ -359,6 +403,7 @@ else if (_incident is not null)
             _editDescription = _incident?.Details.Description ?? string.Empty;
             _editCFSNum = _incident?.Details.CFSNum ?? string.Empty;
             _editLocalNum = _incident?.Details.LocalNum ?? string.Empty;
+            _editSnapshot = ComputeEditSnapshot();
             StartLockTimer();
             await LoadAsync();
         }
@@ -374,6 +419,68 @@ else if (_incident is not null)
         _modifyMode = false;
         try { await IncidentService.ReleaseLockAsync(_incidentId); } catch { /* best-effort */ }
         await LoadAsync();
+    }
+
+    private string ComputeEditSnapshot() =>
+        string.Join("§", _editIncidentNum, _editDescription, _editCFSNum, _editLocalNum);
+
+    private bool HasPendingChanges => _modifyMode && _editSnapshot != ComputeEditSnapshot();
+
+    private async Task RequestReleaseAsync()
+    {
+        if (HasPendingChanges)
+            _showReleaseConfirm = true;
+        else
+            await ExitModifyModeAsync();
+    }
+
+    private async Task RequestNewAsync()
+    {
+        if (_modifyMode)
+        {
+            if (HasPendingChanges)
+            {
+                _pendingNewRecord = true;
+                _showReleaseConfirm = true;
+            }
+            else
+            {
+                await ExitModifyModeAsync();
+                Nav.NavigateTo("/incidents/create");
+            }
+        }
+        else
+        {
+            Nav.NavigateTo("/incidents/create");
+        }
+    }
+
+    private void CancelRelease()
+    {
+        _showReleaseConfirm = false;
+        _pendingNewRecord = false;
+    }
+
+    private async Task SaveAndReleaseAsync()
+    {
+        _showReleaseConfirm = false;
+        var navigateToNew = _pendingNewRecord;
+        _pendingNewRecord = false;
+        await SaveDetailsAsync();
+        if (_actionError is null)
+        {
+            await ExitModifyModeAsync();
+            if (navigateToNew) Nav.NavigateTo("/incidents/create");
+        }
+    }
+
+    private async Task DiscardAndReleaseAsync()
+    {
+        _showReleaseConfirm = false;
+        var navigateToNew = _pendingNewRecord;
+        _pendingNewRecord = false;
+        await ExitModifyModeAsync();
+        if (navigateToNew) Nav.NavigateTo("/incidents/create");
     }
 
     private void StartLockTimer()
@@ -422,6 +529,7 @@ else if (_incident is not null)
                     CFSNum = _editCFSNum
                 });
             await LoadAsync();
+            _editSnapshot = ComputeEditSnapshot();
             _saveSuccessMessage = "Details saved successfully.";
             // Auto-clear after 3 seconds
             _ = Task.Delay(3000).ContinueWith(_ => InvokeAsync(() =>
@@ -446,6 +554,10 @@ else if (_incident is not null)
 
     public ValueTask DisposeAsync()
     {
+        ShortcutService.OnNew     -= HandleShortcutNew;
+        ShortcutService.OnModify  -= HandleShortcutModify;
+        ShortcutService.OnRelease -= HandleShortcutRelease;
+        ShortcutService.OnSave    -= HandleShortcutSave;
         // Only clean up the timer. The lock is intentionally NOT released here because
         // the user may be navigating to a child page (e.g. ArrestCreate) that still
         // requires the lock. The lock is released explicitly via "Release Record" or

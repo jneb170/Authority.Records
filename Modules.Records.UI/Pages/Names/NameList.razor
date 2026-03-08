@@ -1,15 +1,21 @@
 @page "/names"
+@implements IDisposable
 @inject INameService NameService
 @inject IPicklistService PicklistService
 @inject NavigationManager Nav
+@inject IKeyboardShortcutService ShortcutService
 @using Modules.Records.Application.DTOs
 @using Modules.Records.Domain.Common
+@using Modules.Records.UI.Services
 
 <PageTitle>Names (MNI)</PageTitle>
 
-<div class="d-flex justify-content-between align-items-center mb-3">
-    <h1>Names</h1>
-    <a class="btn btn-primary" href="/names/create">+ New Name</a>
+<div class="d-flex justify-content-between align-items-center border-bottom pb-3 mb-4">
+    <div>
+        <h2 class="fw-bold mb-0">👤 Names</h2>
+        <small class="text-muted">Master Name Index (MNI)</small>
+    </div>
+    <a class="btn btn-primary" title="New Name (Alt+N)" href="/names/create">+ New Name</a>
 </div>
 
 <!-- Search / Filter Panel -->
@@ -48,6 +54,16 @@
                 <input type="date" class="form-control form-control-sm"
                        value="@(_filterDobTo.HasValue ? _filterDobTo.Value.ToString("yyyy-MM-dd") : "")"
                        @onchange="@(e => _filterDobTo = DateTime.TryParse(e.Value?.ToString(), out var d) ? d : null)" />
+            </div>
+            <div class="col-sm-6 col-md-3">
+                <label class="form-label mb-1">Age Min</label>
+                <input type="number" class="form-control form-control-sm" min="0" max="120"
+                       placeholder="e.g. 18" @bind="_filterAgeMin" />
+            </div>
+            <div class="col-sm-6 col-md-3">
+                <label class="form-label mb-1">Age Max</label>
+                <input type="number" class="form-control form-control-sm" min="0" max="120"
+                       placeholder="e.g. 65" @bind="_filterAgeMax" />
             </div>
             <div class="col-sm-6 col-md-3">
                 <label class="form-label mb-1">Hair Color</label>
@@ -92,26 +108,37 @@ else if (_names is not null)
         <table class="table table-hover">
             <thead>
                 <tr>
-                    <th>#</th>
-                    <th>Type</th>
-                    <th>Last / Business Name</th>
-                    <th>First Name</th>
-                    <th>DOB</th>
+                    <th style="width:3rem"></th>
+                    <SortableColumnHeader ColumnKey="num"      Label="#"
+                        CurrentSortColumn="@_sortColumn" SortAscending="@_sortAscending" OnSort="SortBy" />
+                    <SortableColumnHeader ColumnKey="type"     Label="Type"
+                        CurrentSortColumn="@_sortColumn" SortAscending="@_sortAscending" OnSort="SortBy" />
+                    <SortableColumnHeader ColumnKey="lastname" Label="Last / Business Name"
+                        CurrentSortColumn="@_sortColumn" SortAscending="@_sortAscending" OnSort="SortBy" />
+                    <SortableColumnHeader ColumnKey="firstname" Label="First Name"
+                        CurrentSortColumn="@_sortColumn" SortAscending="@_sortAscending" OnSort="SortBy" />
+                    <SortableColumnHeader ColumnKey="dob"      Label="DOB"
+                        CurrentSortColumn="@_sortColumn" SortAscending="@_sortAscending" OnSort="SortBy" />
+                    <SortableColumnHeader ColumnKey="age"      Label="Age"
+                        CurrentSortColumn="@_sortColumn" SortAscending="@_sortAscending" OnSort="SortBy" />
                     <th>Lock</th>
-                    <th></th>
                 </tr>
             </thead>
             <tbody>
-                @foreach (var n in _names)
+                @foreach (var n in SortedNames)
                 {
                     <tr>
-                        <td>@n.RecordNumber</td>
+                        <td>
+                            <button class="btn btn-sm btn-outline-danger" title="Delete"
+                                    @onclick="() => InitiateDelete(n.Id, n.LastOrBusinessName)">🗑</button>
+                        </td>
+                        <td><a href="/names/@n.RecordNumber">@n.RecordNumber</a></td>
                         <td><span class="badge @(n.NameType == NameTypes.Person ? "bg-primary" : "bg-secondary")">@n.NameType</span></td>
-                        <td>@n.LastOrBusinessName</td>
+                        <td><a href="/names/@n.RecordNumber">@n.LastOrBusinessName</a></td>
                         <td>@(n.FirstName ?? "—")</td>
                         <td>@(n.DateOfBirth.HasValue ? n.DateOfBirth.Value.ToShortDateString() : "—")</td>
+                        <td>@(ComputeAge(n.DateOfBirth)?.ToString() ?? "—")</td>
                         <td><LockBadge IsLocked="@n.IsLocked" LockedByUserId="@n.LockedByUserId" /></td>
-                        <td><a class="btn btn-sm btn-outline-primary" href="/names/@n.RecordNumber">View</a></td>
                     </tr>
                 }
             </tbody>
@@ -119,10 +146,50 @@ else if (_names is not null)
     }
 }
 
+<ConfirmDialog Visible="_showDeleteConfirm"
+               Title="Delete Name"
+               Message="@($"Are you sure you want to delete \"{_deleteTargetName}\"?")"
+               OnConfirm="ExecuteDeleteAsync"
+               OnCancel="() => _showDeleteConfirm = false" />
+
 @code {
     private IReadOnlyList<NameDto>? _names;
     private bool _loading = true;
     private string? _error;
+
+    // Delete state
+    private bool   _showDeleteConfirm;
+    private Guid   _deleteTargetId;
+    private string _deleteTargetName = string.Empty;
+
+    // Sort state
+    private string _sortColumn    = "num";
+    private bool   _sortAscending = false;
+
+    private IEnumerable<NameDto> SortedNames =>
+        _names is null ? [] :
+        (_sortColumn, _sortAscending) switch
+        {
+            ("num",       true)  => _names.OrderBy(x => x.RecordNumber),
+            ("num",       false) => _names.OrderByDescending(x => x.RecordNumber),
+            ("type",      true)  => _names.OrderBy(x => x.NameType),
+            ("type",      false) => _names.OrderByDescending(x => x.NameType),
+            ("lastname",  true)  => _names.OrderBy(x => x.LastOrBusinessName),
+            ("lastname",  false) => _names.OrderByDescending(x => x.LastOrBusinessName),
+            ("firstname", true)  => _names.OrderBy(x => x.FirstName),
+            ("firstname", false) => _names.OrderByDescending(x => x.FirstName),
+            ("dob",       true)  => _names.OrderBy(x => x.DateOfBirth),
+            ("dob",       false) => _names.OrderByDescending(x => x.DateOfBirth),
+            ("age",       true)  => _names.OrderByDescending(x => x.DateOfBirth),   // older DOB = greater age
+            ("age",       false) => _names.OrderBy(x => x.DateOfBirth),
+            _                    => _names.OrderByDescending(x => x.DateOfBirth),
+        };
+
+    private void SortBy(string column)
+    {
+        if (_sortColumn == column) _sortAscending = !_sortAscending;
+        else { _sortColumn = column; _sortAscending = true; }
+    }
 
     // Filter state
     private string _filterNameType = string.Empty;
@@ -131,6 +198,8 @@ else if (_names is not null)
     private Guid? _filterRaceId;
     private DateTime? _filterDobFrom;
     private DateTime? _filterDobTo;
+    private int?      _filterAgeMin;
+    private int?      _filterAgeMax;
     private Guid? _filterHairColorId;
     private Guid? _filterEyeColorId;
     private string _filterDlNumber = string.Empty;
@@ -138,6 +207,7 @@ else if (_names is not null)
 
     protected override async Task OnInitializedAsync()
     {
+        ShortcutService.OnNew += HandleShortcutNew;
         try
         {
             _names = await NameService.GetByJurisdictionAsync();
@@ -152,19 +222,49 @@ else if (_names is not null)
         }
     }
 
+    private void HandleShortcutNew() => InvokeAsync(() => Nav.NavigateTo("/names/create"));
+
+    public void Dispose() => ShortcutService.OnNew -= HandleShortcutNew;
+
+    private void InitiateDelete(Guid id, string name)
+    {
+        _deleteTargetId   = id;
+        _deleteTargetName = name;
+        _showDeleteConfirm = true;
+    }
+
+    private async Task ExecuteDeleteAsync()
+    {
+        _showDeleteConfirm = false;
+        try
+        {
+            await NameService.SoftDeleteAsync(_deleteTargetId);
+            _names = await NameService.GetByJurisdictionAsync();
+        }
+        catch (Exception ex) { _error = ex.Message; }
+    }
+
     private async Task RunSearchAsync()
     {
         _loading = true;
         _error = null;
         try
         {
+            var today      = DateTime.Today;
+            var dobFrom    = _filterDobFrom;
+            var dobTo      = _filterDobTo;
+
+            // Age filters override DOB filters when provided
+            if (_filterAgeMin.HasValue) dobTo   = today.AddYears(-_filterAgeMin.Value);
+            if (_filterAgeMax.HasValue) dobFrom = today.AddYears(-(_filterAgeMax.Value + 1)).AddDays(1);
+
             _names = await NameService.SearchAsync(
                 nameType:              string.IsNullOrWhiteSpace(_filterNameType) ? null : _filterNameType,
                 nameContains:          string.IsNullOrWhiteSpace(_filterNameContains) ? null : _filterNameContains,
                 sexId:                 _filterSexId,
                 raceId:                _filterRaceId,
-                dateOfBirthFrom:       _filterDobFrom,
-                dateOfBirthTo:         _filterDobTo,
+                dateOfBirthFrom:       dobFrom,
+                dateOfBirthTo:         dobTo,
                 hairColorId:           _filterHairColorId,
                 eyeColorId:            _filterEyeColorId,
                 driversLicenseNumber:  string.IsNullOrWhiteSpace(_filterDlNumber) ? null : _filterDlNumber,
@@ -188,6 +288,8 @@ else if (_names is not null)
         _filterRaceId = null;
         _filterDobFrom = null;
         _filterDobTo = null;
+        _filterAgeMin = null;
+        _filterAgeMax = null;
         _filterHairColorId = null;
         _filterEyeColorId = null;
         _filterDlNumber = string.Empty;
@@ -206,5 +308,14 @@ else if (_names is not null)
         {
             _loading = false;
         }
+    }
+
+    private static int? ComputeAge(DateTime? dob)
+    {
+        if (!dob.HasValue) return null;
+        var today = DateTime.Today;
+        var age   = today.Year - dob.Value.Year;
+        if (dob.Value.AddYears(age) > today) age--;
+        return age;
     }
 }

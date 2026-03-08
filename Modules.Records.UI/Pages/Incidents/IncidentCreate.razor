@@ -1,6 +1,8 @@
 @page "/incidents/create"
+@implements IAsyncDisposable
 @inject IIncidentService IncidentService
 @inject IAgencyConfigurationService ConfigService
+@inject IKeyboardShortcutService ShortcutService
 @inject NavigationManager Nav
 @using IncidentDetailsVo = Modules.Records.Domain.ValueObjects.IncidentDetails
 
@@ -55,17 +57,57 @@
     <a class="btn btn-secondary ms-2" href="/incidents">Cancel</a>
 </EditForm>
 
+<UnsavedChangesDialog Visible="_showCancelConfirm"
+                      SaveLabel="Submit Record"
+                      DiscardLabel="Discard"
+                      ActionDescription="leaving the form"
+                      OnSaveAndRelease="SubmitFromDialogAsync"
+                      OnDiscard="DiscardAndCancelAsync"
+                      OnCancel="() => _showCancelConfirm = false" />
+
 @code {
     private readonly CreateIncidentViewModel _vm = new();
     private bool _submitting;
     private bool _hasFormat;
     private bool _generating;
+    private bool _showCancelConfirm;
+
+    private bool HasEnteredData =>
+        !string.IsNullOrEmpty(_vm.IncidentNum) ||
+        !string.IsNullOrEmpty(_vm.Description) ||
+        !string.IsNullOrEmpty(_vm.CFSNum)      ||
+        !string.IsNullOrEmpty(_vm.LocalNum);
 
     protected override async Task OnInitializedAsync()
     {
-        // Generate button is always available; format config only affects the format used
+        ShortcutService.OnRelease += HandleShortcutRelease;
         _hasFormat = true;
         await Task.CompletedTask;
+    }
+
+    private void HandleShortcutRelease()
+        => InvokeAsync(() => { HandleEscape(); StateHasChanged(); });
+
+    private void HandleEscape()
+    {
+        if (HasEnteredData)
+            _showCancelConfirm = true;
+        else
+            Nav.NavigateTo("/incidents");
+    }
+
+    private async Task SubmitFromDialogAsync()
+    {
+        _showCancelConfirm = false;
+        await SubmitAsync();
+    }
+
+    private void DiscardAndCancelAsync() => Nav.NavigateTo("/incidents");
+
+    public ValueTask DisposeAsync()
+    {
+        ShortcutService.OnRelease -= HandleShortcutRelease;
+        return ValueTask.CompletedTask;
     }
 
     private async Task GenerateAsync()

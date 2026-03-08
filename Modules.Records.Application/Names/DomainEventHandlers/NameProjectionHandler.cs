@@ -10,6 +10,7 @@ namespace Modules.Records.Application.Names.DomainEventHandlers;
 public sealed class NameProjectionHandler :
     INotificationHandler<NameCreatedDomainEvent>,
     INotificationHandler<NameDetailsUpdatedDomainEvent>,
+    INotificationHandler<NameSoftDeletedDomainEvent>,
     INotificationHandler<LockAcquiredDomainEvent<Name>>,
     INotificationHandler<LockReleasedDomainEvent<Name>>
 {
@@ -48,6 +49,13 @@ public sealed class NameProjectionHandler :
             weightLbs:             name?.WeightLbs,
             hairColorId:           name?.HairColorId,
             eyeColorId:            name?.EyeColorId,
+            suffixId:              name?.SuffixId,
+            placeOfBirth:          name?.PlaceOfBirth,
+            fbiNumber:             name?.FbiNumber,
+            localNumber:           name?.LocalNumber,
+            socialSecurityNumber:  name?.SocialSecurityNumber,
+            isCitizen:             name?.IsCitizen ?? false,
+            deceasedDate:          name?.DeceasedDate,
             createdAtUtc:          notification.OccurredOnUtc,
             createdBy:             name?.CreatedBy ?? Guid.Empty);
 
@@ -78,9 +86,26 @@ public sealed class NameProjectionHandler :
             notification.HeightInches,
             notification.WeightLbs,
             notification.HairColorId,
-            notification.EyeColorId);
+            notification.EyeColorId,
+            notification.SuffixId,
+            notification.PlaceOfBirth,
+            notification.FbiNumber,
+            notification.LocalNumber,
+            notification.SocialSecurityNumber,
+            notification.IsCitizen,
+            notification.DeceasedDate);
 
         readModel.ApplyModifiedAudit(name?.ModifiedBy);
+        await _dbContext.SaveChangesAsync(cancellationToken);
+    }
+
+    public async Task Handle(NameSoftDeletedDomainEvent notification, CancellationToken cancellationToken)
+    {
+        var readModel = await _dbContext.NameReadModels
+            .FirstOrDefaultAsync(n => n.Id == notification.NameId, cancellationToken);
+        if (readModel is null) return;
+
+        _dbContext.NameReadModels.Remove(readModel);
         await _dbContext.SaveChangesAsync(cancellationToken);
     }
 

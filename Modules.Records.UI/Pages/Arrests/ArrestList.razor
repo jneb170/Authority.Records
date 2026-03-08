@@ -1,12 +1,18 @@
 @page "/arrests"
+@implements IDisposable
 @inject IArrestService ArrestService
 @inject NavigationManager Nav
+@inject IKeyboardShortcutService ShortcutService
+@using Modules.Records.UI.Services
 
 <PageTitle>Arrests</PageTitle>
 
-<div class="d-flex justify-content-between align-items-center mb-3">
-    <h1>Arrests</h1>
-    <a class="btn btn-primary" href="/arrests/create">+ New Arrest</a>
+<div class="d-flex justify-content-between align-items-center border-bottom pb-3 mb-4">
+    <div>
+        <h2 class="fw-bold mb-0">🚨 Arrests</h2>
+        <small class="text-muted">Arrest Records</small>
+    </div>
+    <a class="btn btn-primary" title="New Arrest (Alt+N)" href="/arrests/create">+ New Arrest</a>
 </div>
 
 @if (_loading)
@@ -28,26 +34,34 @@ else if (_arrests is not null)
         <table class="table table-hover">
             <thead>
                 <tr>
-                    <th>#</th>
-                    <th>Arrest #</th>
-                    <th>Suspect</th>
-                    <th>Arrested At</th>
-                    <th>Status</th>
+                    <th style="width:3rem"></th>
+                    <SortableColumnHeader ColumnKey="num"       Label="#"
+                        CurrentSortColumn="@_sortColumn" SortAscending="@_sortAscending" OnSort="SortBy" />
+                    <SortableColumnHeader ColumnKey="arrestnum" Label="Arrest #"
+                        CurrentSortColumn="@_sortColumn" SortAscending="@_sortAscending" OnSort="SortBy" />
+                    <SortableColumnHeader ColumnKey="suspect"   Label="Suspect"
+                        CurrentSortColumn="@_sortColumn" SortAscending="@_sortAscending" OnSort="SortBy" />
+                    <SortableColumnHeader ColumnKey="arrestedat" Label="Arrested At"
+                        CurrentSortColumn="@_sortColumn" SortAscending="@_sortAscending" OnSort="SortBy" />
+                    <SortableColumnHeader ColumnKey="status"    Label="Status"
+                        CurrentSortColumn="@_sortColumn" SortAscending="@_sortAscending" OnSort="SortBy" />
                     <th>Lock</th>
-                    <th></th>
                 </tr>
             </thead>
             <tbody>
-                @foreach (var a in _arrests)
+                @foreach (var a in SortedArrests)
                 {
                     <tr>
-                        <td>@a.RecordNumber</td>
-                        <td>@a.ArrestNum</td>
+                        <td>
+                            <button class="btn btn-sm btn-outline-danger" title="Delete"
+                                    @onclick="() => InitiateDelete(a.Id, a.ArrestNum)">🗑</button>
+                        </td>
+                        <td><a href="/arrests/@a.RecordNumber">@a.RecordNumber</a></td>
+                        <td><a href="/arrests/@a.RecordNumber">@a.ArrestNum</a></td>
                         <td>@a.SuspectName</td>
                         <td>@a.ArrestedAt.ToShortDateString()</td>
                         <td><StatusBadge Status="@a.Status" /></td>
                         <td><LockBadge IsLocked="@a.IsLocked" LockedByUserId="@a.LockedByUserId" /></td>
-                        <td><a class="btn btn-sm btn-outline-primary" href="/arrests/@a.RecordNumber">View</a></td>
                     </tr>
                 }
             </tbody>
@@ -55,13 +69,50 @@ else if (_arrests is not null)
     }
 }
 
+<ConfirmDialog Visible="_showDeleteConfirm"
+               Title="Delete Arrest"
+               Message="@($"Are you sure you want to delete arrest \"{_deleteTargetName}\"?")"
+               OnConfirm="ExecuteDeleteAsync"
+               OnCancel="() => _showDeleteConfirm = false" />
+
 @code {
     private IReadOnlyList<ArrestDto>? _arrests;
     private bool _loading = true;
     private string? _error;
 
+    // Delete state
+    private bool   _showDeleteConfirm;
+    private Guid   _deleteTargetId;
+    private string _deleteTargetName = string.Empty;
+
+    private string _sortColumn    = "num";
+    private bool   _sortAscending = false;
+
+    private IEnumerable<ArrestDto> SortedArrests =>
+        _arrests is null ? [] :
+        (_sortColumn, _sortAscending) switch
+        {
+            ("num",        true)  => _arrests.OrderBy(x => x.RecordNumber),
+            ("num",        false) => _arrests.OrderByDescending(x => x.RecordNumber),
+            ("arrestnum",  true)  => _arrests.OrderBy(x => x.ArrestNum),
+            ("arrestnum",  false) => _arrests.OrderByDescending(x => x.ArrestNum),
+            ("suspect",    true)  => _arrests.OrderBy(x => x.SuspectName),
+            ("suspect",    false) => _arrests.OrderByDescending(x => x.SuspectName),
+            ("arrestedat", true)  => _arrests.OrderBy(x => x.ArrestedAt),
+            ("arrestedat", false) => _arrests.OrderByDescending(x => x.ArrestedAt),
+            ("status",     true)  => _arrests.OrderBy(x => x.Status),
+            _                     => _arrests.OrderByDescending(x => x.Status),
+        };
+
+    private void SortBy(string column)
+    {
+        if (_sortColumn == column) _sortAscending = !_sortAscending;
+        else { _sortColumn = column; _sortAscending = true; }
+    }
+
     protected override async Task OnInitializedAsync()
     {
+        ShortcutService.OnNew += HandleShortcutNew;
         try
         {
             _arrests = await ArrestService.GetByJurisdictionAsync();
@@ -74,5 +125,27 @@ else if (_arrests is not null)
         {
             _loading = false;
         }
+    }
+
+    private void HandleShortcutNew() => InvokeAsync(() => Nav.NavigateTo("/arrests/create"));
+
+    public void Dispose() => ShortcutService.OnNew -= HandleShortcutNew;
+
+    private void InitiateDelete(Guid id, string name)
+    {
+        _deleteTargetId    = id;
+        _deleteTargetName  = name;
+        _showDeleteConfirm = true;
+    }
+
+    private async Task ExecuteDeleteAsync()
+    {
+        _showDeleteConfirm = false;
+        try
+        {
+            await ArrestService.SoftDeleteAsync(_deleteTargetId);
+            _arrests = await ArrestService.GetByJurisdictionAsync();
+        }
+        catch (Exception ex) { _error = ex.Message; }
     }
 }

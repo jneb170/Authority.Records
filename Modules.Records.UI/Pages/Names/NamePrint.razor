@@ -1,0 +1,434 @@
+@page "/names/{RecordNumber:long}/print"
+@layout PrintLayout
+@attribute [Authorize(Roles = "Admin,Supervisor,Dispatcher,Officer")]
+@inject INameService NameService
+@inject IPicklistService PicklistService
+@inject IJSRuntime JS
+@implements IAsyncDisposable
+@using Microsoft.AspNetCore.Authorization
+@using Microsoft.JSInterop
+@using Modules.Records.Application.DTOs
+@using Modules.Records.Domain.Common
+@using Modules.Records.UI.Services
+@using Modules.Records.UI.Shared
+
+<PageTitle>Name Record Report</PageTitle>
+
+<!-- Screen-only action bar -->
+@if (!_loading && _error is null && _name is not null)
+{
+    <div class="screen-actions">
+        <button class="btn-print" @onclick="TriggerPrintAsync">🖨 Print / Save as PDF</button>
+        <button @onclick="CloseWindow">✕ Close</button>
+    </div>
+}
+
+@if (_loading)
+{
+    <p style="padding: 2rem;">Loading…</p>
+}
+else if (_error is not null)
+{
+    <p style="padding: 2rem; color: red;">@_error</p>
+}
+else if (_name is not null)
+{
+    <div class="name-report">
+
+        <!-- Report Header -->
+        <div class="report-header">
+            <div class="report-title">Name Record</div>
+            <div class="report-meta">
+                <span>Record #@_name.RecordNumber</span>
+                <span class="separator">|</span>
+                <span>@_name.NameType</span>
+                <span class="separator">|</span>
+                <span>Generated @DateTime.Now.ToString("MM/dd/yyyy h:mm tt")</span>
+            </div>
+        </div>
+
+        <!-- Identity -->
+        <div class="report-section">
+            <div class="section-title">Identity</div>
+            <div class="field-grid">
+                @if (_name.NameType == NameTypes.Person)
+                {
+                    <div class="field-item">
+                        <div class="field-label">Last Name</div>
+                        <div class="field-value">@_name.LastOrBusinessName</div>
+                    </div>
+                    <div class="field-item">
+                        <div class="field-label">First Name</div>
+                        <div class="field-value">@(_name.FirstName ?? "—")</div>
+                    </div>
+                    <div class="field-item">
+                        <div class="field-label">Middle Name</div>
+                        <div class="field-value">@(_name.MiddleName ?? "—")</div>
+                    </div>
+                    <div class="field-item">
+                        <div class="field-label">Suffix</div>
+                        <div class="field-value">@(_suffixLabel ?? "—")</div>
+                    </div>
+                    <div class="field-item">
+                        <div class="field-label">Place of Birth</div>
+                        <div class="field-value">@(_name.PlaceOfBirth ?? "—")</div>
+                    </div>
+                    <div class="field-item">
+                        <div class="field-label">Deceased Date</div>
+                        <div class="field-value">@(_name.DeceasedDate.HasValue ? _name.DeceasedDate.Value.ToShortDateString() : "—")</div>
+                    </div>
+                    <div class="field-item">
+                        <div class="field-label">US Citizen</div>
+                        <div class="field-value">@(_name.IsCitizen ? "Yes" : "No")</div>
+                    </div>
+                }
+                else
+                {
+                    <div class="field-item field-item-wide">
+                        <div class="field-label">Business Name</div>
+                        <div class="field-value">@_name.LastOrBusinessName</div>
+                    </div>
+                }
+            </div>
+        </div>
+
+        @if (_name.NameType == NameTypes.Person)
+        {
+            <!-- Physical Description -->
+            <div class="report-section">
+                <div class="section-title">Physical Description</div>
+                <div class="field-grid">
+                    <div class="field-item">
+                        <div class="field-label">Sex</div>
+                        <div class="field-value">@(_sexLabel ?? "—")</div>
+                    </div>
+                    <div class="field-item">
+                        <div class="field-label">Race</div>
+                        <div class="field-value">@(_raceLabel ?? "—")</div>
+                    </div>
+                    <div class="field-item">
+                        <div class="field-label">Date of Birth</div>
+                        <div class="field-value">
+                            @if (_name.DateOfBirth.HasValue)
+                            {
+                                @_name.DateOfBirth.Value.ToShortDateString()
+                                @if (ComputeAge(_name.DateOfBirth) is int age)
+                                {
+                                    <span class="age-note"> (Age @age)</span>
+                                }
+                            }
+                            else
+                            {
+                                @("—")
+                            }
+                        </div>
+                    </div>
+                    <div class="field-item">
+                        <div class="field-label">Height</div>
+                        <div class="field-value">@HeightDisplay</div>
+                    </div>
+                    <div class="field-item">
+                        <div class="field-label">Weight</div>
+                        <div class="field-value">@(_name.WeightLbs.HasValue ? $"{_name.WeightLbs} lbs" : "—")</div>
+                    </div>
+                    <div class="field-item">
+                        <div class="field-label">Hair Color</div>
+                        <div class="field-value">@(_hairColorLabel ?? "—")</div>
+                    </div>
+                    <div class="field-item">
+                        <div class="field-label">Eye Color</div>
+                        <div class="field-value">@(_eyeColorLabel ?? "—")</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Identification Numbers -->
+            <div class="report-section">
+                <div class="section-title">Identification</div>
+                <div class="field-grid">
+                    <div class="field-item">
+                        <div class="field-label">SSN</div>
+                        <div class="field-value">@SsnDisplay</div>
+                    </div>
+                    <div class="field-item">
+                        <div class="field-label">FBI #</div>
+                        <div class="field-value">@(_name.FbiNumber ?? "—")</div>
+                    </div>
+                    <div class="field-item">
+                        <div class="field-label">Local #</div>
+                        <div class="field-value">@(_name.LocalNumber ?? "—")</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Driver's License -->
+            <div class="report-section">
+                <div class="section-title">Driver's License</div>
+                <div class="field-grid">
+                    <div class="field-item">
+                        <div class="field-label">DL Number</div>
+                        <div class="field-value">@(_name.DriversLicenseNumber ?? "—")</div>
+                    </div>
+                    <div class="field-item">
+                        <div class="field-label">DL State</div>
+                        <div class="field-value">@(_dlStateLabel ?? "—")</div>
+                    </div>
+                </div>
+            </div>
+        }
+
+        <!-- Audit -->
+        <div class="report-section">
+            <div class="section-title">Record Info</div>
+            <div class="field-grid">
+                <div class="field-item">
+                    <div class="field-label">Created</div>
+                    <div class="field-value">@_name.CreatedAtUtc.ToLocalTime().ToString("MM/dd/yyyy h:mm tt")</div>
+                </div>
+                <div class="field-item">
+                    <div class="field-label">Last Modified</div>
+                    <div class="field-value">
+                        @(_name.ModifiedBy.HasValue
+                            ? _name.UpdatedAtUtc.ToLocalTime().ToString("MM/dd/yyyy h:mm tt")
+                            : "—")
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="report-footer">
+            Authority Records Management System &mdash; Confidential
+        </div>
+    </div>
+}
+
+<style>
+    /* ── Print page layout ─────────────────────────────────────── */
+    body { font-family: "Segoe UI", Arial, sans-serif; font-size: 11pt; color: #000; background: #fff; }
+    .print-page-wrapper { padding: 0; }
+
+    .name-report {
+        max-width: 800px;
+        margin: 0 auto;
+        padding: 1.5rem 2rem;
+    }
+
+    /* Header */
+    .report-header {
+        border-bottom: 2px solid #000;
+        padding-bottom: 0.5rem;
+        margin-bottom: 1rem;
+    }
+    .report-title {
+        font-size: 1.4rem;
+        font-weight: 700;
+        letter-spacing: 0.05em;
+        text-transform: uppercase;
+    }
+    .report-meta {
+        font-size: 0.8rem;
+        color: #555;
+        margin-top: 0.2rem;
+    }
+    .report-meta .separator { margin: 0 0.4rem; }
+
+    /* Sections */
+    .report-section { margin-bottom: 1.2rem; }
+    .section-title {
+        font-size: 0.7rem;
+        font-weight: 700;
+        letter-spacing: 0.1em;
+        text-transform: uppercase;
+        color: #555;
+        border-bottom: 1px solid #ccc;
+        padding-bottom: 0.2rem;
+        margin-bottom: 0.5rem;
+    }
+
+    /* Field grid */
+    .field-grid {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 0.6rem 1.5rem;
+    }
+    .field-item-wide { grid-column: span 2; }
+    .field-label {
+        font-size: 0.68rem;
+        color: #777;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        margin-bottom: 0.1rem;
+    }
+    .field-value {
+        font-size: 0.9rem;
+        font-weight: 600;
+    }
+    .age-note { font-weight: 400; color: #555; }
+
+    /* Footer */
+    .report-footer {
+        margin-top: 2rem;
+        padding-top: 0.5rem;
+        border-top: 1px solid #ccc;
+        font-size: 0.7rem;
+        color: #888;
+        text-align: center;
+    }
+
+    /* Print-specific: hide browser chrome, ensure black text */
+    @@media print {
+        body { -webkit-print-color-adjust: exact; }
+        .name-report { padding: 0; max-width: 100%; }
+        .report-footer { position: fixed; bottom: 0; width: 100%; }
+    }
+
+    /* Screen-only: button bar */
+    .screen-actions {
+        display: flex;
+        gap: 0.5rem;
+        padding: 0.75rem 2rem;
+        background: #f8f9fa;
+        border-bottom: 1px solid #dee2e6;
+        margin-bottom: 0;
+    }
+    .screen-actions button {
+        padding: 0.3rem 1rem;
+        font-size: 0.85rem;
+        border-radius: 4px;
+        border: 1px solid #6c757d;
+        background: #fff;
+        cursor: pointer;
+    }
+    .screen-actions button.btn-print {
+        background: #0d6efd;
+        color: #fff;
+        border-color: #0d6efd;
+    }
+    @@media print {
+        .screen-actions { display: none !important; }
+    }
+</style>
+
+<!-- Screen-only action bar is rendered at the top of the page (above) -->
+
+@code {
+    [Parameter] public long RecordNumber { get; set; }
+
+    private NameDto? _name;
+    private bool _loading = true;
+    private string? _error;
+
+    private string? _sexLabel;
+    private string? _raceLabel;
+    private string? _hairColorLabel;
+    private string? _eyeColorLabel;
+    private string? _dlStateLabel;
+    private string? _suffixLabel;
+
+    private IJSObjectReference? _printModule;
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            _name = await NameService.GetByRecordNumberAsync(RecordNumber);
+            if (_name is null) { _error = "Record not found."; return; }
+            await ResolvePicklistLabelsAsync();
+        }
+        catch (Exception ex) { _error = ex.Message; }
+        finally { _loading = false; }
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender && _name is not null && _error is null)
+        {
+            try
+            {
+                _printModule = await JS.InvokeAsync<IJSObjectReference>(
+                    "import", "/js/print.js");
+                await _printModule.InvokeVoidAsync("triggerPrint");
+            }
+            catch { /* JS interop may fail if page is closed quickly */ }
+        }
+    }
+
+    private async Task TriggerPrintAsync()
+    {
+        try
+        {
+            _printModule ??= await JS.InvokeAsync<IJSObjectReference>("import", "/js/print.js");
+            await _printModule.InvokeVoidAsync("triggerPrint");
+        }
+        catch { }
+    }
+
+    private async Task CloseWindow()
+    {
+        try { await JS.InvokeVoidAsync("window.close"); }
+        catch { }
+    }
+
+    private async Task ResolvePicklistLabelsAsync()
+    {
+        if (_name is null) return;
+
+        var ids = new List<Guid>();
+        if (_name.SexId.HasValue)              ids.Add(_name.SexId.Value);
+        if (_name.RaceId.HasValue)             ids.Add(_name.RaceId.Value);
+        if (_name.HairColorId.HasValue)        ids.Add(_name.HairColorId.Value);
+        if (_name.EyeColorId.HasValue)         ids.Add(_name.EyeColorId.Value);
+        if (_name.DriversLicenseStateId.HasValue) ids.Add(_name.DriversLicenseStateId.Value);
+        if (_name.SuffixId.HasValue)           ids.Add(_name.SuffixId.Value);
+
+        if (ids.Count == 0) return;
+
+        var labels = await PicklistService.GetItemsByIdsAsync(ids);
+        if (_name.SexId.HasValue)                 labels.TryGetValue(_name.SexId.Value,                  out _sexLabel);
+        if (_name.RaceId.HasValue)                labels.TryGetValue(_name.RaceId.Value,                 out _raceLabel);
+        if (_name.HairColorId.HasValue)           labels.TryGetValue(_name.HairColorId.Value,            out _hairColorLabel);
+        if (_name.EyeColorId.HasValue)            labels.TryGetValue(_name.EyeColorId.Value,             out _eyeColorLabel);
+        if (_name.DriversLicenseStateId.HasValue) labels.TryGetValue(_name.DriversLicenseStateId.Value,  out _dlStateLabel);
+        if (_name.SuffixId.HasValue)              labels.TryGetValue(_name.SuffixId.Value,               out _suffixLabel);
+    }
+
+    private string HeightDisplay
+    {
+        get
+        {
+            if (!_name!.HeightInches.HasValue) return "—";
+            var ft     = _name.HeightInches.Value / 12;
+            var inches = _name.HeightInches.Value % 12;
+            return $"{ft}′ {inches}″";
+        }
+    }
+
+    private string SsnDisplay
+    {
+        get
+        {
+            if (string.IsNullOrWhiteSpace(_name?.SocialSecurityNumber)) return "—";
+            var ssn = _name.SocialSecurityNumber.Replace("-", "");
+            if (ssn.Length < 4) return "***-**-??";
+            return $"***-**-{ssn[^4..]}";
+        }
+    }
+
+    private static int? ComputeAge(DateTime? dob)
+    {
+        if (!dob.HasValue) return null;
+        var today = DateTime.Today;
+        var age   = today.Year - dob.Value.Year;
+        if (dob.Value.Date > today.AddYears(-age)) age--;
+        return age;
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        if (_printModule is not null)
+        {
+            try { await _printModule.DisposeAsync(); }
+            catch { }
+        }
+    }
+}

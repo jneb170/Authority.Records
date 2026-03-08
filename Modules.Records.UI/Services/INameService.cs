@@ -35,7 +35,14 @@ public interface INameService
         int? heightInches,
         int? weightLbs,
         Guid? hairColorId,
-        Guid? eyeColorId);
+        Guid? eyeColorId,
+        Guid? suffixId = null,
+        string? placeOfBirth = null,
+        string? fbiNumber = null,
+        string? localNumber = null,
+        string? socialSecurityNumber = null,
+        bool isCitizen = false,
+        DateTime? deceasedDate = null);
     Task UpdateDetailsAsync(
         Guid id,
         string nameType,
@@ -50,7 +57,14 @@ public interface INameService
         int? heightInches,
         int? weightLbs,
         Guid? hairColorId,
-        Guid? eyeColorId);
+        Guid? eyeColorId,
+        Guid? suffixId = null,
+        string? placeOfBirth = null,
+        string? fbiNumber = null,
+        string? localNumber = null,
+        string? socialSecurityNumber = null,
+        bool isCitizen = false,
+        DateTime? deceasedDate = null);
     Task AcquireLockAsync(Guid id);
     Task ReleaseLockAsync(Guid id);
     Task SoftDeleteAsync(Guid id);

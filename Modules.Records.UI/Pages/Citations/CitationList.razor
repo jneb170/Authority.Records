@@ -1,12 +1,18 @@
 @page "/citations"
+@implements IDisposable
 @inject ICitationService CitationService
 @inject NavigationManager Nav
+@inject IKeyboardShortcutService ShortcutService
+@using Modules.Records.UI.Services
 
 <PageTitle>Citations</PageTitle>
 
-<div class="d-flex justify-content-between align-items-center mb-3">
-    <h1>Citations</h1>
-    <a class="btn btn-primary" href="/citations/create">+ New Citation</a>
+<div class="d-flex justify-content-between align-items-center border-bottom pb-3 mb-4">
+    <div>
+        <h2 class="fw-bold mb-0">📄 Citations</h2>
+        <small class="text-muted">Citation Records</small>
+    </div>
+    <a class="btn btn-primary" title="New Citation (Alt+N)" href="/citations/create">+ New Citation</a>
 </div>
 
 @if (_loading)
@@ -28,26 +34,34 @@ else if (_citations is not null)
         <table class="table table-hover">
             <thead>
                 <tr>
-                    <th>#</th>
-                    <th>Citation #</th>
-                    <th>Description</th>
-                    <th>Issue Date</th>
-                    <th>Issued</th>
+                    <th style="width:3rem"></th>
+                    <SortableColumnHeader ColumnKey="num"         Label="#"
+                        CurrentSortColumn="@_sortColumn" SortAscending="@_sortAscending" OnSort="SortBy" />
+                    <SortableColumnHeader ColumnKey="citationnum" Label="Citation #"
+                        CurrentSortColumn="@_sortColumn" SortAscending="@_sortAscending" OnSort="SortBy" />
+                    <SortableColumnHeader ColumnKey="description" Label="Description"
+                        CurrentSortColumn="@_sortColumn" SortAscending="@_sortAscending" OnSort="SortBy" />
+                    <SortableColumnHeader ColumnKey="issuedate"   Label="Issue Date"
+                        CurrentSortColumn="@_sortColumn" SortAscending="@_sortAscending" OnSort="SortBy" />
+                    <SortableColumnHeader ColumnKey="issued"      Label="Issued"
+                        CurrentSortColumn="@_sortColumn" SortAscending="@_sortAscending" OnSort="SortBy" />
                     <th>Lock</th>
-                    <th></th>
                 </tr>
             </thead>
             <tbody>
-                @foreach (var c in _citations)
+                @foreach (var c in SortedCitations)
                 {
                     <tr>
-                        <td>@c.RecordNumber</td>
-                        <td>@c.CitationNum</td>
+                        <td>
+                            <button class="btn btn-sm btn-outline-danger" title="Delete"
+                                    @onclick="() => InitiateDelete(c.Id, c.CitationNum)">🗑</button>
+                        </td>
+                        <td><a href="/citations/@c.RecordNumber">@c.RecordNumber</a></td>
+                        <td><a href="/citations/@c.RecordNumber">@c.CitationNum</a></td>
                         <td>@c.Description</td>
                         <td>@c.IssueDate.ToShortDateString()</td>
                         <td>@(c.IsIssued ? "✅" : "⏳")</td>
                         <td><LockBadge IsLocked="@c.IsLocked" LockedByUserId="@c.LockedByUserId" /></td>
-                        <td><a class="btn btn-sm btn-outline-primary" href="/citations/@c.RecordNumber">View</a></td>
                     </tr>
                 }
             </tbody>
@@ -55,13 +69,50 @@ else if (_citations is not null)
     }
 }
 
+<ConfirmDialog Visible="_showDeleteConfirm"
+               Title="Delete Citation"
+               Message="@($"Are you sure you want to delete citation \"{_deleteTargetName}\"?")"
+               OnConfirm="ExecuteDeleteAsync"
+               OnCancel="() => _showDeleteConfirm = false" />
+
 @code {
     private IReadOnlyList<CitationDto>? _citations;
     private bool _loading = true;
     private string? _error;
 
+    // Delete state
+    private bool   _showDeleteConfirm;
+    private Guid   _deleteTargetId;
+    private string _deleteTargetName = string.Empty;
+
+    private string _sortColumn    = "num";
+    private bool   _sortAscending = false;
+
+    private IEnumerable<CitationDto> SortedCitations =>
+        _citations is null ? [] :
+        (_sortColumn, _sortAscending) switch
+        {
+            ("num",         true)  => _citations.OrderBy(x => x.RecordNumber),
+            ("num",         false) => _citations.OrderByDescending(x => x.RecordNumber),
+            ("citationnum", true)  => _citations.OrderBy(x => x.CitationNum),
+            ("citationnum", false) => _citations.OrderByDescending(x => x.CitationNum),
+            ("description", true)  => _citations.OrderBy(x => x.Description),
+            ("description", false) => _citations.OrderByDescending(x => x.Description),
+            ("issuedate",   true)  => _citations.OrderBy(x => x.IssueDate),
+            ("issuedate",   false) => _citations.OrderByDescending(x => x.IssueDate),
+            ("issued",      true)  => _citations.OrderBy(x => x.IsIssued),
+            _                      => _citations.OrderByDescending(x => x.IsIssued),
+        };
+
+    private void SortBy(string column)
+    {
+        if (_sortColumn == column) _sortAscending = !_sortAscending;
+        else { _sortColumn = column; _sortAscending = true; }
+    }
+
     protected override async Task OnInitializedAsync()
     {
+        ShortcutService.OnNew += HandleShortcutNew;
         try
         {
             _citations = await CitationService.GetByJurisdictionAsync();
@@ -74,5 +125,27 @@ else if (_citations is not null)
         {
             _loading = false;
         }
+    }
+
+    private void HandleShortcutNew() => InvokeAsync(() => Nav.NavigateTo("/citations/create"));
+
+    public void Dispose() => ShortcutService.OnNew -= HandleShortcutNew;
+
+    private void InitiateDelete(Guid id, string name)
+    {
+        _deleteTargetId    = id;
+        _deleteTargetName  = name;
+        _showDeleteConfirm = true;
+    }
+
+    private async Task ExecuteDeleteAsync()
+    {
+        _showDeleteConfirm = false;
+        try
+        {
+            await CitationService.SoftDeleteAsync(_deleteTargetId);
+            _citations = await CitationService.GetByJurisdictionAsync();
+        }
+        catch (Exception ex) { _error = ex.Message; }
     }
 }

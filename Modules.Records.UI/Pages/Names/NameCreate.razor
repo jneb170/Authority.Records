@@ -1,5 +1,7 @@
 @page "/names/create"
+@implements IAsyncDisposable
 @inject INameService NameService
+@inject IKeyboardShortcutService ShortcutService
 @inject NavigationManager Nav
 @using Modules.Records.Domain.Common
 
@@ -48,6 +50,26 @@
                         <label class="form-label">Middle Name</label>
                         <InputText class="form-control" @bind-Value="_vm.MiddleName"
                                    @bind-Value:after="() => _vm.MiddleName = NameCaseConverter.ToNameCase(_vm.MiddleName)" />
+                    </div>
+                    <div class="col-sm-6 col-md-3">
+                        <label class="form-label">Suffix</label>
+                        <PicklistSelect PicklistType="@PicklistTypes.Suffix" @bind-Value="_vm.SuffixId" />
+                    </div>
+                    <div class="col-sm-6 col-md-3">
+                        <label class="form-label">Place of Birth</label>
+                        <InputText class="form-control" @bind-Value="_vm.PlaceOfBirth" placeholder="City, State" />
+                    </div>
+                    <div class="col-sm-6 col-md-3">
+                        <label class="form-label">Deceased Date</label>
+                        <input type="date" class="form-control"
+                               value="@(_vm.DeceasedDate.HasValue ? _vm.DeceasedDate.Value.ToString("yyyy-MM-dd") : "")"
+                               @onchange="@(e => _vm.DeceasedDate = DateTime.TryParse(e.Value?.ToString(), out var d) ? d : null)" />
+                    </div>
+                    <div class="col-sm-6 col-md-3 d-flex align-items-end pb-1">
+                        <div class="form-check">
+                            <InputCheckbox class="form-check-input" @bind-Value="_vm.IsCitizen" id="cbCitizenCreate" />
+                            <label class="form-check-label" for="cbCitizenCreate">US Citizen</label>
+                        </div>
                     </div>
                 }
             </div>
@@ -119,6 +141,26 @@
                 </div>
             </div>
         </div>
+
+        <div class="card mb-3">
+            <div class="card-body">
+                <h6 class="card-title">Identification</h6>
+                <div class="row g-3">
+                    <div class="col-sm-6 col-md-4">
+                        <label class="form-label">SSN</label>
+                        <InputText class="form-control" @bind-Value="_vm.SocialSecurityNumber" placeholder="XXX-XX-XXXX" maxlength="11" />
+                    </div>
+                    <div class="col-sm-6 col-md-4">
+                        <label class="form-label">FBI #</label>
+                        <InputText class="form-control" @bind-Value="_vm.FbiNumber" placeholder="FBI identifier" />
+                    </div>
+                    <div class="col-sm-6 col-md-4">
+                        <label class="form-label">Local #</label>
+                        <InputText class="form-control" @bind-Value="_vm.LocalNumber" placeholder="Local ID" />
+                    </div>
+                </div>
+            </div>
+        </div>
     }
 
     <button type="submit" class="btn btn-primary" disabled="@_submitting">
@@ -127,9 +169,52 @@
     <a class="btn btn-secondary ms-2" href="/names">Cancel</a>
 </EditForm>
 
+<UnsavedChangesDialog Visible="_showCancelConfirm"
+                      SaveLabel="Submit Record"
+                      DiscardLabel="Discard"
+                      ActionDescription="leaving the form"
+                      OnSaveAndRelease="SubmitFromDialogAsync"
+                      OnDiscard="DiscardAndCancelAsync"
+                      OnCancel="() => _showCancelConfirm = false" />
+
 @code {
     private readonly CreateNameViewModel _vm = new();
     private bool _submitting;
+    private bool _showCancelConfirm;
+
+    private bool HasEnteredData => !string.IsNullOrEmpty(_vm.LastOrBusinessName);
+    private string CancelUrl => "/names";
+
+    protected override Task OnInitializedAsync()
+    {
+        ShortcutService.OnRelease += HandleShortcutRelease;
+        return Task.CompletedTask;
+    }
+
+    private void HandleShortcutRelease()
+        => InvokeAsync(() => { HandleEscape(); StateHasChanged(); });
+
+    private void HandleEscape()
+    {
+        if (HasEnteredData)
+            _showCancelConfirm = true;
+        else
+            Nav.NavigateTo(CancelUrl);
+    }
+
+    private async Task SubmitFromDialogAsync()
+    {
+        _showCancelConfirm = false;
+        await SubmitAsync();
+    }
+
+    private void DiscardAndCancelAsync() => Nav.NavigateTo(CancelUrl);
+
+    public ValueTask DisposeAsync()
+    {
+        ShortcutService.OnRelease -= HandleShortcutRelease;
+        return ValueTask.CompletedTask;
+    }
 
     private async Task SubmitAsync()
     {
@@ -150,7 +235,14 @@
                 _vm.IsPerson ? _vm.HeightInches : null,
                 _vm.IsPerson ? _vm.WeightLbs : null,
                 _vm.IsPerson ? _vm.HairColorId : null,
-                _vm.IsPerson ? _vm.EyeColorId : null);
+                _vm.IsPerson ? _vm.EyeColorId : null,
+                _vm.IsPerson ? _vm.SuffixId : null,
+                _vm.IsPerson ? _vm.PlaceOfBirth : null,
+                _vm.IsPerson ? _vm.FbiNumber : null,
+                _vm.IsPerson ? _vm.LocalNumber : null,
+                _vm.IsPerson ? _vm.SocialSecurityNumber : null,
+                _vm.IsPerson && _vm.IsCitizen,
+                _vm.IsPerson ? _vm.DeceasedDate : null);
 
             Nav.NavigateTo($"/names/{recordNumber}?autoModify=true");
         }

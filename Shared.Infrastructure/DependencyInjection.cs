@@ -23,6 +23,7 @@ using Shared.Infrastructure.Outbox;
 using Shared.Infrastructure.Arrests;
 using Shared.Infrastructure.Citations;
 using Shared.Infrastructure.Persistence;
+using Shared.Infrastructure.ReadModelRebuild;
 using System;
 
 namespace Shared.Infrastructure;
@@ -90,6 +91,11 @@ public static class DependencyInjection
         // Outbox Message Processing (Background Service)
         // -------------------------------------------------------
         services.AddHostedService<OutboxProcessor>();
+
+        // -------------------------------------------------------
+        // Read Model Rebuild Background Service
+        // -------------------------------------------------------
+        services.AddHostedService<ReadModelRebuildBackgroundService>();
 
         // -------------------------------------------------------
         // Outbox Message Cleanup Service

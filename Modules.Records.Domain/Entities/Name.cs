@@ -49,6 +49,28 @@ public sealed class Name : LockableAggregateRoot<Name>, IMultiTenant
     /// <summary>Optional picklist FK (PicklistTypes.EyeColor) — Person only.</summary>
     public Guid? EyeColorId { get; private set; }
 
+    // --- Extended person-only fields ---
+    /// <summary>Optional picklist FK (PicklistTypes.Suffix) — Person only. e.g. JR, SR, MD.</summary>
+    public Guid? SuffixId { get; private set; }
+
+    /// <summary>City/state/country of birth — Person only.</summary>
+    public string? PlaceOfBirth { get; private set; }
+
+    /// <summary>FBI identification number — Person only.</summary>
+    public string? FbiNumber { get; private set; }
+
+    /// <summary>Local agency-assigned identifier — Person only.</summary>
+    public string? LocalNumber { get; private set; }
+
+    /// <summary>Social Security Number stored as formatted string (XXX-XX-XXXX) — Person only.</summary>
+    public string? SocialSecurityNumber { get; private set; }
+
+    /// <summary>US Citizen flag — Person only. Defaults to false.</summary>
+    public bool IsCitizen { get; private set; }
+
+    /// <summary>Date of death when known — Person only.</summary>
+    public DateTime? DeceasedDate { get; private set; }
+
     /// <summary>DB-generated auto-increment. Use in URLs and display; the GUID is for internal identity.</summary>
     public long RecordNumber { get; private set; }
 
@@ -79,7 +101,14 @@ public sealed class Name : LockableAggregateRoot<Name>, IMultiTenant
         int? heightInches,
         int? weightLbs,
         Guid? hairColorId,
-        Guid? eyeColorId)
+        Guid? eyeColorId,
+        Guid? suffixId,
+        string? placeOfBirth,
+        string? fbiNumber,
+        string? localNumber,
+        string? socialSecurityNumber,
+        bool isCitizen,
+        DateTime? deceasedDate)
     {
         Id               = Guid.NewGuid();
         JurisdictionId   = jurisdictionId;
@@ -97,6 +126,13 @@ public sealed class Name : LockableAggregateRoot<Name>, IMultiTenant
         WeightLbs        = weightLbs;
         HairColorId      = hairColorId;
         EyeColorId       = eyeColorId;
+        SuffixId         = suffixId;
+        PlaceOfBirth     = placeOfBirth;
+        FbiNumber        = fbiNumber;
+        LocalNumber      = localNumber;
+        SocialSecurityNumber = socialSecurityNumber;
+        IsCitizen        = isCitizen;
+        DeceasedDate     = deceasedDate;
 
         AddDomainEvent(new NameCreatedDomainEvent(
             Id, JurisdictionId, NameType, LastOrBusinessName, FirstName, MiddleName));
@@ -116,6 +152,13 @@ public sealed class Name : LockableAggregateRoot<Name>, IMultiTenant
         int? weightLbs,
         Guid? hairColorId,
         Guid? eyeColorId,
+        Guid? suffixId,
+        string? placeOfBirth,
+        string? fbiNumber,
+        string? localNumber,
+        string? socialSecurityNumber,
+        bool isCitizen,
+        DateTime? deceasedDate,
         IModificationContext context)
     {
         NameType              = nameType;
@@ -131,11 +174,19 @@ public sealed class Name : LockableAggregateRoot<Name>, IMultiTenant
         WeightLbs             = weightLbs;
         HairColorId           = hairColorId;
         EyeColorId            = eyeColorId;
+        SuffixId              = suffixId;
+        PlaceOfBirth          = placeOfBirth;
+        FbiNumber             = fbiNumber;
+        LocalNumber           = localNumber;
+        SocialSecurityNumber  = socialSecurityNumber;
+        IsCitizen             = isCitizen;
+        DeceasedDate          = deceasedDate;
 
         AddDomainEvent(new NameDetailsUpdatedDomainEvent(
             Id, NameType, LastOrBusinessName, FirstName, MiddleName,
             SexId, RaceId, DateOfBirth, DriversLicenseNumber, DriversLicenseStateId,
-            HeightInches, WeightLbs, HairColorId, EyeColorId));
+            HeightInches, WeightLbs, HairColorId, EyeColorId,
+            SuffixId, PlaceOfBirth, FbiNumber, LocalNumber, SocialSecurityNumber, IsCitizen, DeceasedDate));
     }
 
     public override void SoftDelete(Guid userId)

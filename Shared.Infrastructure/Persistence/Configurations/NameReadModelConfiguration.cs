@@ -26,6 +26,15 @@ public sealed class NameReadModelConfiguration : IEntityTypeConfiguration<NameRe
         builder.Property(x => x.HairColorId).IsRequired(false);
         builder.Property(x => x.EyeColorId).IsRequired(false);
 
+        // Extended person-only fields
+        builder.Property(x => x.SuffixId).IsRequired(false);
+        builder.Property(x => x.PlaceOfBirth).HasMaxLength(100).IsRequired(false);
+        builder.Property(x => x.FbiNumber).HasMaxLength(20).IsRequired(false);
+        builder.Property(x => x.LocalNumber).HasMaxLength(20).IsRequired(false);
+        builder.Property(x => x.SocialSecurityNumber).HasMaxLength(11).IsRequired(false);
+        builder.Property(x => x.IsCitizen).HasDefaultValue(false);
+        builder.Property(x => x.DeceasedDate).IsRequired(false);
+
         // Search indexes — all keyed on JurisdictionId for multi-tenant isolation
         builder.HasIndex(x => new { x.JurisdictionId, x.LastOrBusinessName });
         builder.HasIndex(x => new { x.JurisdictionId, x.FirstName });
@@ -37,6 +46,8 @@ public sealed class NameReadModelConfiguration : IEntityTypeConfiguration<NameRe
         builder.HasIndex(x => new { x.JurisdictionId, x.WeightLbs });
         builder.HasIndex(x => new { x.JurisdictionId, x.HairColorId });
         builder.HasIndex(x => new { x.JurisdictionId, x.EyeColorId });
+        builder.HasIndex(x => new { x.JurisdictionId, x.SuffixId });
+        builder.HasIndex(x => new { x.JurisdictionId, x.DeceasedDate });
         builder.HasIndex(x => x.DriversLicenseNumber);
     }
 }

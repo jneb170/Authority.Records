@@ -23,4 +23,11 @@ public sealed record NameDto(
     int? HeightInches = null,
     int? WeightLbs = null,
     Guid? HairColorId = null,
-    Guid? EyeColorId = null);
+    Guid? EyeColorId = null,
+    Guid? SuffixId = null,
+    string? PlaceOfBirth = null,
+    string? FbiNumber = null,
+    string? LocalNumber = null,
+    string? SocialSecurityNumber = null,
+    bool IsCitizen = false,
+    DateTime? DeceasedDate = null);
