@@ -21,6 +21,13 @@ public sealed class NameReadModel
     public int? WeightLbs { get; private set; }
     public Guid? HairColorId { get; private set; }
     public Guid? EyeColorId { get; private set; }
+    public Guid? SuffixId { get; private set; }
+    public string? PlaceOfBirth { get; private set; }
+    public string? FbiNumber { get; private set; }
+    public string? LocalNumber { get; private set; }
+    public string? SocialSecurityNumber { get; private set; }
+    public bool IsCitizen { get; private set; }
+    public DateTime? DeceasedDate { get; private set; }
     public bool IsLocked { get; private set; }
     public Guid? LockedByUserId { get; private set; }
     public Guid CreatedBy { get; private set; }
@@ -48,6 +55,13 @@ public sealed class NameReadModel
         int? weightLbs,
         Guid? hairColorId,
         Guid? eyeColorId,
+        Guid? suffixId,
+        string? placeOfBirth,
+        string? fbiNumber,
+        string? localNumber,
+        string? socialSecurityNumber,
+        bool isCitizen,
+        DateTime? deceasedDate,
         DateTime createdAtUtc,
         Guid createdBy)
     {
@@ -70,6 +84,13 @@ public sealed class NameReadModel
             WeightLbs             = weightLbs,
             HairColorId           = hairColorId,
             EyeColorId            = eyeColorId,
+            SuffixId              = suffixId,
+            PlaceOfBirth          = placeOfBirth,
+            FbiNumber             = fbiNumber,
+            LocalNumber           = localNumber,
+            SocialSecurityNumber  = socialSecurityNumber,
+            IsCitizen             = isCitizen,
+            DeceasedDate          = deceasedDate,
             IsLocked              = false,
             CreatedBy             = createdBy,
             CreatedAtUtc          = createdAtUtc,
@@ -90,7 +111,14 @@ public sealed class NameReadModel
         int? heightInches,
         int? weightLbs,
         Guid? hairColorId,
-        Guid? eyeColorId)
+        Guid? eyeColorId,
+        Guid? suffixId,
+        string? placeOfBirth,
+        string? fbiNumber,
+        string? localNumber,
+        string? socialSecurityNumber,
+        bool isCitizen,
+        DateTime? deceasedDate)
     {
         NameType              = nameType;
         LastOrBusinessName    = lastOrBusinessName;
@@ -105,6 +133,13 @@ public sealed class NameReadModel
         WeightLbs             = weightLbs;
         HairColorId           = hairColorId;
         EyeColorId            = eyeColorId;
+        SuffixId              = suffixId;
+        PlaceOfBirth          = placeOfBirth;
+        FbiNumber             = fbiNumber;
+        LocalNumber           = localNumber;
+        SocialSecurityNumber  = socialSecurityNumber;
+        IsCitizen             = isCitizen;
+        DeceasedDate          = deceasedDate;
         UpdatedAtUtc          = DateTime.UtcNow;
     }
 
@@ -131,5 +166,6 @@ public sealed class NameReadModel
         IsLocked, LockedByUserId, CreatedBy, ModifiedBy, CreatedAtUtc, UpdatedAtUtc,
         FirstName, MiddleName, SexId, RaceId, DateOfBirth,
         DriversLicenseNumber, DriversLicenseStateId, HeightInches, WeightLbs,
-        HairColorId, EyeColorId);
+        HairColorId, EyeColorId,
+        SuffixId, PlaceOfBirth, FbiNumber, LocalNumber, SocialSecurityNumber, IsCitizen, DeceasedDate);
 }

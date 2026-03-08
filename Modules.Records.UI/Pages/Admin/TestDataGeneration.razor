@@ -1,0 +1,405 @@
+@page "/admin/test-data"
+@attribute [Microsoft.AspNetCore.Authorization.Authorize(Roles = "Admin,Supervisor")]
+@inject INameService NameService
+@inject IPicklistService PicklistService
+
+<PageTitle>Test Data Generation</PageTitle>
+
+<div class="d-flex justify-content-between align-items-center border-bottom pb-3 mb-4">
+    <div>
+        <h2 class="fw-bold mb-0">🧪 Test Data Generation</h2>
+        <small class="text-muted">Seed realistic fake records for testing purposes</small>
+    </div>
+</div>
+
+@* ── Step 1: Seed Picklists ──────────────────────────────────────────────── *@
+<h5 class="fw-semibold mb-3">Step 1 — Seed Picklist Defaults</h5>
+<p class="text-muted small mb-3">
+    These buttons are idempotent — existing values are skipped. Run them once per agency before generating names.
+</p>
+
+<div class="row g-3 mb-5">
+    <div class="col-md-6">
+        <div class="card h-100">
+            <div class="card-body">
+                <h6 class="card-title">MNI Picklists</h6>
+                <p class="card-text text-muted small">
+                    Seeds <strong>Sex</strong>, <strong>Race</strong>, <strong>Hair Color</strong>, and <strong>Eye Color</strong>
+                    with standard values.
+                </p>
+                <div class="d-flex gap-3 small text-muted mb-3">
+                    <span>Sex: @_sexCount items</span>
+                    <span>Race: @_raceCount items</span>
+                    <span>Hair: @_hairCount items</span>
+                    <span>Eye: @_eyeCount items</span>
+                </div>
+            </div>
+            <div class="card-footer bg-transparent">
+                <button class="btn btn-outline-primary btn-sm" @onclick="SeedMniPicklistsAsync" disabled="@_seeding">
+                    @if (_seedingMni) { <span class="spinner-border spinner-border-sm me-1"></span> } Seed MNI Picklists
+                </button>
+                @if (_mniSeedResult is not null)
+                {
+                    <span class="ms-2 small @(_mniSeedResult.StartsWith("✅") ? "text-success" : "text-danger")">@_mniSeedResult</span>
+                }
+            </div>
+        </div>
+    </div>
+
+    <div class="col-md-6">
+        <div class="card h-100">
+            <div class="card-body">
+                <h6 class="card-title">DL States</h6>
+                <p class="card-text text-muted small">
+                    Seeds all <strong>50 US states</strong>, DC, and inhabited territories into the State picklist.
+                </p>
+                <div class="d-flex gap-3 small text-muted mb-3">
+                    <span>State: @_stateCount / 56 items</span>
+                </div>
+            </div>
+            <div class="card-footer bg-transparent">
+                <button class="btn btn-outline-primary btn-sm" @onclick="SeedDlStatesAsync" disabled="@_seeding">
+                    @if (_seedingStates) { <span class="spinner-border spinner-border-sm me-1"></span> } Seed DL States
+                </button>
+                @if (_stateSeedResult is not null)
+                {
+                    <span class="ms-2 small @(_stateSeedResult.StartsWith("✅") ? "text-success" : "text-danger")">@_stateSeedResult</span>
+                }
+            </div>
+        </div>
+    </div>
+
+    <div class="col-md-6">
+        <div class="card h-100">
+            <div class="card-body">
+                <h6 class="card-title">Name Suffixes</h6>
+                <p class="card-text text-muted small">
+                    Seeds common name suffixes (<strong>JR, SR, II, III, IV, V, MD, DO, DDS, JD, PHD, RN, ESQ, RET</strong>) into the Suffix picklist.
+                </p>
+                <div class="d-flex gap-3 small text-muted mb-3">
+                    <span>Suffix: @_suffixCount / 14 items</span>
+                </div>
+            </div>
+            <div class="card-footer bg-transparent">
+                <button class="btn btn-outline-primary btn-sm" @onclick="SeedSuffixesAsync" disabled="@_seeding">
+                    @if (_seedingSuffixes) { <span class="spinner-border spinner-border-sm me-1"></span> } Seed Suffixes
+                </button>
+                @if (_suffixSeedResult is not null)
+                {
+                    <span class="ms-2 small @(_suffixSeedResult.StartsWith("✅") ? "text-success" : "text-danger")">@_suffixSeedResult</span>
+                }
+            </div>
+        </div>
+    </div>
+</div>
+
+@* ── Step 2: Generate Fake Names ─────────────────────────────────────────── *@
+<h5 class="fw-semibold mb-3">Step 2 — Generate Fake Name Records</h5>
+
+@if (!_canGenerate)
+{
+    <div class="alert alert-warning">
+        ⚠️ One or more required picklists are empty (Sex, Race, HairColor, EyeColor, or State). Seed them in Step 1 before generating.
+    </div>
+}
+
+<div class="row g-3 align-items-end mb-3">
+    <div class="col-auto">
+        <label class="form-label fw-semibold">Number of Records</label>
+        <input type="number" class="form-control" style="width:120px"
+               min="1" max="500" @bind="_generateCount" disabled="@_generating" />
+    </div>
+    <div class="col-auto">
+        <button class="btn btn-primary" @onclick="GenerateNamesAsync"
+                disabled="@(_generating || !_canGenerate)">
+            @if (_generating) { <span class="spinner-border spinner-border-sm me-1"></span> }
+            Generate @_generateCount Name Records
+        </button>
+    </div>
+</div>
+
+@if (_generating || _generatedCount > 0)
+{
+    <div class="mb-2">
+        <div class="progress" style="height:22px;">
+            <div class="progress-bar progress-bar-striped @(_generating ? "progress-bar-animated" : "")"
+                 role="progressbar"
+                 style="width: @(_generateCount > 0 ? (int)((_generatedCount * 100.0) / _generateCount) : 0)%">
+                @_generatedCount / @_generateCount
+            </div>
+        </div>
+    </div>
+}
+
+@if (_generateResult is not null)
+{
+    <div class="alert @(_generateErrors == 0 ? "alert-success" : "alert-warning") mt-2">
+        @_generateResult
+    </div>
+}
+
+@code {
+    // ── Picklist counts ──────────────────────────────────────────────────────
+    private int _sexCount;
+    private int _raceCount;
+    private int _hairCount;
+    private int _eyeCount;
+    private int _stateCount;
+    private int _suffixCount;
+
+    // ── Picklist ID lookups (value → Guid) ───────────────────────────────────
+    private Dictionary<string, Guid> _sexIds    = new();
+    private Dictionary<string, Guid> _raceIds   = new();
+    private List<Guid>               _hairIds   = new();
+    private List<Guid>               _eyeIds    = new();
+    private List<Guid>               _stateIds  = new();
+    private List<Guid>               _suffixIds = new();
+
+    // ── Seed state ───────────────────────────────────────────────────────────
+    private bool    _seeding         = false;
+    private bool    _seedingMni      = false;
+    private bool    _seedingStates   = false;
+    private bool    _seedingSuffixes = false;
+    private string? _mniSeedResult;
+    private string? _stateSeedResult;
+    private string? _suffixSeedResult;
+
+    // ── Generate state ───────────────────────────────────────────────────────
+    private int     _generateCount   = 50;
+    private bool    _generating      = false;
+    private int     _generatedCount  = 0;
+    private int     _generateErrors  = 0;
+    private string? _generateResult;
+    private bool    _canGenerate     = false;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadPicklistCountsAsync();
+    }
+
+    private async Task LoadPicklistCountsAsync()
+    {
+        var sexItems    = await PicklistService.GetItemsAsync(Modules.Records.Domain.Common.PicklistTypes.Sex,      activeOnly: false);
+        var raceItems   = await PicklistService.GetItemsAsync(Modules.Records.Domain.Common.PicklistTypes.Race,     activeOnly: false);
+        var hairItems   = await PicklistService.GetItemsAsync(Modules.Records.Domain.Common.PicklistTypes.HairColor, activeOnly: false);
+        var eyeItems    = await PicklistService.GetItemsAsync(Modules.Records.Domain.Common.PicklistTypes.EyeColor,  activeOnly: false);
+        var stateItems  = await PicklistService.GetItemsAsync(Modules.Records.Domain.Common.PicklistTypes.State,    activeOnly: false);
+        var suffixItems = await PicklistService.GetItemsAsync(Modules.Records.Domain.Common.PicklistTypes.Suffix,   activeOnly: false);
+
+        _sexCount    = sexItems.Count;
+        _raceCount   = raceItems.Count;
+        _hairCount   = hairItems.Count;
+        _eyeCount    = eyeItems.Count;
+        _stateCount  = stateItems.Count;
+        _suffixCount = suffixItems.Count;
+
+        _sexIds    = sexItems.ToDictionary(x => x.Value, x => x.Id);
+        _raceIds   = raceItems.ToDictionary(x => x.Value, x => x.Id);
+        _hairIds   = hairItems.Select(x => x.Id).ToList();
+        _eyeIds    = eyeItems.Select(x => x.Id).ToList();
+        _stateIds  = stateItems.Select(x => x.Id).ToList();
+        _suffixIds = suffixItems.Select(x => x.Id).ToList();
+
+        _canGenerate = _sexCount > 0 && _raceCount > 0 && _hairCount > 0 && _eyeCount > 0 && _stateCount > 0;
+    }
+
+    // ── Seed MNI Picklists ───────────────────────────────────────────────────
+
+    private async Task SeedMniPicklistsAsync()
+    {
+        _seeding = _seedingMni = true;
+        _mniSeedResult = null;
+        int inserted = 0;
+
+        try
+        {
+            inserted += await SeedPicklistAsync(
+                Modules.Records.Domain.Common.PicklistTypes.Sex,
+                FakeNameData.SexDefaults.Select(d => (d.Value, d.Label, d.SortOrder)).ToArray());
+
+            inserted += await SeedPicklistAsync(
+                Modules.Records.Domain.Common.PicklistTypes.Race,
+                FakeNameData.RaceDefaults.Select(d => (d.Value, d.Label, d.SortOrder)).ToArray());
+
+            inserted += await SeedPicklistAsync(
+                Modules.Records.Domain.Common.PicklistTypes.HairColor,
+                FakeNameData.HairColorDefaults.Select(d => (d.Value, d.Label, d.SortOrder)).ToArray());
+
+            inserted += await SeedPicklistAsync(
+                Modules.Records.Domain.Common.PicklistTypes.EyeColor,
+                FakeNameData.EyeColorDefaults.Select(d => (d.Value, d.Label, d.SortOrder)).ToArray());
+
+            _mniSeedResult = $"✅ Done — {inserted} new item(s) inserted.";
+            await LoadPicklistCountsAsync();
+        }
+        catch (Exception ex)
+        {
+            _mniSeedResult = $"❌ Error: {ex.Message}";
+        }
+        finally
+        {
+            _seeding = _seedingMni = false;
+        }
+    }
+
+    // ── Seed DL States ───────────────────────────────────────────────────────
+
+    private async Task SeedDlStatesAsync()
+    {
+        _seeding = _seedingStates = true;
+        _stateSeedResult = null;
+
+        try
+        {
+            var existing = await PicklistService.GetItemsAsync(
+                Modules.Records.Domain.Common.PicklistTypes.State, activeOnly: false);
+            var existingValues = existing.Select(x => x.Value).ToHashSet(StringComparer.OrdinalIgnoreCase);
+
+            int inserted = 0;
+            int sort = existing.Count + 1;
+            foreach (var (abbr, name) in FakeNameData.States)
+            {
+                if (existingValues.Contains(abbr)) continue;
+                await PicklistService.CreateItemAsync(
+                    Modules.Records.Domain.Common.PicklistTypes.State, abbr, name, sort++);
+                inserted++;
+            }
+
+            _stateSeedResult = $"✅ Done — {inserted} new state(s) inserted.";
+            await LoadPicklistCountsAsync();
+        }
+        catch (Exception ex)
+        {
+            _stateSeedResult = $"❌ Error: {ex.Message}";
+        }
+        finally
+        {
+            _seeding = _seedingStates = false;
+        }
+    }
+
+    // ── Seed Suffixes ────────────────────────────────────────────────────────
+
+    private async Task SeedSuffixesAsync()
+    {
+        _seeding = _seedingSuffixes = true;
+        _suffixSeedResult = null;
+
+        try
+        {
+            int inserted = await SeedPicklistAsync(
+                Modules.Records.Domain.Common.PicklistTypes.Suffix,
+                FakeNameData.SuffixDefaults.Select(d => (d.Value, d.Label, d.SortOrder)).ToArray());
+
+            _suffixSeedResult = $"✅ Done — {inserted} new suffix(es) inserted.";
+            await LoadPicklistCountsAsync();
+        }
+        catch (Exception ex)
+        {
+            _suffixSeedResult = $"❌ Error: {ex.Message}";
+        }
+        finally
+        {
+            _seeding = _seedingSuffixes = false;
+        }
+    }
+
+    // ── Seed helper ──────────────────────────────────────────────────────────
+
+    private async Task<int> SeedPicklistAsync(string picklistType, (string Value, string Label, int SortOrder)[] defaults)
+    {
+        var existing = await PicklistService.GetItemsAsync(picklistType, activeOnly: false);
+        var existingByValue = existing.ToDictionary(x => x.Value, x => x, StringComparer.OrdinalIgnoreCase);
+
+        int inserted = 0;
+        foreach (var (value, label, sort) in defaults)
+        {
+            if (existingByValue.TryGetValue(value, out var existing_item))
+            {
+                if (existing_item.Label != label || existing_item.SortOrder != sort)
+                    await PicklistService.UpdateItemAsync(existing_item.Id, label, sort);
+            }
+            else
+            {
+                await PicklistService.CreateItemAsync(picklistType, value, label, sort);
+                inserted++;
+            }
+        }
+        return inserted;
+    }
+
+    // ── Generate Names ───────────────────────────────────────────────────────
+
+    private async Task GenerateNamesAsync()
+    {
+        _generating     = true;
+        _generatedCount = 0;
+        _generateErrors = 0;
+        _generateResult = null;
+
+        var count = Math.Clamp(_generateCount, 1, 500);
+
+        for (int i = 0; i < count; i++)
+        {
+            try
+            {
+                await CreateOneFakeNameAsync();
+            }
+            catch
+            {
+                _generateErrors++;
+            }
+            _generatedCount++;
+
+            // Yield to UI every 10 records to update the progress bar
+            if (_generatedCount % 10 == 0)
+                StateHasChanged();
+        }
+
+        _generating     = false;
+        _generateResult = _generateErrors == 0
+            ? $"✅ Successfully created {_generatedCount} fake Name records."
+            : $"⚠️ Created {_generatedCount - _generateErrors} records; {_generateErrors} error(s).";
+
+        StateHasChanged();
+    }
+
+    private async Task CreateOneFakeNameAsync()
+    {
+        var sexValue = FakeNameGenerator.GenerateSex();
+        var raceValue = FakeNameGenerator.GenerateRaceValue();
+        var dob      = FakeNameGenerator.GenerateDob();
+        var age      = FakeNameGenerator.GetAge(dob);
+
+        _sexIds.TryGetValue(sexValue,  out var sexId);
+        _raceIds.TryGetValue(raceValue, out var raceId);
+
+        var hairId  = FakeNameGenerator.PickRandom<Guid>(_hairIds);
+        var eyeId   = FakeNameGenerator.PickRandom<Guid>(_eyeIds);
+        var height  = FakeNameGenerator.GenerateHeight(sexValue);
+        var weight  = FakeNameGenerator.GenerateWeight(sexValue);
+
+        string? dlNumber    = null;
+        Guid?   dlStateId   = null;
+        if (age >= 17 && _stateIds.Count > 0)
+        {
+            dlNumber  = FakeNameGenerator.GenerateDlNumber();
+            dlStateId = FakeNameGenerator.PickRandom<Guid>(_stateIds);
+        }
+
+        await NameService.CreateAsync(
+            nameType:              "Person",
+            lastOrBusinessName:    FakeNameGenerator.PickLastName(),
+            firstName:             FakeNameGenerator.PickFirstName(sexValue),
+            middleName:            FakeNameGenerator.PickMiddleName(),
+            sexId:                 sexId == Guid.Empty ? null : sexId,
+            raceId:                raceId == Guid.Empty ? null : raceId,
+            dateOfBirth:           dob,
+            driversLicenseNumber:  dlNumber,
+            driversLicenseStateId: dlStateId,
+            heightInches:          height,
+            weightLbs:             weight,
+            hairColorId:           hairId,
+            eyeColorId:            eyeId);
+    }
+}

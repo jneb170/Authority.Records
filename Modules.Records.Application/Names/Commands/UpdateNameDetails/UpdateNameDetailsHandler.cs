@@ -44,6 +44,13 @@ public sealed class UpdateNameDetailsHandler : IRequestHandler<UpdateNameDetails
             request.WeightLbs,
             request.HairColorId,
             request.EyeColorId,
+            request.SuffixId,
+            request.PlaceOfBirth,
+            request.FbiNumber,
+            request.LocalNumber,
+            request.SocialSecurityNumber,
+            request.IsCitizen,
+            request.DeceasedDate,
             _modificationContext);
 
         await _dbContext.SaveChangesAsync(cancellationToken);

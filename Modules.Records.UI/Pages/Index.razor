@@ -1,9 +1,170 @@
 @page "/"
+@using System.Security.Claims
+@inject IHomeService HomeService
+@inject AuthenticationStateProvider AuthStateProvider
 @inject NavigationManager Nav
 
-@code {
-    protected override void OnInitialized()
-    {
-        Nav.NavigateTo("/incidents");
-    }
+<PageTitle>Home — Authority Records</PageTitle>
+
+@* ── Welcome Banner ─────────────────────────────────────────────────── *@
+<div class="d-flex justify-content-between align-items-center border-bottom pb-3 mb-4">
+    <div>
+        <h2 class="fw-bold mb-0">🏠 Home</h2>
+        <small class="text-muted">Welcome back, <strong>@_displayName</strong> &mdash; @DateTime.Today.ToString("dddd, MMMM d, yyyy")</small>
+    </div>
+</div>
+
+@* ── Module Quick-Access Cards ───────────────────────────────────────── *@
+<div class="row g-3 mb-5">
+    <div class="col-sm-6 col-lg-3">
+        <div class="card h-100 shadow-sm">
+            <div class="card-body">
+                <h5 class="card-title">📋 Incidents</h5>
+                <p class="card-text text-muted small">Incident Reports</p>
+            </div>
+            <div class="card-footer bg-transparent d-flex gap-2">
+                <a href="/incidents" class="btn btn-sm btn-outline-secondary flex-fill">View All</a>
+                <a href="/incidents/create" class="btn btn-sm btn-primary flex-fill">+ New</a>
+            </div>
+        </div>
+    </div>
+    <div class="col-sm-6 col-lg-3">
+        <div class="card h-100 shadow-sm">
+            <div class="card-body">
+                <h5 class="card-title">🚨 Arrests</h5>
+                <p class="card-text text-muted small">Arrest Records</p>
+            </div>
+            <div class="card-footer bg-transparent d-flex gap-2">
+                <a href="/arrests" class="btn btn-sm btn-outline-secondary flex-fill">View All</a>
+                <a href="/arrests/create" class="btn btn-sm btn-primary flex-fill">+ New</a>
+            </div>
+        </div>
+    </div>
+    <div class="col-sm-6 col-lg-3">
+        <div class="card h-100 shadow-sm">
+            <div class="card-body">
+                <h5 class="card-title">📄 Citations</h5>
+                <p class="card-text text-muted small">Citation Records</p>
+            </div>
+            <div class="card-footer bg-transparent d-flex gap-2">
+                <a href="/citations" class="btn btn-sm btn-outline-secondary flex-fill">View All</a>
+                <a href="/citations/create" class="btn btn-sm btn-primary flex-fill">+ New</a>
+            </div>
+        </div>
+    </div>
+    <div class="col-sm-6 col-lg-3">
+        <div class="card h-100 shadow-sm">
+            <div class="card-body">
+                <h5 class="card-title">👤 Names</h5>
+                <p class="card-text text-muted small">Master Name Index (MNI)</p>
+            </div>
+            <div class="card-footer bg-transparent d-flex gap-2">
+                <a href="/names" class="btn btn-sm btn-outline-secondary flex-fill">View All</a>
+                <a href="/names/create" class="btn btn-sm btn-primary flex-fill">+ New</a>
+            </div>
+        </div>
+    </div>
+</div>
+
+@* ── Recent Activity ─────────────────────────────────────────────────── *@
+<div class="border-bottom pb-2 mb-3 d-flex justify-content-between align-items-center">
+    <h5 class="fw-semibold mb-0">🕐 Recent Activity</h5>
+    <small class="text-muted">Your last 20 records</small>
+</div>
+
+@if (_loading)
+{
+    <p class="text-muted">Loading…</p>
 }
+else if (_activity is null || !_activity.Any())
+{
+    <p class="text-muted fst-italic">No recent activity found. Create your first record using the shortcuts above.</p>
+}
+else
+{
+    <table class="table table-hover table-sm">
+        <thead class="table-light">
+            <tr>
+                <th>Type</th>
+                <th>Record</th>
+                <th>Status</th>
+                <th>Activity</th>
+                <th>Date / Time</th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var item in _activity)
+            {
+                <tr>
+                    <td>@RecordTypeIcon(item.RecordType) @item.RecordType</td>
+                    <td><a href="@item.NavigationUrl">@item.DisplayIdentifier</a></td>
+                    <td>
+                        @if (item.Status is not null)
+                        {
+                            <span class="badge @StatusBadgeClass(item.Status)">@item.Status</span>
+                        }
+                        else
+                        {
+                            <span class="text-muted">—</span>
+                        }
+                    </td>
+                    <td>
+                        @if (item.ActivityKind == "Created")
+                        {
+                            <span class="text-success fw-semibold">Created</span>
+                        }
+                        else
+                        {
+                            <span class="text-primary fw-semibold">Modified</span>
+                        }
+                    </td>
+                    <td class="text-nowrap">@item.LastActivityAt.ToLocalTime().ToString("MM/dd/yyyy h:mm tt")</td>
+                </tr>
+            }
+        </tbody>
+    </table>
+}
+
+@code {
+    private bool _loading = true;
+    private string _displayName = "Officer";
+    private IReadOnlyList<Modules.Records.Application.Common.Queries.GetRecentActivity.RecentActivityDto>? _activity;
+
+    protected override async Task OnInitializedAsync()
+    {
+        var authState = await AuthStateProvider.GetAuthenticationStateAsync();
+        _displayName = authState.User.FindFirst(ClaimTypes.Email)?.Value
+                    ?? authState.User.FindFirst(ClaimTypes.Name)?.Value
+                    ?? "Officer";
+
+        try
+        {
+            _activity = await HomeService.GetRecentActivityAsync(20);
+        }
+        finally
+        {
+            _loading = false;
+        }
+    }
+
+    private static string RecordTypeIcon(string recordType) => recordType switch
+    {
+        "Incident" => "📋",
+        "Arrest"   => "🚨",
+        "Citation" => "📄",
+        "Name"     => "👤",
+        _          => "📁"
+    };
+
+    private static string StatusBadgeClass(string status) => status.ToLower() switch
+    {
+        "open"     => "bg-success",
+        "closed"   => "bg-secondary",
+        "archived" => "bg-dark",
+        "draft"    => "bg-warning text-dark",
+        "finalized"=> "bg-primary",
+        "issued"   => "bg-info text-dark",
+        _          => "bg-secondary"
+    };
+}
+

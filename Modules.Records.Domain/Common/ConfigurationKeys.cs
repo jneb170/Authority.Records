@@ -42,4 +42,15 @@ public static class ConfigurationKeys
     /// Produces values like "CT-2026-000001".
     /// </summary>
     public const string DefaultCitationFormat = "CT-yyyy-xxxxxx";
+    /// <summary>
+    /// Schedule for automatic read model rebuilds.
+    /// Valid values: "Off", "Hourly", "TwiceDaily", "Daily".  Default is "Off".
+    /// </summary>
+    public const string ReadModelRebuildSchedule = "ReadModelRebuildSchedule";
+
+    /// <summary>
+    /// UTC timestamp of the last completed read model rebuild (ISO 8601 string).
+    /// Written automatically by the background rebuild service.
+    /// </summary>
+    public const string ReadModelRebuildLastRunUtc = "ReadModelRebuildLastRunUtc";
 }

@@ -8,6 +8,8 @@ namespace Modules.Records.Application.Abstractions;
 public interface IApplicationDbContext
 {
     DbSet<Incident> Incidents { get; }
+    /// <summary>Queryable that bypasses the global IsDeleted filter — use for rebuild/admin operations only.</summary>
+    IQueryable<Incident> AllIncidentsWithDeleted { get; }
     DbSet<Arrest> Arrests { get; }
     DbSet<Citation> Citations { get; }
     DbSet<Name> Names { get; }

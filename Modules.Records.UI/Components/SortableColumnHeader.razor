@@ -1,0 +1,23 @@
+<th @onclick="HandleClick"
+    style="cursor:pointer;white-space:nowrap;user-select:none;"
+    title="Sort by @Label">
+    @Label
+    @if (CurrentSortColumn == ColumnKey)
+    {
+        <span class="ms-1 text-muted small">@(SortAscending ? "▲" : "▼")</span>
+    }
+    else
+    {
+        <span class="ms-1 text-muted small opacity-25">⇅</span>
+    }
+</th>
+
+@code {
+    [Parameter, EditorRequired] public string ColumnKey          { get; set; } = "";
+    [Parameter, EditorRequired] public string Label              { get; set; } = "";
+    [Parameter]                 public string CurrentSortColumn  { get; set; } = "";
+    [Parameter]                 public bool   SortAscending      { get; set; }
+    [Parameter]                 public EventCallback<string> OnSort { get; set; }
+
+    private Task HandleClick() => OnSort.InvokeAsync(ColumnKey);
+}

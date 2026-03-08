@@ -1,0 +1,34 @@
+@if (Visible)
+{
+    <div class="modal d-block" tabindex="-1" style="background: rgba(0,0,0,0.5);">
+        <div class="modal-dialog modal-dialog-centered modal-sm">
+            <div class="modal-content border-warning">
+                <div class="modal-header bg-warning bg-opacity-25">
+                    <h5 class="modal-title fw-semibold">⚠️ Unsaved Changes</h5>
+                </div>
+                <div class="modal-body">
+                    <p class="mb-0">You have unsaved changes. Would you like to save before @ActionDescription?</p>
+                </div>
+                <div class="modal-footer flex-nowrap gap-2">
+                    <button class="btn btn-secondary btn-sm" @onclick="Cancel">Cancel</button>
+                    <button class="btn btn-outline-danger btn-sm" @onclick="Discard">@DiscardLabel</button>
+                    <button class="btn btn-primary btn-sm" @onclick="SaveAndRelease">@SaveLabel</button>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    [Parameter] public bool Visible { get; set; }
+    [Parameter] public string SaveLabel { get; set; } = "Save & Release";
+    [Parameter] public string DiscardLabel { get; set; } = "Discard";
+    [Parameter] public string ActionDescription { get; set; } = "releasing the record";
+    [Parameter] public EventCallback OnSaveAndRelease { get; set; }
+    [Parameter] public EventCallback OnDiscard { get; set; }
+    [Parameter] public EventCallback OnCancel { get; set; }
+
+    private Task SaveAndRelease() => OnSaveAndRelease.InvokeAsync();
+    private Task Discard() => OnDiscard.InvokeAsync();
+    private Task Cancel() => OnCancel.InvokeAsync();
+}

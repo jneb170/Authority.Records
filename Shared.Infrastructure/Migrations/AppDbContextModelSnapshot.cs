@@ -312,6 +312,9 @@ namespace Shared.Infrastructure.Migrations
                     b.Property<DateTime?>("DateOfBirth")
                         .HasColumnType("datetime2");
 
+                    b.Property<DateTime?>("DeceasedDate")
+                        .HasColumnType("datetime2");
+
                     b.Property<string>("DriversLicenseNumber")
                         .HasMaxLength(50)
                         .HasColumnType("nvarchar(50)");
@@ -321,6 +324,10 @@ namespace Shared.Infrastructure.Migrations
 
                     b.Property<Guid?>("EyeColorId")
                         .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("FbiNumber")
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)");
 
                     b.Property<string>("FirstName")
                         .HasMaxLength(100)
@@ -332,6 +339,11 @@ namespace Shared.Infrastructure.Migrations
                     b.Property<int?>("HeightInches")
                         .HasColumnType("int");
 
+                    b.Property<bool>("IsCitizen")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bit")
+                        .HasDefaultValue(false);
+
                     b.Property<bool>("IsLocked")
                         .HasColumnType("bit");
 
@@ -342,6 +354,10 @@ namespace Shared.Infrastructure.Migrations
                         .IsRequired()
                         .HasMaxLength(250)
                         .HasColumnType("nvarchar(250)");
+
+                    b.Property<string>("LocalNumber")
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)");
 
                     b.Property<Guid?>("LockedByUserId")
                         .HasColumnType("uniqueidentifier");
@@ -358,6 +374,10 @@ namespace Shared.Infrastructure.Migrations
                         .HasMaxLength(20)
                         .HasColumnType("nvarchar(20)");
 
+                    b.Property<string>("PlaceOfBirth")
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
                     b.Property<Guid?>("RaceId")
                         .HasColumnType("uniqueidentifier");
 
@@ -365,6 +385,13 @@ namespace Shared.Infrastructure.Migrations
                         .HasColumnType("bigint");
 
                     b.Property<Guid?>("SexId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("SocialSecurityNumber")
+                        .HasMaxLength(11)
+                        .HasColumnType("nvarchar(11)");
+
+                    b.Property<Guid?>("SuffixId")
                         .HasColumnType("uniqueidentifier");
 
                     b.Property<DateTime>("UpdatedAtUtc")
@@ -378,6 +405,8 @@ namespace Shared.Infrastructure.Migrations
                     b.HasIndex("DriversLicenseNumber");
 
                     b.HasIndex("JurisdictionId", "DateOfBirth");
+
+                    b.HasIndex("JurisdictionId", "DeceasedDate");
 
                     b.HasIndex("JurisdictionId", "EyeColorId");
 
@@ -394,6 +423,8 @@ namespace Shared.Infrastructure.Migrations
                     b.HasIndex("JurisdictionId", "RaceId");
 
                     b.HasIndex("JurisdictionId", "SexId");
+
+                    b.HasIndex("JurisdictionId", "SuffixId");
 
                     b.HasIndex("JurisdictionId", "WeightLbs");
 
@@ -877,6 +908,9 @@ namespace Shared.Infrastructure.Migrations
                     b.Property<DateTime?>("DateOfBirth")
                         .HasColumnType("datetime2");
 
+                    b.Property<DateTime?>("DeceasedDate")
+                        .HasColumnType("datetime2");
+
                     b.Property<string>("DriversLicenseNumber")
                         .HasMaxLength(50)
                         .HasColumnType("nvarchar(50)");
@@ -886,6 +920,10 @@ namespace Shared.Infrastructure.Migrations
 
                     b.Property<Guid?>("EyeColorId")
                         .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("FbiNumber")
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)");
 
                     b.Property<string>("FirstName")
                         .HasMaxLength(100)
@@ -897,6 +935,11 @@ namespace Shared.Infrastructure.Migrations
                     b.Property<int?>("HeightInches")
                         .HasColumnType("int");
 
+                    b.Property<bool>("IsCitizen")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bit")
+                        .HasDefaultValue(false);
+
                     b.Property<bool>("IsDeleted")
                         .HasColumnType("bit");
 
@@ -907,6 +950,10 @@ namespace Shared.Infrastructure.Migrations
                         .IsRequired()
                         .HasMaxLength(250)
                         .HasColumnType("nvarchar(250)");
+
+                    b.Property<string>("LocalNumber")
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)");
 
                     b.Property<DateTime?>("LockedAtUtc")
                         .HasColumnType("datetime2");
@@ -929,6 +976,10 @@ namespace Shared.Infrastructure.Migrations
                         .HasMaxLength(20)
                         .HasColumnType("nvarchar(20)");
 
+                    b.Property<string>("PlaceOfBirth")
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
                     b.Property<Guid?>("RaceId")
                         .HasColumnType("uniqueidentifier");
 
@@ -945,8 +996,15 @@ namespace Shared.Infrastructure.Migrations
                     b.Property<Guid?>("SexId")
                         .HasColumnType("uniqueidentifier");
 
+                    b.Property<string>("SocialSecurityNumber")
+                        .HasMaxLength(11)
+                        .HasColumnType("nvarchar(11)");
+
                     b.Property<int>("Status")
                         .HasColumnType("int");
+
+                    b.Property<Guid?>("SuffixId")
+                        .HasColumnType("uniqueidentifier");
 
                     b.Property<long>("Version")
                         .HasColumnType("bigint");

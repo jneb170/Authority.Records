@@ -16,4 +16,11 @@ public sealed record NameDetailsUpdatedDomainEvent(
     int? HeightInches,
     int? WeightLbs,
     Guid? HairColorId,
-    Guid? EyeColorId) : DomainEvent;
+    Guid? EyeColorId,
+    Guid? SuffixId,
+    string? PlaceOfBirth,
+    string? FbiNumber,
+    string? LocalNumber,
+    string? SocialSecurityNumber,
+    bool IsCitizen,
+    DateTime? DeceasedDate) : DomainEvent;
