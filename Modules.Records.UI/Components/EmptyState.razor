@@ -1,0 +1,18 @@
+<tr>
+    <td colspan="@Columns">
+        <div class="empty-state">
+            <i class="bi bi-inbox"></i>
+            <div class="fw-medium">@(Message ?? "No records found.")</div>
+            @if (SubMessage is not null)
+            {
+                <div class="small mt-1">@SubMessage</div>
+            }
+        </div>
+    </td>
+</tr>
+
+@code {
+    [Parameter, EditorRequired] public int Columns { get; set; }
+    [Parameter] public string? Message { get; set; }
+    [Parameter] public string? SubMessage { get; set; }
+}

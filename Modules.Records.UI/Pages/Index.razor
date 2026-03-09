@@ -7,10 +7,10 @@
 <PageTitle>Home — Authority Records</PageTitle>
 
 @* ── Welcome Banner ─────────────────────────────────────────────────── *@
-<div class="d-flex justify-content-between align-items-center border-bottom pb-3 mb-4">
+<div class="page-header">
     <div>
-        <h2 class="fw-bold mb-0">🏠 Home</h2>
-        <small class="text-muted">Welcome back, <strong>@_displayName</strong> &mdash; @DateTime.Today.ToString("dddd, MMMM d, yyyy")</small>
+        <h2 class="page-header-title"><i class="bi bi-house-fill"></i> Home</h2>
+        <div class="page-header-sub">Welcome back, <strong>@_displayName</strong> &mdash; @DateTime.Today.ToString("dddd, MMMM d, yyyy")</div>
     </div>
 </div>
 
@@ -19,48 +19,48 @@
     <div class="col-sm-6 col-lg-3">
         <div class="card h-100 shadow-sm">
             <div class="card-body">
-                <h5 class="card-title">📋 Incidents</h5>
+                <h5 class="card-title"><i class="bi bi-clipboard2-pulse-fill"></i> Incidents</h5>
                 <p class="card-text text-muted small">Incident Reports</p>
             </div>
             <div class="card-footer bg-transparent d-flex gap-2">
                 <a href="/incidents" class="btn btn-sm btn-outline-secondary flex-fill">View All</a>
-                <a href="/incidents/create" class="btn btn-sm btn-primary flex-fill">+ New</a>
+                <a href="/incidents/create" class="btn btn-sm btn-primary flex-fill"><i class="bi bi-plus-lg me-1"></i>New</a>
             </div>
         </div>
     </div>
     <div class="col-sm-6 col-lg-3">
         <div class="card h-100 shadow-sm">
             <div class="card-body">
-                <h5 class="card-title">🚨 Arrests</h5>
+                <h5 class="card-title"><i class="bi bi-person-badge-fill"></i> Arrests</h5>
                 <p class="card-text text-muted small">Arrest Records</p>
             </div>
             <div class="card-footer bg-transparent d-flex gap-2">
                 <a href="/arrests" class="btn btn-sm btn-outline-secondary flex-fill">View All</a>
-                <a href="/arrests/create" class="btn btn-sm btn-primary flex-fill">+ New</a>
+                <a href="/arrests/create" class="btn btn-sm btn-primary flex-fill"><i class="bi bi-plus-lg me-1"></i>New</a>
             </div>
         </div>
     </div>
     <div class="col-sm-6 col-lg-3">
         <div class="card h-100 shadow-sm">
             <div class="card-body">
-                <h5 class="card-title">📄 Citations</h5>
+                <h5 class="card-title"><i class="bi bi-file-earmark-text-fill"></i> Citations</h5>
                 <p class="card-text text-muted small">Citation Records</p>
             </div>
             <div class="card-footer bg-transparent d-flex gap-2">
                 <a href="/citations" class="btn btn-sm btn-outline-secondary flex-fill">View All</a>
-                <a href="/citations/create" class="btn btn-sm btn-primary flex-fill">+ New</a>
+                <a href="/citations/create" class="btn btn-sm btn-primary flex-fill"><i class="bi bi-plus-lg me-1"></i>New</a>
             </div>
         </div>
     </div>
     <div class="col-sm-6 col-lg-3">
         <div class="card h-100 shadow-sm">
             <div class="card-body">
-                <h5 class="card-title">👤 Names</h5>
+                <h5 class="card-title"><i class="bi bi-people-fill"></i> Names</h5>
                 <p class="card-text text-muted small">Master Name Index (MNI)</p>
             </div>
             <div class="card-footer bg-transparent d-flex gap-2">
                 <a href="/names" class="btn btn-sm btn-outline-secondary flex-fill">View All</a>
-                <a href="/names/create" class="btn btn-sm btn-primary flex-fill">+ New</a>
+                <a href="/names/create" class="btn btn-sm btn-primary flex-fill"><i class="bi bi-plus-lg me-1"></i>New</a>
             </div>
         </div>
     </div>

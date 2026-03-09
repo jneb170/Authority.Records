@@ -7,7 +7,11 @@
 
 <PageTitle>New Name</PageTitle>
 
-<h1>New Name</h1>
+<div class="page-header">
+    <div>
+        <h2 class="page-header-title"><i class="bi bi-people-fill"></i> New Name</h2>
+    </div>
+</div>
 
 @if (_vm.ErrorMessage is not null)
 {
@@ -57,7 +61,9 @@
                     </div>
                     <div class="col-sm-6 col-md-3">
                         <label class="form-label">Place of Birth</label>
-                        <InputText class="form-control" @bind-Value="_vm.PlaceOfBirth" placeholder="City, State" />
+                        <InputText class="form-control" @bind-Value="_vm.PlaceOfBirth"
+                                   @bind-Value:after="() => _vm.PlaceOfBirth = NameCaseConverter.ToNameCase(_vm.PlaceOfBirth)"
+                                   placeholder="City, State" />
                     </div>
                     <div class="col-sm-6 col-md-3">
                         <label class="form-label">Deceased Date</label>

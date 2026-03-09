@@ -11,18 +11,25 @@
 
 <PageTitle>Names (MNI)</PageTitle>
 
-<div class="d-flex justify-content-between align-items-center border-bottom pb-3 mb-4">
+<div class="page-header">
     <div>
-        <h2 class="fw-bold mb-0">👤 Names</h2>
-        <small class="text-muted">Master Name Index (MNI)</small>
+        <h2 class="page-header-title"><i class="bi bi-people-fill"></i> Names</h2>
+        <div class="page-header-sub">Master Name Index (MNI)</div>
     </div>
-    <a class="btn btn-primary" title="New Name (Alt+N)" href="/names/create">+ New Name</a>
+    <a class="btn btn-primary" title="New Name (Alt+N)" href="/names/create"><i class="bi bi-plus-lg me-1"></i>New Name</a>
 </div>
 
 <!-- Search / Filter Panel -->
 <div class="card mb-3">
+    <div class="card-header d-flex justify-content-between align-items-center py-2" style="cursor:pointer;" @onclick="() => _filterExpanded = !_filterExpanded">
+        <span class="fw-semibold text-uppercase" style="font-size:0.8rem;letter-spacing:0.05em;">
+            <i class="bi bi-search me-1"></i>Search / Filter
+        </span>
+        <i class="bi @(_filterExpanded ? "bi-chevron-up" : "bi-chevron-down") text-muted" style="font-size:0.8rem;"></i>
+    </div>
+@if (_filterExpanded)
+{
     <div class="card-body">
-        <h6 class="card-title mb-3">🔍 Search</h6>
         <div class="row g-2">
             <div class="col-sm-6 col-md-3">
                 <label class="form-label mb-1">Name Type</label>
@@ -88,11 +95,12 @@
             <button class="btn btn-sm btn-outline-secondary" @onclick="ClearFiltersAsync">Clear</button>
         </div>
     </div>
+}
 </div>
 
 @if (_loading)
 {
-    <p>Loading…</p>
+    <LoadingSpinner />
 }
 else if (_error is not null)
 {
@@ -131,7 +139,7 @@ else if (_names is not null)
                     <tr>
                         <td>
                             <button class="btn btn-sm btn-outline-danger" title="Delete"
-                                    @onclick="() => InitiateDelete(n.Id, n.LastOrBusinessName)">🗑</button>
+                                    @onclick="() => InitiateDelete(n.Id, n.LastOrBusinessName)"><i class="bi bi-trash3"></i></button>
                         </td>
                         <td><a href="/names/@n.RecordNumber">@n.RecordNumber</a></td>
                         <td><span class="badge @(n.NameType == NameTypes.Person ? "bg-primary" : "bg-secondary")">@n.NameType</span></td>
@@ -154,6 +162,7 @@ else if (_names is not null)
                OnCancel="() => _showDeleteConfirm = false" />
 
 @code {
+    private bool _filterExpanded = false;
     private IReadOnlyList<NameDto>? _names;
     private Dictionary<Guid, string> _lockUserNames = [];
     private bool _loading = true;

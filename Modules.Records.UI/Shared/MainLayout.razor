@@ -2,16 +2,38 @@
 @implements IDisposable
 @inject NavigationManager Nav
 @inject AuthenticationStateProvider AuthStateProvider
+@using System.Security.Claims
 
-<div class="d-flex">
-    <div class="sidebar p-3">
+<div class="app-shell">
+    <div class="sidebar">
         <NavMenu />
     </div>
-    <div class="main-content">
-        @if (!_suppressBody)
-        {
-            @Body
-        }
+    <div class="content-shell">
+        <AuthorizeView>
+            <Authorized>
+                @if (!_suppressBody)
+                {
+                    <div class="top-header">
+                        <i class="bi bi-shield-fill-check text-primary" style="font-size:1.1rem;"></i>
+                        <span class="top-header-agency">@(_agencyName ?? "Authority Records")</span>
+                        <div class="top-header-user">
+                            <div class="top-header-avatar">@_initials</div>
+                            <span>@_displayName</span>
+                            @if (_role is not null)
+                            {
+                                <span class="badge bg-secondary" style="font-size:0.65rem;">@_role</span>
+                            }
+                        </div>
+                    </div>
+                }
+            </Authorized>
+        </AuthorizeView>
+        <div class="main-content">
+            @if (!_suppressBody)
+            {
+                @Body
+            }
+        </div>
     </div>
 </div>
 
@@ -23,13 +45,33 @@
 @code {
     private bool _suppressBody;
     private bool _isSuper;
+    private string? _displayName;
+    private string? _agencyName;
+    private string? _role;
+    private string _initials = "?";
 
     protected override async Task OnInitializedAsync()
     {
         Nav.LocationChanged += OnLocationChanged;
         var authState = await AuthStateProvider.GetAuthenticationStateAsync();
-        _isSuper = authState.User.IsInRole("Super");
+        var user = authState.User;
+        _isSuper = user.IsInRole("Super");
         UpdateSuppressBody();
+
+        _displayName = user.FindFirst("fullname")?.Value
+                    ?? user.FindFirst(ClaimTypes.Name)?.Value
+                    ?? user.Identity?.Name;
+        _agencyName  = user.FindFirst("agencyname")?.Value;
+        _role        = user.FindFirst(ClaimTypes.Role)?.Value
+                    ?? user.FindFirst("role")?.Value;
+
+        if (!string.IsNullOrWhiteSpace(_displayName))
+        {
+            var parts = _displayName.Trim().Split(' ', StringSplitOptions.RemoveEmptyEntries);
+            _initials = parts.Length >= 2
+                ? $"{char.ToUpper(parts[0][0])}{char.ToUpper(parts[^1][0])}"
+                : _displayName[..Math.Min(2, _displayName.Length)].ToUpper();
+        }
     }
 
     private void OnLocationChanged(object? sender, LocationChangedEventArgs e)

@@ -10,11 +10,11 @@
 @using Modules.Records.Domain.Common
 @using Modules.Records.UI.Services
 
-<PageTitle>Name Details</PageTitle>
+<PageTitle>@(_name is null ? "Name Details" : _name.NameType == NameTypes.Person ? $"👤 {_name.RecordNumber} - {_name.LastOrBusinessName}{(string.IsNullOrWhiteSpace(_name.FirstName) ? "" : ", " + _name.FirstName)}" : $"🏢 {_name.RecordNumber} - {_name.LastOrBusinessName}")</PageTitle>
 
 @if (_loading)
 {
-    <p>Loading…</p>
+    <LoadingSpinner />
 }
 else if (_error is not null)
 {
@@ -29,12 +29,10 @@ else if (_name is not null)
         </ol>
     </nav>
 
-    <div class="d-flex justify-content-between align-items-center border-bottom pb-3 mb-4">
+    <div class="page-header">
         <div>
-            <p class="text-muted small mb-0">
-                👤 @(_name.NameType == NameTypes.Person ? "Person Record" : "Business Record")
-            </p>
-            <h2 class="fw-bold mb-0">
+            <h2 class="page-header-title"><i class="bi bi-people-fill"></i> @(_name.NameType == NameTypes.Person ? "Person Record" : "Business Record")</h2>
+            <div class="page-header-sub">
                 @if (_name.NameType == NameTypes.Person)
                 {
                     @($"{_name.LastOrBusinessName}{(string.IsNullOrEmpty(_name.FirstName) ? "" : ", " + _name.FirstName)}{(string.IsNullOrEmpty(_name.MiddleName) ? "" : " " + _name.MiddleName)}{(!string.IsNullOrEmpty(_suffixLabel) ? " " + _suffixLabel : "")}")
@@ -51,14 +49,14 @@ else if (_name is not null)
                 {
                     @_name.LastOrBusinessName
                 }
-            </h2>
+            </div>
         </div>
         <div class="d-flex gap-2 align-items-center">
             <span class="badge @(_name.NameType == NameTypes.Person ? "bg-primary" : "bg-secondary")">@_name.NameType</span>
             <LockBadge IsLocked="@_name.IsLocked" LockedByName="@_lockedByName" />
             <a href="/names/@RecordNumber/print" target="_blank"
                class="btn btn-outline-secondary btn-sm" title="Print / Save as PDF">
-                🖨 Print
+                <i class="bi bi-printer-fill me-1"></i>Print
             </a>
         </div>
     </div>
@@ -84,19 +82,19 @@ else if (_name is not null)
         @if (_modifyMode)
         {
             <div class="alert alert-warning d-flex align-items-center gap-3 py-2 mb-2">
-                <span>✏️ <strong>Modify mode</strong> — lock expires in @_lockSecondsRemaining s</span>
-                <button class="btn btn-sm btn-outline-dark ms-auto" title="Release Record (Esc)" @onclick="RequestReleaseAsync">🔓 Release Record</button>
+                <span><i class="bi bi-pencil-fill me-1"></i><strong>Modify mode</strong> — lock expires in @_lockSecondsRemaining s</span>
+                <button class="btn btn-sm btn-outline-dark ms-auto" title="Release Record (Esc)" @onclick="RequestReleaseAsync"><i class="bi bi-unlock-fill me-1"></i>Release</button>
             </div>
         }
         else if (_name.IsLocked && _name.LockedByUserId != _currentUserId)
         {
             <div class="alert alert-secondary py-2 mb-2">
-                🔒 Record is locked by @(_lockedByName ?? "another user") — read only
+                <i class="bi bi-lock-fill me-1"></i>Record is locked by @(_lockedByName ?? "another user") — read only
             </div>
         }
         else
         {
-            <button class="btn btn-outline-primary btn-sm" title="Modify (F2)" @onclick="EnterModifyModeAsync">✏️ Modify</button>
+            <button class="btn btn-outline-primary btn-sm" title="Modify (F2)" @onclick="EnterModifyModeAsync"><i class="bi bi-pencil-fill me-1"></i>Modify</button>
         }
     </div>
 
@@ -122,25 +120,45 @@ else if (_name is not null)
                           OnDiscard="DiscardAndReleaseAsync"
                           OnCancel="CancelRelease" />
 
+    <!-- Name Type (protected field — requires switch button in modify mode) -->
+    <div class="d-flex align-items-center gap-3 mb-3">
+        <div>
+            <span class="text-muted small">Name Type</span>
+            <span class="ms-2 badge @(_editNameType == NameTypes.Person ? "bg-primary" : "bg-success") fs-6">
+                @(_editNameType == NameTypes.Person ? "Person" : "Business")
+            </span>
+        </div>
+        @if (_modifyMode)
+        {
+            <button class="btn btn-sm btn-outline-secondary" @onclick="() => _showSwitchTypeConfirm = true"
+                    title="@(_editNameType == NameTypes.Person ? "Switch this record to a Business name" : "Switch this record to a Person name")">
+                <i class="bi bi-arrow-left-right me-1"></i>
+                @(_editNameType == NameTypes.Person ? "Switch to Business" : "Switch to Person")
+            </button>
+        }
+    </div>
+
+    @if (_showSwitchTypeConfirm)
+    {
+        <div class="alert alert-warning d-flex align-items-center gap-3 mb-3" role="alert">
+            <i class="bi bi-exclamation-triangle-fill"></i>
+            <div>
+                Switch this record to <strong>@(_editNameType == NameTypes.Person ? "Business" : "Person")</strong>?
+                Person-specific and Business-specific fields will be retained but may not apply.
+                This change will take effect when you save.
+            </div>
+            <div class="ms-auto d-flex gap-2 flex-shrink-0">
+                <button class="btn btn-sm btn-warning" @onclick="ConfirmSwitchNameType">Switch</button>
+                <button class="btn btn-sm btn-outline-secondary" @onclick="() => _showSwitchTypeConfirm = false">Cancel</button>
+            </div>
+        </div>
+    }
+
     <!-- Identity Fields -->
     <div class="card mb-4">
         <div class="card-body">
             <h6 class="card-title">Identity</h6>
             <div class="row g-3">
-                <div class="col-sm-6 col-md-3">
-                    <label class="@LabelClass">Name Type</label>
-                    @if (_modifyMode)
-                    {
-                        <select class="form-select form-select-sm" @bind="_editNameType">
-                            <option value="@NameTypes.Person">Person</option>
-                            <option value="@NameTypes.Business">Business</option>
-                        </select>
-                    }
-                    else
-                    {
-                        <p class="form-control-plaintext form-control-sm ps-0 fw-semibold mb-0">@_name.NameType</p>
-                    }
-                </div>
                 <div class="col-sm-6 col-md-3">
                     <label class="@LabelClass">@(_editNameType == NameTypes.Person ? "Last Name" : "Business Name")</label>
                     <input type="text"
@@ -186,6 +204,7 @@ else if (_name is not null)
                                class="@(_modifyMode ? "form-control form-control-sm" : "form-control-plaintext form-control-sm ps-0 fw-semibold mb-0")"
                                readonly="@(!_modifyMode)"
                                @bind="_editPlaceOfBirth"
+                               @bind:after="() => _editPlaceOfBirth = NameCaseConverter.ToNameCase(_editPlaceOfBirth)"
                                placeholder="—" />
                     </div>
                     <div class="col-sm-6 col-md-3">
@@ -452,6 +471,7 @@ else if (_name is not null)
     private string? _editSsn;
     private bool _editIsCitizen;
     private DateTime? _editDeceasedDate;
+    private bool _showSwitchTypeConfirm;
 
     // Read-only picklist labels
     private string? _sexLabel;
@@ -607,6 +627,12 @@ else if (_name is not null)
         _pendingNewRecord = false;
     }
 
+    private void ConfirmSwitchNameType()
+    {
+        _editNameType = _editNameType == NameTypes.Person ? NameTypes.Business : NameTypes.Person;
+        _showSwitchTypeConfirm = false;
+    }
+
     private async Task SaveAndReleaseAsync()
     {
         _showReleaseConfirm = false;
@@ -708,6 +734,7 @@ else if (_name is not null)
     {
         StopLockTimer();
         _modifyMode = false;
+        _showSwitchTypeConfirm = false;
         try { await NameService.ReleaseLockAsync(_nameId); } catch { /* best-effort */ }
         await LoadAsync();
     }

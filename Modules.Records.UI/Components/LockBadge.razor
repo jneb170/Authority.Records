@@ -3,17 +3,13 @@
     <span class="badge bg-danger" title="@(LockedByName is not null ? $"Locked by {LockedByName}" : "Locked")">
         @if (Compact)
         {
-            <text>🔒 @GetInitials(LockedByName)</text>
+            <i class="bi bi-lock-fill me-1"></i>@GetInitials(LockedByName)
         }
         else
         {
-            <text>🔒 @(LockedByName is not null ? $"Locked · {LockedByName}" : "Locked")</text>
+            <i class="bi bi-lock-fill me-1"></i>@(LockedByName is not null ? $"Locked · {LockedByName}" : "Locked")
         }
     </span>
-}
-else
-{
-    <span class="badge bg-light text-dark border">🔓 Unlocked</span>
 }
 
 @code {

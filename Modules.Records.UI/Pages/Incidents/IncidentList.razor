@@ -8,17 +8,58 @@
 
 <PageTitle>Incidents</PageTitle>
 
-<div class="d-flex justify-content-between align-items-center border-bottom pb-3 mb-4">
+<div class="page-header">
     <div>
-        <h2 class="fw-bold mb-0">📋 Incidents</h2>
-        <small class="text-muted">Incident Reports</small>
+        <h2 class="page-header-title"><i class="bi bi-clipboard2-pulse-fill"></i> Incidents</h2>
+        <div class="page-header-sub">Incident Reports</div>
     </div>
-    <a class="btn btn-primary" title="New Incident (Alt+N)" href="/incidents/create">+ New Incident</a>
+    <a class="btn btn-primary" title="New Incident (Alt+N)" href="/incidents/create"><i class="bi bi-plus-lg me-1"></i>New Incident</a>
+</div>
+
+<!-- Search / Filter Panel -->
+<div class="card mb-3">
+    <div class="card-header d-flex justify-content-between align-items-center py-2" style="cursor:pointer;" @onclick="() => _filterExpanded = !_filterExpanded">
+        <span class="fw-semibold text-uppercase" style="font-size:0.8rem;letter-spacing:0.05em;">
+            <i class="bi bi-search me-1"></i>Search / Filter
+        </span>
+        <i class="bi @(_filterExpanded ? "bi-chevron-up" : "bi-chevron-down") text-muted" style="font-size:0.8rem;"></i>
+    </div>
+@if (_filterExpanded)
+{
+    <div class="card-body">
+        <div class="row g-2">
+            <div class="col-sm-6 col-md-4">
+                <label class="form-label mb-1">Incident # contains</label>
+                <input class="form-control form-control-sm" @bind="_filterIncidentNum" placeholder="Incident #…" />
+            </div>
+            <div class="col-sm-6 col-md-2">
+                <label class="form-label mb-1">Status</label>
+                <input class="form-control form-control-sm" @bind="_filterStatus" placeholder="Status…" />
+            </div>
+            <div class="col-sm-6 col-md-3">
+                <label class="form-label mb-1">Created from</label>
+                <input type="date" class="form-control form-control-sm"
+                       value="@(_filterDateFrom.HasValue ? _filterDateFrom.Value.ToString("yyyy-MM-dd") : "")"
+                       @onchange="@(e => _filterDateFrom = DateTime.TryParse(e.Value?.ToString(), out var d) ? d : null)" />
+            </div>
+            <div class="col-sm-6 col-md-3">
+                <label class="form-label mb-1">Created to</label>
+                <input type="date" class="form-control form-control-sm"
+                       value="@(_filterDateTo.HasValue ? _filterDateTo.Value.ToString("yyyy-MM-dd") : "")"
+                       @onchange="@(e => _filterDateTo = DateTime.TryParse(e.Value?.ToString(), out var d) ? d : null)" />
+            </div>
+        </div>
+        <div class="mt-2 d-flex gap-2">
+            <button class="btn btn-sm btn-primary" @onclick="ApplySearch">Search</button>
+            <button class="btn btn-sm btn-outline-secondary" @onclick="ClearFilters">Clear</button>
+        </div>
+    </div>
+}
 </div>
 
 @if (_loading)
 {
-    <p>Loading…</p>
+    <LoadingSpinner />
 }
 else if (_error is not null)
 {
@@ -49,7 +90,7 @@ else if (_incidents is not null)
                 <tr>
                     <td>
                         <button class="btn btn-sm btn-outline-danger" title="Delete"
-                                @onclick="() => InitiateDelete(i.Id, i.Details.IncidentNum)">🗑</button>
+                                @onclick="() => InitiateDelete(i.Id, i.Details.IncidentNum)"><i class="bi bi-trash3"></i></button>
                     </td>
                     <td><a href="/incidents/@i.RecordNumber">@i.RecordNumber</a></td>
                     <td><a href="/incidents/@i.RecordNumber">@i.Details.IncidentNum</a></td>
@@ -70,6 +111,7 @@ else if (_incidents is not null)
                OnCancel="() => _showDeleteConfirm = false" />
 
 @code {
+    private bool _filterExpanded = false;
     private IReadOnlyList<IncidentDto>? _incidents;
     private Dictionary<Guid, string> _lockUserNames = [];
     private bool _loading = true;
@@ -83,20 +125,33 @@ else if (_incidents is not null)
     private string _sortColumn    = "created";
     private bool   _sortAscending = false;
 
-    private IEnumerable<IncidentDto> SortedIncidents =>
+    // Filter state
+    private string    _filterIncidentNum = string.Empty;
+    private string    _filterStatus      = string.Empty;
+    private DateTime? _filterDateFrom;
+    private DateTime? _filterDateTo;
+
+    private IEnumerable<IncidentDto> FilteredIncidents =>
         _incidents is null ? [] :
+        _incidents.Where(i =>
+            (string.IsNullOrWhiteSpace(_filterIncidentNum) || (i.Details.IncidentNum?.Contains(_filterIncidentNum, StringComparison.OrdinalIgnoreCase) ?? false)) &&
+            (string.IsNullOrWhiteSpace(_filterStatus)      || (i.Status?.Contains(_filterStatus, StringComparison.OrdinalIgnoreCase) ?? false)) &&
+            (!_filterDateFrom.HasValue || i.CreatedAtUtc.Date >= _filterDateFrom.Value.Date) &&
+            (!_filterDateTo.HasValue   || i.CreatedAtUtc.Date <= _filterDateTo.Value.Date));
+
+    private IEnumerable<IncidentDto> SortedIncidents =>
         (_sortColumn, _sortAscending) switch
         {
-            ("id",       true)  => _incidents.OrderBy(x => x.RecordNumber),
-            ("id",       false) => _incidents.OrderByDescending(x => x.RecordNumber),
-            ("incident", true)  => _incidents.OrderBy(x => x.Details.IncidentNum),
-            ("incident", false) => _incidents.OrderByDescending(x => x.Details.IncidentNum),
-            ("status",   true)  => _incidents.OrderBy(x => x.Status),
-            ("status",   false) => _incidents.OrderByDescending(x => x.Status),
-            ("arrests",  true)  => _incidents.OrderBy(x => x.ArrestCount),
-            ("arrests",  false) => _incidents.OrderByDescending(x => x.ArrestCount),
-            ("created",  true)  => _incidents.OrderBy(x => x.CreatedAtUtc),
-            _                   => _incidents.OrderByDescending(x => x.CreatedAtUtc),
+            ("id",       true)  => FilteredIncidents.OrderBy(x => x.RecordNumber),
+            ("id",       false) => FilteredIncidents.OrderByDescending(x => x.RecordNumber),
+            ("incident", true)  => FilteredIncidents.OrderBy(x => x.Details.IncidentNum),
+            ("incident", false) => FilteredIncidents.OrderByDescending(x => x.Details.IncidentNum),
+            ("status",   true)  => FilteredIncidents.OrderBy(x => x.Status),
+            ("status",   false) => FilteredIncidents.OrderByDescending(x => x.Status),
+            ("arrests",  true)  => FilteredIncidents.OrderBy(x => x.ArrestCount),
+            ("arrests",  false) => FilteredIncidents.OrderByDescending(x => x.ArrestCount),
+            ("created",  true)  => FilteredIncidents.OrderBy(x => x.CreatedAtUtc),
+            _                   => FilteredIncidents.OrderByDescending(x => x.CreatedAtUtc),
         };
 
     private void SortBy(string column)
@@ -155,5 +210,16 @@ else if (_incidents is not null)
             await ResolveLockedNamesAsync();
         }
         catch (Exception ex) { _error = ex.Message; }
+    }
+
+    private void ApplySearch() => StateHasChanged();
+
+    private void ClearFilters()
+    {
+        _filterIncidentNum = string.Empty;
+        _filterStatus      = string.Empty;
+        _filterDateFrom    = null;
+        _filterDateTo      = null;
+        StateHasChanged();
     }
 }
