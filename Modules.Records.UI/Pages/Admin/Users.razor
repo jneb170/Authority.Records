@@ -1,0 +1,382 @@
+@page "/admin/users"
+@attribute [Authorize(Roles = "Admin")]
+@implements IDisposable
+@using Microsoft.AspNetCore.Authorization
+@using Microsoft.AspNetCore.Components.Authorization
+@inject IUserManagementService UserService
+@inject IAgencyManagementService AgencyService
+@inject AuthenticationStateProvider AuthStateProvider
+@inject IKeyboardShortcutService ShortcutService
+
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <h3>👥 Users</h3>
+    <div class="d-flex align-items-center gap-2">
+        <small class="text-muted" title="Alt+N = New User | Alt+S = Save | Esc = Cancel">
+            ⌨ Alt+N&nbsp;New &nbsp;|&nbsp; Alt+S&nbsp;Save &nbsp;|&nbsp; Esc&nbsp;Cancel
+        </small>
+        <button class="btn btn-primary btn-sm" title="New User (Alt+N)" @onclick="ShowCreateForm">+ New User</button>
+    </div>
+</div>
+
+@if (_error is not null)
+{
+    <div class="alert alert-danger alert-dismissible">
+        @_error
+        <button type="button" class="btn-close" @onclick="() => _error = null"></button>
+    </div>
+}
+@if (_successMessage is not null)
+{
+    <div class="alert alert-success alert-dismissible">
+        @_successMessage
+        <button type="button" class="btn-close" @onclick="() => _successMessage = null"></button>
+    </div>
+}
+
+@if (_showForm)
+{
+    <div class="card mb-4">
+        <div class="card-header fw-bold">@(_editUserId is not null ? "Edit User" : "New User")</div>
+        <div class="card-body">
+            <div class="row g-2">
+                <div class="col-md-3">
+                    <label class="form-label">First Name <span class="text-danger">*</span></label>
+                    <input class="form-control" @bind="_fFirstName" />
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label">Last Name <span class="text-danger">*</span></label>
+                    <input class="form-control" @bind="_fLastName" />
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label">Email <span class="text-danger">*</span></label>
+                    <input class="form-control" type="email" @bind="_fEmail" />
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label">
+                        @(_editUserId is null ? "Password *" : "New Password")
+                    </label>
+                    <input class="form-control" type="password" autocomplete="new-password"
+                           @bind="_fPassword" @oninput="() => _passwordModified = true"
+                           placeholder="@(_editUserId is not null ? "(leave blank to keep)" : "")" />
+                </div>
+            </div>
+            <div class="row g-2 mt-1">
+                <div class="col-md-4">
+                    <label class="form-label">Primary Agency <span class="text-danger">*</span></label>
+                    <select class="form-select" @bind="_fPrimaryAgencyId">
+                        <option value="">— Select Agency —</option>
+                        @foreach (var a in _agencies)
+                        {
+                            <option value="@a.Id">@a.Name</option>
+                        }
+                    </select>
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label">Additional Agencies</label>
+                    <div class="border rounded p-2" style="max-height:120px;overflow-y:auto;">
+                        @foreach (var a in _agencies)
+                        {
+                            <div class="form-check">
+                                <input class="form-check-input" type="checkbox"
+                                       id="agency_@a.Id"
+                                       checked="@_fAgencyIds.Contains(a.Id)"
+                                       @onchange="e => ToggleAgency(a.Id, (bool)(e.Value ?? false))" />
+                                <label class="form-check-label" for="agency_@a.Id">@a.Name</label>
+                            </div>
+                        }
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label">Roles <span class="text-danger">*</span></label>
+                    <div class="border rounded p-2" style="max-height:120px;overflow-y:auto;">
+                        @foreach (var role in _availableRoles)
+                        {
+                            <div class="form-check">
+                                <input class="form-check-input" type="checkbox"
+                                       id="role_@role"
+                                       checked="@_fRoles.Contains(role)"
+                                       @onchange="e => ToggleRole(role, (bool)(e.Value ?? false))" />
+                                <label class="form-check-label" for="role_@role">@role</label>
+                            </div>
+                        }
+                    </div>
+                </div>
+            </div>
+            @if (_editUserId is not null)
+            {
+                <div class="row g-2 mt-1">
+                    <div class="col-md-2">
+                        <div class="form-check mt-3">
+                            <input class="form-check-input" type="checkbox" id="isActive" @bind="_fIsActive" />
+                            <label class="form-check-label" for="isActive">Active</label>
+                        </div>
+                    </div>
+                </div>
+            }
+            <div class="mt-3">
+                <button class="btn btn-success btn-sm me-2" title="Save (Alt+S)" @onclick="SaveUserAsync">💾 Save</button>
+                <button class="btn btn-secondary btn-sm" title="Cancel (Esc)" @onclick="() => { if (HasUnsavedChanges) _showUnsavedChanges = true; else CancelForm(); }">Cancel</button>
+            </div>
+        </div>
+    </div>
+}
+
+@if (_users is null)
+{
+    <p><em>Loading…</em></p>
+}
+else if (_users.Count == 0)
+{
+    <p class="text-muted">No users found in this jurisdiction.</p>
+}
+else
+{
+    <table class="table table-sm table-hover">
+        <thead>
+            <tr>
+                <th></th>
+                <th>Name</th>
+                <th>Email</th>
+                <th>Roles</th>
+                <th>Primary Agency</th>
+                <th>Active</th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var u in _users)
+            {
+                <tr class="@(!u.IsActive ? "table-secondary text-muted" : "")">
+                    <td style="width:3rem;">
+                        <button class="btn btn-sm btn-outline-danger" @onclick="() => InitiateDelete(u)">🗑</button>
+                    </td>
+                    <td>
+                        <a href="#" class="text-decoration-none" @onclick="() => EditUser(u)" @onclick:preventDefault>@u.FullName</a>
+                    </td>
+                    <td>@u.Email</td>
+                    <td>@string.Join(", ", u.Roles)</td>
+                    <td>@(_agencies.FirstOrDefault(a => a.Id == u.PrimaryAgencyId)?.Name ?? "—")</td>
+                    <td>@(u.IsActive ? "✅" : "❌")</td>
+                </tr>
+            }
+        </tbody>
+    </table>
+}
+
+<UnsavedChangesDialog Visible="_showUnsavedChanges"
+                      SaveLabel="Save User"
+                      DiscardLabel="Discard"
+                      ActionDescription="closing the form"
+                      OnSaveAndRelease="async () => { _showUnsavedChanges = false; await SaveUserAsync(); }"
+                      OnDiscard="() => { _showUnsavedChanges = false; CancelForm(); }"
+                      OnCancel="() => _showUnsavedChanges = false" />
+
+<ConfirmDialog Visible="_showDeleteConfirm"
+               Title="Delete User"
+               Message="@($"Permanently delete user \"{_deleteTargetName}\"? This cannot be undone.")"
+               OnConfirm="ExecuteDeleteAsync"
+               OnCancel="() => _showDeleteConfirm = false" />
+
+@code {
+    private List<UserDto>? _users;
+    private List<Agency> _agencies = [];
+    private List<string> _availableRoles = [];
+    private Guid _jurisdictionId;
+    private string? _error;
+    private string? _successMessage;
+
+    // Form state
+    private bool _showForm;
+    private string? _editUserId;
+    private string _fFirstName = string.Empty;
+    private string _fLastName = string.Empty;
+    private string _fEmail = string.Empty;
+    private string _fPassword = string.Empty;
+    private string _fPrimaryAgencyId = string.Empty;
+    private HashSet<Guid> _fAgencyIds = [];
+    private HashSet<string> _fRoles = [];
+    private bool _fIsActive = true;
+    private bool _passwordModified;
+    private bool _showUnsavedChanges;
+
+    // Snapshot taken when form opens — used to detect actual changes
+    private string _origFirstName = string.Empty;
+    private string _origLastName = string.Empty;
+    private string _origEmail = string.Empty;
+    private string _origPrimaryAgencyId = string.Empty;
+    private HashSet<Guid> _origAgencyIds = [];
+    private HashSet<string> _origRoles = [];
+    private bool _origIsActive = true;
+
+    private bool HasUnsavedChanges =>
+        _fFirstName != _origFirstName ||
+        _fLastName != _origLastName ||
+        _fEmail != _origEmail ||
+        _passwordModified ||
+        NormalizeAgencyId(_fPrimaryAgencyId) != NormalizeAgencyId(_origPrimaryAgencyId) ||
+        _fIsActive != _origIsActive ||
+        !_fRoles.SetEquals(_origRoles) ||
+        !_fAgencyIds.SetEquals(_origAgencyIds);
+
+    private static Guid NormalizeAgencyId(string s) =>
+        Guid.TryParse(s, out var g) ? g : Guid.Empty;
+
+    // Delete state
+    private bool _showDeleteConfirm;
+    private string _deleteTargetId = string.Empty;
+    private string _deleteTargetName = string.Empty;
+
+    protected override async Task OnInitializedAsync()
+    {
+        ShortcutService.OnNew += HandleShortcutNew;
+        ShortcutService.OnSave += HandleShortcutSave;
+        ShortcutService.OnRelease += HandleShortcutRelease;
+
+        var authState = await AuthStateProvider.GetAuthenticationStateAsync();
+        var claim = authState.User.FindFirst("jurisdiction");
+        if (claim is not null && Guid.TryParse(claim.Value, out var jid))
+            _jurisdictionId = jid;
+
+        _agencies = await AgencyService.GetByJurisdictionAsync(_jurisdictionId);
+        _availableRoles = await UserService.GetAvailableRolesAsync();
+        await LoadAsync();
+    }
+
+    private void HandleShortcutNew()
+        => InvokeAsync(() => { ShowCreateForm(); StateHasChanged(); });
+
+    private void HandleShortcutSave()
+        => InvokeAsync(async () => { if (_showForm) await SaveUserAsync(); });
+
+    private void HandleShortcutRelease()
+        => InvokeAsync(() =>
+        {
+            if (!_showForm) return;
+            if (HasUnsavedChanges) _showUnsavedChanges = true;
+            else CancelForm();
+            StateHasChanged();
+        });
+
+    private async Task LoadAsync()
+    {
+        _error = null;
+        _users = await UserService.GetByJurisdictionAsync(_jurisdictionId);
+    }
+
+    private void ShowCreateForm()
+    {
+        _editUserId = null;
+        _fFirstName = _fLastName = _fEmail = _fPassword = _fPrimaryAgencyId = string.Empty;
+        _fAgencyIds = [];
+        _fRoles = [];
+        _fIsActive = true;
+        SnapshotOriginals();
+        _showForm = true;
+    }
+
+    private void EditUser(UserDto u)
+    {
+        _editUserId = u.Id;
+        _fFirstName = u.FirstName;
+        _fLastName = u.LastName;
+        _fEmail = u.Email;
+        _fPassword = string.Empty;
+        _fPrimaryAgencyId = u.PrimaryAgencyId.ToString();
+        _fAgencyIds = [.. u.AgencyIds];
+        _fRoles = [.. u.Roles];
+        _fIsActive = u.IsActive;
+        SnapshotOriginals();
+        _showForm = true;
+    }
+
+    private void SnapshotOriginals()
+    {
+        _origFirstName = _fFirstName;
+        _origLastName = _fLastName;
+        _origEmail = _fEmail;
+        _origPrimaryAgencyId = _fPrimaryAgencyId;
+        _origAgencyIds = [.. _fAgencyIds];
+        _origRoles = [.. _fRoles];
+        _origIsActive = _fIsActive;
+        _passwordModified = false;
+    }
+
+    private void CancelForm() { _showForm = false; _editUserId = null; _passwordModified = false; }
+
+    private void ToggleAgency(Guid id, bool add) { if (add) _fAgencyIds.Add(id); else _fAgencyIds.Remove(id); }
+    private void ToggleRole(string role, bool add) { if (add) _fRoles.Add(role); else _fRoles.Remove(role); }
+
+    private async Task SaveUserAsync()
+    {
+        _error = _successMessage = null;
+        if (string.IsNullOrWhiteSpace(_fFirstName) || string.IsNullOrWhiteSpace(_fLastName)
+            || string.IsNullOrWhiteSpace(_fEmail))
+        {
+            _error = "First Name, Last Name, and Email are required.";
+            return;
+        }
+        if (!Guid.TryParse(_fPrimaryAgencyId, out var primaryAgencyId))
+        {
+            _error = "Please select a Primary Agency.";
+            return;
+        }
+        if (_fRoles.Count == 0)
+        {
+            _error = "At least one role is required.";
+            return;
+        }
+
+        if (_editUserId is null)
+        {
+            if (string.IsNullOrWhiteSpace(_fPassword)) { _error = "Password is required for new users."; return; }
+            var (result, _) = await UserService.CreateAsync(
+                _fFirstName.Trim(), _fLastName.Trim(), _fEmail.Trim(), _fPassword,
+                _jurisdictionId, primaryAgencyId, _fRoles, _fAgencyIds);
+            if (!result.Succeeded) { _error = string.Join(" ", result.Errors.Select(e => e.Description)); return; }
+            _successMessage = "User created successfully.";
+        }
+        else
+        {
+            var result = await UserService.UpdateAsync(
+                _editUserId, _fFirstName.Trim(), _fLastName.Trim(), _fEmail.Trim(),
+                _fIsActive, primaryAgencyId, _fRoles, _fAgencyIds);
+            if (!result.Succeeded) { _error = string.Join(" ", result.Errors.Select(e => e.Description)); return; }
+
+            if (!string.IsNullOrWhiteSpace(_fPassword))
+            {
+                var pwResult = await UserService.ResetPasswordAsync(_editUserId, _fPassword);
+                if (!pwResult.Succeeded) { _error = "User saved but password reset failed: " + string.Join(" ", pwResult.Errors.Select(e => e.Description)); }
+            }
+            _successMessage = "User updated successfully.";
+        }
+
+        CancelForm();
+        await LoadAsync();
+    }
+
+    private void InitiateDelete(UserDto u)
+    {
+        _deleteTargetId = u.Id;
+        _deleteTargetName = u.FullName;
+        _showDeleteConfirm = true;
+    }
+
+    private async Task ExecuteDeleteAsync()
+    {
+        _showDeleteConfirm = false;
+        var result = await UserService.DeleteAsync(_deleteTargetId);
+        if (!result.Succeeded)
+            _error = string.Join(" ", result.Errors.Select(e => e.Description));
+        else
+        {
+            _successMessage = "User deleted.";
+            await LoadAsync();
+        }
+    }
+
+    public void Dispose()
+    {
+        ShortcutService.OnNew -= HandleShortcutNew;
+        ShortcutService.OnSave -= HandleShortcutSave;
+        ShortcutService.OnRelease -= HandleShortcutRelease;
+    }
+}

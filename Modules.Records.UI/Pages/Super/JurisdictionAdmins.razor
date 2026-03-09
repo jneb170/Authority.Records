@@ -1,0 +1,191 @@
+@page "/super/jurisdictions/{JurisdictionId:guid}/admins"
+@attribute [Authorize(Roles = "Super")]
+@using Microsoft.AspNetCore.Authorization
+@inject IJurisdictionManagementService JurisdictionService
+@inject IUserManagementService UserService
+@inject NavigationManager Nav
+
+<nav aria-label="breadcrumb" class="mb-3">
+    <ol class="breadcrumb">
+        <li class="breadcrumb-item"><a href="/super/jurisdictions">🏛 Jurisdictions</a></li>
+        <li class="breadcrumb-item active">@(_jurisdiction?.Name ?? "Admins")</li>
+    </ol>
+</nav>
+
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <h3>👥 Admins — @(_jurisdiction?.Name)</h3>
+    <button class="btn btn-primary btn-sm" @onclick="() => _showCreateForm = true">+ Add Admin</button>
+</div>
+
+@if (_error is not null)
+{
+    <div class="alert alert-danger">@_error</div>
+}
+
+@if (_successMessage is not null)
+{
+    <div class="alert alert-success">@_successMessage</div>
+}
+
+@if (_showCreateForm)
+{
+    <div class="card mb-3">
+        <div class="card-header">New Admin User for @(_jurisdiction?.Name)</div>
+        <div class="card-body">
+            <div class="row g-2">
+                <div class="col-md-3">
+                    <label class="form-label">First Name <span class="text-danger">*</span></label>
+                    <input class="form-control" @bind="_newFirstName" />
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label">Last Name <span class="text-danger">*</span></label>
+                    <input class="form-control" @bind="_newLastName" />
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label">Email <span class="text-danger">*</span></label>
+                    <input class="form-control" type="email" @bind="_newEmail" />
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label">Password <span class="text-danger">*</span></label>
+                    <input class="form-control" type="password" @bind="_newPassword" />
+                </div>
+            </div>
+            <div class="mt-3">
+                <button class="btn btn-success btn-sm me-2" @onclick="CreateAdminAsync">💾 Create Admin</button>
+                <button class="btn btn-secondary btn-sm" @onclick="CancelCreate">Cancel</button>
+            </div>
+        </div>
+    </div>
+}
+
+@if (_admins is null)
+{
+    <p><em>Loading…</em></p>
+}
+else if (_admins.Count == 0)
+{
+    <p class="text-muted">No Admin users in this jurisdiction yet. Add one above.</p>
+}
+else
+{
+    <table class="table table-sm table-hover">
+        <thead>
+            <tr>
+                <th>Name</th>
+                <th>Email</th>
+                <th>Active</th>
+                <th></th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var u in _admins)
+            {
+                <tr>
+                    <td>@u.FullName</td>
+                    <td>@u.Email</td>
+                    <td>@(u.IsActive ? "✅" : "❌")</td>
+                    <td class="text-end">
+                        <button class="btn btn-sm btn-outline-danger" @onclick="() => InitiateRemove(u)">Remove Admin</button>
+                    </td>
+                </tr>
+            }
+        </tbody>
+    </table>
+}
+
+@if (_showRemoveConfirm && _removeTarget is not null)
+{
+    <ConfirmDialog Visible="_showRemoveConfirm"
+                   Title="Remove Admin Role"
+                   Message="@($"Remove Admin role from {_removeTarget.FullName}?")"
+                   OnConfirm="ExecuteRemoveAsync"
+                   OnCancel="() => _showRemoveConfirm = false" />
+}
+
+@code {
+    [Parameter] public Guid JurisdictionId { get; set; }
+
+    private Jurisdiction? _jurisdiction;
+    private List<UserDto>? _admins;
+    private string? _error;
+    private string? _successMessage;
+
+    private bool _showCreateForm;
+    private string _newFirstName = string.Empty;
+    private string _newLastName = string.Empty;
+    private string _newEmail = string.Empty;
+    private string _newPassword = string.Empty;
+
+    private bool _showRemoveConfirm;
+    private UserDto? _removeTarget;
+
+    protected override async Task OnInitializedAsync()
+    {
+        _jurisdiction = await JurisdictionService.GetByIdAsync(JurisdictionId);
+        await LoadAdminsAsync();
+    }
+
+    private async Task LoadAdminsAsync()
+    {
+        _error = null;
+        var allUsers = await UserService.GetByJurisdictionAsync(JurisdictionId);
+        _admins = allUsers.Where(u => u.Roles.Contains("Admin")).ToList();
+    }
+
+    private void CancelCreate()
+    {
+        _showCreateForm = false;
+        _newFirstName = _newLastName = _newEmail = _newPassword = string.Empty;
+    }
+
+    private async Task CreateAdminAsync()
+    {
+        _error = _successMessage = null;
+        if (string.IsNullOrWhiteSpace(_newFirstName) || string.IsNullOrWhiteSpace(_newLastName)
+            || string.IsNullOrWhiteSpace(_newEmail) || string.IsNullOrWhiteSpace(_newPassword))
+        {
+            _error = "All fields are required.";
+            return;
+        }
+
+        var (result, _) = await UserService.CreateAsync(
+            _newFirstName.Trim(), _newLastName.Trim(), _newEmail.Trim(), _newPassword,
+            JurisdictionId, Guid.Empty, ["Admin"], []);
+
+        if (!result.Succeeded)
+        {
+            _error = string.Join(" ", result.Errors.Select(e => e.Description));
+            return;
+        }
+
+        _successMessage = $"Admin user {_newEmail} created successfully.";
+        CancelCreate();
+        await LoadAdminsAsync();
+    }
+
+    private void InitiateRemove(UserDto u)
+    {
+        _removeTarget = u;
+        _showRemoveConfirm = true;
+    }
+
+    private async Task ExecuteRemoveAsync()
+    {
+        _showRemoveConfirm = false;
+        if (_removeTarget is null) return;
+
+        var result = await UserService.UpdateAsync(
+            _removeTarget.Id, _removeTarget.FirstName, _removeTarget.LastName,
+            _removeTarget.Email, _removeTarget.IsActive, _removeTarget.PrimaryAgencyId,
+            _removeTarget.Roles.Where(r => r != "Admin"), _removeTarget.AgencyIds);
+
+        if (!result.Succeeded)
+            _error = string.Join(" ", result.Errors.Select(e => e.Description));
+        else
+        {
+            _successMessage = $"Admin role removed from {_removeTarget.FullName}.";
+            await LoadAdminsAsync();
+        }
+        _removeTarget = null;
+    }
+}

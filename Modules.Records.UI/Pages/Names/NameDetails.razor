@@ -55,7 +55,7 @@ else if (_name is not null)
         </div>
         <div class="d-flex gap-2 align-items-center">
             <span class="badge @(_name.NameType == NameTypes.Person ? "bg-primary" : "bg-secondary")">@_name.NameType</span>
-            <LockBadge IsLocked="@_name.IsLocked" LockedByUserId="@_name.LockedByUserId" />
+            <LockBadge IsLocked="@_name.IsLocked" LockedByName="@_lockedByName" />
             <a href="/names/@RecordNumber/print" target="_blank"
                class="btn btn-outline-secondary btn-sm" title="Print / Save as PDF">
                 🖨 Print
@@ -91,7 +91,7 @@ else if (_name is not null)
         else if (_name.IsLocked && _name.LockedByUserId != _currentUserId)
         {
             <div class="alert alert-secondary py-2 mb-2">
-                🔒 Record is locked by another user — read only
+                🔒 Record is locked by @(_lockedByName ?? "another user") — read only
             </div>
         }
         else
@@ -463,6 +463,7 @@ else if (_name is not null)
 
     private string? _createdByName;
     private string? _modifiedByName;
+    private string? _lockedByName;
 
     private int? EditHeightInches =>
         (_editHeightFeet.HasValue || _editHeightInchesRemainder.HasValue)
@@ -644,6 +645,9 @@ else if (_name is not null)
             _createdByName  = await UserLookupService.GetDisplayNameAsync(_name.CreatedBy);
             _modifiedByName = _name.ModifiedBy.HasValue
                 ? await UserLookupService.GetDisplayNameAsync(_name.ModifiedBy.Value)
+                : null;
+            _lockedByName = _name.IsLocked && _name.LockedByUserId.HasValue
+                ? await UserLookupService.GetDisplayNameAsync(_name.LockedByUserId.Value)
                 : null;
 
             // Resolve picklist labels for read-only display

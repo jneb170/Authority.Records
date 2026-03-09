@@ -4,6 +4,7 @@
 @inject IPicklistService PicklistService
 @inject NavigationManager Nav
 @inject IKeyboardShortcutService ShortcutService
+@inject IUserLookupService UserLookupService
 @using Modules.Records.Application.DTOs
 @using Modules.Records.Domain.Common
 @using Modules.Records.UI.Services
@@ -138,7 +139,7 @@ else if (_names is not null)
                         <td>@(n.FirstName ?? "—")</td>
                         <td>@(n.DateOfBirth.HasValue ? n.DateOfBirth.Value.ToShortDateString() : "—")</td>
                         <td>@(ComputeAge(n.DateOfBirth)?.ToString() ?? "—")</td>
-                        <td><LockBadge IsLocked="@n.IsLocked" LockedByUserId="@n.LockedByUserId" /></td>
+                        <td><LockBadge IsLocked="@n.IsLocked" LockedByName="@GetLockName(n.LockedByUserId)" Compact="true" /></td>
                     </tr>
                 }
             </tbody>
@@ -154,6 +155,7 @@ else if (_names is not null)
 
 @code {
     private IReadOnlyList<NameDto>? _names;
+    private Dictionary<Guid, string> _lockUserNames = [];
     private bool _loading = true;
     private string? _error;
 
@@ -211,6 +213,7 @@ else if (_names is not null)
         try
         {
             _names = await NameService.GetByJurisdictionAsync();
+            await ResolveLockedNamesAsync();
         }
         catch (Exception ex)
         {
@@ -226,6 +229,17 @@ else if (_names is not null)
 
     public void Dispose() => ShortcutService.OnNew -= HandleShortcutNew;
 
+    private string? GetLockName(Guid? userId) =>
+        userId.HasValue ? _lockUserNames.GetValueOrDefault(userId.Value) : null;
+
+    private async Task ResolveLockedNamesAsync()
+    {
+        if (_names is null) return;
+        var ids = _names.Where(n => n.IsLocked && n.LockedByUserId.HasValue)
+                        .Select(n => n.LockedByUserId!.Value).Distinct();
+        _lockUserNames = await UserLookupService.GetDisplayNamesAsync(ids);
+    }
+
     private void InitiateDelete(Guid id, string name)
     {
         _deleteTargetId   = id;
@@ -240,6 +254,7 @@ else if (_names is not null)
         {
             await NameService.SoftDeleteAsync(_deleteTargetId);
             _names = await NameService.GetByJurisdictionAsync();
+            await ResolveLockedNamesAsync();
         }
         catch (Exception ex) { _error = ex.Message; }
     }
@@ -269,6 +284,7 @@ else if (_names is not null)
                 eyeColorId:            _filterEyeColorId,
                 driversLicenseNumber:  string.IsNullOrWhiteSpace(_filterDlNumber) ? null : _filterDlNumber,
                 driversLicenseStateId: _filterDlStateId);
+            await ResolveLockedNamesAsync();
         }
         catch (Exception ex)
         {
@@ -299,6 +315,7 @@ else if (_names is not null)
         try
         {
             _names = await NameService.GetByJurisdictionAsync();
+            await ResolveLockedNamesAsync();
         }
         catch (Exception ex)
         {
