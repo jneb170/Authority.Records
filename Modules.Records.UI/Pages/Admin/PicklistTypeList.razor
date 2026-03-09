@@ -7,12 +7,16 @@
 
 <PageTitle>Picklist Types</PageTitle>
 
-<h1>🗂 Picklist Management</h1>
-<p class="text-muted">Configure the dropdown options used across arrests, citations, and other records.</p>
+<div class="page-header">
+    <div>
+        <h2 class="page-header-title"><i class="bi bi-list-ul"></i> Picklist Management</h2>
+        <div class="page-header-sub">Configure the dropdown options used across arrests, citations, and other records.</div>
+    </div>
+</div>
 
 @if (_loading)
 {
-    <p>Loading…</p>
+    <LoadingSpinner />
 }
 else
 {

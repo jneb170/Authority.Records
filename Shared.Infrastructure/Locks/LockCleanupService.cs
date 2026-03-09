@@ -55,28 +55,30 @@ public sealed class LockCleanupService : BackgroundService
             var now    = DateTime.UtcNow;
 
             // Collect expired lock records (with audit data) before releasing them.
+            var expiredNames     = await CollectExpiredNameLocksAsync(db, cutoff, ct);
             var expiredIncidents = await CollectExpiredIncidentLocksAsync(db, cutoff, ct);
             var expiredArrests   = await CollectExpiredArrestLocksAsync(db, cutoff, ct);
             var expiredCitations = await CollectExpiredCitationLocksAsync(db, cutoff, ct);
 
-            var total = expiredIncidents.Count + expiredArrests.Count + expiredCitations.Count;
+            var total = expiredNames.Count + expiredIncidents.Count + expiredArrests.Count + expiredCitations.Count;
             if (total == 0) return;
 
             // Release locks in entity and read-model tables.
+            await ReleaseEntityLocksAsync(db, expiredNames.Select(x => x.Id).ToList(), "Names", ct);
             await ReleaseEntityLocksAsync(db, expiredIncidents.Select(x => x.Id).ToList(), "Incidents", ct);
             await ReleaseEntityLocksAsync(db, expiredArrests.Select(x => x.Id).ToList(), "Arrests", ct);
             await ReleaseEntityLocksAsync(db, expiredCitations.Select(x => x.Id).ToList(), "Citations", ct);
             await ReleaseReadModelLocksAsync(
                 db,
+                expiredNames.Select(x => x.Id).ToList(),
                 expiredIncidents.Select(x => x.Id).ToList(),
                 expiredArrests.Select(x => x.Id).ToList(),
                 expiredCitations.Select(x => x.Id).ToList(),
                 ct);
 
             // Write one audit entry per released lock.
-            // AppDbContext.SaveChangesAsync will not call CurrentTenantId when there
-            // are no domain events, so this is safe from a background thread.
-            var auditEntries = BuildAuditEntries(expiredIncidents, "Incident", now)
+            var auditEntries = BuildAuditEntries(expiredNames, "Name", now)
+                .Concat(BuildAuditEntries(expiredIncidents, "Incident", now))
                 .Concat(BuildAuditEntries(expiredArrests, "Arrest", now))
                 .Concat(BuildAuditEntries(expiredCitations, "Citation", now));
 
@@ -84,8 +86,8 @@ public sealed class LockCleanupService : BackgroundService
             await db.SaveChangesAsync(ct);
 
             _logger.LogInformation(
-                "Released {Count} expired lock(s): {Incidents} incident(s), {Arrests} arrest(s), {Citations} citation(s).",
-                total, expiredIncidents.Count, expiredArrests.Count, expiredCitations.Count);
+                "Released {Count} expired lock(s): {Names} name(s), {Incidents} incident(s), {Arrests} arrest(s), {Citations} citation(s).",
+                total, expiredNames.Count, expiredIncidents.Count, expiredArrests.Count, expiredCitations.Count);
         }
         catch (Exception ex)
         {
@@ -100,6 +102,14 @@ public sealed class LockCleanupService : BackgroundService
     // tenant + soft-delete filters cannot be evaluated. Intentional — lock
     // cleanup must operate across all tenants and all record states.
     // -----------------------------------------------------------------------
+
+    private static async Task<List<ExpiredLockRecord>> CollectExpiredNameLocksAsync(
+        AppDbContext db, DateTime cutoff, CancellationToken ct) =>
+        await db.Names
+            .IgnoreQueryFilters()
+            .Where(n => n.LockedAtUtc != null && n.LockedAtUtc < cutoff)
+            .Select(n => new ExpiredLockRecord(n.Id, n.JurisdictionId, n.LockedByUserId!.Value, n.LockedAtUtc!.Value, n.Version))
+            .ToListAsync(ct);
 
     private static async Task<List<ExpiredLockRecord>> CollectExpiredIncidentLocksAsync(
         AppDbContext db, DateTime cutoff, CancellationToken ct) =>
@@ -136,6 +146,13 @@ public sealed class LockCleanupService : BackgroundService
 
         switch (table)
         {
+            case "Names":
+                await db.Names.IgnoreQueryFilters()
+                    .Where(n => ids.Contains(n.Id))
+                    .ExecuteUpdateAsync(s => s
+                        .SetProperty(n => n.LockedByUserId, (Guid?)null)
+                        .SetProperty(n => n.LockedAtUtc, (DateTime?)null), ct);
+                break;
             case "Incidents":
                 await db.Incidents.IgnoreQueryFilters()
                     .Where(i => ids.Contains(i.Id))
@@ -162,11 +179,19 @@ public sealed class LockCleanupService : BackgroundService
 
     private static async Task ReleaseReadModelLocksAsync(
         AppDbContext db,
+        List<Guid> nameIds,
         List<Guid> incidentIds,
         List<Guid> arrestIds,
         List<Guid> citationIds,
         CancellationToken ct)
     {
+        if (nameIds.Count > 0)
+            await db.NameReadModels
+                .Where(r => nameIds.Contains(r.Id))
+                .ExecuteUpdateAsync(s => s
+                    .SetProperty(r => r.IsLocked, false)
+                    .SetProperty(r => r.LockedByUserId, (Guid?)null), ct);
+
         if (incidentIds.Count > 0)
             await db.IncidentReadModels
                 .Where(r => incidentIds.Contains(r.Id))

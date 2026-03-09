@@ -16,7 +16,7 @@
 
 @if (_loading)
 {
-    <p>Loading…</p>
+    <LoadingSpinner />
 }
 else if (_error is not null)
 {
@@ -31,14 +31,14 @@ else if (_incident is not null)
         </ol>
     </nav>
 
-    <div class="d-flex justify-content-between align-items-center border-bottom pb-3 mb-4">
+    <div class="page-header">
         <div>
-            <p class="text-muted small mb-0">📋 Incident Report</p>
-            <h2 class="fw-bold mb-0">
+            <h2 class="page-header-title"><i class="bi bi-clipboard2-pulse-fill"></i> Incident Report</h2>
+            <div class="page-header-sub">
                 @(string.IsNullOrWhiteSpace(_incident.Details.IncidentNum)
                     ? $"Incident #{RecordNumber}"
                     : _incident.Details.IncidentNum)
-            </h2>
+            </div>
         </div>
         <div class="d-flex gap-2">
             <StatusBadge Status="@_incident.Status" />
@@ -67,19 +67,19 @@ else if (_incident is not null)
         @if (_modifyMode)
         {
             <div class="alert alert-warning d-flex align-items-center gap-3 py-2 mb-2">
-                <span>✏️ <strong>Modify mode</strong> — lock expires in @_lockSecondsRemaining s</span>
-                <button class="btn btn-sm btn-outline-dark ms-auto" title="Release Record (Esc)" @onclick="RequestReleaseAsync">🔓 Release Record</button>
+                <span><i class="bi bi-pencil-fill me-1"></i><strong>Modify mode</strong> — lock expires in @_lockSecondsRemaining s</span>
+                <button class="btn btn-sm btn-outline-dark ms-auto" title="Release Record (Esc)" @onclick="RequestReleaseAsync"><i class="bi bi-unlock-fill me-1"></i>Release</button>
             </div>
         }
         else if (_incident.IsLocked && _incident.LockedByUserId != _currentUserId)
         {
             <div class="alert alert-secondary py-2 mb-2">
-                🔒 Record is locked by @(_lockedByName ?? "another user") — read only
+                <i class="bi bi-lock-fill me-1"></i>Record is locked by @(_lockedByName ?? "another user") — read only
             </div>
         }
         else
         {
-            <button class="btn btn-outline-primary btn-sm" title="Modify (F2)" @onclick="EnterModifyModeAsync">✏️ Modify</button>
+            <button class="btn btn-outline-primary btn-sm" title="Modify (F2)" @onclick="EnterModifyModeAsync"><i class="bi bi-pencil-fill me-1"></i>Modify</button>
         }
     </div>
 

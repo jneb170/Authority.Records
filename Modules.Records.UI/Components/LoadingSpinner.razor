@@ -1,0 +1,8 @@
+<div class="loading-state">
+    <div class="spinner-border spinner-border-sm text-secondary" role="status" aria-hidden="true"></div>
+    <span>@(Message ?? "Loading…")</span>
+</div>
+
+@code {
+    [Parameter] public string? Message { get; set; }
+}

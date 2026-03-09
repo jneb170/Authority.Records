@@ -8,8 +8,12 @@
 
 <PageTitle>Agency Configurations</PageTitle>
 
-<h1>⚙️ Agency Configurations</h1>
-<p class="text-muted">Manage system settings for your agency. Changes take effect immediately.</p>
+<div class="page-header">
+    <div>
+        <h2 class="page-header-title"><i class="bi bi-gear-fill"></i> Agency Configurations</h2>
+        <div class="page-header-sub">Manage system settings for your agency. Changes take effect immediately.</div>
+    </div>
+</div>
 
 @if (_error is not null)
 {
@@ -22,7 +26,7 @@
 
 @if (_loading)
 {
-    <p>Loading…</p>
+    <LoadingSpinner />
 }
 else
 {

@@ -8,17 +8,62 @@
 
 <PageTitle>Citations</PageTitle>
 
-<div class="d-flex justify-content-between align-items-center border-bottom pb-3 mb-4">
+<div class="page-header">
     <div>
-        <h2 class="fw-bold mb-0">📄 Citations</h2>
-        <small class="text-muted">Citation Records</small>
+        <h2 class="page-header-title"><i class="bi bi-file-earmark-text-fill"></i> Citations</h2>
+        <div class="page-header-sub">Citation Records</div>
     </div>
-    <a class="btn btn-primary" title="New Citation (Alt+N)" href="/citations/create">+ New Citation</a>
+    <a class="btn btn-primary" title="New Citation (Alt+N)" href="/citations/create"><i class="bi bi-plus-lg me-1"></i>New Citation</a>
+</div>
+
+<!-- Search / Filter Panel -->
+<div class="card mb-3">
+    <div class="card-header d-flex justify-content-between align-items-center py-2" style="cursor:pointer;" @onclick="() => _filterExpanded = !_filterExpanded">
+        <span class="fw-semibold text-uppercase" style="font-size:0.8rem;letter-spacing:0.05em;">
+            <i class="bi bi-search me-1"></i>Search / Filter
+        </span>
+        <i class="bi @(_filterExpanded ? "bi-chevron-up" : "bi-chevron-down") text-muted" style="font-size:0.8rem;"></i>
+    </div>
+@if (_filterExpanded)
+{
+    <div class="card-body">
+        <div class="row g-2">
+            <div class="col-sm-6 col-md-4">
+                <label class="form-label mb-1">Description contains</label>
+                <input class="form-control form-control-sm" @bind="_filterDescription" placeholder="Description…" />
+            </div>
+            <div class="col-sm-6 col-md-3">
+                <label class="form-label mb-1">Issue date from</label>
+                <input type="date" class="form-control form-control-sm"
+                       value="@(_filterDateFrom.HasValue ? _filterDateFrom.Value.ToString("yyyy-MM-dd") : "")"
+                       @onchange="@(e => _filterDateFrom = DateTime.TryParse(e.Value?.ToString(), out var d) ? d : null)" />
+            </div>
+            <div class="col-sm-6 col-md-3">
+                <label class="form-label mb-1">Issue date to</label>
+                <input type="date" class="form-control form-control-sm"
+                       value="@(_filterDateTo.HasValue ? _filterDateTo.Value.ToString("yyyy-MM-dd") : "")"
+                       @onchange="@(e => _filterDateTo = DateTime.TryParse(e.Value?.ToString(), out var d) ? d : null)" />
+            </div>
+            <div class="col-sm-6 col-md-2">
+                <label class="form-label mb-1">Issued</label>
+                <select class="form-select form-select-sm" @bind="_filterIsIssued">
+                    <option value="">All</option>
+                    <option value="true">Issued</option>
+                    <option value="false">Pending</option>
+                </select>
+            </div>
+        </div>
+        <div class="mt-2 d-flex gap-2">
+            <button class="btn btn-sm btn-primary" @onclick="ApplySearch">Search</button>
+            <button class="btn btn-sm btn-outline-secondary" @onclick="ClearFilters">Clear</button>
+        </div>
+    </div>
+}
 </div>
 
 @if (_loading)
 {
-    <p>Loading…</p>
+    <LoadingSpinner />
 }
 else if (_error is not null)
 {
@@ -55,7 +100,7 @@ else if (_citations is not null)
                     <tr>
                         <td>
                             <button class="btn btn-sm btn-outline-danger" title="Delete"
-                                    @onclick="() => InitiateDelete(c.Id, c.CitationNum)">🗑</button>
+                                    @onclick="() => InitiateDelete(c.Id, c.CitationNum)"><i class="bi bi-trash3"></i></button>
                         </td>
                         <td><a href="/citations/@c.RecordNumber">@c.RecordNumber</a></td>
                         <td><a href="/citations/@c.RecordNumber">@c.CitationNum</a></td>
@@ -77,6 +122,7 @@ else if (_citations is not null)
                OnCancel="() => _showDeleteConfirm = false" />
 
 @code {
+    private bool _filterExpanded = false;
     private IReadOnlyList<CitationDto>? _citations;
     private Dictionary<Guid, string> _lockUserNames = [];
     private bool _loading = true;
@@ -90,20 +136,33 @@ else if (_citations is not null)
     private string _sortColumn    = "num";
     private bool   _sortAscending = false;
 
-    private IEnumerable<CitationDto> SortedCitations =>
+    // Filter state
+    private string    _filterDescription = string.Empty;
+    private DateTime? _filterDateFrom;
+    private DateTime? _filterDateTo;
+    private string    _filterIsIssued     = string.Empty;
+
+    private IEnumerable<CitationDto> FilteredCitations =>
         _citations is null ? [] :
+        _citations.Where(c =>
+            (string.IsNullOrWhiteSpace(_filterDescription) || (c.Description?.Contains(_filterDescription, StringComparison.OrdinalIgnoreCase) ?? false)) &&
+            (!_filterDateFrom.HasValue || c.IssueDate.Date >= _filterDateFrom.Value.Date) &&
+            (!_filterDateTo.HasValue   || c.IssueDate.Date <= _filterDateTo.Value.Date) &&
+            (string.IsNullOrWhiteSpace(_filterIsIssued)    || (bool.TryParse(_filterIsIssued, out var issued) && c.IsIssued == issued)));
+
+    private IEnumerable<CitationDto> SortedCitations =>
         (_sortColumn, _sortAscending) switch
         {
-            ("num",         true)  => _citations.OrderBy(x => x.RecordNumber),
-            ("num",         false) => _citations.OrderByDescending(x => x.RecordNumber),
-            ("citationnum", true)  => _citations.OrderBy(x => x.CitationNum),
-            ("citationnum", false) => _citations.OrderByDescending(x => x.CitationNum),
-            ("description", true)  => _citations.OrderBy(x => x.Description),
-            ("description", false) => _citations.OrderByDescending(x => x.Description),
-            ("issuedate",   true)  => _citations.OrderBy(x => x.IssueDate),
-            ("issuedate",   false) => _citations.OrderByDescending(x => x.IssueDate),
-            ("issued",      true)  => _citations.OrderBy(x => x.IsIssued),
-            _                      => _citations.OrderByDescending(x => x.IsIssued),
+            ("num",         true)  => FilteredCitations.OrderBy(x => x.RecordNumber),
+            ("num",         false) => FilteredCitations.OrderByDescending(x => x.RecordNumber),
+            ("citationnum", true)  => FilteredCitations.OrderBy(x => x.CitationNum),
+            ("citationnum", false) => FilteredCitations.OrderByDescending(x => x.CitationNum),
+            ("description", true)  => FilteredCitations.OrderBy(x => x.Description),
+            ("description", false) => FilteredCitations.OrderByDescending(x => x.Description),
+            ("issuedate",   true)  => FilteredCitations.OrderBy(x => x.IssueDate),
+            ("issuedate",   false) => FilteredCitations.OrderByDescending(x => x.IssueDate),
+            ("issued",      true)  => FilteredCitations.OrderBy(x => x.IsIssued),
+            _                      => FilteredCitations.OrderByDescending(x => x.IsIssued),
         };
 
     private void SortBy(string column)
@@ -162,5 +221,16 @@ else if (_citations is not null)
             await ResolveLockedNamesAsync();
         }
         catch (Exception ex) { _error = ex.Message; }
+    }
+
+    private void ApplySearch() => StateHasChanged();
+
+    private void ClearFilters()
+    {
+        _filterDescription = string.Empty;
+        _filterDateFrom    = null;
+        _filterDateTo      = null;
+        _filterIsIssued    = string.Empty;
+        StateHasChanged();
     }
 }

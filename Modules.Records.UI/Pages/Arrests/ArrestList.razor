@@ -8,17 +8,58 @@
 
 <PageTitle>Arrests</PageTitle>
 
-<div class="d-flex justify-content-between align-items-center border-bottom pb-3 mb-4">
+<div class="page-header">
     <div>
-        <h2 class="fw-bold mb-0">🚨 Arrests</h2>
-        <small class="text-muted">Arrest Records</small>
+        <h2 class="page-header-title"><i class="bi bi-person-badge-fill"></i> Arrests</h2>
+        <div class="page-header-sub">Arrest Records</div>
     </div>
-    <a class="btn btn-primary" title="New Arrest (Alt+N)" href="/arrests/create">+ New Arrest</a>
+    <a class="btn btn-primary" title="New Arrest (Alt+N)" href="/arrests/create"><i class="bi bi-plus-lg me-1"></i>New Arrest</a>
+</div>
+
+<!-- Search / Filter Panel -->
+<div class="card mb-3">
+    <div class="card-header d-flex justify-content-between align-items-center py-2" style="cursor:pointer;" @onclick="() => _filterExpanded = !_filterExpanded">
+        <span class="fw-semibold text-uppercase" style="font-size:0.8rem;letter-spacing:0.05em;">
+            <i class="bi bi-search me-1"></i>Search / Filter
+        </span>
+        <i class="bi @(_filterExpanded ? "bi-chevron-up" : "bi-chevron-down") text-muted" style="font-size:0.8rem;"></i>
+    </div>
+@if (_filterExpanded)
+{
+    <div class="card-body">
+        <div class="row g-2">
+            <div class="col-sm-6 col-md-4">
+                <label class="form-label mb-1">Suspect name contains</label>
+                <input class="form-control form-control-sm" @bind="_filterSuspect" placeholder="Suspect name…" />
+            </div>
+            <div class="col-sm-6 col-md-3">
+                <label class="form-label mb-1">Arrested from</label>
+                <input type="date" class="form-control form-control-sm"
+                       value="@(_filterDateFrom.HasValue ? _filterDateFrom.Value.ToString("yyyy-MM-dd") : "")"
+                       @onchange="@(e => _filterDateFrom = DateTime.TryParse(e.Value?.ToString(), out var d) ? d : null)" />
+            </div>
+            <div class="col-sm-6 col-md-3">
+                <label class="form-label mb-1">Arrested to</label>
+                <input type="date" class="form-control form-control-sm"
+                       value="@(_filterDateTo.HasValue ? _filterDateTo.Value.ToString("yyyy-MM-dd") : "")"
+                       @onchange="@(e => _filterDateTo = DateTime.TryParse(e.Value?.ToString(), out var d) ? d : null)" />
+            </div>
+            <div class="col-sm-6 col-md-2">
+                <label class="form-label mb-1">Status</label>
+                <input class="form-control form-control-sm" @bind="_filterStatus" placeholder="Status…" />
+            </div>
+        </div>
+        <div class="mt-2 d-flex gap-2">
+            <button class="btn btn-sm btn-primary" @onclick="ApplySearch">Search</button>
+            <button class="btn btn-sm btn-outline-secondary" @onclick="ClearFilters">Clear</button>
+        </div>
+    </div>
+}
 </div>
 
 @if (_loading)
 {
-    <p>Loading…</p>
+    <LoadingSpinner />
 }
 else if (_error is not null)
 {
@@ -55,7 +96,7 @@ else if (_arrests is not null)
                     <tr>
                         <td>
                             <button class="btn btn-sm btn-outline-danger" title="Delete"
-                                    @onclick="() => InitiateDelete(a.Id, a.ArrestNum)">🗑</button>
+                                    @onclick="() => InitiateDelete(a.Id, a.ArrestNum)"><i class="bi bi-trash3"></i></button>
                         </td>
                         <td><a href="/arrests/@a.RecordNumber">@a.RecordNumber</a></td>
                         <td><a href="/arrests/@a.RecordNumber">@a.ArrestNum</a></td>
@@ -77,6 +118,7 @@ else if (_arrests is not null)
                OnCancel="() => _showDeleteConfirm = false" />
 
 @code {
+    private bool _filterExpanded = false;
     private IReadOnlyList<ArrestDto>? _arrests;
     private Dictionary<Guid, string> _lockUserNames = [];
     private bool _loading = true;
@@ -90,20 +132,33 @@ else if (_arrests is not null)
     private string _sortColumn    = "num";
     private bool   _sortAscending = false;
 
-    private IEnumerable<ArrestDto> SortedArrests =>
+    // Filter state
+    private string    _filterSuspect  = string.Empty;
+    private DateTime? _filterDateFrom;
+    private DateTime? _filterDateTo;
+    private string    _filterStatus   = string.Empty;
+
+    private IEnumerable<ArrestDto> FilteredArrests =>
         _arrests is null ? [] :
+        _arrests.Where(a =>
+            (string.IsNullOrWhiteSpace(_filterSuspect)  || (a.SuspectName?.Contains(_filterSuspect, StringComparison.OrdinalIgnoreCase) ?? false)) &&
+            (!_filterDateFrom.HasValue || a.ArrestedAt.Date >= _filterDateFrom.Value.Date) &&
+            (!_filterDateTo.HasValue   || a.ArrestedAt.Date <= _filterDateTo.Value.Date) &&
+            (string.IsNullOrWhiteSpace(_filterStatus)   || (a.Status?.Contains(_filterStatus, StringComparison.OrdinalIgnoreCase) ?? false)));
+
+    private IEnumerable<ArrestDto> SortedArrests =>
         (_sortColumn, _sortAscending) switch
         {
-            ("num",        true)  => _arrests.OrderBy(x => x.RecordNumber),
-            ("num",        false) => _arrests.OrderByDescending(x => x.RecordNumber),
-            ("arrestnum",  true)  => _arrests.OrderBy(x => x.ArrestNum),
-            ("arrestnum",  false) => _arrests.OrderByDescending(x => x.ArrestNum),
-            ("suspect",    true)  => _arrests.OrderBy(x => x.SuspectName),
-            ("suspect",    false) => _arrests.OrderByDescending(x => x.SuspectName),
-            ("arrestedat", true)  => _arrests.OrderBy(x => x.ArrestedAt),
-            ("arrestedat", false) => _arrests.OrderByDescending(x => x.ArrestedAt),
-            ("status",     true)  => _arrests.OrderBy(x => x.Status),
-            _                     => _arrests.OrderByDescending(x => x.Status),
+            ("num",        true)  => FilteredArrests.OrderBy(x => x.RecordNumber),
+            ("num",        false) => FilteredArrests.OrderByDescending(x => x.RecordNumber),
+            ("arrestnum",  true)  => FilteredArrests.OrderBy(x => x.ArrestNum),
+            ("arrestnum",  false) => FilteredArrests.OrderByDescending(x => x.ArrestNum),
+            ("suspect",    true)  => FilteredArrests.OrderBy(x => x.SuspectName),
+            ("suspect",    false) => FilteredArrests.OrderByDescending(x => x.SuspectName),
+            ("arrestedat", true)  => FilteredArrests.OrderBy(x => x.ArrestedAt),
+            ("arrestedat", false) => FilteredArrests.OrderByDescending(x => x.ArrestedAt),
+            ("status",     true)  => FilteredArrests.OrderBy(x => x.Status),
+            _                     => FilteredArrests.OrderByDescending(x => x.Status),
         };
 
     private void SortBy(string column)
@@ -162,5 +217,16 @@ else if (_arrests is not null)
             await ResolveLockedNamesAsync();
         }
         catch (Exception ex) { _error = ex.Message; }
+    }
+
+    private void ApplySearch() => StateHasChanged();
+
+    private void ClearFilters()
+    {
+        _filterSuspect  = string.Empty;
+        _filterDateFrom = null;
+        _filterDateTo   = null;
+        _filterStatus   = string.Empty;
+        StateHasChanged();
     }
 }
