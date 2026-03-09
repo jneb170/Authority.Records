@@ -46,7 +46,7 @@ else if (_arrest is not null)
         </div>
         <div class="d-flex gap-2">
             <StatusBadge Status="@_arrest.Status" />
-            <LockBadge IsLocked="@_arrest.IsLocked" LockedByUserId="@_arrest.LockedByUserId" />
+            <LockBadge IsLocked="@_arrest.IsLocked" LockedByName="@_lockedByName" />
         </div>
     </div>
 
@@ -78,7 +78,7 @@ else if (_arrest is not null)
         else if (_arrest.IsLocked && _arrest.LockedByUserId != _currentUserId)
         {
             <div class="alert alert-secondary py-2 mb-2">
-                🔒 Record is locked by another user — read only
+                🔒 Record is locked by @(_lockedByName ?? "another user") — read only
             </div>
         }
         else
@@ -277,6 +277,7 @@ else if (_arrest is not null)
 
     private string? _createdByName;
     private string? _modifiedByName;
+    private string? _lockedByName;
 
     [SupplyParameterFromQuery(Name = "autoModify")]
     public bool AutoModify { get; set; }
@@ -347,6 +348,9 @@ else if (_arrest is not null)
                 _createdByName  = await UserLookupService.GetDisplayNameAsync(_arrest.CreatedBy);
                 _modifiedByName = _arrest.ModifiedBy.HasValue
                     ? await UserLookupService.GetDisplayNameAsync(_arrest.ModifiedBy.Value)
+                    : null;
+                _lockedByName = _arrest.IsLocked && _arrest.LockedByUserId.HasValue
+                    ? await UserLookupService.GetDisplayNameAsync(_arrest.LockedByUserId.Value)
                     : null;
 
                 _linkedIncidents = await ArrestService.GetLinkedIncidentsAsync(_arrestId);

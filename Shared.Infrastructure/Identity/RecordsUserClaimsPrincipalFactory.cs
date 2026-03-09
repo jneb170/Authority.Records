@@ -17,6 +17,11 @@ public sealed class RecordsUserClaimsPrincipalFactory
     {
         var identity = await base.GenerateClaimsAsync(user);
 
+        // Super users manage jurisdictions/admins only — no tenant context needed
+        var roles = await UserManager.GetRolesAsync(user);
+        if (roles.Contains("Super"))
+            return identity;
+
         identity.AddClaim(new Claim("jurisdiction", user.JurisdictionId.ToString()));
         identity.AddClaim(new Claim("agency", user.AgencyId.ToString()));
 

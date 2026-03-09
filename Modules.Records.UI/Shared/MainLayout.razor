@@ -1,12 +1,57 @@
 @inherits LayoutComponentBase
+@implements IDisposable
+@inject NavigationManager Nav
+@inject AuthenticationStateProvider AuthStateProvider
 
 <div class="d-flex">
     <div class="sidebar p-3">
         <NavMenu />
     </div>
     <div class="main-content">
-        @Body
+        @if (!_suppressBody)
+        {
+            @Body
+        }
     </div>
 </div>
 
-<KeyboardShortcutHandler />
+@if (!_suppressBody)
+{
+    <KeyboardShortcutHandler />
+}
+
+@code {
+    private bool _suppressBody;
+    private bool _isSuper;
+
+    protected override async Task OnInitializedAsync()
+    {
+        Nav.LocationChanged += OnLocationChanged;
+        var authState = await AuthStateProvider.GetAuthenticationStateAsync();
+        _isSuper = authState.User.IsInRole("Super");
+        UpdateSuppressBody();
+    }
+
+    private void OnLocationChanged(object? sender, LocationChangedEventArgs e)
+    {
+        UpdateSuppressBody();
+        if (_suppressBody)
+            Nav.NavigateTo("/super/jurisdictions", replace: true);
+        StateHasChanged();
+    }
+
+    private void UpdateSuppressBody()
+    {
+        if (!_isSuper) { _suppressBody = false; return; }
+        var path = new Uri(Nav.Uri).AbsolutePath.TrimEnd('/');
+        _suppressBody = !path.StartsWith("/super", StringComparison.OrdinalIgnoreCase);
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender || !_suppressBody) return;
+        Nav.NavigateTo("/super/jurisdictions", replace: true);
+    }
+
+    public void Dispose() => Nav.LocationChanged -= OnLocationChanged;
+}

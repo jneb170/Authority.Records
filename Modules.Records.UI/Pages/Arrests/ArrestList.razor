@@ -3,6 +3,7 @@
 @inject IArrestService ArrestService
 @inject NavigationManager Nav
 @inject IKeyboardShortcutService ShortcutService
+@inject IUserLookupService UserLookupService
 @using Modules.Records.UI.Services
 
 <PageTitle>Arrests</PageTitle>
@@ -61,7 +62,7 @@ else if (_arrests is not null)
                         <td>@a.SuspectName</td>
                         <td>@a.ArrestedAt.ToShortDateString()</td>
                         <td><StatusBadge Status="@a.Status" /></td>
-                        <td><LockBadge IsLocked="@a.IsLocked" LockedByUserId="@a.LockedByUserId" /></td>
+                        <td><LockBadge IsLocked="@a.IsLocked" LockedByName="@GetLockName(a.LockedByUserId)" Compact="true" /></td>
                     </tr>
                 }
             </tbody>
@@ -77,6 +78,7 @@ else if (_arrests is not null)
 
 @code {
     private IReadOnlyList<ArrestDto>? _arrests;
+    private Dictionary<Guid, string> _lockUserNames = [];
     private bool _loading = true;
     private string? _error;
 
@@ -116,6 +118,7 @@ else if (_arrests is not null)
         try
         {
             _arrests = await ArrestService.GetByJurisdictionAsync();
+            await ResolveLockedNamesAsync();
         }
         catch (Exception ex)
         {
@@ -131,6 +134,17 @@ else if (_arrests is not null)
 
     public void Dispose() => ShortcutService.OnNew -= HandleShortcutNew;
 
+    private string? GetLockName(Guid? userId) =>
+        userId.HasValue ? _lockUserNames.GetValueOrDefault(userId.Value) : null;
+
+    private async Task ResolveLockedNamesAsync()
+    {
+        if (_arrests is null) return;
+        var ids = _arrests.Where(a => a.IsLocked && a.LockedByUserId.HasValue)
+                          .Select(a => a.LockedByUserId!.Value).Distinct();
+        _lockUserNames = await UserLookupService.GetDisplayNamesAsync(ids);
+    }
+
     private void InitiateDelete(Guid id, string name)
     {
         _deleteTargetId    = id;
@@ -145,6 +159,7 @@ else if (_arrests is not null)
         {
             await ArrestService.SoftDeleteAsync(_deleteTargetId);
             _arrests = await ArrestService.GetByJurisdictionAsync();
+            await ResolveLockedNamesAsync();
         }
         catch (Exception ex) { _error = ex.Message; }
     }

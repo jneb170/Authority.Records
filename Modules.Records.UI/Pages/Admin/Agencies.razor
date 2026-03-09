@@ -1,0 +1,158 @@
+@page "/admin/agencies"
+@attribute [Authorize(Roles = "Admin")]
+@using Microsoft.AspNetCore.Authorization
+@using Microsoft.AspNetCore.Components.Authorization
+@inject IAgencyManagementService AgencyService
+@inject AuthenticationStateProvider AuthStateProvider
+
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <h3>🏢 Agencies</h3>
+    <button class="btn btn-primary btn-sm" @onclick="ShowCreateForm">+ New Agency</button>
+</div>
+
+@if (_error is not null)
+{
+    <div class="alert alert-danger">@_error</div>
+}
+
+@if (_showForm)
+{
+    <div class="card mb-3">
+        <div class="card-header">@(_editId.HasValue ? "Edit Agency" : "New Agency")</div>
+        <div class="card-body">
+            <div class="row g-2">
+                <div class="col-md-6">
+                    <label class="form-label">Name <span class="text-danger">*</span></label>
+                    <input class="form-control" @bind="_formName" placeholder="e.g. Main Police Department" />
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label">Code</label>
+                    <input class="form-control" @bind="_formCode" placeholder="e.g. MPD" maxlength="20" />
+                </div>
+            </div>
+            <div class="mt-3">
+                <button class="btn btn-success btn-sm me-2" @onclick="SaveAsync">💾 Save</button>
+                <button class="btn btn-secondary btn-sm" @onclick="CancelForm">Cancel</button>
+            </div>
+        </div>
+    </div>
+}
+
+@if (_agencies is null)
+{
+    <p><em>Loading…</em></p>
+}
+else if (_agencies.Count == 0)
+{
+    <p class="text-muted">No agencies found. Create the first one above.</p>
+}
+else
+{
+    <table class="table table-sm table-hover">
+        <thead>
+            <tr>
+                <th>Name</th>
+                <th>Code</th>
+                <th>Active</th>
+                <th>Created</th>
+                <th></th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var a in _agencies)
+            {
+                <tr>
+                    <td>@a.Name</td>
+                    <td>@a.Code</td>
+                    <td>@(a.IsActive ? "✅" : "❌")</td>
+                    <td>@a.CreatedAtUtc.ToLocalTime().ToString("MM/dd/yyyy")</td>
+                    <td class="text-end">
+                        <button class="btn btn-sm btn-outline-primary me-1" @onclick="() => EditAgency(a)">✏ Edit</button>
+                        <button class="btn btn-sm btn-outline-danger" @onclick="() => InitiateDelete(a)">🗑</button>
+                    </td>
+                </tr>
+            }
+        </tbody>
+    </table>
+}
+
+<ConfirmDialog Visible="_showDeleteConfirm"
+               Title="Delete Agency"
+               Message="@($"Are you sure you want to delete \"{_deleteTargetName}\"?")"
+               OnConfirm="ExecuteDeleteAsync"
+               OnCancel="() => _showDeleteConfirm = false" />
+
+@code {
+    private List<Agency>? _agencies;
+    private Guid _jurisdictionId;
+    private string? _error;
+    private bool _showForm;
+    private Guid? _editId;
+    private string _formName = string.Empty;
+    private string _formCode = string.Empty;
+    private bool _showDeleteConfirm;
+    private Guid _deleteTargetId;
+    private string _deleteTargetName = string.Empty;
+
+    protected override async Task OnInitializedAsync()
+    {
+        var authState = await AuthStateProvider.GetAuthenticationStateAsync();
+        var claim = authState.User.FindFirst("jurisdiction");
+        if (claim is not null && Guid.TryParse(claim.Value, out var jid))
+            _jurisdictionId = jid;
+
+        await LoadAsync();
+    }
+
+    private async Task LoadAsync()
+    {
+        _error = null;
+        _agencies = await AgencyService.GetByJurisdictionAsync(_jurisdictionId);
+    }
+
+    private void ShowCreateForm()
+    {
+        _editId = null;
+        _formName = _formCode = string.Empty;
+        _showForm = true;
+    }
+
+    private void EditAgency(Agency a)
+    {
+        _editId = a.Id;
+        _formName = a.Name;
+        _formCode = a.Code;
+        _showForm = true;
+    }
+
+    private void CancelForm() { _showForm = false; _editId = null; }
+
+    private async Task SaveAsync()
+    {
+        _error = null;
+        if (string.IsNullOrWhiteSpace(_formName)) { _error = "Name is required."; return; }
+
+        if (_editId.HasValue)
+            await AgencyService.UpdateAsync(_editId.Value, _formName.Trim(), _formCode.Trim());
+        else
+            await AgencyService.CreateAsync(_jurisdictionId, _formName.Trim(), _formCode.Trim());
+
+        _showForm = false;
+        await LoadAsync();
+    }
+
+    private void InitiateDelete(Agency a)
+    {
+        _deleteTargetId = a.Id;
+        _deleteTargetName = a.Name;
+        _showDeleteConfirm = true;
+    }
+
+    private async Task ExecuteDeleteAsync()
+    {
+        _showDeleteConfirm = false;
+        var (success, error) = await AgencyService.DeleteAsync(_deleteTargetId);
+        if (!success) _error = error;
+        else await LoadAsync();
+    }
+}

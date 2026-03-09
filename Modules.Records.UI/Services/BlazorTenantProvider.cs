@@ -43,7 +43,7 @@ public sealed class BlazorTenantProvider : ITenantProvider
     {
         var value = user.FindFirst(claimType)?.Value;
         if (value is null)
-            throw new InvalidOperationException($"Missing required claim: {claimType}");
+            return Guid.Empty;
         return Guid.Parse(value);
     }
 

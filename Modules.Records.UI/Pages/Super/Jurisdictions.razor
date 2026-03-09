@@ -1,0 +1,169 @@
+@page "/super/jurisdictions"
+@attribute [Authorize(Roles = "Super")]
+@using Microsoft.AspNetCore.Authorization
+@inject IJurisdictionManagementService JurisdictionService
+@inject NavigationManager Nav
+
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <h3>🏛 Jurisdictions</h3>
+    <button class="btn btn-primary btn-sm" @onclick="ShowCreateForm">+ New Jurisdiction</button>
+</div>
+
+@if (_error is not null)
+{
+    <div class="alert alert-danger">@_error</div>
+}
+
+@if (_showForm)
+{
+    <div class="card mb-3">
+        <div class="card-header">@(_editId.HasValue ? "Edit Jurisdiction" : "New Jurisdiction")</div>
+        <div class="card-body">
+            <div class="row g-2">
+                <div class="col-md-5">
+                    <label class="form-label">Name <span class="text-danger">*</span></label>
+                    <input class="form-control" @bind="_formName" placeholder="e.g. Springfield City" />
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label">State</label>
+                    <input class="form-control" @bind="_formState" placeholder="e.g. IL" maxlength="50" />
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label">Code</label>
+                    <input class="form-control" @bind="_formCode" placeholder="e.g. SFD" maxlength="20" />
+                </div>
+            </div>
+            <div class="mt-3">
+                <button class="btn btn-success btn-sm me-2" @onclick="SaveAsync">💾 Save</button>
+                <button class="btn btn-secondary btn-sm" @onclick="CancelForm">Cancel</button>
+            </div>
+        </div>
+    </div>
+}
+
+@if (_jurisdictions is null)
+{
+    <p><em>Loading…</em></p>
+}
+else if (_jurisdictions.Count == 0)
+{
+    <p class="text-muted">No jurisdictions found. Create the first one above.</p>
+}
+else
+{
+    <table class="table table-sm table-hover">
+        <thead>
+            <tr>
+                <th>Name</th>
+                <th>State</th>
+                <th>Code</th>
+                <th>Active</th>
+                <th>Created</th>
+                <th></th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var j in _jurisdictions)
+            {
+                <tr>
+                    <td>@j.Name</td>
+                    <td>@j.State</td>
+                    <td>@j.Code</td>
+                    <td>@(j.IsActive ? "✅" : "❌")</td>
+                    <td>@j.CreatedAtUtc.ToLocalTime().ToString("MM/dd/yyyy")</td>
+                    <td class="text-end">
+                        <button class="btn btn-sm btn-outline-primary me-1" @onclick="() => EditJurisdiction(j)">✏ Edit</button>
+                        <button class="btn btn-sm btn-outline-secondary me-1"
+                                @onclick="() => NavToAdmins(j.Id)">
+                            👥 Admins
+                        </button>
+                        <button class="btn btn-sm btn-outline-danger" @onclick="() => InitiateDelete(j)">🗑</button>
+                    </td>
+                </tr>
+            }
+        </tbody>
+    </table>
+}
+
+@if (_showDeleteConfirm && _deleteTarget is not null)
+{
+    <ConfirmDialog Visible="_showDeleteConfirm"
+                   Title="Delete Jurisdiction"
+                   Message="@($"Are you sure you want to delete \"{_deleteTarget.Name}\"? This cannot be undone.")"
+                   OnConfirm="ExecuteDeleteAsync"
+                   OnCancel="() => _showDeleteConfirm = false" />
+}
+
+@code {
+    private List<Jurisdiction>? _jurisdictions;
+    private string? _error;
+    private bool _showForm;
+    private Guid? _editId;
+    private string _formName = string.Empty;
+    private string _formState = string.Empty;
+    private string _formCode = string.Empty;
+    private bool _showDeleteConfirm;
+    private Jurisdiction? _deleteTarget;
+
+    protected override async Task OnInitializedAsync()
+        => await LoadAsync();
+
+    private async Task LoadAsync()
+    {
+        _error = null;
+        _jurisdictions = await JurisdictionService.GetAllAsync();
+    }
+
+    private void ShowCreateForm()
+    {
+        _editId = null;
+        _formName = _formState = _formCode = string.Empty;
+        _showForm = true;
+    }
+
+    private void EditJurisdiction(Jurisdiction j)
+    {
+        _editId = j.Id;
+        _formName = j.Name;
+        _formState = j.State;
+        _formCode = j.Code;
+        _showForm = true;
+    }
+
+    private void CancelForm()
+    {
+        _showForm = false;
+        _editId = null;
+    }
+
+    private async Task SaveAsync()
+    {
+        _error = null;
+        if (string.IsNullOrWhiteSpace(_formName)) { _error = "Name is required."; return; }
+
+        if (_editId.HasValue)
+            await JurisdictionService.UpdateAsync(_editId.Value, _formName.Trim(), _formState.Trim(), _formCode.Trim());
+        else
+            await JurisdictionService.CreateAsync(_formName.Trim(), _formState.Trim(), _formCode.Trim());
+
+        _showForm = false;
+        await LoadAsync();
+    }
+
+    private void InitiateDelete(Jurisdiction j)
+    {
+        _deleteTarget = j;
+        _showDeleteConfirm = true;
+    }
+
+    private async Task ExecuteDeleteAsync()
+    {
+        _showDeleteConfirm = false;
+        if (_deleteTarget is null) return;
+        var (success, error) = await JurisdictionService.DeleteAsync(_deleteTarget.Id);
+        if (!success) _error = error;
+        else await LoadAsync();
+    }
+
+    private void NavToAdmins(Guid id) => Nav.NavigateTo($"/super/jurisdictions/{id}/admins");
+}

@@ -1,13 +1,37 @@
 @if (IsLocked)
 {
-    <span class="badge bg-danger" title="Locked by @(LockedByUserId?.ToString() ?? "unknown")">🔒 Locked</span>
+    <span class="badge bg-danger" title="@(LockedByName is not null ? $"Locked by {LockedByName}" : "Locked")">
+        @if (Compact)
+        {
+            <text>🔒 @GetInitials(LockedByName)</text>
+        }
+        else
+        {
+            <text>🔒 @(LockedByName is not null ? $"Locked · {LockedByName}" : "Locked")</text>
+        }
+    </span>
 }
 else
 {
-    <span class="badge bg-light text-dark">🔓 Unlocked</span>
+    <span class="badge bg-light text-dark border">🔓 Unlocked</span>
 }
 
 @code {
     [Parameter, EditorRequired] public bool IsLocked { get; set; }
-    [Parameter] public Guid? LockedByUserId { get; set; }
+    /// <summary>Resolved display name of the lock owner (pass null if unknown).</summary>
+    [Parameter] public string? LockedByName { get; set; }
+    /// <summary>When true, shows initials in the badge body (for search result tables).</summary>
+    [Parameter] public bool Compact { get; set; }
+
+    private static string? GetInitials(string? name)
+    {
+        if (string.IsNullOrWhiteSpace(name)) return null;
+        var parts = name.Trim().Split(' ', StringSplitOptions.RemoveEmptyEntries);
+        return parts.Length switch
+        {
+            0 => null,
+            1 => parts[0][..Math.Min(2, parts[0].Length)].ToUpper(),
+            _ => string.Concat(parts.Take(2).Select(p => char.ToUpper(p[0])))
+        };
+    }
 }

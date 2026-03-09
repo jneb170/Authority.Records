@@ -42,7 +42,7 @@ else if (_incident is not null)
         </div>
         <div class="d-flex gap-2">
             <StatusBadge Status="@_incident.Status" />
-            <LockBadge IsLocked="@_incident.IsLocked" LockedByUserId="@_incident.LockedByUserId" />
+            <LockBadge IsLocked="@_incident.IsLocked" LockedByName="@_lockedByName" />
         </div>
     </div>
 
@@ -74,7 +74,7 @@ else if (_incident is not null)
         else if (_incident.IsLocked && _incident.LockedByUserId != _currentUserId)
         {
             <div class="alert alert-secondary py-2 mb-2">
-                🔒 Record is locked by another user — read only
+                🔒 Record is locked by @(_lockedByName ?? "another user") — read only
             </div>
         }
         else
@@ -199,7 +199,7 @@ else if (_incident is not null)
                             <td>@a.SuspectName</td>
                             <td>@a.ArrestedAt.ToShortDateString()</td>
                             <td><StatusBadge Status="@a.Status" /></td>
-                            <td><LockBadge IsLocked="@a.IsLocked" LockedByUserId="@a.LockedByUserId" /></td>
+                            <td><LockBadge IsLocked="@a.IsLocked" LockedByName="@(a.LockedByUserId.HasValue ? _linkLockNames.GetValueOrDefault(a.LockedByUserId.Value) : null)" Compact="true" /></td>
                             <td><a class="btn btn-sm btn-outline-primary" href="/arrests/@a.RecordNumber">View</a></td>
                         </tr>
                     }
@@ -244,7 +244,7 @@ else if (_incident is not null)
                             <td>@c.Description</td>
                             <td>@c.IssueDate.ToShortDateString()</td>
                             <td>@(c.IsIssued ? "✅" : "⏳")</td>
-                            <td><LockBadge IsLocked="@c.IsLocked" LockedByUserId="@c.LockedByUserId" /></td>
+                            <td><LockBadge IsLocked="@c.IsLocked" LockedByName="@(c.LockedByUserId.HasValue ? _linkLockNames.GetValueOrDefault(c.LockedByUserId.Value) : null)" Compact="true" /></td>
                             <td><a class="btn btn-sm btn-outline-primary" href="/citations/@c.RecordNumber">View</a></td>
                         </tr>
                     }
@@ -287,6 +287,8 @@ else if (_incident is not null)
     private string? _saveSuccessMessage;
     private string? _createdByName;
     private string? _modifiedByName;
+    private string? _lockedByName;
+    private Dictionary<Guid, string> _linkLockNames = [];
 
     [SupplyParameterFromQuery(Name = "autoModify")]
     public bool AutoModify { get; set; }
@@ -366,6 +368,17 @@ else if (_incident is not null)
                 _modifiedByName = _incident.ModifiedBy.HasValue
                     ? await UserLookupService.GetDisplayNameAsync(_incident.ModifiedBy.Value)
                     : null;
+                _lockedByName = _incident.IsLocked && _incident.LockedByUserId.HasValue
+                    ? await UserLookupService.GetDisplayNameAsync(_incident.LockedByUserId.Value)
+                    : null;
+
+                // Bulk-resolve lock names for linked arrests and citations
+                var linkedIds = (_arrests ?? []).Where(a => a.IsLocked && a.LockedByUserId.HasValue)
+                                               .Select(a => a.LockedByUserId!.Value)
+                    .Concat((_citations ?? []).Where(c => c.IsLocked && c.LockedByUserId.HasValue)
+                                             .Select(c => c.LockedByUserId!.Value))
+                    .Distinct();
+                _linkLockNames = await UserLookupService.GetDisplayNamesAsync(linkedIds);
             }
         }
         catch (Exception ex)

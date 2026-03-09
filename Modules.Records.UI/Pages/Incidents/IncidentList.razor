@@ -3,6 +3,7 @@
 @inject IIncidentService IncidentService
 @inject NavigationManager Nav
 @inject IKeyboardShortcutService ShortcutService
+@inject IUserLookupService UserLookupService
 @using Modules.Records.UI.Services
 
 <PageTitle>Incidents</PageTitle>
@@ -54,7 +55,7 @@ else if (_incidents is not null)
                     <td><a href="/incidents/@i.RecordNumber">@i.Details.IncidentNum</a></td>
                     <td><StatusBadge Status="@i.Status" /></td>
                     <td>@i.ArrestCount</td>
-                    <td><LockBadge IsLocked="@i.IsLocked" LockedByUserId="@i.LockedByUserId" /></td>
+                    <td><LockBadge IsLocked="@i.IsLocked" LockedByName="@GetLockName(i.LockedByUserId)" Compact="true" /></td>
                     <td>@i.CreatedAtUtc.ToShortDateString()</td>
                 </tr>
             }
@@ -70,6 +71,7 @@ else if (_incidents is not null)
 
 @code {
     private IReadOnlyList<IncidentDto>? _incidents;
+    private Dictionary<Guid, string> _lockUserNames = [];
     private bool _loading = true;
     private string? _error;
 
@@ -109,6 +111,7 @@ else if (_incidents is not null)
         try
         {
             _incidents = await IncidentService.GetByJurisdictionAsync();
+            await ResolveLockedNamesAsync();
         }
         catch (Exception ex)
         {
@@ -124,6 +127,17 @@ else if (_incidents is not null)
 
     public void Dispose() => ShortcutService.OnNew -= HandleShortcutNew;
 
+    private string? GetLockName(Guid? userId) =>
+        userId.HasValue ? _lockUserNames.GetValueOrDefault(userId.Value) : null;
+
+    private async Task ResolveLockedNamesAsync()
+    {
+        if (_incidents is null) return;
+        var ids = _incidents.Where(i => i.IsLocked && i.LockedByUserId.HasValue)
+                            .Select(i => i.LockedByUserId!.Value).Distinct();
+        _lockUserNames = await UserLookupService.GetDisplayNamesAsync(ids);
+    }
+
     private void InitiateDelete(Guid id, string name)
     {
         _deleteTargetId    = id;
@@ -138,6 +152,7 @@ else if (_incidents is not null)
         {
             await IncidentService.SoftDeleteAsync(_deleteTargetId);
             _incidents = await IncidentService.GetByJurisdictionAsync();
+            await ResolveLockedNamesAsync();
         }
         catch (Exception ex) { _error = ex.Message; }
     }

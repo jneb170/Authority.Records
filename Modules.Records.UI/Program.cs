@@ -32,6 +32,9 @@ builder.Services.AddScoped<INameService, NameService>();
 builder.Services.AddScoped<IHomeService, HomeService>();
 builder.Services.AddScoped<IKeyboardShortcutService, KeyboardShortcutService>();
 builder.Services.AddScoped<IAdminService, AdminService>();
+builder.Services.AddScoped<IJurisdictionManagementService, JurisdictionManagementService>();
+builder.Services.AddScoped<IAgencyManagementService, AgencyManagementService>();
+builder.Services.AddScoped<IUserManagementService, UserManagementService>();
 
 builder.Services.AddHttpContextAccessor();
 
@@ -75,11 +78,31 @@ static async Task SeedDevUserAsync(IServiceProvider services)
     var userMgr = services.GetRequiredService<UserManager<ApplicationUser>>();
 
     // Ensure roles exist
-    foreach (var role in new[] { "Admin", "Supervisor", "Officer" })
+    foreach (var role in new[] { "Super", "Admin", "Supervisor", "Officer", "Dispatcher" })
     {
         if (!await roleMgr.RoleExistsAsync(role))
             await roleMgr.CreateAsync(new IdentityRole(role));
     }
+
+    // Seed Super user (no jurisdiction/agency — manages system setup only)
+    const string superEmail = "super@authority.local";
+    var superUser = await userMgr.FindByEmailAsync(superEmail);
+    if (superUser is null)
+    {
+        superUser = new ApplicationUser
+        {
+            UserName = superEmail,
+            Email = superEmail,
+            EmailConfirmed = true,
+            FirstName = "System",
+            LastName = "Super",
+            IsActive = true,
+        };
+        await userMgr.CreateAsync(superUser, "Super@1234");
+        superUser = await userMgr.FindByEmailAsync(superEmail);
+    }
+    if (superUser is not null && !await userMgr.IsInRoleAsync(superUser, "Super"))
+        await userMgr.AddToRoleAsync(superUser, "Super");
 
     const string email = "admin@authority.local";
     var existing = await userMgr.FindByEmailAsync(email);
@@ -91,6 +114,9 @@ static async Task SeedDevUserAsync(IServiceProvider services)
             UserName = email,
             Email = email,
             EmailConfirmed = true,
+            FirstName = "Dev",
+            LastName = "Admin",
+            IsActive = true,
             JurisdictionId = new Guid("11111111-1111-1111-1111-111111111111"),
             AgencyId = new Guid("22222222-2222-2222-2222-222222222222"),
         };
