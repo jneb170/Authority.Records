@@ -1,0 +1,353 @@
+@page "/admin/hotkeys"
+@attribute [Authorize(Roles = "Admin")]
+@inject IMediator Mediator
+@inject IHotkeyConfigService HotkeyConfig
+@inject IJSRuntime JS
+@using MediatR
+@using Microsoft.AspNetCore.Authorization
+@using Microsoft.JSInterop
+@using Modules.Records.Application.Configurations.Commands.UpdateJurisdictionHotkeys
+@using Modules.Records.UI.Services
+
+<PageTitle>Hotkey Settings</PageTitle>
+
+<div class="page-header">
+    <div>
+        <h2 class="page-header-title"><i class="bi bi-keyboard"></i> Hotkey Settings</h2>
+        <div class="page-header-sub">Configure keyboard shortcuts for this jurisdiction. Changes apply to all users.</div>
+    </div>
+</div>
+
+@if (_error is not null)
+{
+    <div class="alert alert-danger alert-dismissible">
+        @_error
+        <button type="button" class="btn-close" @onclick="() => _error = null"></button>
+    </div>
+}
+@if (_success)
+{
+    <div class="alert alert-success">Hotkey settings saved successfully.</div>
+}
+
+@if (_loading)
+{
+    <LoadingSpinner />
+}
+else
+{
+    <div class="card mb-4">
+        <div class="card-header">
+            <strong>Keyboard Shortcuts</strong>
+            <small class="text-muted ms-2">Click <i class="bi bi-record-circle"></i> Record next to a shortcut, then press the desired key combination.</small>
+        </div>
+        <div class="card-body p-0">
+            <table class="table table-sm mb-0 align-middle">
+                <thead>
+                    <tr>
+                        <th style="width:160px;">Action</th>
+                        <th>Current Shortcut</th>
+                        <th>New Shortcut</th>
+                        <th style="width:140px;"></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td><i class="bi bi-pencil-fill me-1 text-primary"></i>Modify / Edit</td>
+                        <td><kbd class="shortcut-hint">@_current.Modify</kbd></td>
+                        <td>
+                            @if (_editing == "modify")
+                            {
+                                <span class="text-warning fst-italic small"><i class="bi bi-record-circle-fill text-danger me-1"></i>Press any key combination…</span>
+                            }
+                            else if (_pending.Modify != _current.Modify)
+                            {
+                                <kbd class="shortcut-hint">@_pending.Modify</kbd>
+                                <span class="badge bg-warning text-dark ms-1" style="font-size:0.6rem;">changed</span>
+                            }
+                            else
+                            {
+                                <span class="text-muted small">—</span>
+                            }
+                        </td>
+                        <td class="text-end pe-3">
+                            <button class="btn btn-sm btn-outline-secondary me-1" @onclick='() => StartCapture("modify")' disabled="@(_editing is not null && _editing != "modify")">
+                                <i class="bi bi-record-circle me-1"></i>Record
+                            </button>
+                            @if (_pending.Modify != _current.Modify)
+                            {
+                                <button class="btn btn-sm btn-outline-warning" @onclick='() => ResetAction("modify")' title="Reset to default">
+                                    <i class="bi bi-arrow-counterclockwise"></i>
+                                </button>
+                            }
+                        </td>
+                    </tr>
+                    <tr>
+                        <td><i class="bi bi-floppy-fill me-1 text-success"></i>Save</td>
+                        <td><kbd class="shortcut-hint">@_current.Save</kbd></td>
+                        <td>
+                            @if (_editing == "save")
+                            {
+                                <span class="text-warning fst-italic small"><i class="bi bi-record-circle-fill text-danger me-1"></i>Press any key combination…</span>
+                            }
+                            else if (_pending.Save != _current.Save)
+                            {
+                                <kbd class="shortcut-hint">@_pending.Save</kbd>
+                                <span class="badge bg-warning text-dark ms-1" style="font-size:0.6rem;">changed</span>
+                            }
+                            else
+                            {
+                                <span class="text-muted small">—</span>
+                            }
+                        </td>
+                        <td class="text-end pe-3">
+                            <button class="btn btn-sm btn-outline-secondary me-1" @onclick='() => StartCapture("save")' disabled="@(_editing is not null && _editing != "save")">
+                                <i class="bi bi-record-circle me-1"></i>Record
+                            </button>
+                            @if (_pending.Save != _current.Save)
+                            {
+                                <button class="btn btn-sm btn-outline-warning" @onclick='() => ResetAction("save")' title="Reset to default">
+                                    <i class="bi bi-arrow-counterclockwise"></i>
+                                </button>
+                            }
+                        </td>
+                    </tr>
+                    <tr>
+                        <td><i class="bi bi-plus-lg me-1 text-info"></i>New Record</td>
+                        <td><kbd class="shortcut-hint">@_current.New</kbd></td>
+                        <td>
+                            @if (_editing == "new")
+                            {
+                                <span class="text-warning fst-italic small"><i class="bi bi-record-circle-fill text-danger me-1"></i>Press any key combination…</span>
+                            }
+                            else if (_pending.New != _current.New)
+                            {
+                                <kbd class="shortcut-hint">@_pending.New</kbd>
+                                <span class="badge bg-warning text-dark ms-1" style="font-size:0.6rem;">changed</span>
+                            }
+                            else
+                            {
+                                <span class="text-muted small">—</span>
+                            }
+                        </td>
+                        <td class="text-end pe-3">
+                            <button class="btn btn-sm btn-outline-secondary me-1" @onclick='() => StartCapture("new")' disabled="@(_editing is not null && _editing != "new")">
+                                <i class="bi bi-record-circle me-1"></i>Record
+                            </button>
+                            @if (_pending.New != _current.New)
+                            {
+                                <button class="btn btn-sm btn-outline-warning" @onclick='() => ResetAction("new")' title="Reset to default">
+                                    <i class="bi bi-arrow-counterclockwise"></i>
+                                </button>
+                            }
+                        </td>
+                    </tr>
+                    <tr>
+                        <td><i class="bi bi-unlock-fill me-1 text-secondary"></i>Cancel / Release</td>
+                        <td><kbd class="shortcut-hint">@_current.Release</kbd></td>
+                        <td>
+                            @if (_editing == "release")
+                            {
+                                <span class="text-warning fst-italic small"><i class="bi bi-record-circle-fill text-danger me-1"></i>Press any key combination…</span>
+                            }
+                            else if (_pending.Release != _current.Release)
+                            {
+                                <kbd class="shortcut-hint">@_pending.Release</kbd>
+                                <span class="badge bg-warning text-dark ms-1" style="font-size:0.6rem;">changed</span>
+                            }
+                            else
+                            {
+                                <span class="text-muted small">—</span>
+                            }
+                        </td>
+                        <td class="text-end pe-3">
+                            <button class="btn btn-sm btn-outline-secondary me-1" @onclick='() => StartCapture("release")' disabled="@(_editing is not null && _editing != "release")">
+                                <i class="bi bi-record-circle me-1"></i>Record
+                            </button>
+                            @if (_pending.Release != _current.Release)
+                            {
+                                <button class="btn btn-sm btn-outline-warning" @onclick='() => ResetAction("release")' title="Reset to default">
+                                    <i class="bi bi-arrow-counterclockwise"></i>
+                                </button>
+                            }
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+        <div class="card-footer d-flex gap-2 justify-content-between align-items-center">
+            <div>
+                @if (_hasConflict)
+                {
+                    <span class="text-danger small"><i class="bi bi-exclamation-triangle-fill me-1"></i>Two shortcuts share the same key combination. Please resolve before saving.</span>
+                }
+                else if (_hasChanges)
+                {
+                    <span class="text-muted small"><i class="bi bi-info-circle me-1"></i>You have unsaved changes.</span>
+                }
+            </div>
+            <div class="d-flex gap-2">
+                <button class="btn btn-outline-secondary btn-sm" @onclick="ResetAll" disabled="@_saving">
+                    <i class="bi bi-arrow-counterclockwise me-1"></i>Reset All to Defaults
+                </button>
+                <button class="btn btn-primary btn-sm" @onclick="SaveAsync" disabled="@(!_hasChanges || _hasConflict || _saving)">
+                    @if (_saving)
+                    {
+                        <span class="spinner-border spinner-border-sm me-1"></span>
+                    }
+                    else
+                    {
+                        <i class="bi bi-floppy-fill me-1"></i>
+                    }
+                    Save Changes
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <div class="card">
+        <div class="card-header"><strong><i class="bi bi-info-circle me-1"></i>Tips</strong></div>
+        <div class="card-body small text-muted">
+            <ul class="mb-0">
+                <li>Click <strong>Record</strong>, then press your desired key combination (e.g. <kbd class="shortcut-hint">Alt+M</kbd>, <kbd class="shortcut-hint">F3</kbd>, <kbd class="shortcut-hint">Ctrl+S</kbd>).</li>
+                <li>Avoid browser-reserved combinations like <kbd class="shortcut-hint">Ctrl+W</kbd>, <kbd class="shortcut-hint">Ctrl+T</kbd>, <kbd class="shortcut-hint">Ctrl+N</kbd>.</li>
+                <li>Changes take effect immediately after saving. All users in this jurisdiction will use the new shortcuts.</li>
+                <li>Shortcuts are blocked while focus is inside a text field, so keys like <kbd class="shortcut-hint">F2</kbd> are safe.</li>
+            </ul>
+        </div>
+    </div>
+}
+
+@code {
+    private bool _loading = true;
+    private bool _saving;
+    private bool _success;
+    private string? _error;
+    private string? _editing;
+
+    private HotkeyBindings _current = HotkeyBindings.Default;
+    private string _pendingNew = string.Empty;
+    private string _pendingModify = string.Empty;
+    private string _pendingSave = string.Empty;
+    private string _pendingRelease = string.Empty;
+
+    // Virtual "pending" bindings built from the individual pending fields
+    private HotkeyBindings _pending => new(_pendingNew, _pendingModify, _pendingSave, _pendingRelease);
+    private bool _hasChanges => _pending != _current;
+    private bool _hasConflict
+    {
+        get
+        {
+            var vals = new[] { _pendingNew, _pendingModify, _pendingSave, _pendingRelease }
+                .Where(v => !string.IsNullOrEmpty(v)).ToList();
+            return vals.Count != vals.Distinct(StringComparer.OrdinalIgnoreCase).Count();
+        }
+    }
+
+    private IJSObjectReference? _captureModule;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadAsync();
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender) return;
+        _captureModule = await JS.InvokeAsync<IJSObjectReference>("import", "/js/keyCapture.js");
+    }
+
+    private async Task LoadAsync()
+    {
+        _loading = true;
+        try
+        {
+            HotkeyConfig.InvalidateCache();
+            _current = await HotkeyConfig.GetBindingsAsync();
+            _pendingNew     = _current.New;
+            _pendingModify  = _current.Modify;
+            _pendingSave    = _current.Save;
+            _pendingRelease = _current.Release;
+        }
+        finally
+        {
+            _loading = false;
+        }
+    }
+
+    private async Task StartCapture(string action)
+    {
+        if (_captureModule is null) return;
+        _editing = action;
+        StateHasChanged();
+
+        try
+        {
+            var captured = await _captureModule.InvokeAsync<string>("captureNextKey");
+            if (!string.IsNullOrWhiteSpace(captured))
+            {
+                switch (action)
+                {
+                    case "new":     _pendingNew     = captured; break;
+                    case "modify":  _pendingModify  = captured; break;
+                    case "save":    _pendingSave    = captured; break;
+                    case "release": _pendingRelease = captured; break;
+                }
+            }
+        }
+        catch { /* cancelled or JS error */ }
+        finally
+        {
+            _editing = null;
+            StateHasChanged();
+        }
+    }
+
+    private void ResetAction(string action)
+    {
+        switch (action)
+        {
+            case "new":     _pendingNew     = HotkeyBindings.Default.New;     break;
+            case "modify":  _pendingModify  = HotkeyBindings.Default.Modify;  break;
+            case "save":    _pendingSave    = HotkeyBindings.Default.Save;    break;
+            case "release": _pendingRelease = HotkeyBindings.Default.Release; break;
+        }
+    }
+
+    private void ResetAll()
+    {
+        _pendingNew     = HotkeyBindings.Default.New;
+        _pendingModify  = HotkeyBindings.Default.Modify;
+        _pendingSave    = HotkeyBindings.Default.Save;
+        _pendingRelease = HotkeyBindings.Default.Release;
+    }
+
+    private async Task SaveAsync()
+    {
+        _saving = true;
+        _error  = null;
+        _success = false;
+        try
+        {
+            // Store null for values matching the default (so they track defaults if defaults change later)
+            await Mediator.Send(new UpdateJurisdictionHotkeysCommand(
+                HotkeyNew:     _pendingNew     == HotkeyBindings.Default.New     ? null : _pendingNew,
+                HotkeyModify:  _pendingModify  == HotkeyBindings.Default.Modify  ? null : _pendingModify,
+                HotkeySave:    _pendingSave    == HotkeyBindings.Default.Save    ? null : _pendingSave,
+                HotkeyRelease: _pendingRelease == HotkeyBindings.Default.Release ? null : _pendingRelease));
+
+            HotkeyConfig.InvalidateCache();
+            await LoadAsync();
+            _success = true;
+            _ = Task.Delay(3000).ContinueWith(_ => InvokeAsync(() => { _success = false; StateHasChanged(); }));
+        }
+        catch (Exception ex)
+        {
+            _error = ex.Message;
+        }
+        finally
+        {
+            _saving = false;
+        }
+    }
+}

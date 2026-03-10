@@ -269,3 +269,98 @@ html, body {
 .sidebar::-webkit-scrollbar-track { background: transparent; }
 .sidebar::-webkit-scrollbar-thumb { background: rgba(255,255,255,.2); border-radius: 2px; }
 
+/* ── Shortcut Hints ─────────────────────────────────────────── */
+kbd.shortcut-hint {
+    display: inline-block;
+    padding: 1px 5px;
+    font-size: 0.65rem;
+    font-family: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
+    background: rgba(0,0,0,.06);
+    border: 1px solid rgba(0,0,0,.20);
+    border-bottom-width: 2px;
+    border-radius: 3px;
+    color: #495057;
+    margin-left: 4px;
+    vertical-align: middle;
+    line-height: 1.6;
+    white-space: nowrap;
+    user-select: none;
+}
+
+/* ── Shortcut Bar (floating bottom-right overlay) ───────────── */
+.shortcut-bar {
+    position: fixed;
+    bottom: 1.25rem;
+    right: 1.25rem;
+    z-index: 1050;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 0.4rem;
+}
+
+.shortcut-bar-toggle {
+    width: 38px;
+    height: 38px;
+    border-radius: 50%;
+    background-color: var(--ar-navy);
+    color: rgba(255,255,255,.75);
+    border: none;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.05rem;
+    box-shadow: 0 2px 8px rgba(0,0,0,.25);
+    cursor: pointer;
+    transition: background-color .15s ease, color .15s ease;
+}
+
+.shortcut-bar-toggle:hover {
+    background-color: var(--ar-navy-hover);
+    color: #fff;
+}
+
+.shortcut-bar--expanded .shortcut-bar-toggle {
+    background-color: var(--ar-gold);
+    color: #fff;
+}
+
+.shortcut-bar-panel {
+    background-color: var(--ar-navy);
+    border-radius: var(--ar-radius);
+    box-shadow: 0 4px 16px rgba(0,0,0,.3);
+    min-width: 220px;
+    overflow: hidden;
+}
+
+.shortcut-bar-header {
+    padding: 0.6rem 0.9rem;
+    background-color: var(--ar-navy-dark);
+    color: rgba(255,255,255,.85);
+    font-size: 0.78rem;
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+
+.shortcut-bar-body {
+    padding: 0.5rem 0;
+}
+
+.shortcut-bar-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0.3rem 0.9rem;
+    font-size: 0.8rem;
+    color: rgba(255,255,255,.7);
+}
+
+.shortcut-bar-row kbd.shortcut-hint {
+    background: rgba(255,255,255,.12);
+    border-color: rgba(255,255,255,.25);
+    border-bottom-color: rgba(255,255,255,.4);
+    color: rgba(255,255,255,.9);
+}
+

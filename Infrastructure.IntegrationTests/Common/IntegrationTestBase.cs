@@ -38,7 +38,6 @@ namespace Infrastructure.IntegrationTests.Common
                 options.UseSqlite(_connection));
 
             services.AddScoped<ITenantProvider>(sp => new TestTenantProvider(Guid.NewGuid()));
-            //services.AddScoped<ITenantProvider, TestTenantProvider>();
             services.AddScoped<IDomainEventDispatcher, MediatRDomainEventDispatcher>();
 
             services.AddMediatR(cfg =>
@@ -62,25 +61,7 @@ namespace Infrastructure.IntegrationTests.Common
             services.AddSingleton(sp =>
                 new DomainEventTypeRegistry(
                     typeof(IDomainEvent).Assembly,
-                    typeof(TestTenantIsolationDomainEvent).Assembly
-                ));
-
-            services.AddSingleton(sp =>
-                new DomainEventTypeRegistry(
-                    typeof(IDomainEvent).Assembly,
                     typeof(FailingDomainEvent).Assembly
-                ));
-
-            services.AddSingleton(sp =>
-                new DomainEventTypeRegistry(
-                    typeof(IDomainEvent).Assembly,
-                    typeof(TestIdempotencyDomainEvent).Assembly
-                ));
-
-            services.AddSingleton(sp =>
-                new DomainEventTypeRegistry(
-                    typeof(IDomainEvent).Assembly,
-                    typeof(StubDomainEvent).Assembly
                 ));
 
             ServiceProvider = services.BuildServiceProvider();

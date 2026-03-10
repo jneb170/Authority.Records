@@ -31,6 +31,7 @@ builder.Services.AddScoped<IPicklistService, PicklistService>();
 builder.Services.AddScoped<INameService, NameService>();
 builder.Services.AddScoped<IHomeService, HomeService>();
 builder.Services.AddScoped<IKeyboardShortcutService, KeyboardShortcutService>();
+builder.Services.AddScoped<IHotkeyConfigService, HotkeyConfigService>();
 builder.Services.AddScoped<IAdminService, AdminService>();
 builder.Services.AddScoped<IJurisdictionManagementService, JurisdictionManagementService>();
 builder.Services.AddScoped<IAgencyManagementService, AgencyManagementService>();

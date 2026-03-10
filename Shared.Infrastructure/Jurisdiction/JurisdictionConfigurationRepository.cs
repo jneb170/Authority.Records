@@ -20,16 +20,29 @@ public sealed class JurisdictionConfigurationRepository
         Guid jurisdictionId,
         CancellationToken cancellationToken)
     {
-        var entity = await _context.JurisdictionConfigurations
+        return await _context.JurisdictionConfigurations
             .AsNoTracking()
             .FirstOrDefaultAsync(x => x.JurisdictionId == jurisdictionId, cancellationToken);
+    }
 
-        if (entity == null)
-            return null;
+    public async Task SaveHotkeysAsync(
+        Guid jurisdictionId,
+        string? hotkeyNew,
+        string? hotkeyModify,
+        string? hotkeySave,
+        string? hotkeyRelease,
+        CancellationToken cancellationToken)
+    {
+        var entity = await _context.JurisdictionConfigurations
+            .FirstOrDefaultAsync(x => x.JurisdictionId == jurisdictionId, cancellationToken);
 
-        return new JurisdictionConfiguration(
-            entity.JurisdictionId,
-            entity.MustCloseAllArrests,
-            entity.MustCloseAllCitations);
+        if (entity is null)
+        {
+            entity = new JurisdictionConfiguration(jurisdictionId, false, false);
+            _context.JurisdictionConfigurations.Add(entity);
+        }
+
+        entity.UpdateHotkeys(hotkeyNew, hotkeyModify, hotkeySave, hotkeyRelease);
+        await _context.SaveChangesAsync(cancellationToken);
     }
 }

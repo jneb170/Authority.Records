@@ -10,6 +10,9 @@ EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "tests", "tests", "{240ABA77-AFB3-4EDD-8DFF-6D3675F934B0}"
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "docs", "docs", "{0432470E-3159-431C-9C7E-96CD86C04DAB}"
+	ProjectSection(SolutionItems) = preProject
+		Documents\leitsc_law_enforcement_rms_systems.pdf = Documents\leitsc_law_enforcement_rms_systems.pdf
+	EndProjectSection
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Modules.Records.Application", "Modules.Records.Application\Modules.Records.Application.csproj", "{0D08816F-BFE9-462F-A5C8-694650452A62}"
 EndProject
@@ -161,6 +164,7 @@ Global
 		{EB2EAD3A-854D-4BAB-976D-BD9036098669} = {240ABA77-AFB3-4EDD-8DFF-6D3675F934B0}
 		{0E0B0B0D-76CD-4290-A69C-859A59506EA4} = {240ABA77-AFB3-4EDD-8DFF-6D3675F934B0}
 		{D9B568EA-BC18-4DEE-A9D2-9FD984C70E12} = {240ABA77-AFB3-4EDD-8DFF-6D3675F934B0}
+		{B9BB47AA-1C06-4601-B68C-558A7CB0A9DE} = {02EA681E-C7D8-13C7-8484-4AC65E1B71E8}
 	EndGlobalSection
 	GlobalSection(ExtensibilityGlobals) = postSolution
 		SolutionGuid = {3779F163-127A-47E4-8853-99C5A6D28E53}

@@ -25,6 +25,12 @@ internal sealed class TestAppDbContext : AppDbContext
     {
         base.OnModelCreating(modelBuilder);
 
+        // SQLite does not support SQL Server IDENTITY columns on non-PK columns.
+        // Override RecordNumber to use a random value so EF Core inserts succeed in tests.
+        modelBuilder.Entity<Modules.Records.Domain.Entities.Incident>()
+            .Property(x => x.RecordNumber)
+            .HasDefaultValueSql("ABS(RANDOM())");
+
         modelBuilder.Entity<TestTenantIsolationAggregate>(builder =>
         {
             builder.HasKey(x => x.Id);

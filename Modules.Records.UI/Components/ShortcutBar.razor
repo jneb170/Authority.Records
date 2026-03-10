@@ -1,0 +1,56 @@
+@inject IHotkeyConfigService HotkeyConfig
+@using Modules.Records.UI.Services
+
+<div class="shortcut-bar @(_expanded ? "shortcut-bar--expanded" : "")">
+    @if (_expanded)
+    {
+        <div class="shortcut-bar-panel">
+            <div class="shortcut-bar-header">
+                <span><i class="bi bi-keyboard me-1"></i>Keyboard Shortcuts</span>
+                <button class="btn-close btn-close-white btn-close-sm ms-2" @onclick="Toggle" title="Close"></button>
+            </div>
+            <div class="shortcut-bar-body">
+                @if (_bindings is not null)
+                {
+                    <div class="shortcut-bar-row">
+                        <span>Modify / Edit</span>
+                        <kbd class="shortcut-hint">@_bindings.Modify</kbd>
+                    </div>
+                    <div class="shortcut-bar-row">
+                        <span>Save</span>
+                        <kbd class="shortcut-hint">@_bindings.Save</kbd>
+                    </div>
+                    <div class="shortcut-bar-row">
+                        <span>New Record</span>
+                        <kbd class="shortcut-hint">@_bindings.New</kbd>
+                    </div>
+                    <div class="shortcut-bar-row">
+                        <span>Cancel / Release</span>
+                        <kbd class="shortcut-hint">@_bindings.Release</kbd>
+                    </div>
+                }
+                else
+                {
+                    <div class="shortcut-bar-row text-muted small fst-italic">Loading…</div>
+                }
+            </div>
+        </div>
+    }
+    <button class="shortcut-bar-toggle" @onclick="Toggle" title="@(_expanded ? "Hide shortcuts" : "Keyboard shortcuts")">
+        <i class="bi bi-keyboard"></i>
+    </button>
+</div>
+
+@code {
+    private bool _expanded;
+    private HotkeyBindings? _bindings;
+
+    private async Task Toggle()
+    {
+        _expanded = !_expanded;
+        if (_expanded && _bindings is null)
+        {
+            _bindings = await HotkeyConfig.GetBindingsAsync();
+        }
+    }
+}

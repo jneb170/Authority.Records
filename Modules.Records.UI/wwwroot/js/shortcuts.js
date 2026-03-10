@@ -1,37 +1,53 @@
-// Global keyboard shortcut handler for Authority.Records.
-// Call registerShortcuts(dotnetRef) once from Blazor; unregisterShortcuts() on dispose.
+// shortcuts.js — Dynamic keyboard shortcut handler for Authority.Records.
+// Call registerShortcuts(dotnetRef, bindings) once from Blazor; unregisterShortcuts() on dispose.
+// bindings = { new: "Alt+N", modify: "F2", save: "Alt+S", release: "Escape" }
 
-let _dotnetRef = null;
-let _listener  = null;
+let _dotnetRef      = null;
+let _listener       = null;
+let _parsedBindings = {};
 
-const BLOCKED_TAGS = new Set(['INPUT', 'TEXTAREA', 'SELECT']);
+function parseBinding(str) {
+    if (!str) return null;
+    const parts  = str.split('+');
+    const rawKey = parts[parts.length - 1].trim();
+    const mods   = parts.slice(0, -1).map(m => m.trim().toLowerCase());
+
+    // Normalize known special keys; everything else upper-cased for comparison
+    const keyMap = { 'escape': 'Escape', 'enter': 'Enter', 'tab': 'Tab', 'space': ' ' };
+    const key = keyMap[rawKey.toLowerCase()] ?? rawKey.toUpperCase();
+
+    return {
+        key,
+        alt:   mods.includes('alt'),
+        ctrl:  mods.includes('ctrl'),
+        shift: mods.includes('shift'),
+    };
+}
 
 function handleKeyDown(e) {
     if (!_dotnetRef) return;
 
-    const inField = BLOCKED_TAGS.has(document.activeElement?.tagName);
-
-    let key = null;
-
-    if (e.altKey && !e.ctrlKey && !e.shiftKey) {
-        if (e.key === 'n' || e.key === 'N') key = 'new';
-        else if (e.key === 's' || e.key === 'S') key = 'save';
-    } else if (!e.ctrlKey && !e.shiftKey && !e.altKey) {
-        if (e.key === 'F2')          key = 'modify';
-        else if (e.key === 'Escape') key = 'release';
+    for (const [action, parsed] of Object.entries(_parsedBindings)) {
+        if (!parsed) continue;
+        const keyMatch = e.key === parsed.key || e.key.toUpperCase() === parsed.key.toUpperCase();
+        if (keyMatch && e.altKey === parsed.alt && e.ctrlKey === parsed.ctrl && e.shiftKey === parsed.shift) {
+            e.preventDefault();
+            e.stopPropagation();
+            _dotnetRef.invokeMethodAsync('InvokeShortcut', action);
+            return;
+        }
     }
-
-    if (!key) return;
-
-    e.preventDefault();
-    e.stopPropagation();
-
-    _dotnetRef.invokeMethodAsync('InvokeShortcut', key);
 }
 
-export function registerShortcuts(dotnetRef) {
+export function registerShortcuts(dotnetRef, bindings) {
     _dotnetRef = dotnetRef;
-    _listener  = handleKeyDown;
+    _parsedBindings = {
+        new:     parseBinding(bindings?.new),
+        modify:  parseBinding(bindings?.modify),
+        save:    parseBinding(bindings?.save),
+        release: parseBinding(bindings?.release),
+    };
+    _listener = handleKeyDown;
     document.addEventListener('keydown', _listener, true);
 }
 
@@ -40,5 +56,7 @@ export function unregisterShortcuts() {
         document.removeEventListener('keydown', _listener, true);
         _listener = null;
     }
-    _dotnetRef = null;
+    _dotnetRef      = null;
+    _parsedBindings = {};
 }
+
