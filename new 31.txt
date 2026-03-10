@@ -1,0 +1,64 @@
+=== Authority.Records - Azure Provisioning ===
+Resource Group : rg-authority-records
+Location       : eastus
+SQL Server     : sql-authority-records-fpg9xy
+UI App         : authority-records-ui
+Worker App     : authority-records-worker
+
+Creating resource group...
+Location    Name
+----------  --------------------
+eastus      rg-authority-records
+
+Creating Azure SQL Server (this takes ~2 min)...
+(MissingSubscriptionRegistration) The subscription is not registered to use namespace 'Microsoft.Sql'. See https://aka.ms/rps-not-found for how to register subscriptions.
+Code: MissingSubscriptionRegistration
+Message: The subscription is not registered to use namespace 'Microsoft.Sql'. See https://aka.ms/rps-not-found for how to register subscriptions.
+Exception Details:      (MissingSubscriptionRegistration) The subscription is not registered to use namespace 'Microsoft.Sql'. See https://aka.ms/rps-not-found for how to register subscriptions.
+        Code: MissingSubscriptionRegistration
+        Message: The subscription is not registered to use namespace 'Microsoft.Sql'. See https://aka.ms/rps-not-found for how to register subscriptions.
+        Target: Microsoft.Sql
+Opening firewall for Azure services...
+(ResourceNotFound) The Resource 'Microsoft.Sql/servers/sql-authority-records-fpg9xy' under resource group 'rg-authority-records' was not found. For more details please go to https://aka.ms/ARMResourceNotFoundFix
+Code: ResourceNotFound
+Message: The Resource 'Microsoft.Sql/servers/sql-authority-records-fpg9xy' under resource group 'rg-authority-records' was not found. For more details please go to https://aka.ms/ARMResourceNotFoundFix
+
+Creating SQL database...
+(ResourceNotFound) The Resource 'Microsoft.Sql/servers/sql-authority-records-fpg9xy' under resource group 'rg-authority-records' was not found. For more details please go to https://aka.ms/ARMResourceNotFoundFix
+Code: ResourceNotFound
+Message: The Resource 'Microsoft.Sql/servers/sql-authority-records-fpg9xy' under resource group 'rg-authority-records' was not found. For more details please go to https://aka.ms/ARMResourceNotFoundFix
+
+Creating App Service Plan (B2)...
+Operation cannot be completed without additional quota.
+Additional details - Location:
+Current Limit (Basic VMs): 0
+Current Usage: 0
+Amount required for this deployment (Basic VMs): 1
+(Minimum) New Limit that you should request to enable this deployment: 1.
+Note that if you experience multiple scaling operations failing (in addition to this one) and need to accommodate the aggregate quota requirements of these operations, you will need to request a higher quota limit than the one currently displayed.
+
+Creating UI App Service...
+The plan 'asp-authority-records' doesn't exist.
+(ResourceNotFound) The Resource 'Microsoft.Web/sites/authority-records-ui' under resource group 'rg-authority-records' was not found. For more details please go to https://aka.ms/ARMResourceNotFoundFix
+Code: ResourceNotFound
+Message: The Resource 'Microsoft.Web/sites/authority-records-ui' under resource group 'rg-authority-records' was not found. For more details please go to https://aka.ms/ARMResourceNotFoundFix
+(ResourceNotFound) The Resource 'Microsoft.Web/sites/authority-records-ui' under resource group 'rg-authority-records' was not found. For more details please go to https://aka.ms/ARMResourceNotFoundFix
+Code: ResourceNotFound
+Message: The Resource 'Microsoft.Web/sites/authority-records-ui' under resource group 'rg-authority-records' was not found. For more details please go to https://aka.ms/ARMResourceNotFoundFix
+(ResourceNotFound) The Resource 'Microsoft.Web/sites/authority-records-ui' under resource group 'rg-authority-records' was not found. For more details please go to https://aka.ms/ARMResourceNotFoundFix
+Code: ResourceNotFound
+Message: The Resource 'Microsoft.Web/sites/authority-records-ui' under resource group 'rg-authority-records' was not found. For more details please go to https://aka.ms/ARMResourceNotFoundFix
+(ResourceNotFound) The Resource 'Microsoft.Web/sites/authority-records-ui' under resource group 'rg-authority-records' was not found. For more details please go to https://aka.ms/ARMResourceNotFoundFix
+Code: ResourceNotFound
+Message: The Resource 'Microsoft.Web/sites/authority-records-ui' under resource group 'rg-authority-records' was not found. For more details please go to https://aka.ms/ARMResourceNotFoundFix
+
+Creating Worker App Service...
+The plan 'asp-authority-records' doesn't exist.
+(ResourceNotFound) The Resource 'Microsoft.Web/sites/authority-records-worker' under resource group 'rg-authority-records' was not found. For more details please go to https://aka.ms/ARMResourceNotFoundFix
+Code: ResourceNotFound
+Message: The Resource 'Microsoft.Web/sites/authority-records-worker' under resource group 'rg-authority-records' was not found. For more details please go to https://aka.ms/ARMResourceNotFoundFix
+(ResourceNotFound) The Resource 'Microsoft.Web/sites/authority-records-worker' under resource group 'rg-authority-records' was not found. For more details please go to https://aka.ms/ARMResourceNotFoundFix
+Code: ResourceNotFound
+Message: The Resource 'Microsoft.Web/sites/authority-records-worker' under resource group 'rg-authority-records' was not found. For more details please go to https://aka.ms/ARMResourceNotFoundFix
+
+[OK] Provisioning complete!
