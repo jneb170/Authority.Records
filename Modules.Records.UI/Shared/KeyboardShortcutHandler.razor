@@ -1,5 +1,6 @@
 @inject IJSRuntime JS
 @inject IKeyboardShortcutService ShortcutService
+@inject IHotkeyConfigService HotkeyConfig
 @using Microsoft.JSInterop
 @using Modules.Records.UI.Services
 @implements IAsyncDisposable
@@ -14,9 +15,17 @@
     {
         if (!firstRender) return;
 
+        var bindings = await HotkeyConfig.GetBindingsAsync();
+
         _dotnetRef = DotNetObjectReference.Create(this);
         _module    = await JS.InvokeAsync<IJSObjectReference>("import", "/js/shortcuts.js");
-        await _module.InvokeVoidAsync("registerShortcuts", _dotnetRef);
+        await _module.InvokeVoidAsync("registerShortcuts", _dotnetRef, new
+        {
+            @new    = bindings.New,
+            modify  = bindings.Modify,
+            save    = bindings.Save,
+            release = bindings.Release,
+        });
     }
 
     [JSInvokable]

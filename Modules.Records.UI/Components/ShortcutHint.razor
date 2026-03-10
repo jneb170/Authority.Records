@@ -1,0 +1,26 @@
+@inject IHotkeyConfigService HotkeyConfig
+@using Modules.Records.UI.Services
+
+@if (_label is not null)
+{
+    <kbd class="shortcut-hint">@_label</kbd>
+}
+
+@code {
+    /// <summary>One of: "new", "modify", "save", "release"</summary>
+    [Parameter, EditorRequired] public string Action { get; set; } = string.Empty;
+
+    private string? _label;
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender) return;
+        var bindings = await HotkeyConfig.GetBindingsAsync();
+        var label = bindings.ForAction(Action);
+        if (!string.IsNullOrEmpty(label))
+        {
+            _label = label;
+            StateHasChanged();
+        }
+    }
+}

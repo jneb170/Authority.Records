@@ -74,6 +74,12 @@ public sealed class Name : LockableAggregateRoot<Name>, IMultiTenant
     /// <summary>DB-generated auto-increment. Use in URLs and display; the GUID is for internal identity.</summary>
     public long RecordNumber { get; private set; }
 
+    /// <summary>User ID who soft-deleted this record, if applicable.</summary>
+    public Guid? DeletedBy { get; private set; }
+    
+    /// <summary>UTC timestamp when this record was soft-deleted, if applicable.</summary>
+    public DateTime? DeletedAtUtc { get; private set; }
+
     // --- Policy wiring ---
     private static readonly NameAuthorizationPolicy _authorizationPolicy = new();
     protected override IAuthorizationPolicy<Name> AuthorizationPolicy => _authorizationPolicy;
@@ -192,12 +198,16 @@ public sealed class Name : LockableAggregateRoot<Name>, IMultiTenant
     public override void SoftDelete(Guid userId)
     {
         base.SoftDelete(userId);
+        DeletedBy = userId;
+        DeletedAtUtc = DateTime.UtcNow;
         AddDomainEvent(new NameSoftDeletedDomainEvent(Id, userId));
     }
 
     public override void Restore(Guid userId)
     {
         base.Restore(userId);
+        DeletedBy = null;
+        DeletedAtUtc = null;
         AddDomainEvent(new NameRestoredDomainEvent(Id, userId));
     }
 }

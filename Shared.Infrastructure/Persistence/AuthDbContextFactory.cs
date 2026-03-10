@@ -11,6 +11,7 @@ public class AuthDbContextFactory : IDesignTimeDbContextFactory<AuthDbContext>
         var configuration = new ConfigurationBuilder()
             .SetBasePath(Directory.GetCurrentDirectory())
             .AddJsonFile("appsettings.json", optional: true)
+            .AddEnvironmentVariables()   // allows CI/CD to override via env vars
             .Build();
 
         var optionsBuilder = new DbContextOptionsBuilder<AuthDbContext>();

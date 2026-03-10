@@ -41,7 +41,7 @@ public sealed class SqliteTestDbContextFactory : IDisposable
         services.AddSingleton<IDomainEventDispatcher, TestDomainEventDispatcher>();
 
         // Configure DbContext to use the in-memory SQLite connection
-        services.AddDbContext<AppDbContext>(options =>
+        services.AddDbContext<AppDbContext, SqliteTestAppDbContext>(options =>
             options.UseSqlite(_connection));
 
         _provider = services.BuildServiceProvider();

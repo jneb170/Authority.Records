@@ -98,8 +98,12 @@
     protected override Task OnInitializedAsync()
     {
         ShortcutService.OnRelease += HandleShortcutRelease;
+        ShortcutService.OnSave    += HandleShortcutSave;
         return Task.CompletedTask;
     }
+
+    private void HandleShortcutSave()
+        => InvokeAsync(async () => { await SubmitAsync(); StateHasChanged(); });
 
     private void HandleShortcutRelease()
         => InvokeAsync(() => { HandleEscape(); StateHasChanged(); });
@@ -123,6 +127,7 @@
     public ValueTask DisposeAsync()
     {
         ShortcutService.OnRelease -= HandleShortcutRelease;
+        ShortcutService.OnSave    -= HandleShortcutSave;
         return ValueTask.CompletedTask;
     }
 

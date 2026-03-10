@@ -17,6 +17,7 @@ namespace Shared.Infrastructure.Persistence
             var configuration = new ConfigurationBuilder()
                 .SetBasePath(Directory.GetCurrentDirectory())
                 .AddJsonFile("appsettings.json", optional: false)
+                .AddEnvironmentVariables()   // allows CI/CD to override via env vars
                 .Build();
 
             var optionsBuilder = new DbContextOptionsBuilder<AppDbContext>();

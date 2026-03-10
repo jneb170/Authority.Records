@@ -48,8 +48,25 @@ public sealed class TestRetryBehavior : IntegrationTestBase
         {
             var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
 
-            // Message should have been moved to the dead letter queue
+            // Debug: Check what's in the database
+            var outboxCount = await db.OutboxMessages.CountAsync();
+            var deadLetterCount = await db.DeadLetterMessages.CountAsync();
+            
             var outboxMessage = await db.OutboxMessages.FirstOrDefaultAsync();
+            
+            // Output diagnostic info
+            if (outboxMessage != null)
+            {
+                throw new Exception($"Test failed: Outbox message still exists. " +
+                    $"Error='{outboxMessage.Error}', " +
+                    $"RetryCount={outboxMessage.RetryCount}, " +
+                    $"IsFailedPermanently={outboxMessage.IsFailedPermanently}, " +
+                    $"ProcessingStartedOnUtc={outboxMessage.ProcessingStartedOnUtc}, " +
+                    $"ProcessedOnUtc={outboxMessage.ProcessedOnUtc}, " +
+                    $"Handler ExecutionCount={AlwaysFailingHandler.ExecutionCount}");
+            }
+
+            // Message should have been moved to the dead letter queue
             Assert.Null(outboxMessage);
 
             var deadLetterMessage = await db.DeadLetterMessages.FirstAsync();

@@ -7,23 +7,25 @@ using Modules.Records.Domain.DomainEvents;
 using Modules.Records.Domain.Entities;
 using Modules.Records.Domain.Factories;
 using Shared.Infrastructure.Persistence;
+using Infrastructure.IntegrationTests.TestInfrastructure;
 
 namespace Infrastructure.IntegrationTests.SoftDelete;
 
 public class SoftDeleteTests
 {
-    private readonly DbContextOptions<AppDbContext> _options;
+    private readonly DbContextOptions<SqliteTestAppDbContext> _options;
+    private readonly SqliteConnection _connection;
 
     public SoftDeleteTests()
     {
-        var connection = new SqliteConnection("DataSource=:memory:");
-        connection.Open();
+        _connection = new SqliteConnection("DataSource=:memory:");
+        _connection.Open();
 
-        _options = new DbContextOptionsBuilder<AppDbContext>()
-            .UseSqlite(connection)
+        _options = new DbContextOptionsBuilder<SqliteTestAppDbContext>()
+            .UseSqlite(_connection)
             .Options;
 
-        using var context = new AppDbContext(_options, new FakeTenantProvider(), new FakeDomainEventDispatcher());
+        using var context = new SqliteTestAppDbContext(_options, new FakeTenantProvider(), new FakeDomainEventDispatcher());
         context.Database.EnsureCreated();
     }
 
@@ -37,7 +39,7 @@ public class SoftDeleteTests
         var incident = new IncidentFactory().Create(new CreateIncidentRequest { JurisdictionId = incidentJurisdictionId, AgencyId = incidentAgencyId, Details = new Modules.Records.Domain.ValueObjects.IncidentDetails { IncidentNum = "INC-001", Description = "Test Incident", LocalNum = "" } });
 
         // Insert a record
-        using (var context = new AppDbContext(_options, new FakeTenantProvider(), new FakeDomainEventDispatcher()))
+        using (var context = new SqliteTestAppDbContext(_options, new FakeTenantProvider(), new FakeDomainEventDispatcher()))
         {
             context.Incidents.Add(incident);
             await context.SaveChangesAsync();
@@ -48,14 +50,14 @@ public class SoftDeleteTests
         }
 
         // Regular query should exclude
-        using (var context = new AppDbContext(_options, new FakeTenantProvider(), new FakeDomainEventDispatcher()))
+        using (var context = new SqliteTestAppDbContext(_options, new FakeTenantProvider(), new FakeDomainEventDispatcher()))
         {
             var incidents = await context.Incidents.ToListAsync();
             Assert.Empty(incidents); // soft deleted records are filtered out
         }
 
         // IgnoreQueryFilters retrieves it
-        using (var context = new AppDbContext(_options, new FakeTenantProvider(), new FakeDomainEventDispatcher()))
+        using (var context = new SqliteTestAppDbContext(_options, new FakeTenantProvider(), new FakeDomainEventDispatcher()))
         {
             var allWithDeleted = await context.Incidents.IgnoreQueryFilters().ToListAsync();
             Assert.Contains(allWithDeleted, i => i.Id == incident.Id);
@@ -93,4 +95,5 @@ public class SoftDeleteTests
             => Task.CompletedTask;
     }
 }
+
 
