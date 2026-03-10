@@ -1,0 +1,38 @@
+=== Authority.Records - Azure Provisioning ===
+Resource Group : rg-authority-records
+Location       : eastus
+SQL Server     : sql-authority-records-fpg9xy
+UI App         : authority-records-ui
+Worker App     : authority-records-worker
+App Svc SKU    : S1
+
+Registering Azure resource providers (takes ~1-2 min on first run)...
+  Microsoft.Sql - registered
+  Microsoft.Web - registered
+
+Creating resource group...
+Location    Name
+----------  --------------------
+eastus      rg-authority-records
+Reusing existing SQL Server: sql-authority-records-fpg9xy
+(ResourceNotFound) The Resource 'Microsoft.Sql/servers/sql-authority-records-fpg9xy' under resource group 'rg-authority-records' was not found. For more details please go to https://aka.ms/ARMResourceNotFoundFix
+Code: ResourceNotFound
+Message: The Resource 'Microsoft.Sql/servers/sql-authority-records-fpg9xy' under resource group 'rg-authority-records' was not found. For more details please go to https://aka.ms/ARMResourceNotFoundFix
+Firewall rule set for Azure services.
+
+Creating SQL database...
+(ResourceNotFound) The Resource 'Microsoft.Sql/servers/sql-authority-records-fpg9xy' under resource group 'rg-authority-records' was not found. For more details please go to https://aka.ms/ARMResourceNotFoundFix
+Code: ResourceNotFound
+Message: The Resource 'Microsoft.Sql/servers/sql-authority-records-fpg9xy' under resource group 'rg-authority-records' was not found. For more details please go to https://aka.ms/ARMResourceNotFoundFix
+
+Creating App Service Plan (S1)...
+Operation cannot be completed without additional quota.
+Additional details - Location:
+Current Limit (Standard VMs): 0
+Current Usage: 0
+Amount required for this deployment (Standard VMs): 1
+(Minimum) New Limit that you should request to enable this deployment: 1.
+Note that if you experience multiple scaling operations failing (in addition to this one) and need to accommodate the aggregate quota requirements of these operations, you will need to request a higher quota limit than the one currently displayed.
+App Service Plan creation failed.
+If you see a quota error, request an increase at:
+  Azure Portal -> Subscriptions -> Your Subscription -> Usage + quotas
