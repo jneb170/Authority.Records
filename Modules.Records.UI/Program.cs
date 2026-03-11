@@ -61,8 +61,8 @@ app.MapRazorPages();
 app.MapRazorComponents<Modules.Records.UI.App>()
     .AddInteractiveServerRenderMode();
 
-// Seed dev test user
-if (app.Environment.IsDevelopment())
+// Seed initial users and roles on first run (any environment).
+// SeedDevUserAsync is idempotent — it only creates users if they don't exist.
 {
     using var scope = app.Services.CreateScope();
     await SeedDevUserAsync(scope.ServiceProvider);
