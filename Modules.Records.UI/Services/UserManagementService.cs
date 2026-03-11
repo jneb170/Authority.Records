@@ -126,6 +126,15 @@ public sealed class UserManagementService(
         return await userManager.ResetPasswordAsync(user, token, newPassword);
     }
 
+    public async Task<IdentityResult> ChangePasswordAsync(string userId, string currentPassword, string newPassword)
+    {
+        var user = await userManager.FindByIdAsync(userId);
+        if (user is null)
+            return IdentityResult.Failed(new IdentityError { Description = "User not found." });
+
+        return await userManager.ChangePasswordAsync(user, currentPassword, newPassword);
+    }
+
     public async Task<IdentityResult> DeleteAsync(string userId)
     {
         var user = await userManager.FindByIdAsync(userId);
