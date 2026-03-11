@@ -27,6 +27,7 @@ public interface IUserManagementService
         string userId, string firstName, string lastName, string email, bool isActive,
         Guid primaryAgencyId, IEnumerable<string> roles, IEnumerable<Guid> agencyIds);
     Task<IdentityResult> ResetPasswordAsync(string userId, string newPassword);
+    Task<IdentityResult> ChangePasswordAsync(string userId, string currentPassword, string newPassword);
     Task<IdentityResult> DeleteAsync(string userId);
     Task<List<string>> GetAvailableRolesAsync();
     Task<List<Agency>> GetAgenciesForUserAsync(string userId);

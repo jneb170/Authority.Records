@@ -159,6 +159,19 @@ html, body {
     flex-shrink: 0;
 }
 
+.top-header-pwd-link {
+    color: #6c757d;
+    font-size: 0.9rem;
+    line-height: 1;
+    text-decoration: none;
+    opacity: 0.7;
+    transition: opacity 0.15s;
+}
+.top-header-pwd-link:hover {
+    opacity: 1;
+    color: var(--ar-navy);
+}
+
 /* ── Content Area ───────────────────────────────────────────── */
 .content-shell {
     flex: 1;
