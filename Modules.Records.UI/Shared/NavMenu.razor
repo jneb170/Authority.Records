@@ -1,4 +1,4 @@
-<a href="/" class="sidebar-brand">
+<a href="/" class="sidebar-brand" @onclick="OnNavClicked">
     <img src="/favicon.svg" width="24" height="24" alt="AR" />
     <span class="sidebar-brand-text">
         Authority Records
@@ -9,54 +9,54 @@
 <nav class="nav flex-column px-0 pb-2">
 
     <AuthorizeView Roles="Admin,Supervisor,Officer,Dispatcher">
-        <NavLink class="nav-link" href="" Match="NavLinkMatch.All">
+        <NavLink class="nav-link" href="" Match="NavLinkMatch.All" @onclick="OnNavClicked">
             <i class="bi bi-house-fill"></i> Home
         </NavLink>
-        <NavLink class="nav-link" href="incidents">
+        <NavLink class="nav-link" href="incidents" @onclick="OnNavClicked">
             <i class="bi bi-clipboard2-pulse-fill"></i> Incidents
         </NavLink>
-        <NavLink class="nav-link" href="arrests">
+        <NavLink class="nav-link" href="arrests" @onclick="OnNavClicked">
             <i class="bi bi-person-badge-fill"></i> Arrests
         </NavLink>
-        <NavLink class="nav-link" href="citations">
+        <NavLink class="nav-link" href="citations" @onclick="OnNavClicked">
             <i class="bi bi-file-earmark-text-fill"></i> Citations
         </NavLink>
-        <NavLink class="nav-link" href="names">
+        <NavLink class="nav-link" href="names" @onclick="OnNavClicked">
             <i class="bi bi-people-fill"></i> Names (MNI)
         </NavLink>
     </AuthorizeView>
 
     <AuthorizeView Roles="Admin,Supervisor">
         <div class="sidebar-section-label">Administration</div>
-        <NavLink class="nav-link" href="admin/configurations">
+        <NavLink class="nav-link" href="admin/configurations" @onclick="OnNavClicked">
             <i class="bi bi-gear-fill"></i> Configurations
         </NavLink>
-        <NavLink class="nav-link" href="admin/picklists">
+        <NavLink class="nav-link" href="admin/picklists" @onclick="OnNavClicked">
             <i class="bi bi-list-ul"></i> Picklist Items
         </NavLink>
-        <NavLink class="nav-link" href="admin/test-data">
+        <NavLink class="nav-link" href="admin/test-data" @onclick="OnNavClicked">
             <i class="bi bi-flask"></i> Test Data
         </NavLink>
-        <NavLink class="nav-link" href="admin/read-model-rebuild">
+        <NavLink class="nav-link" href="admin/read-model-rebuild" @onclick="OnNavClicked">
             <i class="bi bi-arrow-repeat"></i> Read Model Rebuild
         </NavLink>
     </AuthorizeView>
 
     <AuthorizeView Roles="Admin">
-        <NavLink class="nav-link" href="admin/agencies">
+        <NavLink class="nav-link" href="admin/agencies" @onclick="OnNavClicked">
             <i class="bi bi-building-fill"></i> Agencies
         </NavLink>
-        <NavLink class="nav-link" href="admin/users">
+        <NavLink class="nav-link" href="admin/users" @onclick="OnNavClicked">
             <i class="bi bi-person-lines-fill"></i> Users
         </NavLink>
-        <NavLink class="nav-link" href="admin/hotkeys">
+        <NavLink class="nav-link" href="admin/hotkeys" @onclick="OnNavClicked">
             <i class="bi bi-keyboard"></i> Hotkey Settings
         </NavLink>
     </AuthorizeView>
 
     <AuthorizeView Roles="Super">
         <div class="sidebar-section-label">Super Admin</div>
-        <NavLink class="nav-link" href="super/jurisdictions">
+        <NavLink class="nav-link" href="super/jurisdictions" @onclick="OnNavClicked">
             <i class="bi bi-bank"></i> Jurisdictions
         </NavLink>
     </AuthorizeView>
@@ -68,3 +68,9 @@
     </div>
 
 </nav>
+
+@code {
+    [Parameter] public EventCallback OnNavLinkClicked { get; set; }
+
+    private void OnNavClicked() => OnNavLinkClicked.InvokeAsync();
+}
