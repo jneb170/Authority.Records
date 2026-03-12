@@ -5,8 +5,12 @@
 @using System.Security.Claims
 
 <div class="app-shell">
-    <div class="sidebar">
-        <NavMenu />
+    @if (_sidebarOpen)
+    {
+        <div class="sidebar-backdrop" @onclick="CloseSidebar"></div>
+    }
+    <div class="sidebar @(_sidebarOpen ? "sidebar-open" : "")">
+        <NavMenu OnNavLinkClicked="CloseSidebar" />
     </div>
     <div class="content-shell">
         <AuthorizeView>
@@ -14,6 +18,9 @@
                 @if (!_suppressBody)
                 {
                     <div class="top-header">
+                        <button class="hamburger-btn" @onclick="ToggleSidebar" title="Menu">
+                            <i class="bi bi-list"></i>
+                        </button>
                         <i class="bi bi-shield-fill-check text-primary" style="font-size:1.1rem;"></i>
                         <span class="top-header-agency">@(_agencyName ?? "Authority Records")</span>
                         <div class="top-header-user">
@@ -49,6 +56,7 @@
 @code {
     private bool _suppressBody;
     private bool _isSuper;
+    private bool _sidebarOpen;
     private string? _displayName;
     private string? _agencyName;
     private string? _role;
@@ -78,8 +86,12 @@
         }
     }
 
+    private void ToggleSidebar() => _sidebarOpen = !_sidebarOpen;
+    private void CloseSidebar() => _sidebarOpen = false;
+
     private void OnLocationChanged(object? sender, LocationChangedEventArgs e)
     {
+        _sidebarOpen = false;
         UpdateSuppressBody();
         if (_suppressBody)
             Nav.NavigateTo("/super/jurisdictions", replace: true);
