@@ -16,4 +16,5 @@ public sealed record LocationDetailsUpdatedDomainEvent(
     string? AptSuite,
     string? Coordinates,
     string? CommonPlaceName,
-    string? Comments) : DomainEvent;
+    string? Comments,
+    string? Address) : DomainEvent;

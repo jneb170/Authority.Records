@@ -58,6 +58,9 @@ public sealed class Location : LockableAggregateRoot<Location>, IMultiTenant
 
     public string? Comments { get; private set; }
 
+    /// <summary>Full formatted address as returned by Google Maps (e.g. "3001 E Plano Pkwy #400, Plano, TX 75074, USA").</summary>
+    public string? Address { get; private set; }
+
     /// <summary>User ID who soft-deleted this record, if applicable.</summary>
     public Guid? DeletedBy { get; private set; }
 
@@ -90,7 +93,8 @@ public sealed class Location : LockableAggregateRoot<Location>, IMultiTenant
         string? aptSuite = null,
         string? coordinates = null,
         string? commonPlaceName = null,
-        string? comments = null)
+        string? comments = null,
+        string? address = null)
     {
         Id             = Guid.NewGuid();
         JurisdictionId = jurisdictionId;
@@ -107,6 +111,7 @@ public sealed class Location : LockableAggregateRoot<Location>, IMultiTenant
         Coordinates    = coordinates;
         CommonPlaceName = commonPlaceName;
         Comments       = comments;
+        Address        = address;
 
         AddDomainEvent(new LocationCreatedDomainEvent(
             Id, JurisdictionId, CommonPlaceName, StreetAddress, City, StateId));
@@ -126,6 +131,7 @@ public sealed class Location : LockableAggregateRoot<Location>, IMultiTenant
         string? coordinates,
         string? commonPlaceName,
         string? comments,
+        string? address,
         IModificationContext context)
     {
         EnsureCanModify(context);
@@ -143,10 +149,11 @@ public sealed class Location : LockableAggregateRoot<Location>, IMultiTenant
         Coordinates     = coordinates;
         CommonPlaceName = commonPlaceName;
         Comments        = comments;
+        Address         = address;
 
         AddDomainEvent(new LocationDetailsUpdatedDomainEvent(
             Id, StreetNumber, PreDirectionId, StreetAddress, StreetTypeId, PostDirectionId,
-            City, StateId, CountryId, Zip, AptSuite, Coordinates, CommonPlaceName, Comments));
+            City, StateId, CountryId, Zip, AptSuite, Coordinates, CommonPlaceName, Comments, Address));
     }
 
     public override void SoftDelete(Guid userId)

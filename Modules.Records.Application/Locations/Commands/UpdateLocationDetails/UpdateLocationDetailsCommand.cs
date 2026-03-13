@@ -16,4 +16,5 @@ public sealed record UpdateLocationDetailsCommand(
     string? AptSuite = null,
     string? Coordinates = null,
     string? CommonPlaceName = null,
-    string? Comments = null) : IRequest;
+    string? Comments = null,
+    string? Address = null) : IRequest;

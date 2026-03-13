@@ -95,6 +95,7 @@ public sealed class NameProjectionHandler :
             notification.IsCitizen,
             notification.DeceasedDate);
 
+        readModel.ApplyLocationChanged(name?.PrimaryLocationId, name?.SecondaryLocationId);
         readModel.ApplyModifiedAudit(name?.ModifiedBy);
         await _dbContext.SaveChangesAsync(cancellationToken);
     }

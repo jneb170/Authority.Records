@@ -22,6 +22,7 @@ public sealed class CreateLocationViewModel
     public string? Coordinates     { get; set; }
     public string? CommonPlaceName { get; set; }
     public string? Comments        { get; set; }
+    public string? Address         { get; set; }
 
     public string? ErrorMessage { get; set; }
 
@@ -40,6 +41,7 @@ public sealed class CreateLocationViewModel
         Coordinates     = null;
         CommonPlaceName = null;
         Comments        = null;
+        Address         = null;
         ErrorMessage    = null;
     }
 }

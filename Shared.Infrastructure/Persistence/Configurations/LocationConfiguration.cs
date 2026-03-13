@@ -30,6 +30,7 @@ internal sealed class LocationConfiguration : IEntityTypeConfiguration<Location>
         builder.Property(x => x.Coordinates).HasMaxLength(100).IsRequired(false);
         builder.Property(x => x.CommonPlaceName).HasMaxLength(250).IsRequired(false);
         builder.Property(x => x.Comments).HasMaxLength(500).IsRequired(false);
+        builder.Property(x => x.Address).HasMaxLength(500).IsRequired(false);
 
         // Indexes for common search patterns — all keyed on JurisdictionId for multi-tenant isolation
         builder.HasIndex(x => new { x.JurisdictionId, x.City });

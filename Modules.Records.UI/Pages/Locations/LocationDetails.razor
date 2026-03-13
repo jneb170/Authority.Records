@@ -6,8 +6,17 @@
 @inject IUserLookupService UserLookupService
 @inject NavigationManager Nav
 @inject IKeyboardShortcutService ShortcutService
+@inject IGoogleMapsConfigService GoogleMapsConfig
+@inject IAgencyConfigurationService AgencyConfig
+@inject IGoogleMapsInterop MapsInterop
+@inject IMediator Mediator
+@using MediatR
+@using Microsoft.JSInterop
 @using Modules.Records.Application.DTOs
+@using Modules.Records.Application.Picklists.Queries.GetPicklistItems
 @using Modules.Records.Domain.Common
+@using Modules.Records.UI.Helpers
+@using Modules.Records.UI.Interop
 @using Modules.Records.UI.Services
 
 <PageTitle>@(_location is null ? "Location Details" : $"📍 {_location.RecordNumber} - {FormatAddressTitle(_location)}")</PageTitle>
@@ -254,6 +263,17 @@ else if (_location is not null)
                     }
                 </div>
                 <div class="col-12">
+                    <label class="@LabelClass">Full Address <span class="text-muted small">(auto-filled from map)</span></label>
+                    @if (_modifyMode)
+                    {
+                        <InputText class="form-control" @bind-Value="_editAddress" placeholder="e.g. 3001 E Plano Pkwy #400, Plano, TX 75074, USA" />
+                    }
+                    else
+                    {
+                        <p class="form-control-plaintext form-control-sm ps-0 fw-semibold mb-0">@(_location.Address ?? "—")</p>
+                    }
+                </div>
+                <div class="col-12">
                     <label class="@LabelClass">Comments</label>
                     @if (_modifyMode)
                     {
@@ -273,6 +293,45 @@ else if (_location is not null)
         <div class="mb-4">
             <button class="btn btn-sm btn-primary" title="Save Details (Alt+S)" @onclick="SaveDetailsAsync">Save Details<ShortcutHint Action="save" /></button>
         </div>
+    }
+
+    @* Google Maps Card *@
+    @if (_mapsAvailable)
+    {
+        @if (_modifyMode)
+        {
+            <div class="card mb-3">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <strong><i class="bi bi-map me-1"></i>Pick from Map</strong>
+                    <button type="button" class="btn btn-sm @(_mapOpen ? "btn-outline-secondary" : "btn-outline-primary")"
+                            @onclick="ToggleMapAsync">
+                        @if (_mapLoading)
+                        {
+                            <span class="spinner-border spinner-border-sm me-1"></span>
+                        }
+                        <i class="bi @(_mapOpen ? "bi-x-lg" : "bi-pin-map") me-1"></i>
+                        @(_mapOpen ? "Close Map" : "Open Map")
+                    </button>
+                </div>
+                @if (_mapOpen)
+                {
+                    <div class="card-body pb-2">
+                        <p class="text-muted small mb-2">Search for an address or click the map to auto-fill the form fields above.</p>
+                        <input id="map-search-input-details" type="text" class="form-control mb-2" placeholder="Search address…" autocomplete="off" />
+                        <div id="location-details-map" style="height:350px; border-radius:4px;"></div>
+                    </div>
+                }
+            </div>
+        }
+        else if (!string.IsNullOrWhiteSpace(_location.Coordinates))
+        {
+            <div class="card mb-3">
+                <div class="card-header"><strong><i class="bi bi-map me-1"></i>Map</strong></div>
+                <div class="card-body p-0">
+                    <div id="location-static-map" style="height:300px; border-radius:0 0 4px 4px;"></div>
+                </div>
+            </div>
+        }
     }
 
     <AuditInfoSection CreatedAt="@_location.CreatedAtUtc"
@@ -318,6 +377,7 @@ else if (_location is not null)
     private string? _editCoordinates;
     private string? _editCommonPlaceName;
     private string? _editComments;
+    private string? _editAddress;
 
     // Read-only picklist labels
     private string? _preDirectionLabel;
@@ -329,6 +389,18 @@ else if (_location is not null)
     private string? _createdByName;
     private string? _modifiedByName;
     private string? _lockedByName;
+
+    // Google Maps state
+    private bool _mapsAvailable;
+    private bool _mapOpen;
+    private bool _mapLoading;
+    private string? _apiKey;
+    private bool _staticMapRendered;
+    private DotNetObjectReference<LocationDetails>? _dotnetRef;
+    private IReadOnlyList<PicklistItemDto>? _directionItems;
+    private IReadOnlyList<PicklistItemDto>? _streetTypeItems;
+    private IReadOnlyList<PicklistItemDto>? _stateItems;
+    private IReadOnlyList<PicklistItemDto>? _countryItems;
 
     private string LabelClass => _modifyMode
         ? "form-label mb-1"
@@ -348,6 +420,146 @@ else if (_location is not null)
         ShortcutService.OnModify  += HandleShortcutModify;
         ShortcutService.OnRelease += HandleShortcutRelease;
         ShortcutService.OnSave    += HandleShortcutSave;
+
+        _apiKey = await GoogleMapsConfig.GetApiKeyAsync();
+        _mapsAvailable = !string.IsNullOrWhiteSpace(_apiKey);
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        // Show static map once after initial render (read-only mode, coordinates present)
+        if (_mapsAvailable && !_modifyMode && !_staticMapRendered
+            && !string.IsNullOrWhiteSpace(_location?.Coordinates))
+        {
+            _staticMapRendered = true;
+            await TryShowStaticMapAsync();
+        }
+    }
+
+    private async Task TryShowStaticMapAsync()
+    {
+        if (_location?.Coordinates is null) return;
+        var parts = _location.Coordinates.Split(',');
+        if (parts.Length == 2
+            && double.TryParse(parts[0].Trim(), System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out var lat)
+            && double.TryParse(parts[1].Trim(), System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out var lng))
+        {
+            try
+            {
+                await MapsInterop.LoadApiAsync(_apiKey!);
+                await MapsInterop.InitStaticMapAsync("location-static-map", lat, lng);
+            }
+            catch { /* non-critical — map just won't show */ }
+        }
+    }
+
+    private async Task ToggleMapAsync()
+    {
+        if (_mapOpen)
+            await CloseMapAsync();
+        else
+            await OpenMapAsync();
+    }
+
+    private async Task OpenMapAsync()
+    {
+        _mapLoading = true;
+        _mapOpen = true;
+        StateHasChanged();
+        try
+        {
+            await MapsInterop.LoadApiAsync(_apiKey!);
+            var (lat, lng) = await GetStartingCoordinatesAsync();
+            _dotnetRef ??= DotNetObjectReference.Create(this);
+            await Task.Delay(50);
+            await MapsInterop.InitPickerAsync("location-details-map", "map-search-input-details", lat, lng, _dotnetRef);
+        }
+        catch (Exception ex)
+        {
+            _actionError = $"Map initialisation failed: {ex.Message}";
+            _mapOpen = false;
+        }
+        finally
+        {
+            _mapLoading = false;
+        }
+    }
+
+    private async Task CloseMapAsync()
+    {
+        await MapsInterop.DestroyAsync("location-details-map");
+        _mapOpen = false;
+    }
+
+    private async Task<(double lat, double lng)> GetStartingCoordinatesAsync()
+    {
+        // If record already has coordinates, centre there
+        if (!string.IsNullOrWhiteSpace(_location?.Coordinates))
+        {
+            var parts = _location.Coordinates.Split(',');
+            if (parts.Length == 2
+                && double.TryParse(parts[0].Trim(), System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out var rlat)
+                && double.TryParse(parts[1].Trim(), System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out var rlng))
+                return (rlat, rlng);
+        }
+
+        const double defaultLat = 39.8283;
+        const double defaultLng = -98.5795;
+        try
+        {
+            var cfg = await AgencyConfig.GetAsync(ConfigurationKeys.MapStartCoordinates);
+            if (cfg?.Value is not null)
+            {
+                var parts = cfg.Value.Split(',');
+                if (parts.Length == 2
+                    && double.TryParse(parts[0].Trim(), System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out var lat)
+                    && double.TryParse(parts[1].Trim(), System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out var lng))
+                    return (lat, lng);
+            }
+        }
+        catch { /* fall through */ }
+        return (defaultLat, defaultLng);
+    }
+
+    [JSInvokable]
+    public async Task OnPlaceSelected(LocationCreate.PlaceSelectedPayload payload)
+    {
+        _editStreetNumber = payload.StreetNumber ?? _editStreetNumber;
+        _editAptSuite     = payload.AptSuite     ?? _editAptSuite;
+        _editCity         = payload.City         ?? _editCity;
+        _editZip          = payload.Zip          ?? _editZip;
+        _editAddress      = payload.FormattedAddress ?? _editAddress;
+
+        if (payload.Lat.HasValue && payload.Lng.HasValue)
+            _editCoordinates = $"{payload.Lat.Value},{payload.Lng.Value}";
+
+        // Parse route into pre-direction, street name, street type
+        if (!string.IsNullOrWhiteSpace(payload.Route))
+        {
+            _directionItems  ??= await Mediator.Send(new GetPicklistItemsQuery(PicklistTypes.Direction,  ActiveOnly: true));
+            _streetTypeItems ??= await Mediator.Send(new GetPicklistItemsQuery(PicklistTypes.StreetType, ActiveOnly: true));
+
+            var (preId, name, typeId) = LocationParseHelper.ParseRoute(payload.Route, _directionItems, _streetTypeItems);
+            if (!string.IsNullOrWhiteSpace(name))  _editStreetAddress   = name;
+            if (preId.HasValue)                    _editPreDirectionId  = preId;
+            if (typeId.HasValue)                   _editStreetTypeId    = typeId;
+        }
+
+        if (!string.IsNullOrWhiteSpace(payload.State))
+        {
+            _stateItems ??= await Mediator.Send(new GetPicklistItemsQuery(PicklistTypes.State, ActiveOnly: true));
+            var match = _stateItems.FirstOrDefault(i => string.Equals(i.Value, payload.State, StringComparison.OrdinalIgnoreCase));
+            if (match is not null) _editStateId = match.Id;
+        }
+
+        if (!string.IsNullOrWhiteSpace(payload.Country))
+        {
+            _countryItems ??= await Mediator.Send(new GetPicklistItemsQuery(PicklistTypes.Country, ActiveOnly: true));
+            var match = _countryItems.FirstOrDefault(i => string.Equals(i.Value, payload.Country, StringComparison.OrdinalIgnoreCase));
+            if (match is not null) _editCountryId = match.Id;
+        }
+
+        await InvokeAsync(StateHasChanged);
     }
 
     private void HandleShortcutNew()
@@ -388,6 +600,7 @@ else if (_location is not null)
         _editCoordinates     = _location.Coordinates;
         _editCommonPlaceName = _location.CommonPlaceName;
         _editComments        = _location.Comments;
+        _editAddress         = _location.Address;
         _editSnapshot = ComputeEditSnapshot();
     }
 
@@ -512,6 +725,7 @@ else if (_location is not null)
         {
             await LocationService.AcquireLockAsync(_locationId);
             _modifyMode = true;
+            _staticMapRendered = false; // will re-render static map when leaving modify mode
             LoadEditFields();
             StartLockTimer();
             await LoadAsync();
@@ -524,6 +738,9 @@ else if (_location is not null)
 
     private async Task ExitModifyModeAsync()
     {
+        if (_mapOpen)
+            await CloseMapAsync();
+
         StopLockTimer();
         _modifyMode = false;
         try { await LocationService.ReleaseLockAsync(_locationId); } catch { /* best-effort */ }
@@ -550,7 +767,8 @@ else if (_location is not null)
                 _editAptSuite,
                 _editCoordinates,
                 _editCommonPlaceName,
-                _editComments);
+                _editComments,
+                _editAddress);
 
             await LoadAsync();
             _editSnapshot = ComputeEditSnapshot();
@@ -610,14 +828,19 @@ else if (_location is not null)
         _lockTimer = null;
     }
 
-    public ValueTask DisposeAsync()
+    public async ValueTask DisposeAsync()
     {
         ShortcutService.OnNew     -= HandleShortcutNew;
         ShortcutService.OnModify  -= HandleShortcutModify;
         ShortcutService.OnRelease -= HandleShortcutRelease;
         ShortcutService.OnSave    -= HandleShortcutSave;
         StopLockTimer();
-        return ValueTask.CompletedTask;
+
+        if (_mapOpen)
+            await MapsInterop.DestroyAsync("location-details-map");
+
+        _dotnetRef?.Dispose();
+        await MapsInterop.DisposeAsync();
     }
 
     private static string FormatAddressTitle(LocationDto loc)

@@ -50,6 +50,7 @@ public sealed class LocationProjectionHandler :
             coordinates:    location.Coordinates,
             commonPlaceName: notification.CommonPlaceName,
             comments:       location.Comments,
+            address:        location.Address,
             createdAtUtc:   notification.OccurredOnUtc,
             createdBy:      location.CreatedBy);
 
@@ -80,7 +81,8 @@ public sealed class LocationProjectionHandler :
             notification.AptSuite,
             notification.Coordinates,
             notification.CommonPlaceName,
-            notification.Comments);
+            notification.Comments,
+            notification.Address);
 
         readModel.ApplyModifiedAudit(location?.ModifiedBy);
         await _dbContext.SaveChangesAsync(cancellationToken);

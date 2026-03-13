@@ -2,8 +2,19 @@
 @implements IAsyncDisposable
 @inject ILocationService LocationService
 @inject IKeyboardShortcutService ShortcutService
+@inject IGoogleMapsConfigService GoogleMapsConfig
+@inject IAgencyConfigurationService AgencyConfig
+@inject IGoogleMapsInterop MapsInterop
+@inject IMediator Mediator
 @inject NavigationManager Nav
+@using MediatR
+@using Microsoft.JSInterop
+@using Modules.Records.Application.DTOs
+@using Modules.Records.Application.Picklists.Queries.GetPicklistItems
 @using Modules.Records.Domain.Common
+@using Modules.Records.UI.Helpers
+@using Modules.Records.UI.Interop
+@using Modules.Records.UI.Services
 
 <PageTitle>New Location</PageTitle>
 
@@ -92,12 +103,42 @@
                     <InputText class="form-control" @bind-Value="_vm.Coordinates" placeholder="lat,lng" />
                 </div>
                 <div class="col-12">
+                    <label class="form-label">Full Address <span class="text-muted small">(auto-filled from map)</span></label>
+                    <InputText class="form-control" @bind-Value="_vm.Address" placeholder="e.g. 3001 E Plano Pkwy #400, Plano, TX 75074, USA" />
+                </div>
+                <div class="col-12">
                     <label class="form-label">Comments</label>
                     <InputTextArea class="form-control" @bind-Value="_vm.Comments" rows="3" />
                 </div>
             </div>
         </div>
     </div>
+
+    @if (_mapsAvailable)
+    {
+        <div class="card mb-3">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <strong><i class="bi bi-map me-1"></i>Pick from Map</strong>
+                <button type="button" class="btn btn-sm @(_mapOpen ? "btn-outline-secondary" : "btn-outline-primary")"
+                        @onclick="ToggleMapAsync">
+                    @if (_mapLoading)
+                    {
+                        <span class="spinner-border spinner-border-sm me-1"></span>
+                    }
+                    <i class="bi @(_mapOpen ? "bi-x-lg" : "bi-pin-map") me-1"></i>
+                    @(_mapOpen ? "Close Map" : "Open Map")
+                </button>
+            </div>
+            @if (_mapOpen)
+            {
+                <div class="card-body pb-2">
+                    <p class="text-muted small mb-2">Search for an address or click the map to auto-fill the form fields above.</p>
+                    <input id="map-search-input" type="text" class="form-control mb-2" placeholder="Search address…" autocomplete="off" />
+                    <div id="location-create-map" style="height:350px; border-radius:4px;"></div>
+                </div>
+            }
+        </div>
+    }
 
     <button type="submit" class="btn btn-primary" disabled="@_submitting">
         @(_submitting ? "Creating…" : "Create Location")
@@ -118,14 +159,29 @@
     private bool _submitting;
     private bool _showCancelConfirm;
 
+    // Map state
+    private bool _mapsAvailable;
+    private bool _mapOpen;
+    private bool _mapLoading;
+    private string? _apiKey;
+    private DotNetObjectReference<LocationCreate>? _dotnetRef;
+
+    // Picklist cache for auto-population from map selection
+    private IReadOnlyList<PicklistItemDto>? _directionItems;
+    private IReadOnlyList<PicklistItemDto>? _streetTypeItems;
+    private IReadOnlyList<PicklistItemDto>? _stateItems;
+    private IReadOnlyList<PicklistItemDto>? _countryItems;
+
     private bool HasEnteredData => !string.IsNullOrEmpty(_vm.StreetAddress) || !string.IsNullOrEmpty(_vm.City);
     private string CancelUrl => "/locations";
 
-    protected override Task OnInitializedAsync()
+    protected override async Task OnInitializedAsync()
     {
         ShortcutService.OnRelease += HandleShortcutRelease;
         ShortcutService.OnSave    += HandleShortcutSave;
-        return Task.CompletedTask;
+
+        _apiKey = await GoogleMapsConfig.GetApiKeyAsync();
+        _mapsAvailable = !string.IsNullOrWhiteSpace(_apiKey);
     }
 
     private void HandleShortcutSave()
@@ -142,6 +198,128 @@
             Nav.NavigateTo(CancelUrl);
     }
 
+    private async Task ToggleMapAsync()
+    {
+        if (_mapOpen)
+        {
+            await CloseMapAsync();
+        }
+        else
+        {
+            await OpenMapAsync();
+        }
+    }
+
+    private async Task OpenMapAsync()
+    {
+        _mapLoading = true;
+        _mapOpen = true;
+        StateHasChanged();
+
+        try
+        {
+            await MapsInterop.LoadApiAsync(_apiKey!);
+
+            // Determine starting coordinates
+            var (lat, lng) = await GetStartingCoordinatesAsync();
+
+            _dotnetRef ??= DotNetObjectReference.Create(this);
+            // Slight delay to ensure the map div is rendered
+            await Task.Delay(50);
+            await MapsInterop.InitPickerAsync("location-create-map", "map-search-input", lat, lng, _dotnetRef);
+        }
+        catch (Exception ex)
+        {
+            _vm.ErrorMessage = $"Map initialisation failed: {ex.Message}";
+            _mapOpen = false;
+        }
+        finally
+        {
+            _mapLoading = false;
+        }
+    }
+
+    private async Task CloseMapAsync()
+    {
+        await MapsInterop.DestroyAsync("location-create-map");
+        _mapOpen = false;
+    }
+
+    private async Task<(double lat, double lng)> GetStartingCoordinatesAsync()
+    {
+        const double defaultLat = 39.8283;
+        const double defaultLng = -98.5795; // geographic center of the US
+
+        try
+        {
+            var cfg = await AgencyConfig.GetAsync(ConfigurationKeys.MapStartCoordinates);
+            if (cfg?.Value is not null)
+            {
+                var parts = cfg.Value.Split(',');
+                if (parts.Length == 2
+                    && double.TryParse(parts[0].Trim(), System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out var lat)
+                    && double.TryParse(parts[1].Trim(), System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out var lng))
+                {
+                    return (lat, lng);
+                }
+            }
+        }
+        catch { /* fall through to default */ }
+
+        return (defaultLat, defaultLng);
+    }
+
+    [JSInvokable]
+    public async Task OnPlaceSelected(PlaceSelectedPayload payload)
+    {
+        _vm.StreetNumber = payload.StreetNumber ?? _vm.StreetNumber;
+        _vm.AptSuite     = payload.AptSuite     ?? _vm.AptSuite;
+        _vm.City         = payload.City         ?? _vm.City;
+        _vm.Zip          = payload.Zip          ?? _vm.Zip;
+        _vm.Address      = payload.FormattedAddress ?? _vm.Address;
+
+        if (payload.Lat.HasValue && payload.Lng.HasValue)
+            _vm.Coordinates = $"{payload.Lat.Value},{payload.Lng.Value}";
+
+        // Parse route into pre-direction, street name, street type
+        if (!string.IsNullOrWhiteSpace(payload.Route))
+        {
+            _directionItems  ??= await Mediator.Send(new GetPicklistItemsQuery(PicklistTypes.Direction,  ActiveOnly: true));
+            _streetTypeItems ??= await Mediator.Send(new GetPicklistItemsQuery(PicklistTypes.StreetType, ActiveOnly: true));
+
+            var (preId, name, typeId) = ParseRoute(payload.Route, _directionItems, _streetTypeItems);
+            if (!string.IsNullOrWhiteSpace(name))   _vm.StreetAddress   = name;
+            if (preId.HasValue)                      _vm.PreDirectionId  = preId;
+            if (typeId.HasValue)                     _vm.StreetTypeId    = typeId;
+        }
+
+        // Match state abbreviation to picklist item
+        if (!string.IsNullOrWhiteSpace(payload.State))
+        {
+            _stateItems ??= await Mediator.Send(new GetPicklistItemsQuery(PicklistTypes.State, ActiveOnly: true));
+            var match = _stateItems.FirstOrDefault(i => string.Equals(i.Value, payload.State, StringComparison.OrdinalIgnoreCase));
+            if (match is not null) _vm.StateId = match.Id;
+        }
+
+        // Match country abbreviation to picklist item
+        if (!string.IsNullOrWhiteSpace(payload.Country))
+        {
+            _countryItems ??= await Mediator.Send(new GetPicklistItemsQuery(PicklistTypes.Country, ActiveOnly: true));
+            var match = _countryItems.FirstOrDefault(i => string.Equals(i.Value, payload.Country, StringComparison.OrdinalIgnoreCase));
+            if (match is not null) _vm.CountryId = match.Id;
+        }
+
+        await InvokeAsync(StateHasChanged);
+    }
+
+    // Alias maps & ParseRoute now live in LocationParseHelper — kept as public static wrapper
+    // for any callers that referenced LocationCreate.ParseRoute directly.
+    public static (Guid? preId, string name, Guid? typeId) ParseRoute(
+        string route,
+        IReadOnlyList<PicklistItemDto> directions,
+        IReadOnlyList<PicklistItemDto> streetTypes)
+        => LocationParseHelper.ParseRoute(route, directions, streetTypes);
+
     private async Task SubmitFromDialogAsync()
     {
         _showCancelConfirm = false;
@@ -150,11 +328,16 @@
 
     private void DiscardAndCancelAsync() => Nav.NavigateTo(CancelUrl);
 
-    public ValueTask DisposeAsync()
+    public async ValueTask DisposeAsync()
     {
         ShortcutService.OnRelease -= HandleShortcutRelease;
         ShortcutService.OnSave    -= HandleShortcutSave;
-        return ValueTask.CompletedTask;
+
+        if (_mapOpen)
+            await MapsInterop.DestroyAsync("location-create-map");
+
+        _dotnetRef?.Dispose();
+        await MapsInterop.DisposeAsync();
     }
 
     private async Task SubmitAsync()
@@ -176,7 +359,8 @@
                 _vm.AptSuite,
                 _vm.Coordinates,
                 _vm.CommonPlaceName,
-                _vm.Comments);
+                _vm.Comments,
+                _vm.Address);
 
             Nav.NavigateTo($"/locations/{recordNumber}?autoModify=true");
         }
@@ -188,5 +372,20 @@
         {
             _submitting = false;
         }
+    }
+
+    /// <summary>Payload received from the Google Maps JS callback.</summary>
+    public sealed class PlaceSelectedPayload
+    {
+        public string? StreetNumber      { get; set; }
+        public string? Route             { get; set; }
+        public string? AptSuite          { get; set; }
+        public string? City              { get; set; }
+        public string? State             { get; set; }
+        public string? Country           { get; set; }
+        public string? Zip               { get; set; }
+        public double? Lat               { get; set; }
+        public double? Lng               { get; set; }
+        public string? FormattedAddress  { get; set; }
     }
 }

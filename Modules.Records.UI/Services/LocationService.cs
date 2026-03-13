@@ -49,12 +49,13 @@ public sealed class LocationService : ILocationService
         string? aptSuite        = null,
         string? coordinates     = null,
         string? commonPlaceName = null,
-        string? comments        = null) =>
+        string? comments        = null,
+        string? address         = null) =>
         _sender.Send(new CreateLocationCommand(
             streetAddress, city, streetNumber,
             preDirectionId, streetTypeId, postDirectionId,
             stateId, countryId, zip, aptSuite,
-            coordinates, commonPlaceName, comments));
+            coordinates, commonPlaceName, comments, address));
 
     public Task UpdateDetailsAsync(
         Guid    locationId,
@@ -70,12 +71,13 @@ public sealed class LocationService : ILocationService
         string? aptSuite        = null,
         string? coordinates     = null,
         string? commonPlaceName = null,
-        string? comments        = null) =>
+        string? comments        = null,
+        string? address         = null) =>
         _sender.Send(new UpdateLocationDetailsCommand(
             locationId, streetAddress, city, streetNumber,
             preDirectionId, streetTypeId, postDirectionId,
             stateId, countryId, zip, aptSuite,
-            coordinates, commonPlaceName, comments));
+            coordinates, commonPlaceName, comments, address));
 
     public Task AcquireLockAsync(Guid id) =>
         _sender.Send(new AcquireLocationLockCommand(id));

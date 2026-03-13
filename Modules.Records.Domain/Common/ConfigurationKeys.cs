@@ -53,4 +53,11 @@ public static class ConfigurationKeys
     /// Written automatically by the background rebuild service.
     /// </summary>
     public const string ReadModelRebuildLastRunUtc = "ReadModelRebuildLastRunUtc";
+
+    /// <summary>
+    /// Latitude and longitude used to center the Google Maps picker for this agency.
+    /// Format: "latitude,longitude" (decimal degrees), e.g. "41.8781,-87.6298" for Chicago, IL.
+    /// If not set, the map defaults to the geographic center of the United States (39.8283,-98.5795).
+    /// </summary>
+    public const string MapStartCoordinates = "MapStartCoordinates";
 }

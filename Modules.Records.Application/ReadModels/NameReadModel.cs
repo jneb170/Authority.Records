@@ -163,6 +163,13 @@ public sealed class NameReadModel
         UpdatedAtUtc = DateTime.UtcNow;
     }
 
+    public void ApplyLocationChanged(Guid? primaryLocationId, Guid? secondaryLocationId)
+    {
+        PrimaryLocationId   = primaryLocationId;
+        SecondaryLocationId = secondaryLocationId;
+        UpdatedAtUtc        = DateTime.UtcNow;
+    }
+
     public NameDto ToDto() => new(
         Id, RecordNumber, JurisdictionId, AgencyId, NameType, LastOrBusinessName,
         IsLocked, LockedByUserId, CreatedBy, ModifiedBy, CreatedAtUtc, UpdatedAtUtc,
