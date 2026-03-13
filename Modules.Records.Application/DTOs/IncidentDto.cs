@@ -22,4 +22,5 @@ public sealed record IncidentDto(
     Guid?           ModifiedBy,
     DateTime        CreatedAtUtc,
     DateTime        UpdatedAtUtc,
-    Guid?           LocationId = null);
+    Guid?           LocationId = null,
+    DateTime?       OccurredOn = null);

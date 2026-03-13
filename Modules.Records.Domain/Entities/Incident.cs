@@ -23,6 +23,9 @@ public sealed class Incident
     /// <summary>Optional reference to a Master Location Index record for the incident location.</summary>
     public Guid? LocationId { get; private set; }
 
+    /// <summary>Date and time the incident occurred (distinct from when the record was created).</summary>
+    public DateTime? OccurredOn { get; private set; }
+
     // Flat EF-mapped columns— kept separate so no migration is needed
     public string IncidentNum { get; private set; } = string.Empty;
     public string LocalNum { get; private set; } = string.Empty;
@@ -85,7 +88,7 @@ public sealed class Incident
     /// Updates all editable details in one call.
     /// Add new fields to <see cref="IncidentDetails"/> — this method never changes signature.
     /// </summary>
-    public void UpdateDetails(IncidentDetails details, IModificationContext context)
+    public void UpdateDetails(IncidentDetails details, DateTime? occurredOn, IModificationContext context)
     {
         details.Validate();
         EnsureCanModify(context);
@@ -97,8 +100,9 @@ public sealed class Incident
         CFSNum      = details.CFSNum;
         IncidentNum = details.IncidentNum;
         LocalNum    = details.LocalNum;
+        OccurredOn  = occurredOn;
 
-        AddDomainEvent(new IncidentDetailsUpdatedDomainEvent(Id, Details));
+        AddDomainEvent(new IncidentDetailsUpdatedDomainEvent(Id, Details, OccurredOn));
     }
 
     /// <summary>Sets or clears the linked Master Location Index record for this incident.</summary>

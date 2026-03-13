@@ -25,4 +25,19 @@ public interface IGoogleMapsInterop : IAsyncDisposable
 
     /// <summary>Tears down the map instance and releases event listeners.</summary>
     Task DestroyAsync(string elementId);
+
+    /// <summary>
+    /// Initialises a read-only activity map on the home page displaying Incident/Arrest/Citation markers.
+    /// </summary>
+    /// <param name="elementId">HTML id of the map container div.</param>
+    /// <param name="markers">Serialisable marker data objects.</param>
+    /// <param name="defaultLat">Fallback centre latitude when there are no markers.</param>
+    /// <param name="defaultLng">Fallback centre longitude when there are no markers.</param>
+    Task InitMarkersMapAsync(string elementId, object markers, double defaultLat, double defaultLng);
+
+    /// <summary>Shows or hides all markers of a given record type on the activity map.</summary>
+    Task ToggleMarkerLayerAsync(string elementId, string recordType, bool visible);
+
+    /// <summary>Shows or hides POI/transit layers on the given map instance.</summary>
+    Task TogglePoiLayerAsync(string elementId, bool visible);
 }

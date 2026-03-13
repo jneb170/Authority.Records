@@ -8,4 +8,5 @@ namespace Modules.Records.Domain.DomainEvents;
 /// </summary>
 public sealed record IncidentDetailsUpdatedDomainEvent(
     Guid            IncidentId,
-    IncidentDetails Details) : DomainEvent;
+    IncidentDetails Details,
+    DateTime?       OccurredOn = null) : DomainEvent;

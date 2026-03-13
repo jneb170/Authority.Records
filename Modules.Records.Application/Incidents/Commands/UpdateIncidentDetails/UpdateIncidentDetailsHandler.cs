@@ -30,7 +30,7 @@ public sealed class UpdateIncidentDetailsHandler : IRequestHandler<UpdateInciden
                 cancellationToken)
             ?? throw new InvalidOperationException("Incident not found.");
 
-        incident.UpdateDetails(request.Details, _modificationContext);
+        incident.UpdateDetails(request.Details, request.OccurredOn, _modificationContext);
         incident.SetLocation(request.LocationId, _modificationContext);
 
         await _dbContext.SaveChangesAsync(cancellationToken);

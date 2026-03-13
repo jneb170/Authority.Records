@@ -7,6 +7,12 @@ let _mapsLoaded = false;
 let _mapsLoadPromise = null;
 const _mapInstances = {};   // elementId → { map, marker, autocomplete }
 
+// Styles that suppress POI and transit layers (applied by default to keep maps clean)
+const _poiHiddenStyles = [
+    { featureType: 'poi',     elementType: 'all', stylers: [{ visibility: 'off' }] },
+    { featureType: 'transit', elementType: 'all', stylers: [{ visibility: 'off' }] }
+];
+
 /**
  * Dynamically load the Google Maps JS API once per page lifetime.
  * Subsequent calls return the same promise so the script is never injected twice.
@@ -53,7 +59,8 @@ async function initLocationPicker(elementId, lat, lng, searchInputId, dotnetRef)
         zoom: 14,
         mapTypeControl: false,
         streetViewControl: false,
-        fullscreenControl: false
+        fullscreenControl: false,
+        styles: _poiHiddenStyles
     });
 
     const marker = new google.maps.Marker({
@@ -110,7 +117,10 @@ async function initStaticMap(elementId, lat, lng) {
     const container = document.getElementById(elementId);
     if (!container) return;
 
-    new google.maps.Map(container, {
+    // Destroy any prior instance on this element before re-initialising
+    if (_mapInstances[elementId]) destroyMap(elementId);
+
+    const map = new google.maps.Map(container, {
         center: { lat, lng },
         zoom: 16,
         mapTypeControl: false,
@@ -119,10 +129,12 @@ async function initStaticMap(elementId, lat, lng) {
         draggable: false,
         zoomControl: true,
         scrollwheel: false,
-        disableDoubleClickZoom: true
+        disableDoubleClickZoom: true,
+        styles: _poiHiddenStyles
     });
 
-    new google.maps.Marker({ map: _mapInstances[elementId]?.map, position: { lat, lng } });
+    const marker = new google.maps.Marker({ map, position: { lat, lng } });
+    _mapInstances[elementId] = { map, marker };
 }
 
 /**
@@ -191,4 +203,103 @@ async function notifyPlaceSelected(components, lat, lng, dotnetRef, formattedAdd
 }
 
 // Export public API
-export { loadGoogleMapsApi, initLocationPicker, initStaticMap, setMapCenter, destroyMap };
+export { loadGoogleMapsApi, initLocationPicker, initStaticMap, setMapCenter, destroyMap, initMarkersMap, toggleMarkerLayer, togglePoiLayer };
+
+// ─── Activity Map (Home Page) ─────────────────────────────────────────────────
+
+const _markerColors = {
+    'Incident': 'https://maps.google.com/mapfiles/ms/icons/blue-dot.png',
+    'Arrest':   'https://maps.google.com/mapfiles/ms/icons/red-dot.png',
+    'Citation': 'https://maps.google.com/mapfiles/ms/icons/yellow-dot.png'
+};
+
+/**
+ * Initialise a read-only activity map displaying Incident/Arrest/Citation markers.
+ * @param {string} elementId   - id of the container <div>
+ * @param {Array}  markers     - array of { recordType, label, url, lat, lng }
+ * @param {number} defaultLat  - fallback map centre latitude  (e.g. 39.5 for US centre)
+ * @param {number} defaultLng  - fallback map centre longitude (e.g. -98.35)
+ */
+async function initMarkersMap(elementId, markers, defaultLat, defaultLng) {
+    const container = document.getElementById(elementId);
+    if (!container) return;
+
+    // Tear down any prior map on this element (e.g. when reloading with a new date range)
+    if (_mapInstances[elementId]) {
+        google.maps.event.clearInstanceListeners(_mapInstances[elementId].map);
+        delete _mapInstances[elementId];
+    }
+
+    // Centre on the first marker if any, otherwise use the default
+    const centre = markers.length > 0
+        ? { lat: markers[0].lat, lng: markers[0].lng }
+        : { lat: defaultLat, lng: defaultLng };
+
+    const map = new google.maps.Map(container, {
+        center: centre,
+        zoom: markers.length > 0 ? 12 : 4,
+        mapTypeControl: true,
+        streetViewControl: false,
+        fullscreenControl: true,
+        styles: _poiHiddenStyles
+    });
+
+    // Build marker objects, grouped by layer (record type)
+    const layers = {};  // recordType → google.maps.Marker[]
+
+    for (const m of markers) {
+        const icon = _markerColors[m.recordType] ?? null;
+
+        const gMarker = new google.maps.Marker({
+            map,
+            position: { lat: m.lat, lng: m.lng },
+            title: m.label,
+            icon
+        });
+
+        const infoWindow = new google.maps.InfoWindow({
+            content: `<div style="font-size:13px"><strong>${m.recordType}</strong>: <a href="${m.url}">${m.label}</a></div>`
+        });
+
+        gMarker.addListener('click', () => infoWindow.open(map, gMarker));
+
+        if (!layers[m.recordType]) layers[m.recordType] = [];
+        layers[m.recordType].push(gMarker);
+    }
+
+    // Fit map to all marker bounds (if any)
+    if (markers.length > 0) {
+        const bounds = new google.maps.LatLngBounds();
+        for (const m of markers) bounds.extend({ lat: m.lat, lng: m.lng });
+        map.fitBounds(bounds);
+    }
+
+    _mapInstances[elementId] = { map, layers };
+}
+
+/**
+ * Show or hide an entire layer (record type) of markers on the activity map.
+ * @param {string}  elementId  - same id passed to initMarkersMap
+ * @param {string}  recordType - "Incident", "Arrest", or "Citation"
+ * @param {boolean} visible
+ */
+function toggleMarkerLayer(elementId, recordType, visible) {
+    const instance = _mapInstances[elementId];
+    if (!instance || !instance.layers) return;
+    const layer = instance.layers[recordType];
+    if (!layer) return;
+    for (const m of layer) {
+        m.setMap(visible ? instance.map : null);
+    }
+}
+
+/**
+ * Show or hide Google Maps POI and transit layers on any initialised map.
+ * @param {string}  elementId - HTML id of the map container
+ * @param {boolean} visible   - true = show POIs, false = hide POIs
+ */
+function togglePoiLayer(elementId, visible) {
+    const instance = _mapInstances[elementId];
+    if (!instance || !instance.map) return;
+    instance.map.setOptions({ styles: visible ? [] : _poiHiddenStyles });
+}
