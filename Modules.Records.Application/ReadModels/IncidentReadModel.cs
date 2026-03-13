@@ -79,6 +79,8 @@ public sealed class IncidentReadModel
         CFSNum = d.CFSNum; 
         UpdatedAtUtc = DateTime.UtcNow; }
 
+    public void ApplyLocationChanged(Guid? locationId) { LocationId = locationId; UpdatedAtUtc = DateTime.UtcNow; }
+
     public void ApplyModifiedAudit(Guid? modifiedBy) { ModifiedBy = modifiedBy; }
 
     public void ApplyStatusChange(string status)           { Status = status; UpdatedAtUtc = DateTime.UtcNow; }

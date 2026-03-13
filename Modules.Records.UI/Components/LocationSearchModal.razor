@@ -1,87 +1,248 @@
 @inject ILocationService LocationService
+@inject IGoogleMapsConfigService GoogleMapsConfig
+@inject IAgencyConfigurationService AgencyConfig
+@inject IGoogleMapsInterop MapsInterop
+@inject IMediator Mediator
+@implements IAsyncDisposable
+@using MediatR
+@using Microsoft.JSInterop
 @using Modules.Records.Application.DTOs
+@using Modules.Records.Application.Picklists.Queries.GetPicklistItems
+@using Modules.Records.Domain.Common
+@using Modules.Records.UI.Helpers
+@using Modules.Records.UI.Interop
 @using Modules.Records.UI.Services
+@using Modules.Records.UI.ViewModels
 
 @if (Visible)
 {
     <div class="modal fade show d-block" tabindex="-1" role="dialog" style="background:rgba(0,0,0,0.45);">
-        <div class="modal-dialog modal-lg modal-dialog-scrollable" role="document">
+        <div class="modal-dialog modal-xl modal-dialog-scrollable" role="document">
             <div class="modal-content">
                 <div class="modal-header">
-                    <h5 class="modal-title"><i class="bi bi-geo-alt-fill me-2"></i>Search Locations</h5>
-                    <button type="button" class="btn-close" @onclick="Cancel"></button>
-                </div>
-                <div class="modal-body">
-                    <!-- Search Inputs -->
-                    <div class="row g-2 mb-3">
-                        <div class="col-sm-5">
-                            <input class="form-control form-control-sm" @bind="_searchAddress" @bind:event="oninput"
-                                   placeholder="Address contains…" @onkeydown="HandleKeyDown" />
-                        </div>
-                        <div class="col-sm-3">
-                            <input class="form-control form-control-sm" @bind="_searchCity" @bind:event="oninput"
-                                   placeholder="City…" @onkeydown="HandleKeyDown" />
-                        </div>
-                        <div class="col-sm-2">
-                            <input class="form-control form-control-sm" @bind="_searchZip" @bind:event="oninput"
-                                   placeholder="ZIP…" maxlength="10" @onkeydown="HandleKeyDown" />
-                        </div>
-                        <div class="col-sm-2">
-                            <button class="btn btn-sm btn-primary w-100" @onclick="RunSearchAsync">Search</button>
-                        </div>
-                    </div>
-
-                    @if (_loading)
+                    @if (_createMode)
                     {
-                        <LoadingSpinner />
-                    }
-                    else if (_error is not null)
-                    {
-                        <div class="alert alert-danger py-2">@_error</div>
-                    }
-                    else if (_results is not null)
-                    {
-                        @if (!_results.Any())
-                        {
-                            <p class="text-muted small">No locations found.</p>
-                        }
-                        else
-                        {
-                            <div class="list-group list-group-flush">
-                                @foreach (var loc in _results)
-                                {
-                                    <button type="button"
-                                            class="list-group-item list-group-item-action py-2"
-                                            @onclick="() => Select(loc)">
-                                        <div class="d-flex justify-content-between align-items-start">
-                                            <div>
-                                                <span class="fw-semibold">@FormatAddress(loc)</span>
-                                                @if (!string.IsNullOrWhiteSpace(loc.CommonPlaceName))
-                                                {
-                                                    <span class="text-muted ms-2 small">(@loc.CommonPlaceName)</span>
-                                                }
-                                            </div>
-                                            <span class="text-muted small ms-3 text-nowrap">#@loc.RecordNumber</span>
-                                        </div>
-                                    </button>
-                                }
-                            </div>
-                        }
+                        <h5 class="modal-title"><i class="bi bi-geo-alt-fill me-2"></i>New Location</h5>
                     }
                     else
                     {
-                        <p class="text-muted small">Enter search criteria above and press Search.</p>
+                        <h5 class="modal-title"><i class="bi bi-geo-alt-fill me-2"></i>Search Locations</h5>
                     }
+                    <button type="button" class="btn-close" @onclick="Cancel"></button>
                 </div>
-                <div class="modal-footer">
-                    @if (AllowClear && CurrentLocationId.HasValue)
-                    {
-                        <button type="button" class="btn btn-outline-danger btn-sm me-auto" @onclick="Clear">
-                            <i class="bi bi-x-lg me-1"></i>Clear Location
+
+                @if (_createMode)
+                {
+                    <div class="modal-body">
+                        @if (_createVm.ErrorMessage is not null)
+                        {
+                            <div class="alert alert-danger py-2">@_createVm.ErrorMessage</div>
+                        }
+
+                        <EditForm Model="_createVm" OnValidSubmit="CreateAndSelectAsync" id="location-modal-form">
+                            <DataAnnotationsValidator />
+
+                            <div class="card mb-3">
+                                <div class="card-body">
+                                    <h6 class="card-title">Street Address</h6>
+                                    <div class="row g-2">
+                                        <div class="col-sm-6 col-md-2">
+                                            <label class="form-label">Street #</label>
+                                            <InputText class="form-control form-control-sm" @bind-Value="_createVm.StreetNumber" placeholder="123" />
+                                        </div>
+                                        <div class="col-sm-6 col-md-2">
+                                            <label class="form-label">Pre-Dir</label>
+                                            <PicklistSelect PicklistType="@PicklistTypes.Direction" @bind-Value="_createVm.PreDirectionId" />
+                                        </div>
+                                        <div class="col-sm-6 col-md-4">
+                                            <label class="form-label">Street Name <span class="text-danger">*</span></label>
+                                            <InputText class="form-control form-control-sm" @bind-Value="_createVm.StreetAddress" placeholder="Main" />
+                                            <ValidationMessage For="() => _createVm.StreetAddress" />
+                                        </div>
+                                        <div class="col-sm-6 col-md-2">
+                                            <label class="form-label">Street Type</label>
+                                            <PicklistSelect PicklistType="@PicklistTypes.StreetType" @bind-Value="_createVm.StreetTypeId" />
+                                        </div>
+                                        <div class="col-sm-6 col-md-2">
+                                            <label class="form-label">Post-Dir</label>
+                                            <PicklistSelect PicklistType="@PicklistTypes.Direction" @bind-Value="_createVm.PostDirectionId" />
+                                        </div>
+                                        <div class="col-sm-6 col-md-2">
+                                            <label class="form-label">Apt / Suite</label>
+                                            <InputText class="form-control form-control-sm" @bind-Value="_createVm.AptSuite" placeholder="Apt, Suite..." />
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="card mb-3">
+                                <div class="card-body">
+                                    <h6 class="card-title">City / State / ZIP</h6>
+                                    <div class="row g-2">
+                                        <div class="col-sm-6 col-md-4">
+                                            <label class="form-label">City <span class="text-danger">*</span></label>
+                                            <InputText class="form-control form-control-sm" @bind-Value="_createVm.City" placeholder="City" />
+                                            <ValidationMessage For="() => _createVm.City" />
+                                        </div>
+                                        <div class="col-sm-6 col-md-2">
+                                            <label class="form-label">State</label>
+                                            <StateSelect @bind-Value="_createVm.StateId" />
+                                        </div>
+                                        <div class="col-sm-6 col-md-2">
+                                            <label class="form-label">ZIP</label>
+                                            <InputText class="form-control form-control-sm" @bind-Value="_createVm.Zip" placeholder="ZIP" maxlength="10" />
+                                        </div>
+                                        <div class="col-sm-6 col-md-2">
+                                            <label class="form-label">Country</label>
+                                            <PicklistSelect PicklistType="@PicklistTypes.Country" @bind-Value="_createVm.CountryId" />
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="card mb-3">
+                                <div class="card-body">
+                                    <h6 class="card-title">Additional Info</h6>
+                                    <div class="row g-2">
+                                        <div class="col-sm-6 col-md-4">
+                                            <label class="form-label">Common Place Name</label>
+                                            <InputText class="form-control form-control-sm" @bind-Value="_createVm.CommonPlaceName" placeholder="Park, school, business..." />
+                                        </div>
+                                        <div class="col-sm-6 col-md-4">
+                                            <label class="form-label">GPS Coordinates</label>
+                                            <InputText class="form-control form-control-sm" @bind-Value="_createVm.Coordinates" placeholder="lat,lng" />
+                                        </div>
+                                        <div class="col-12">
+                                            <label class="form-label">Full Address <span class="text-muted small">(auto-filled from map)</span></label>
+                                            <InputText class="form-control form-control-sm" @bind-Value="_createVm.Address" placeholder="e.g. 3001 E Plano Pkwy #400, Plano, TX 75074, USA" />
+                                        </div>
+                                        <div class="col-12">
+                                            <label class="form-label">Comments</label>
+                                            <InputTextArea class="form-control form-control-sm" @bind-Value="_createVm.Comments" rows="2" />
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            @if (_mapsAvailable)
+                            {
+                                <div class="card mb-3">
+                                    <div class="card-header d-flex justify-content-between align-items-center">
+                                        <strong><i class="bi bi-map me-1"></i>Pick from Map</strong>
+                                        <button type="button" class="btn btn-sm @(_mapOpen ? "btn-outline-secondary" : "btn-outline-primary")"
+                                                @onclick="ToggleMapAsync">
+                                            @if (_mapLoading)
+                                            {
+                                                <span class="spinner-border spinner-border-sm me-1"></span>
+                                            }
+                                            <i class="bi @(_mapOpen ? "bi-x-lg" : "bi-pin-map") me-1"></i>
+                                            @(_mapOpen ? "Close Map" : "Open Map")
+                                        </button>
+                                    </div>
+                                    @if (_mapOpen)
+                                    {
+                                        <div class="card-body pb-2">
+                                            <p class="text-muted small mb-2">Search for an address or click the map to auto-fill the fields above.</p>
+                                            <input id="modal-map-search-input" type="text" class="form-control form-control-sm mb-2"
+                                                   placeholder="Search address..." autocomplete="off" />
+                                            <div id="location-modal-create-map" style="height:300px; border-radius:4px;"></div>
+                                        </div>
+                                    }
+                                </div>
+                            }
+                        </EditForm>
+                    </div>
+
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary btn-sm me-auto" @onclick="BackToSearchAsync">
+                            <i class="bi bi-arrow-left me-1"></i>Back to Search
                         </button>
-                    }
-                    <button type="button" class="btn btn-secondary btn-sm" @onclick="Cancel">Cancel</button>
-                </div>
+                        <button type="submit" form="location-modal-form" class="btn btn-primary btn-sm" disabled="@_submitting">
+                            @if (_submitting)
+                            {
+                                <span class="spinner-border spinner-border-sm me-1"></span>
+                            }
+                            <i class="bi bi-check-lg me-1"></i>Save &amp; Select
+                        </button>
+                    </div>
+                }
+                else
+                {
+                    <div class="modal-body">
+                        <div class="row g-2 mb-3">
+                            <div class="col-sm-5">
+                                <input class="form-control form-control-sm" @bind="_searchAddress" @bind:event="oninput"
+                                       placeholder="Address contains..." @onkeydown="HandleKeyDown" />
+                            </div>
+                            <div class="col-sm-3">
+                                <input class="form-control form-control-sm" @bind="_searchCity" @bind:event="oninput"
+                                       placeholder="City..." @onkeydown="HandleKeyDown" />
+                            </div>
+                            <div class="col-sm-2">
+                                <input class="form-control form-control-sm" @bind="_searchZip" @bind:event="oninput"
+                                       placeholder="ZIP..." maxlength="10" @onkeydown="HandleKeyDown" />
+                            </div>
+                            <div class="col-sm-2">
+                                <button class="btn btn-sm btn-primary w-100" @onclick="RunSearchAsync">Search</button>
+                            </div>
+                        </div>
+
+                        @if (_loading)
+                        {
+                            <LoadingSpinner />
+                        }
+                        else if (_error is not null)
+                        {
+                            <div class="alert alert-danger py-2">@_error</div>
+                        }
+                        else if (_results is not null)
+                        {
+                            @if (!_results.Any())
+                            {
+                                <p class="text-muted small">No locations found.</p>
+                            }
+                            else
+                            {
+                                <div class="list-group list-group-flush">
+                                    @foreach (var loc in _results)
+                                    {
+                                        <button type="button"
+                                                class="list-group-item list-group-item-action py-2"
+                                                @onclick="() => Select(loc)">
+                                            <div class="d-flex justify-content-between align-items-start">
+                                                <div>
+                                                    <span class="fw-semibold">@FormatAddress(loc)</span>
+                                                    @if (!string.IsNullOrWhiteSpace(loc.CommonPlaceName))
+                                                    {
+                                                        <span class="text-muted ms-2 small">(@loc.CommonPlaceName)</span>
+                                                    }
+                                                </div>
+                                                <span class="text-muted small ms-3 text-nowrap">#@loc.RecordNumber</span>
+                                            </div>
+                                        </button>
+                                    }
+                                </div>
+                            }
+                        }
+                        else
+                        {
+                            <p class="text-muted small">Enter search criteria above and press Search.</p>
+                        }
+                    </div>
+
+                    <div class="modal-footer">
+                        @if (AllowClear && CurrentLocationId.HasValue)
+                        {
+                            <button type="button" class="btn btn-outline-danger btn-sm me-auto" @onclick="Clear">
+                                <i class="bi bi-x-lg me-1"></i>Clear Location
+                            </button>
+                        }
+                        <button type="button" class="btn btn-outline-primary btn-sm" @onclick="SwitchToCreateModeAsync">
+                            <i class="bi bi-plus-lg me-1"></i>New Location
+                        </button>
+                        <button type="button" class="btn btn-secondary btn-sm" @onclick="Cancel">Cancel</button>
+                    </div>
+                }
             </div>
         </div>
     </div>
@@ -95,12 +256,33 @@
     [Parameter] public EventCallback OnCleared { get; set; }
     [Parameter] public EventCallback OnCancelled { get; set; }
 
+    // Search state
     private string _searchAddress = string.Empty;
     private string _searchCity    = string.Empty;
     private string _searchZip     = string.Empty;
     private IReadOnlyList<LocationDto>? _results;
     private bool _loading;
     private string? _error;
+
+    // Create state
+    private bool _createMode;
+    private bool _submitting;
+    private readonly CreateLocationViewModel _createVm = new();
+
+    // Map state
+    private bool _mapsAvailable;
+    private bool _mapOpen;
+    private bool _mapLoading;
+    private string? _apiKey;
+    private DotNetObjectReference<LocationSearchModal>? _dotnetRef;
+
+    // Picklist cache
+    private IReadOnlyList<PicklistItemDto>? _directionItems;
+    private IReadOnlyList<PicklistItemDto>? _streetTypeItems;
+    private IReadOnlyList<PicklistItemDto>? _stateItems;
+    private IReadOnlyList<PicklistItemDto>? _countryItems;
+
+    // Search actions
 
     private async Task RunSearchAsync()
     {
@@ -144,6 +326,8 @@
 
     private async Task Cancel()
     {
+        if (_mapOpen)
+            await CloseMapAsync();
         Reset();
         await OnCancelled.InvokeAsync();
     }
@@ -155,7 +339,176 @@
         _searchZip     = string.Empty;
         _results       = null;
         _error         = null;
+        _createMode    = false;
+        _createVm.Reset();
     }
+
+    // Create mode actions
+
+    private async Task SwitchToCreateModeAsync()
+    {
+        _createMode = true;
+        if (_apiKey is null)
+        {
+            _apiKey = await GoogleMapsConfig.GetApiKeyAsync();
+            _mapsAvailable = !string.IsNullOrWhiteSpace(_apiKey);
+        }
+    }
+
+    private async Task BackToSearchAsync()
+    {
+        if (_mapOpen)
+            await CloseMapAsync();
+        _createMode = false;
+        _createVm.Reset();
+    }
+
+    private async Task CreateAndSelectAsync()
+    {
+        _submitting = true;
+        _createVm.ErrorMessage = null;
+        try
+        {
+            var recordNumber = await LocationService.CreateAsync(
+                _createVm.StreetAddress,
+                _createVm.City,
+                _createVm.StreetNumber,
+                _createVm.PreDirectionId,
+                _createVm.StreetTypeId,
+                _createVm.PostDirectionId,
+                _createVm.StateId,
+                _createVm.CountryId,
+                _createVm.Zip,
+                _createVm.AptSuite,
+                _createVm.Coordinates,
+                _createVm.CommonPlaceName,
+                _createVm.Comments,
+                _createVm.Address);
+
+            var dto = await LocationService.GetByRecordNumberAsync(recordNumber);
+            if (dto is null)
+                throw new InvalidOperationException("Location was created but could not be retrieved.");
+
+            if (_mapOpen)
+                await CloseMapAsync();
+            Reset();
+            await OnSelected.InvokeAsync(dto);
+        }
+        catch (Exception ex)
+        {
+            _createVm.ErrorMessage = ex.Message;
+        }
+        finally
+        {
+            _submitting = false;
+        }
+    }
+
+    // Map
+
+    private async Task ToggleMapAsync()
+    {
+        if (_mapOpen)
+            await CloseMapAsync();
+        else
+            await OpenMapAsync();
+    }
+
+    private async Task OpenMapAsync()
+    {
+        _mapLoading = true;
+        _mapOpen = true;
+        StateHasChanged();
+
+        try
+        {
+            await MapsInterop.LoadApiAsync(_apiKey!);
+
+            var (lat, lng) = await GetStartingCoordinatesAsync();
+            _dotnetRef ??= DotNetObjectReference.Create(this);
+            await Task.Delay(50);
+            await MapsInterop.InitPickerAsync("location-modal-create-map", "modal-map-search-input", lat, lng, _dotnetRef);
+        }
+        catch (Exception ex)
+        {
+            _createVm.ErrorMessage = $"Map initialisation failed: {ex.Message}";
+            _mapOpen = false;
+        }
+        finally
+        {
+            _mapLoading = false;
+        }
+    }
+
+    private async Task CloseMapAsync()
+    {
+        await MapsInterop.DestroyAsync("location-modal-create-map");
+        _mapOpen = false;
+    }
+
+    private async Task<(double lat, double lng)> GetStartingCoordinatesAsync()
+    {
+        const double defaultLat = 39.8283;
+        const double defaultLng = -98.5795;
+
+        try
+        {
+            var cfg = await AgencyConfig.GetAsync(ConfigurationKeys.MapStartCoordinates);
+            if (cfg?.Value is not null)
+            {
+                var parts = cfg.Value.Split(',');
+                if (parts.Length == 2
+                    && double.TryParse(parts[0].Trim(), System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out var lat)
+                    && double.TryParse(parts[1].Trim(), System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out var lng))
+                    return (lat, lng);
+            }
+        }
+        catch { /* fall through */ }
+
+        return (defaultLat, defaultLng);
+    }
+
+    [JSInvokable]
+    public async Task OnPlaceSelected(PlaceSelectedPayload payload)
+    {
+        _createVm.StreetNumber = payload.StreetNumber ?? _createVm.StreetNumber;
+        _createVm.AptSuite     = payload.AptSuite     ?? _createVm.AptSuite;
+        _createVm.City         = payload.City         ?? _createVm.City;
+        _createVm.Zip          = payload.Zip          ?? _createVm.Zip;
+        _createVm.Address      = payload.FormattedAddress ?? _createVm.Address;
+
+        if (payload.Lat.HasValue && payload.Lng.HasValue)
+            _createVm.Coordinates = $"{payload.Lat.Value},{payload.Lng.Value}";
+
+        if (!string.IsNullOrWhiteSpace(payload.Route))
+        {
+            _directionItems  ??= await Mediator.Send(new GetPicklistItemsQuery(PicklistTypes.Direction,  ActiveOnly: true));
+            _streetTypeItems ??= await Mediator.Send(new GetPicklistItemsQuery(PicklistTypes.StreetType, ActiveOnly: true));
+
+            var (preId, name, typeId) = LocationParseHelper.ParseRoute(payload.Route, _directionItems, _streetTypeItems);
+            if (!string.IsNullOrWhiteSpace(name)) _createVm.StreetAddress   = name;
+            if (preId.HasValue)                   _createVm.PreDirectionId  = preId;
+            if (typeId.HasValue)                  _createVm.StreetTypeId    = typeId;
+        }
+
+        if (!string.IsNullOrWhiteSpace(payload.State))
+        {
+            _stateItems ??= await Mediator.Send(new GetPicklistItemsQuery(PicklistTypes.State, ActiveOnly: true));
+            var match = _stateItems.FirstOrDefault(i => string.Equals(i.Value, payload.State, StringComparison.OrdinalIgnoreCase));
+            if (match is not null) _createVm.StateId = match.Id;
+        }
+
+        if (!string.IsNullOrWhiteSpace(payload.Country))
+        {
+            _countryItems ??= await Mediator.Send(new GetPicklistItemsQuery(PicklistTypes.Country, ActiveOnly: true));
+            var match = _countryItems.FirstOrDefault(i => string.Equals(i.Value, payload.Country, StringComparison.OrdinalIgnoreCase));
+            if (match is not null) _createVm.CountryId = match.Id;
+        }
+
+        await InvokeAsync(StateHasChanged);
+    }
+
+    // Helpers
 
     private static string FormatAddress(LocationDto loc)
     {
@@ -163,10 +516,30 @@
         if (!string.IsNullOrWhiteSpace(loc.StreetNumber)) parts.Add(loc.StreetNumber);
         parts.Add(loc.StreetAddress);
         if (!string.IsNullOrWhiteSpace(loc.City))
-        {
             parts.Add($"{loc.City},");
-        }
         if (!string.IsNullOrWhiteSpace(loc.Zip)) parts.Add(loc.Zip);
         return string.Join(" ", parts);
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        if (_mapOpen)
+            await MapsInterop.DestroyAsync("location-modal-create-map");
+        _dotnetRef?.Dispose();
+        await MapsInterop.DisposeAsync();
+    }
+
+    public sealed class PlaceSelectedPayload
+    {
+        public string? StreetNumber     { get; set; }
+        public string? Route            { get; set; }
+        public string? AptSuite         { get; set; }
+        public string? City             { get; set; }
+        public string? State            { get; set; }
+        public string? Country          { get; set; }
+        public string? Zip              { get; set; }
+        public double? Lat              { get; set; }
+        public double? Lng              { get; set; }
+        public string? FormattedAddress { get; set; }
     }
 }

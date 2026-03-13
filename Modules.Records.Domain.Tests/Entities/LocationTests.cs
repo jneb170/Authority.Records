@@ -133,7 +133,7 @@ public sealed class LocationTests
             "789", null, null, null,
             newStateId, null, "12345", "Suite 100",
             null, "City Hall", "Main entrance",
-            context);
+            null, context);
 
         // Assert
         Assert.Equal("Broad St", location.StreetAddress);
@@ -158,7 +158,7 @@ public sealed class LocationTests
         location.UpdateDetails(
             "New St", "New City",
             null, null, null, null, null, null, null, null, null, null, null,
-            context);
+            null, context);
 
         // Assert
         var evt = Assert.Single(location.DomainEvents.OfType<LocationDetailsUpdatedDomainEvent>());
@@ -181,7 +181,7 @@ public sealed class LocationTests
         location.UpdateDetails(
             "Park Ave", "Metro",
             null, null, null, null, null, null, null, null, null, null, null,
-            context);
+            null, context);
 
         // Assert
         Assert.Null(location.StreetNumber);
@@ -326,7 +326,7 @@ public sealed class LocationTests
             location.UpdateDetails(
                 "Blocked St", "Nowhere",
                 null, null, null, null, null, null, null, null, null, null, null,
-                otherContext));
+                null, otherContext));
     }
 
     [Fact]
@@ -341,7 +341,7 @@ public sealed class LocationTests
         location.UpdateDetails(
             "Allowed St", "Somewhere",
             null, null, null, null, null, null, null, null, null, null, null,
-            context);
+            null, context);
 
         Assert.Equal("Allowed St", location.StreetAddress);
     }

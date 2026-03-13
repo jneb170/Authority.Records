@@ -25,6 +25,7 @@ internal sealed class LocationReadModelConfiguration : IEntityTypeConfiguration<
         builder.Property(x => x.Coordinates).HasMaxLength(100).IsRequired(false);
         builder.Property(x => x.CommonPlaceName).HasMaxLength(250).IsRequired(false);
         builder.Property(x => x.Comments).HasMaxLength(500).IsRequired(false);
+        builder.Property(x => x.Address).HasMaxLength(500).IsRequired(false);
 
         // Indexes for common search/filter patterns
         builder.HasIndex(x => new { x.JurisdictionId, x.City });

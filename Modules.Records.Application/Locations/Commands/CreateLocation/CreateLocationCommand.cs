@@ -15,4 +15,5 @@ public sealed record CreateLocationCommand(
     string? AptSuite = null,
     string? Coordinates = null,
     string? CommonPlaceName = null,
-    string? Comments = null) : IRequest<long>;
+    string? Comments = null,
+    string? Address = null) : IRequest<long>;

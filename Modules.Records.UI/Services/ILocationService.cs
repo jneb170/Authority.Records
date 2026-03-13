@@ -26,7 +26,8 @@ public interface ILocationService
         string? aptSuite        = null,
         string? coordinates     = null,
         string? commonPlaceName = null,
-        string? comments        = null);
+        string? comments        = null,
+        string? address         = null);
     Task UpdateDetailsAsync(
         Guid    locationId,
         string  streetAddress,
@@ -41,7 +42,8 @@ public interface ILocationService
         string? aptSuite        = null,
         string? coordinates     = null,
         string? commonPlaceName = null,
-        string? comments        = null);
+        string? comments        = null,
+        string? address         = null);
     Task AcquireLockAsync(Guid id);
     Task ReleaseLockAsync(Guid id);
     Task SoftDeleteAsync(Guid id);

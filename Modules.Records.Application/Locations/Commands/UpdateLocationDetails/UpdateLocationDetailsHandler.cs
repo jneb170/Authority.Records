@@ -44,6 +44,7 @@ public sealed class UpdateLocationDetailsHandler : IRequestHandler<UpdateLocatio
             request.Coordinates,
             request.CommonPlaceName,
             request.Comments,
+            request.Address,
             _modificationContext);
 
         await _dbContext.SaveChangesAsync(cancellationToken);

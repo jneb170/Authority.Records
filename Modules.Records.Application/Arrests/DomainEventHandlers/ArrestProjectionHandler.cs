@@ -59,6 +59,7 @@ public sealed class ArrestProjectionHandler :
             .FirstOrDefaultAsync(a => a.Id == notification.ArrestId, cancellationToken);
 
         readModel.ApplyDetailsChanged(notification.SuspectName, notification.ArrestedAt, notification.ArrestTypeId, notification.ArrestNum);
+        readModel.ApplyLocationChanged(arrest?.LocationId);
         readModel.ApplyModifiedAudit(arrest?.ModifiedBy);
         await _dbContext.SaveChangesAsync(cancellationToken);
     }

@@ -191,7 +191,7 @@ public sealed class CreateLocationHandlerTests
         var readModel = LocationReadModel.Create(
             location.Id, 1, TestJurisdictionId,
             null, null, "Old St", null, null, "Old City",
-            null, null, null, null, null, null, null,
+            null, null, null, null, null, null, null, null,
             DateTime.UtcNow, Guid.NewGuid());
         db.LocationReadModels.Add(readModel);
         await db.SaveChangesAsync(CancellationToken.None);
@@ -200,7 +200,7 @@ public sealed class CreateLocationHandlerTests
         var evt = new LocationDetailsUpdatedDomainEvent(
             location.Id,
             "100", null, "New St", null, null, "New City",
-            stateId, null, "62700", null, null, null, "Updated location");
+            stateId, null, "62700", null, null, null, "Updated location", null);
 
         // Act
         await handler.Handle(evt, CancellationToken.None);
@@ -226,7 +226,7 @@ public sealed class CreateLocationHandlerTests
         var readModel = LocationReadModel.Create(
             locationId, 1, TestJurisdictionId,
             null, null, "Elm St", null, null, "Capital",
-            null, null, null, null, null, null, null,
+            null, null, null, null, null, null, null, null,
             DateTime.UtcNow, Guid.NewGuid());
         db.LocationReadModels.Add(readModel);
         await db.SaveChangesAsync(CancellationToken.None);

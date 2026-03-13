@@ -17,6 +17,7 @@ public sealed record LocationDto(
     string? Coordinates,
     string? CommonPlaceName,
     string? Comments,
+    string? Address,
     bool IsLocked,
     Guid? LockedByUserId,
     Guid CreatedBy,

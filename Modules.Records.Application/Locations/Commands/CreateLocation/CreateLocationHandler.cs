@@ -32,7 +32,8 @@ public sealed class CreateLocationHandler : IRequestHandler<CreateLocationComman
             aptSuite:       request.AptSuite,
             coordinates:    request.Coordinates,
             commonPlaceName: request.CommonPlaceName,
-            comments:       request.Comments);
+            comments:       request.Comments,
+            address:        request.Address);
 
         _dbContext.Locations.Add(location);
         await _dbContext.SaveChangesAsync(cancellationToken);
