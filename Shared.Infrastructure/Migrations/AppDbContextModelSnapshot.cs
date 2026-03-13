@@ -53,6 +53,9 @@ namespace Shared.Infrastructure.Migrations
                     b.Property<Guid>("JurisdictionId")
                         .HasColumnType("uniqueidentifier");
 
+                    b.Property<Guid?>("LocationId")
+                        .HasColumnType("uniqueidentifier");
+
                     b.Property<Guid?>("LockedByUserId")
                         .HasColumnType("uniqueidentifier");
 
@@ -119,6 +122,9 @@ namespace Shared.Infrastructure.Migrations
                         .HasColumnType("datetime2");
 
                     b.Property<Guid>("JurisdictionId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid?>("LocationId")
                         .HasColumnType("uniqueidentifier");
 
                     b.Property<Guid?>("LockedByUserId")
@@ -266,6 +272,9 @@ namespace Shared.Infrastructure.Migrations
                         .HasColumnType("nvarchar(30)")
                         .HasDefaultValue("");
 
+                    b.Property<Guid?>("LocationId")
+                        .HasColumnType("uniqueidentifier");
+
                     b.Property<Guid?>("LockedByUserId")
                         .HasColumnType("uniqueidentifier");
 
@@ -292,6 +301,100 @@ namespace Shared.Infrastructure.Migrations
                     b.HasIndex("UpdatedAtUtc");
 
                     b.ToTable("IncidentReadModels", (string)null);
+                });
+
+            modelBuilder.Entity("Modules.Records.Application.ReadModels.LocationReadModel", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("AptSuite")
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.Property<string>("City")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<string>("Comments")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<string>("CommonPlaceName")
+                        .HasMaxLength(250)
+                        .HasColumnType("nvarchar(250)");
+
+                    b.Property<string>("Coordinates")
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<Guid?>("CountryId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime>("CreatedAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid>("CreatedBy")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<bool>("IsLocked")
+                        .HasColumnType("bit");
+
+                    b.Property<Guid>("JurisdictionId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid?>("LockedByUserId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid?>("ModifiedBy")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid?>("PostDirectionId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid?>("PreDirectionId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<long>("RecordNumber")
+                        .HasColumnType("bigint");
+
+                    b.Property<Guid?>("StateId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("StreetAddress")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<string>("StreetNumber")
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)");
+
+                    b.Property<Guid?>("StreetTypeId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime>("UpdatedAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("Zip")
+                        .HasMaxLength(10)
+                        .HasColumnType("nvarchar(10)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("JurisdictionId", "City");
+
+                    b.HasIndex("JurisdictionId", "CommonPlaceName");
+
+                    b.HasIndex("JurisdictionId", "StateId");
+
+                    b.HasIndex("JurisdictionId", "StreetAddress");
+
+                    b.HasIndex("JurisdictionId", "Zip");
+
+                    b.ToTable("LocationReadModels", (string)null);
                 });
 
             modelBuilder.Entity("Modules.Records.Application.ReadModels.NameReadModel", b =>
@@ -378,11 +481,17 @@ namespace Shared.Infrastructure.Migrations
                         .HasMaxLength(100)
                         .HasColumnType("nvarchar(100)");
 
+                    b.Property<Guid?>("PrimaryLocationId")
+                        .HasColumnType("uniqueidentifier");
+
                     b.Property<Guid?>("RaceId")
                         .HasColumnType("uniqueidentifier");
 
                     b.Property<long>("RecordNumber")
                         .HasColumnType("bigint");
+
+                    b.Property<Guid?>("SecondaryLocationId")
+                        .HasColumnType("uniqueidentifier");
 
                     b.Property<Guid?>("SexId")
                         .HasColumnType("uniqueidentifier");
@@ -594,6 +703,9 @@ namespace Shared.Infrastructure.Migrations
                     b.Property<Guid>("JurisdictionId")
                         .HasColumnType("uniqueidentifier");
 
+                    b.Property<Guid?>("LocationId")
+                        .HasColumnType("uniqueidentifier");
+
                     b.Property<DateTime?>("LockedAtUtc")
                         .HasColumnType("datetime2");
 
@@ -675,6 +787,9 @@ namespace Shared.Infrastructure.Migrations
                     b.Property<Guid>("JurisdictionId")
                         .HasColumnType("uniqueidentifier");
 
+                    b.Property<Guid?>("LocationId")
+                        .HasColumnType("uniqueidentifier");
+
                     b.Property<DateTime?>("LockedAtUtc")
                         .HasColumnType("datetime2");
 
@@ -750,6 +865,9 @@ namespace Shared.Infrastructure.Migrations
                         .HasMaxLength(30)
                         .HasColumnType("nvarchar(30)")
                         .HasDefaultValue("");
+
+                    b.Property<Guid?>("LocationId")
+                        .HasColumnType("uniqueidentifier");
 
                     b.Property<DateTime?>("LockedAtUtc")
                         .HasColumnType("datetime2");
@@ -902,6 +1020,125 @@ namespace Shared.Infrastructure.Migrations
                     b.ToTable("IncidentCitationLinks");
                 });
 
+            modelBuilder.Entity("Modules.Records.Domain.Entities.Location", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("AptSuite")
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.Property<string>("City")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<string>("Comments")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<string>("CommonPlaceName")
+                        .HasMaxLength(250)
+                        .HasColumnType("nvarchar(250)");
+
+                    b.Property<string>("Coordinates")
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<Guid?>("CountryId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid>("CreatedBy")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime?>("DeletedAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid?>("DeletedBy")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("bit");
+
+                    b.Property<Guid>("JurisdictionId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime?>("LockedAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid?>("LockedByUserId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime?>("ModifiedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid?>("ModifiedBy")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid?>("PostDirectionId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid?>("PreDirectionId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<long>("RecordNumber")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("RecordNumber"), 20000L);
+
+                    b.Property<byte[]>("RowVersion")
+                        .IsRequired()
+                        .HasColumnType("varbinary(max)");
+
+                    b.Property<Guid?>("StateId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<int>("Status")
+                        .HasColumnType("int");
+
+                    b.Property<string>("StreetAddress")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<string>("StreetNumber")
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)");
+
+                    b.Property<Guid?>("StreetTypeId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<long>("Version")
+                        .HasColumnType("bigint");
+
+                    b.Property<string>("Zip")
+                        .HasMaxLength(10)
+                        .HasColumnType("nvarchar(10)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("RecordNumber")
+                        .IsUnique();
+
+                    b.HasIndex("JurisdictionId", "City");
+
+                    b.HasIndex("JurisdictionId", "CommonPlaceName");
+
+                    b.HasIndex("JurisdictionId", "StateId");
+
+                    b.HasIndex("JurisdictionId", "StreetAddress");
+
+                    b.HasIndex("JurisdictionId", "Zip");
+
+                    b.ToTable("Locations");
+                });
+
             modelBuilder.Entity("Modules.Records.Domain.Entities.Name", b =>
                 {
                     b.Property<Guid>("Id")
@@ -998,6 +1235,9 @@ namespace Shared.Infrastructure.Migrations
                         .HasMaxLength(100)
                         .HasColumnType("nvarchar(100)");
 
+                    b.Property<Guid?>("PrimaryLocationId")
+                        .HasColumnType("uniqueidentifier");
+
                     b.Property<Guid?>("RaceId")
                         .HasColumnType("uniqueidentifier");
 
@@ -1010,6 +1250,9 @@ namespace Shared.Infrastructure.Migrations
                     b.Property<byte[]>("RowVersion")
                         .IsRequired()
                         .HasColumnType("varbinary(max)");
+
+                    b.Property<Guid?>("SecondaryLocationId")
+                        .HasColumnType("uniqueidentifier");
 
                     b.Property<Guid?>("SexId")
                         .HasColumnType("uniqueidentifier");

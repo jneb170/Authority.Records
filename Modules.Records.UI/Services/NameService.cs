@@ -101,14 +101,17 @@ public sealed class NameService : INameService
         string? localNumber = null,
         string? socialSecurityNumber = null,
         bool isCitizen = false,
-        DateTime? deceasedDate = null) =>
+        DateTime? deceasedDate = null,
+        Guid? primaryLocationId = null,
+        Guid? secondaryLocationId = null) =>
         _sender.Send(new UpdateNameDetailsCommand(
             id, nameType, lastOrBusinessName, firstName, middleName,
             sexId, raceId, dateOfBirth,
             driversLicenseNumber, driversLicenseStateId,
             heightInches, weightLbs, hairColorId, eyeColorId,
             suffixId, placeOfBirth, fbiNumber, localNumber,
-            socialSecurityNumber, isCitizen, deceasedDate));
+            socialSecurityNumber, isCitizen, deceasedDate,
+            primaryLocationId, secondaryLocationId));
 
     public Task AcquireLockAsync(Guid id) =>
         _sender.Send(new AcquireNameLockCommand(id));

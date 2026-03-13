@@ -1,0 +1,278 @@
+@page "/locations"
+@implements IDisposable
+@inject ILocationService LocationService
+@inject IPicklistService PicklistService
+@inject NavigationManager Nav
+@inject IKeyboardShortcutService ShortcutService
+@inject IUserLookupService UserLookupService
+@using Modules.Records.Application.DTOs
+@using Modules.Records.Domain.Common
+@using Modules.Records.UI.Services
+
+<PageTitle>Locations (MLI)</PageTitle>
+
+<div class="page-header">
+    <div>
+        <h2 class="page-header-title"><i class="bi bi-geo-alt-fill"></i> Locations</h2>
+        <div class="page-header-sub">Master Location Index (MLI)</div>
+    </div>
+    <a class="btn btn-primary" title="New Location (Alt+N)" href="/locations/create"><i class="bi bi-plus-lg me-1"></i>New Location</a>
+</div>
+
+<!-- Search / Filter Panel -->
+<div class="card mb-3">
+    <div class="card-header d-flex justify-content-between align-items-center py-2" style="cursor:pointer;" @onclick="() => _filterExpanded = !_filterExpanded">
+        <span class="fw-semibold text-uppercase" style="font-size:0.8rem;letter-spacing:0.05em;">
+            <i class="bi bi-search me-1"></i>Search / Filter
+        </span>
+        <i class="bi @(_filterExpanded ? "bi-chevron-up" : "bi-chevron-down") text-muted" style="font-size:0.8rem;"></i>
+    </div>
+@if (_filterExpanded)
+{
+    <div class="card-body">
+        <div class="row g-2">
+            <div class="col-sm-6 col-md-4">
+                <label class="form-label mb-1">Address contains</label>
+                <input class="form-control form-control-sm" @bind="_filterAddressContains" placeholder="Street address…" />
+            </div>
+            <div class="col-sm-6 col-md-3">
+                <label class="form-label mb-1">City</label>
+                <input class="form-control form-control-sm" @bind="_filterCity" placeholder="City…" />
+            </div>
+            <div class="col-sm-6 col-md-2">
+                <label class="form-label mb-1">State</label>
+                <StateSelect @bind-Value="_filterStateId" />
+            </div>
+            <div class="col-sm-6 col-md-2">
+                <label class="form-label mb-1">ZIP</label>
+                <input class="form-control form-control-sm" @bind="_filterZip" placeholder="ZIP…" maxlength="10" />
+            </div>
+            <div class="col-sm-6 col-md-3">
+                <label class="form-label mb-1">Common Place Name</label>
+                <input class="form-control form-control-sm" @bind="_filterCommonPlaceName" placeholder="Park, school, business…" />
+            </div>
+        </div>
+        <div class="mt-2 d-flex gap-2">
+            <button class="btn btn-sm btn-primary" @onclick="RunSearchAsync">Search</button>
+            <button class="btn btn-sm btn-outline-secondary" @onclick="ClearFiltersAsync">Clear</button>
+        </div>
+    </div>
+}
+</div>
+
+@if (_loading)
+{
+    <LoadingSpinner />
+}
+else if (_error is not null)
+{
+    <div class="alert alert-danger">@_error</div>
+}
+else if (_locations is not null)
+{
+    @if (!_locations.Any())
+    {
+        <p class="text-muted">No locations found.</p>
+    }
+    else
+    {
+        <div class="table-responsive">
+        <table class="table table-hover">
+            <thead>
+                <tr>
+                    <th style="width:3rem"></th>
+                    <SortableColumnHeader ColumnKey="num"     Label="#"
+                        CurrentSortColumn="@_sortColumn" SortAscending="@_sortAscending" OnSort="SortBy" />
+                    <SortableColumnHeader ColumnKey="address" Label="Address"
+                        CurrentSortColumn="@_sortColumn" SortAscending="@_sortAscending" OnSort="SortBy" />
+                    <SortableColumnHeader ColumnKey="city"    Label="City"
+                        CurrentSortColumn="@_sortColumn" SortAscending="@_sortAscending" OnSort="SortBy" />
+                    <SortableColumnHeader ColumnKey="zip"     Label="ZIP"
+                        CurrentSortColumn="@_sortColumn" SortAscending="@_sortAscending" OnSort="SortBy" />
+                    <SortableColumnHeader ColumnKey="place"   Label="Common Place"
+                        CurrentSortColumn="@_sortColumn" SortAscending="@_sortAscending" OnSort="SortBy" />
+                    <th>Lock</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var loc in SortedLocations)
+                {
+                    <tr>
+                        <td>
+                            <button class="btn btn-sm btn-outline-danger" title="Delete"
+                                    @onclick="() => InitiateDelete(loc.Id, loc.StreetAddress)"><i class="bi bi-trash3"></i></button>
+                        </td>
+                        <td><a href="/locations/@loc.RecordNumber">@loc.RecordNumber</a></td>
+                        <td><a href="/locations/@loc.RecordNumber">@FormatAddress(loc)</a></td>
+                        <td>@loc.City</td>
+                        <td>@(loc.Zip ?? "—")</td>
+                        <td>@(loc.CommonPlaceName ?? "—")</td>
+                        <td><LockBadge IsLocked="@loc.IsLocked" LockedByName="@GetLockName(loc.LockedByUserId)" Compact="true" /></td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+        </div>
+    }
+}
+
+<ConfirmDialog Visible="_showDeleteConfirm"
+               Title="Delete Location"
+               Message="@($"Are you sure you want to delete \"{_deleteTargetAddress}\"?")"
+               OnConfirm="ExecuteDeleteAsync"
+               OnCancel="() => _showDeleteConfirm = false" />
+
+@code {
+    private bool _filterExpanded = false;
+    private IReadOnlyList<LocationDto>? _locations;
+    private Dictionary<Guid, string> _lockUserNames = [];
+    private bool _loading = true;
+    private string? _error;
+
+    // Delete state
+    private bool   _showDeleteConfirm;
+    private Guid   _deleteTargetId;
+    private string _deleteTargetAddress = string.Empty;
+
+    // Sort state
+    private string _sortColumn    = "num";
+    private bool   _sortAscending = false;
+
+    private IEnumerable<LocationDto> SortedLocations =>
+        _locations is null ? [] :
+        (_sortColumn, _sortAscending) switch
+        {
+            ("num",     true)  => _locations.OrderBy(x => x.RecordNumber),
+            ("num",     false) => _locations.OrderByDescending(x => x.RecordNumber),
+            ("address", true)  => _locations.OrderBy(x => x.StreetAddress),
+            ("address", false) => _locations.OrderByDescending(x => x.StreetAddress),
+            ("city",    true)  => _locations.OrderBy(x => x.City),
+            ("city",    false) => _locations.OrderByDescending(x => x.City),
+            ("zip",     true)  => _locations.OrderBy(x => x.Zip),
+            ("zip",     false) => _locations.OrderByDescending(x => x.Zip),
+            ("place",   true)  => _locations.OrderBy(x => x.CommonPlaceName),
+            ("place",   false) => _locations.OrderByDescending(x => x.CommonPlaceName),
+            _                  => _locations.OrderByDescending(x => x.RecordNumber),
+        };
+
+    private void SortBy(string column)
+    {
+        if (_sortColumn == column) _sortAscending = !_sortAscending;
+        else { _sortColumn = column; _sortAscending = true; }
+    }
+
+    // Filter state
+    private string _filterAddressContains = string.Empty;
+    private string _filterCity            = string.Empty;
+    private Guid?  _filterStateId;
+    private string _filterZip             = string.Empty;
+    private string _filterCommonPlaceName = string.Empty;
+
+    protected override async Task OnInitializedAsync()
+    {
+        ShortcutService.OnNew += HandleShortcutNew;
+        try
+        {
+            _locations = await LocationService.GetByJurisdictionAsync();
+            await ResolveLockedUsersAsync();
+        }
+        catch (Exception ex)
+        {
+            _error = ex.Message;
+        }
+        finally
+        {
+            _loading = false;
+        }
+    }
+
+    private void HandleShortcutNew() => InvokeAsync(() => Nav.NavigateTo("/locations/create"));
+
+    public void Dispose() => ShortcutService.OnNew -= HandleShortcutNew;
+
+    private string? GetLockName(Guid? userId) =>
+        userId.HasValue ? _lockUserNames.GetValueOrDefault(userId.Value) : null;
+
+    private async Task ResolveLockedUsersAsync()
+    {
+        if (_locations is null) return;
+        var ids = _locations.Where(l => l.IsLocked && l.LockedByUserId.HasValue)
+                            .Select(l => l.LockedByUserId!.Value).Distinct();
+        _lockUserNames = await UserLookupService.GetDisplayNamesAsync(ids);
+    }
+
+    private void InitiateDelete(Guid id, string address)
+    {
+        _deleteTargetId      = id;
+        _deleteTargetAddress = address;
+        _showDeleteConfirm   = true;
+    }
+
+    private async Task ExecuteDeleteAsync()
+    {
+        _showDeleteConfirm = false;
+        try
+        {
+            await LocationService.SoftDeleteAsync(_deleteTargetId);
+            _locations = await LocationService.GetByJurisdictionAsync();
+            await ResolveLockedUsersAsync();
+        }
+        catch (Exception ex) { _error = ex.Message; }
+    }
+
+    private async Task RunSearchAsync()
+    {
+        _loading = true;
+        _error   = null;
+        try
+        {
+            _locations = await LocationService.SearchAsync(
+                addressContains: string.IsNullOrWhiteSpace(_filterAddressContains) ? null : _filterAddressContains,
+                city:            string.IsNullOrWhiteSpace(_filterCity)            ? null : _filterCity,
+                stateId:         _filterStateId,
+                zip:             string.IsNullOrWhiteSpace(_filterZip)             ? null : _filterZip,
+                commonPlaceName: string.IsNullOrWhiteSpace(_filterCommonPlaceName) ? null : _filterCommonPlaceName);
+            await ResolveLockedUsersAsync();
+        }
+        catch (Exception ex)
+        {
+            _error = ex.Message;
+        }
+        finally
+        {
+            _loading = false;
+        }
+    }
+
+    private async Task ClearFiltersAsync()
+    {
+        _filterAddressContains = string.Empty;
+        _filterCity            = string.Empty;
+        _filterStateId         = null;
+        _filterZip             = string.Empty;
+        _filterCommonPlaceName = string.Empty;
+        _loading = true;
+        _error   = null;
+        try
+        {
+            _locations = await LocationService.GetByJurisdictionAsync();
+            await ResolveLockedUsersAsync();
+        }
+        catch (Exception ex)
+        {
+            _error = ex.Message;
+        }
+        finally
+        {
+            _loading = false;
+        }
+    }
+
+    private static string FormatAddress(LocationDto loc)
+    {
+        var parts = new List<string>();
+        if (!string.IsNullOrWhiteSpace(loc.StreetNumber)) parts.Add(loc.StreetNumber);
+        parts.Add(loc.StreetAddress);
+        return string.Join(" ", parts);
+    }
+}

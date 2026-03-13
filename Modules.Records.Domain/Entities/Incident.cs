@@ -20,6 +20,9 @@ public sealed class Incident
     /// <summary>DB-generated auto-increment number. Use this in URLs and display; the GUID is for internal identity.</summary>
     public long RecordNumber { get; private set; }
 
+    /// <summary>Optional reference to a Master Location Index record for the incident location.</summary>
+    public Guid? LocationId { get; private set; }
+
     // Flat EF-mapped columns— kept separate so no migration is needed
     public string IncidentNum { get; private set; } = string.Empty;
     public string LocalNum { get; private set; } = string.Empty;
@@ -96,6 +99,17 @@ public sealed class Incident
         LocalNum    = details.LocalNum;
 
         AddDomainEvent(new IncidentDetailsUpdatedDomainEvent(Id, Details));
+    }
+
+    /// <summary>Sets or clears the linked Master Location Index record for this incident.</summary>
+    public void SetLocation(Guid? locationId, IModificationContext context)
+    {
+        EnsureCanModify(context);
+
+        if (Status != RecordStatus.Draft)
+            EnsureUserOwnsLock(context.UserId);
+
+        LocationId = locationId;
     }
 
     // -------------------------------------------------------

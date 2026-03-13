@@ -29,6 +29,7 @@ builder.Services.AddScoped<ICitationService, CitationService>();
 builder.Services.AddScoped<IAgencyConfigurationService, AgencyConfigurationService>();
 builder.Services.AddScoped<IPicklistService, PicklistService>();
 builder.Services.AddScoped<INameService, NameService>();
+builder.Services.AddScoped<ILocationService, LocationService>();
 builder.Services.AddScoped<IHomeService, HomeService>();
 builder.Services.AddScoped<IKeyboardShortcutService, KeyboardShortcutService>();
 builder.Services.AddScoped<IHotkeyConfigService, HotkeyConfigService>();

@@ -75,8 +75,8 @@ public sealed class ArrestService : IArrestService
     public Task FinalizeAsync(Guid id) =>
         _sender.Send(new FinalizeArrestCommand(id));
 
-    public Task UpdateDetailsAsync(Guid id, string suspectName, DateTime arrestedAt, Guid? arrestTypeId = null, string arrestNum = "") =>
-        _sender.Send(new UpdateArrestDetailsCommand(id, suspectName, arrestedAt, arrestTypeId, arrestNum));
+    public Task UpdateDetailsAsync(Guid id, string suspectName, DateTime arrestedAt, Guid? arrestTypeId = null, string arrestNum = "", Guid? locationId = null) =>
+        _sender.Send(new UpdateArrestDetailsCommand(id, suspectName, arrestedAt, arrestTypeId, arrestNum, locationId));
 
     public Task AcquireLockAsync(Guid id) =>
         _sender.Send(new AcquireArrestLockCommand(id));

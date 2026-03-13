@@ -27,6 +27,7 @@ public sealed class IncidentReadModel
     public Guid?  ModifiedBy      { get; private set; }
     public DateTime CreatedAtUtc  { get; private set; }
     public DateTime UpdatedAtUtc  { get; private set; }
+    public Guid?  LocationId      { get; private set; }
 
     private IncidentReadModel() { } // EF
 
@@ -69,7 +70,7 @@ public sealed class IncidentReadModel
             Description = Description, 
             CFSNum = CFSNum },
         Status, IsDeleted, IsLocked, LockedByUserId, ArrestCount, CitationCount,
-        CreatedBy, ModifiedBy, CreatedAtUtc, UpdatedAtUtc);
+        CreatedBy, ModifiedBy, CreatedAtUtc, UpdatedAtUtc, LocationId);
 
     public void ApplyDetailsChanged(IncidentDetails d) { 
         IncidentNum = d.IncidentNum; 

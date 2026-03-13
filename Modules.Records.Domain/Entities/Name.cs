@@ -80,6 +80,12 @@ public sealed class Name : LockableAggregateRoot<Name>, IMultiTenant
     /// <summary>UTC timestamp when this record was soft-deleted, if applicable.</summary>
     public DateTime? DeletedAtUtc { get; private set; }
 
+    /// <summary>Optional reference to a Master Location Index record for the primary address.</summary>
+    public Guid? PrimaryLocationId { get; private set; }
+
+    /// <summary>Optional reference to a Master Location Index record for the secondary address.</summary>
+    public Guid? SecondaryLocationId { get; private set; }
+
     // --- Policy wiring ---
     private static readonly NameAuthorizationPolicy _authorizationPolicy = new();
     protected override IAuthorizationPolicy<Name> AuthorizationPolicy => _authorizationPolicy;
@@ -193,6 +199,13 @@ public sealed class Name : LockableAggregateRoot<Name>, IMultiTenant
             SexId, RaceId, DateOfBirth, DriversLicenseNumber, DriversLicenseStateId,
             HeightInches, WeightLbs, HairColorId, EyeColorId,
             SuffixId, PlaceOfBirth, FbiNumber, LocalNumber, SocialSecurityNumber, IsCitizen, DeceasedDate));
+    }
+
+    /// <summary>Sets or clears the primary and/or secondary address from the Master Location Index.</summary>
+    public void SetLocations(Guid? primaryLocationId, Guid? secondaryLocationId, IModificationContext context)
+    {
+        PrimaryLocationId   = primaryLocationId;
+        SecondaryLocationId = secondaryLocationId;
     }
 
     public override void SoftDelete(Guid userId)

@@ -40,5 +40,7 @@ internal sealed class NameConfiguration : IEntityTypeConfiguration<Name>
         builder.Property(x => x.SocialSecurityNumber).HasMaxLength(11).IsRequired(false);
         builder.Property(x => x.IsCitizen).HasDefaultValue(false);
         builder.Property(x => x.DeceasedDate).IsRequired(false);
+        builder.Property(x => x.PrimaryLocationId).IsRequired(false);
+        builder.Property(x => x.SecondaryLocationId).IsRequired(false);
     }
 }

@@ -1,0 +1,25 @@
+namespace Modules.Records.Application.DTOs;
+
+public sealed record LocationDto(
+    Guid Id,
+    long RecordNumber,
+    Guid JurisdictionId,
+    string? StreetNumber,
+    Guid? PreDirectionId,
+    string StreetAddress,
+    Guid? StreetTypeId,
+    Guid? PostDirectionId,
+    string City,
+    Guid? StateId,
+    Guid? CountryId,
+    string? Zip,
+    string? AptSuite,
+    string? Coordinates,
+    string? CommonPlaceName,
+    string? Comments,
+    bool IsLocked,
+    Guid? LockedByUserId,
+    Guid CreatedBy,
+    Guid? ModifiedBy,
+    DateTime CreatedAtUtc,
+    DateTime UpdatedAtUtc);

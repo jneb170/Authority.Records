@@ -15,4 +15,5 @@ public sealed record CitationDto(
     DateTime CreatedAtUtc,
     DateTime UpdatedAtUtc,
     Guid? CourtId = null,
-    string CitationNum = "");
+    string CitationNum = "",
+    Guid? LocationId = null);

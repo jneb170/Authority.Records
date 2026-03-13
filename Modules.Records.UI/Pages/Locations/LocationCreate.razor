@@ -1,0 +1,192 @@
+@page "/locations/create"
+@implements IAsyncDisposable
+@inject ILocationService LocationService
+@inject IKeyboardShortcutService ShortcutService
+@inject NavigationManager Nav
+@using Modules.Records.Domain.Common
+
+<PageTitle>New Location</PageTitle>
+
+<div class="page-header">
+    <div>
+        <h2 class="page-header-title"><i class="bi bi-geo-alt-fill"></i> New Location</h2>
+    </div>
+</div>
+
+@if (_vm.ErrorMessage is not null)
+{
+    <div class="alert alert-danger">@_vm.ErrorMessage</div>
+}
+
+<EditForm Model="_vm" OnValidSubmit="SubmitAsync">
+    <DataAnnotationsValidator />
+
+    <div class="card mb-3">
+        <div class="card-body">
+            <h6 class="card-title">Street Address</h6>
+            <div class="row g-3">
+                <div class="col-sm-6 col-md-2">
+                    <label class="form-label">Street #</label>
+                    <InputText class="form-control" @bind-Value="_vm.StreetNumber" placeholder="e.g. 123" />
+                </div>
+                <div class="col-sm-6 col-md-2">
+                    <label class="form-label">Pre-Direction</label>
+                    <PicklistSelect PicklistType="@PicklistTypes.Direction" @bind-Value="_vm.PreDirectionId" />
+                </div>
+                <div class="col-sm-6 col-md-4">
+                    <label class="form-label">Street Name <span class="text-danger">*</span></label>
+                    <InputText class="form-control" @bind-Value="_vm.StreetAddress" placeholder="e.g. Main" />
+                    <ValidationMessage For="() => _vm.StreetAddress" />
+                </div>
+                <div class="col-sm-6 col-md-2">
+                    <label class="form-label">Street Type</label>
+                    <PicklistSelect PicklistType="@PicklistTypes.StreetType" @bind-Value="_vm.StreetTypeId" />
+                </div>
+                <div class="col-sm-6 col-md-2">
+                    <label class="form-label">Post-Direction</label>
+                    <PicklistSelect PicklistType="@PicklistTypes.Direction" @bind-Value="_vm.PostDirectionId" />
+                </div>
+                <div class="col-sm-6 col-md-2">
+                    <label class="form-label">Apt / Suite</label>
+                    <InputText class="form-control" @bind-Value="_vm.AptSuite" placeholder="Apt, Suite, Unit…" />
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="card mb-3">
+        <div class="card-body">
+            <h6 class="card-title">City / State / ZIP</h6>
+            <div class="row g-3">
+                <div class="col-sm-6 col-md-4">
+                    <label class="form-label">City <span class="text-danger">*</span></label>
+                    <InputText class="form-control" @bind-Value="_vm.City" placeholder="City" />
+                    <ValidationMessage For="() => _vm.City" />
+                </div>
+                <div class="col-sm-6 col-md-2">
+                    <label class="form-label">State</label>
+                    <StateSelect @bind-Value="_vm.StateId" />
+                </div>
+                <div class="col-sm-6 col-md-2">
+                    <label class="form-label">ZIP</label>
+                    <InputText class="form-control" @bind-Value="_vm.Zip" placeholder="ZIP" maxlength="10" />
+                </div>
+                <div class="col-sm-6 col-md-2">
+                    <label class="form-label">Country</label>
+                    <PicklistSelect PicklistType="@PicklistTypes.Country" @bind-Value="_vm.CountryId" />
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="card mb-3">
+        <div class="card-body">
+            <h6 class="card-title">Additional Info</h6>
+            <div class="row g-3">
+                <div class="col-sm-6 col-md-4">
+                    <label class="form-label">Common Place Name</label>
+                    <InputText class="form-control" @bind-Value="_vm.CommonPlaceName" placeholder="Park, school, business…" />
+                </div>
+                <div class="col-sm-6 col-md-4">
+                    <label class="form-label">GPS Coordinates</label>
+                    <InputText class="form-control" @bind-Value="_vm.Coordinates" placeholder="lat,lng" />
+                </div>
+                <div class="col-12">
+                    <label class="form-label">Comments</label>
+                    <InputTextArea class="form-control" @bind-Value="_vm.Comments" rows="3" />
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <button type="submit" class="btn btn-primary" disabled="@_submitting">
+        @(_submitting ? "Creating…" : "Create Location")
+    </button>
+    <a class="btn btn-secondary ms-2" href="/locations">Cancel</a>
+</EditForm>
+
+<UnsavedChangesDialog Visible="_showCancelConfirm"
+                      SaveLabel="Submit Record"
+                      DiscardLabel="Discard"
+                      ActionDescription="leaving the form"
+                      OnSaveAndRelease="SubmitFromDialogAsync"
+                      OnDiscard="DiscardAndCancelAsync"
+                      OnCancel="() => _showCancelConfirm = false" />
+
+@code {
+    private readonly CreateLocationViewModel _vm = new();
+    private bool _submitting;
+    private bool _showCancelConfirm;
+
+    private bool HasEnteredData => !string.IsNullOrEmpty(_vm.StreetAddress) || !string.IsNullOrEmpty(_vm.City);
+    private string CancelUrl => "/locations";
+
+    protected override Task OnInitializedAsync()
+    {
+        ShortcutService.OnRelease += HandleShortcutRelease;
+        ShortcutService.OnSave    += HandleShortcutSave;
+        return Task.CompletedTask;
+    }
+
+    private void HandleShortcutSave()
+        => InvokeAsync(async () => { await SubmitAsync(); StateHasChanged(); });
+
+    private void HandleShortcutRelease()
+        => InvokeAsync(() => { HandleEscape(); StateHasChanged(); });
+
+    private void HandleEscape()
+    {
+        if (HasEnteredData)
+            _showCancelConfirm = true;
+        else
+            Nav.NavigateTo(CancelUrl);
+    }
+
+    private async Task SubmitFromDialogAsync()
+    {
+        _showCancelConfirm = false;
+        await SubmitAsync();
+    }
+
+    private void DiscardAndCancelAsync() => Nav.NavigateTo(CancelUrl);
+
+    public ValueTask DisposeAsync()
+    {
+        ShortcutService.OnRelease -= HandleShortcutRelease;
+        ShortcutService.OnSave    -= HandleShortcutSave;
+        return ValueTask.CompletedTask;
+    }
+
+    private async Task SubmitAsync()
+    {
+        _submitting = true;
+        _vm.ErrorMessage = null;
+        try
+        {
+            var recordNumber = await LocationService.CreateAsync(
+                _vm.StreetAddress,
+                _vm.City,
+                _vm.StreetNumber,
+                _vm.PreDirectionId,
+                _vm.StreetTypeId,
+                _vm.PostDirectionId,
+                _vm.StateId,
+                _vm.CountryId,
+                _vm.Zip,
+                _vm.AptSuite,
+                _vm.Coordinates,
+                _vm.CommonPlaceName,
+                _vm.Comments);
+
+            Nav.NavigateTo($"/locations/{recordNumber}?autoModify=true");
+        }
+        catch (Exception ex)
+        {
+            _vm.ErrorMessage = ex.Message;
+        }
+        finally
+        {
+            _submitting = false;
+        }
+    }
+}

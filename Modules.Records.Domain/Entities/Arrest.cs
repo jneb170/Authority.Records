@@ -25,6 +25,9 @@ namespace Modules.Records.Domain.Entities
         /// <summary>Optional reference to the agency-configured ArrestType picklist item.</summary>
         public Guid? ArrestTypeId { get; private set; }
 
+        /// <summary>Optional reference to a Master Location Index record for the arrest location.</summary>
+        public Guid? LocationId { get; private set; }
+
         private static ILifecyclePolicy<Arrest> _lifecyclePolicy;
 
         // Inject lifecycle policy from composition root / factory
@@ -96,6 +99,12 @@ namespace Modules.Records.Domain.Entities
             ArrestNum    = arrestNum;
 
             AddDomainEvent(new ArrestDetailsUpdatedDomainEvent(Id, SuspectName, ArrestedAt, ArrestTypeId, ArrestNum));
+        }
+
+        /// <summary>Sets or clears the linked Master Location Index record for this arrest.</summary>
+        public void SetLocation(Guid? locationId, IModificationContext context)
+        {
+            LocationId = locationId;
         }
 
         // -------------------------------------------------------

@@ -31,6 +31,7 @@ public sealed class UpdateArrestDetailsHandler : IRequestHandler<UpdateArrestDet
             ?? throw new InvalidOperationException("Arrest not found.");
 
         arrest.UpdateDetails(request.SuspectName, request.ArrestedAt, request.ArrestTypeId, request.ArrestNum, _modificationContext);
+        arrest.SetLocation(request.LocationId, _modificationContext);
 
         await _dbContext.SaveChangesAsync(cancellationToken);
     }
