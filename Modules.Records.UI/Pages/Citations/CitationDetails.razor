@@ -9,6 +9,7 @@
 @inject IUserLookupService UserLookupService
 @inject NavigationManager Nav
 @inject IKeyboardShortcutService ShortcutService
+@inject ILocationService LocationService
 @using Modules.Records.Domain.Common
 @using Modules.Records.UI.Services
 
@@ -162,6 +163,24 @@ else if (_citation is not null)
                     <label class="form-label mb-1">Issued</label>
                     <p class="form-control-plaintext form-control-sm ps-0 mb-0">@(_citation.IsIssued ? "✅ Yes" : "⏳ Pending")</p>
                 </div>
+                <div class="col-12">
+                    <label class="form-label mb-1">Location</label>
+                    <div class="d-flex align-items-center gap-2">
+                        <span class="fw-semibold">@(_editLocationDisplay ?? "— None —")</span>
+                        @if (_modifyMode)
+                        {
+                            <button type="button" class="btn btn-sm btn-outline-secondary" @onclick="() => _showLocationModal = true">
+                                <i class="bi bi-geo-alt me-1"></i>@(_editLocationId.HasValue ? "Change" : "Assign") Location
+                            </button>
+                            @if (_editLocationId.HasValue)
+                            {
+                                <button type="button" class="btn btn-sm btn-outline-danger" @onclick="ClearLocation">
+                                    <i class="bi bi-x-lg"></i>
+                                </button>
+                            }
+                        }
+                    </div>
+                </div>
             </div>
             @if (_modifyMode)
             {
@@ -171,6 +190,12 @@ else if (_citation is not null)
             }
         </div>
     </div>
+
+    <LocationSearchModal Visible="_showLocationModal"
+                         CurrentLocationId="_editLocationId"
+                         OnSelected="OnLocationSelected"
+                         OnCleared="OnLocationCleared"
+                         OnCancelled="() => _showLocationModal = false" />
 
     <AuditInfoSection CreatedAt="@_citation.CreatedAtUtc"
                       CreatedByName="@_createdByName"
@@ -266,6 +291,9 @@ else if (_citation is not null)
     private Guid? _editCourtId;
     private string? _courtLabel;
     private bool _courtRequired;
+    private Guid?  _editLocationId;
+    private string? _editLocationDisplay;
+    private bool   _showLocationModal;
 
     private string? _createdByName;
     private string? _modifiedByName;
@@ -311,6 +339,7 @@ else if (_citation is not null)
             _editIssueDate   = _citation.IssueDate;
             _editCitationNum = _citation.CitationNum;
             _editCourtId     = _citation.CourtId;
+            _editLocationId  = _citation.LocationId;
             _editSnapshot = ComputeEditSnapshot();
             StartLockTimer();
         }
@@ -333,6 +362,8 @@ else if (_citation is not null)
                 _editIssueDate   = _citation.IssueDate;
                 _editCitationNum = _citation.CitationNum;
                 _editCourtId     = _citation.CourtId;
+                _editLocationId  = _citation.LocationId;
+                await ResolveLocationDisplayAsync();
             }
 
             if (_citation is not null)
@@ -399,6 +430,7 @@ else if (_citation is not null)
             _editIssueDate   = _citation?.IssueDate ?? DateTime.Now;
             _editCitationNum = _citation?.CitationNum ?? string.Empty;
             _editCourtId     = _citation?.CourtId;
+            _editLocationId  = _citation?.LocationId;
             _editSnapshot = ComputeEditSnapshot();
             StartLockTimer();
             await LoadAsync();
@@ -418,7 +450,7 @@ else if (_citation is not null)
     }
 
     private string ComputeEditSnapshot() =>
-        string.Join("§", _editDescription, _editIssueDate, _editCitationNum, _editCourtId);
+        string.Join("§", _editDescription, _editIssueDate, _editCitationNum, _editCourtId, _editLocationId);
 
     private bool HasPendingChanges => _modifyMode && _editSnapshot != ComputeEditSnapshot();
 
@@ -493,7 +525,7 @@ else if (_citation is not null)
         _saveSuccessMessage = null;
         try
         {
-            await CitationService.UpdateDetailsAsync(_citationId, _editDescription, _editIssueDate, _editCourtId, _editCitationNum);
+            await CitationService.UpdateDetailsAsync(_citationId, _editDescription, _editIssueDate, _editCourtId, _editCitationNum, _editLocationId);
             await LoadAsync();
             _editSnapshot = ComputeEditSnapshot();
             _saveSuccessMessage = "Details saved successfully.";
@@ -557,6 +589,48 @@ else if (_citation is not null)
             Nav.NavigateTo($"/incidents/{IncidentRecordNumber}");
         else
             Nav.NavigateTo("/citations");
+    }
+
+    private async Task ResolveLocationDisplayAsync()
+    {
+        if (_editLocationId.HasValue)
+        {
+            var loc = await LocationService.GetByIdAsync(_editLocationId.Value);
+            _editLocationDisplay = loc is null ? null : FormatLocationDisplay(loc);
+        }
+        else
+        {
+            _editLocationDisplay = null;
+        }
+    }
+
+    private void OnLocationSelected(LocationDto loc)
+    {
+        _editLocationId      = loc.Id;
+        _editLocationDisplay = FormatLocationDisplay(loc);
+        _showLocationModal   = false;
+    }
+
+    private void OnLocationCleared()
+    {
+        _editLocationId      = null;
+        _editLocationDisplay = null;
+        _showLocationModal   = false;
+    }
+
+    private void ClearLocation()
+    {
+        _editLocationId      = null;
+        _editLocationDisplay = null;
+    }
+
+    private static string FormatLocationDisplay(LocationDto loc)
+    {
+        var parts = new List<string>();
+        if (!string.IsNullOrWhiteSpace(loc.StreetNumber))  parts.Add(loc.StreetNumber);
+        if (!string.IsNullOrWhiteSpace(loc.StreetAddress)) parts.Add(loc.StreetAddress);
+        if (!string.IsNullOrWhiteSpace(loc.City))          parts.Add(loc.City);
+        return string.Join(" ", parts);
     }
 
     public ValueTask DisposeAsync()

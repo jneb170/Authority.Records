@@ -20,6 +20,7 @@ public sealed class ArrestReadModel
     public DateTime UpdatedAtUtc { get; private set; }
     public Guid? ArrestTypeId { get; private set; }
     public string ArrestNum { get; private set; } = string.Empty;
+    public Guid? LocationId { get; private set; }
 
     private ArrestReadModel() { } // EF
 
@@ -58,7 +59,7 @@ public sealed class ArrestReadModel
     public ArrestDto ToDto() => new(
         Id, RecordNumber, JurisdictionId, AgencyId,
         SuspectName, ArrestedAt, Status, IsLocked, LockedByUserId,
-        CreatedBy, ModifiedBy, CreatedAtUtc, UpdatedAtUtc, ArrestTypeId, ArrestNum);
+        CreatedBy, ModifiedBy, CreatedAtUtc, UpdatedAtUtc, ArrestTypeId, ArrestNum, LocationId);
 
     public void ApplyDetailsChanged(string suspectName, DateTime arrestedAt, Guid? arrestTypeId, string arrestNum)
     {

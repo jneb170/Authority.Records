@@ -31,6 +31,7 @@ public sealed class UpdateIncidentDetailsHandler : IRequestHandler<UpdateInciden
             ?? throw new InvalidOperationException("Incident not found.");
 
         incident.UpdateDetails(request.Details, _modificationContext);
+        incident.SetLocation(request.LocationId, _modificationContext);
 
         await _dbContext.SaveChangesAsync(cancellationToken);
     }

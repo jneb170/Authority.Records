@@ -37,5 +37,7 @@ public sealed class IncidentConfiguration : IEntityTypeConfiguration<Incident>
 
         // Details is a computed [NotMapped] property — EF must not try to map it
         builder.Ignore(x => x.Details);
+
+        builder.Property(x => x.LocationId).IsRequired(false);
     }
 }

@@ -23,6 +23,8 @@ namespace Shared.Infrastructure.Persistence.Configurations
             builder.Property(x => x.ArrestNum)
                    .HasMaxLength(50)
                    .IsRequired(false);
+
+            builder.Property(x => x.LocationId).IsRequired(false);
         }
     }
 }

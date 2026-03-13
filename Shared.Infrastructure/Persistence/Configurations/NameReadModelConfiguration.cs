@@ -34,6 +34,8 @@ public sealed class NameReadModelConfiguration : IEntityTypeConfiguration<NameRe
         builder.Property(x => x.SocialSecurityNumber).HasMaxLength(11).IsRequired(false);
         builder.Property(x => x.IsCitizen).HasDefaultValue(false);
         builder.Property(x => x.DeceasedDate).IsRequired(false);
+        builder.Property(x => x.PrimaryLocationId).IsRequired(false);
+        builder.Property(x => x.SecondaryLocationId).IsRequired(false);
 
         // Search indexes — all keyed on JurisdictionId for multi-tenant isolation
         builder.HasIndex(x => new { x.JurisdictionId, x.LastOrBusinessName });

@@ -13,6 +13,7 @@ public interface IApplicationDbContext
     DbSet<Arrest> Arrests { get; }
     DbSet<Citation> Citations { get; }
     DbSet<Name> Names { get; }
+    DbSet<Location> Locations { get; }
     DbSet<IncidentArrestLink> IncidentArrestLinks { get; }
     DbSet<IncidentCitationLink> IncidentCitationLinks { get; }
 
@@ -20,6 +21,7 @@ public interface IApplicationDbContext
     DbSet<ArrestReadModel> ArrestReadModels { get; }
     DbSet<CitationReadModel> CitationReadModels { get; }
     DbSet<NameReadModel> NameReadModels { get; }
+    DbSet<LocationReadModel> LocationReadModels { get; }
     DbSet<IncidentArrestLinkReadModel> IncidentArrestLinkReadModels { get; }
     DbSet<IncidentCitationLinkReadModel> IncidentCitationLinkReadModels { get; }
 

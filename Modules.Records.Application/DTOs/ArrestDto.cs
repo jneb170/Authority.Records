@@ -15,4 +15,5 @@ public sealed record ArrestDto(
     DateTime CreatedAtUtc,
     DateTime UpdatedAtUtc,
     Guid? ArrestTypeId = null,
-    string ArrestNum = "");
+    string ArrestNum = "",
+    Guid? LocationId = null);

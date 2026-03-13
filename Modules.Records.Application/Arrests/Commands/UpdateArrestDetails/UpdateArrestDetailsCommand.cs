@@ -7,4 +7,5 @@ public sealed record UpdateArrestDetailsCommand(
     string   SuspectName,
     DateTime ArrestedAt,
     Guid?    ArrestTypeId,
-    string   ArrestNum = "") : IRequest;
+    string   ArrestNum   = "",
+    Guid?    LocationId  = null) : IRequest;

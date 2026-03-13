@@ -19,6 +19,7 @@ public sealed class CitationReadModel
     public DateTime UpdatedAtUtc { get; private set; }
     public Guid? CourtId { get; private set; }
     public string CitationNum { get; private set; } = string.Empty;
+    public Guid? LocationId { get; private set; }
 
     private CitationReadModel() { } // EF
 
@@ -57,7 +58,7 @@ public sealed class CitationReadModel
     public CitationDto ToDto() => new(
         Id, RecordNumber, JurisdictionId, AgencyId,
         Description, IssueDate, IsIssued, IsLocked, LockedByUserId,
-        CreatedBy, ModifiedBy, CreatedAtUtc, UpdatedAtUtc, CourtId, CitationNum);
+        CreatedBy, ModifiedBy, CreatedAtUtc, UpdatedAtUtc, CourtId, CitationNum, LocationId);
 
     public void ApplyDetailsChanged(string description, DateTime issueDate, Guid? courtId, string citationNum)
     {

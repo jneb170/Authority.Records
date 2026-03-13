@@ -22,6 +22,9 @@ namespace Modules.Records.Domain.Entities
         /// <summary>Optional reference to the agency-configured Court picklist item.</summary>
         public Guid? CourtId { get; private set; }
 
+        /// <summary>Optional reference to a Master Location Index record for the citation location.</summary>
+        public Guid? LocationId { get; private set; }
+
         private static ILifecyclePolicy<Citation> _lifecyclePolicy;
 
         // Inject lifecycle policy from composition root / factory
@@ -63,6 +66,12 @@ namespace Modules.Records.Domain.Entities
             CitationNum = citationNum;
 
             AddDomainEvent(new CitationDetailsUpdatedDomainEvent(Id, Description, IssueDate, CourtId, CitationNum));
+        }
+
+        /// <summary>Sets or clears the linked Master Location Index record for this citation.</summary>
+        public void SetLocation(Guid? locationId, IModificationContext context)
+        {
+            LocationId = locationId;
         }
 
         // -------------------------------------------------------
