@@ -39,5 +39,9 @@ public sealed class IncidentConfiguration : IEntityTypeConfiguration<Incident>
         builder.Ignore(x => x.Details);
 
         builder.Property(x => x.LocationId).IsRequired(false);
+
+        builder.Property(x => x.OccurredOn)
+               .HasColumnType("datetime2")
+               .IsRequired(false);
     }
 }

@@ -53,11 +53,35 @@ public sealed class GoogleMapsInterop : IGoogleMapsInterop
         await _module.InvokeVoidAsync("destroyMap", elementId);
     }
 
+    public async Task InitMarkersMapAsync(string elementId, object markers, double defaultLat, double defaultLng)
+    {
+        var mod = await GetModuleAsync();
+        await mod.InvokeVoidAsync("initMarkersMap", elementId, markers, defaultLat, defaultLng);
+    }
+
+    public async Task ToggleMarkerLayerAsync(string elementId, string recordType, bool visible)
+    {
+        if (_module is null) return;
+        await _module.InvokeVoidAsync("toggleMarkerLayer", elementId, recordType, visible);
+    }
+
+    public async Task TogglePoiLayerAsync(string elementId, bool visible)
+    {
+        if (_module is null) return;
+        await _module.InvokeVoidAsync("togglePoiLayer", elementId, visible);
+    }
+
     public async ValueTask DisposeAsync()
     {
-        if (_module is not null)
+        if (_module is null) return;
+        try
         {
             await _module.DisposeAsync();
+        }
+        catch (JSDisconnectedException) { }
+        catch (JSException) { }
+        finally
+        {
             _module = null;
         }
     }

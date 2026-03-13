@@ -84,9 +84,10 @@ public sealed class RebuildReadModelsHandler
                 localNumber:           n.LocalNumber,
                 socialSecurityNumber:  n.SocialSecurityNumber,
                 isCitizen:             n.IsCitizen,
-                deceasedDate:          n.DeceasedDate,
-                createdAtUtc:          n.CreatedAt,
-                createdBy:             n.CreatedBy);
+                 deceasedDate:          n.DeceasedDate,
+                 createdAtUtc:          n.CreatedAt,
+                 createdBy:             n.CreatedBy);
+            rm.ApplyLocationChanged(n.PrimaryLocationId, n.SecondaryLocationId);
             rm.ApplyModifiedAudit(n.ModifiedBy);
             return rm;
         }).ToList();
@@ -110,9 +111,10 @@ public sealed class RebuildReadModelsHandler
                 suspectName:    a.SuspectName,
                 arrestedAt:     a.ArrestedAt,
                 createdAtUtc:   a.CreatedAt,
-                createdBy:      a.CreatedBy,
-                arrestNum:      a.ArrestNum);
+                 createdBy:      a.CreatedBy,
+                 arrestNum:      a.ArrestNum);
             rm.ApplyDetailsChanged(a.SuspectName, a.ArrestedAt, a.ArrestTypeId, a.ArrestNum);
+            rm.ApplyLocationChanged(a.LocationId);
             rm.ApplyStatusChange(a.Status.ToString());
             rm.ApplyModifiedAudit(a.ModifiedBy);
             return rm;
@@ -137,9 +139,10 @@ public sealed class RebuildReadModelsHandler
                 description:    c.Description,
                 issueDate:      c.IssueDate,
                 createdAtUtc:   c.CreatedAt,
-                createdBy:      c.CreatedBy,
-                citationNum:    c.CitationNum);
+                 createdBy:      c.CreatedBy,
+                 citationNum:    c.CitationNum);
             rm.ApplyDetailsChanged(c.Description, c.IssueDate, c.CourtId, c.CitationNum);
+            rm.ApplyLocationChanged(c.LocationId);
             rm.ApplyModifiedAudit(c.ModifiedBy);
             if (c.IsIssued) rm.ApplyIssued();
             return rm;
@@ -184,9 +187,11 @@ public sealed class RebuildReadModelsHandler
                     CFSNum      = i.CFSNum,
                 },
                 status:         i.Status,
-                createdAtUtc:   i.CreatedAt,
-                createdBy:      i.CreatedBy);
+                 createdAtUtc:   i.CreatedAt,
+                 createdBy:      i.CreatedBy);
 
+            rm.ApplyLocationChanged(i.LocationId);
+            rm.ApplyOccurredOnChanged(i.OccurredOn);
             if (i.IsDeleted) rm.ApplyDeleted();
             rm.ApplyModifiedAudit(i.ModifiedBy);
 

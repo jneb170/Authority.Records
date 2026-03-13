@@ -154,6 +154,23 @@ else if (_incident is not null)
                            maxlength="30" readonly="@(!_modifyMode)"
                            @bind="_editLocalNum" placeholder="@(_modifyMode ? "(optional)" : "—")" />
                 </div>
+                <div class="col-sm-4">
+                    <label class="form-label mb-1">Occurred On</label>
+                    @if (_modifyMode)
+                    {
+                        <input type="datetime-local" class="form-control form-control-sm"
+                               value="@(_editOccurredOn?.ToLocalTime().ToString("yyyy-MM-ddTHH:mm") ?? "")"
+                               @onchange="e => _editOccurredOn = string.IsNullOrEmpty(e.Value?.ToString())
+                                   ? (DateTime?)null
+                                   : DateTime.SpecifyKind(DateTime.Parse(e.Value!.ToString()!), DateTimeKind.Local).ToUniversalTime()" />
+                    }
+                    else
+                    {
+                        <div class="form-control-plaintext form-control-sm ps-0">
+                            @(_editOccurredOn.HasValue ? _editOccurredOn.Value.ToLocalTime().ToString("MM/dd/yyyy HH:mm") : "—")
+                        </div>
+                    }
+                </div>
                 <div class="col-12">
                     <label class="form-label mb-1">Location</label>
                     <div class="d-flex align-items-center gap-2">
@@ -171,6 +188,7 @@ else if (_incident is not null)
                             }
                         }
                     </div>
+                    <LocationMiniMap LocationId="_editLocationId" />
                 </div>
             </div>
             @if (_modifyMode)
@@ -312,6 +330,7 @@ else if (_incident is not null)
     private Guid?  _editLocationId;
     private string? _editLocationDisplay;
     private bool   _showLocationModal;
+    private DateTime? _editOccurredOn;
     private string? _saveSuccessMessage;
     private string? _createdByName;
     private string? _modifiedByName;
@@ -359,6 +378,7 @@ else if (_incident is not null)
             _editDescription = _incident.Details.Description;
             _editCFSNum = _incident.Details.CFSNum;
             _editLocationId = _incident.LocationId;
+            _editOccurredOn = _incident.OccurredOn;
             _editSnapshot = ComputeEditSnapshot();
             StartLockTimer();
         }
@@ -389,6 +409,7 @@ else if (_incident is not null)
                 _editCFSNum      = _incident.Details.CFSNum;
                 _editLocalNum    = _incident.Details.LocalNum;
                 _editLocationId  = _incident.LocationId;
+                _editOccurredOn  = _incident.OccurredOn;
                 await ResolveLocationDisplayAsync();
             }
 
@@ -448,6 +469,7 @@ else if (_incident is not null)
             _editCFSNum = _incident?.Details.CFSNum ?? string.Empty;
             _editLocalNum = _incident?.Details.LocalNum ?? string.Empty;
             _editLocationId = _incident?.LocationId;
+            _editOccurredOn = _incident?.OccurredOn;
             _editSnapshot = ComputeEditSnapshot();
             StartLockTimer();
             await LoadAsync();
@@ -467,7 +489,7 @@ else if (_incident is not null)
     }
 
     private string ComputeEditSnapshot() =>
-        string.Join("§", _editIncidentNum, _editDescription, _editCFSNum, _editLocalNum, _editLocationId);
+        string.Join("§", _editIncidentNum, _editDescription, _editCFSNum, _editLocalNum, _editLocationId, _editOccurredOn);
 
     private bool HasPendingChanges => _modifyMode && _editSnapshot != ComputeEditSnapshot();
 
@@ -572,7 +594,7 @@ else if (_incident is not null)
                     LocalNum = _editLocalNum,
                     Description = _editDescription, 
                     CFSNum = _editCFSNum
-                }, _editLocationId);
+                }, _editLocationId, _editOccurredOn);
             await LoadAsync();
             _editSnapshot = ComputeEditSnapshot();
             _saveSuccessMessage = "Details saved successfully.";

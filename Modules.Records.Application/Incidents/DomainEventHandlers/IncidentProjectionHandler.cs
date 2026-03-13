@@ -66,6 +66,7 @@ public sealed class IncidentProjectionHandler :
             .FirstOrDefaultAsync(i => i.Id == notification.IncidentId, cancellationToken);
 
         readModel.ApplyDetailsChanged(notification.Details);
+        readModel.ApplyOccurredOnChanged(notification.OccurredOn);
         readModel.ApplyLocationChanged(incident?.LocationId);
         readModel.ApplyModifiedAudit(incident?.ModifiedBy);
         await _dbContext.SaveChangesAsync(cancellationToken);

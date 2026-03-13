@@ -54,6 +54,7 @@ public sealed class CitationReadModel
     }
 
     public void ApplyModifiedAudit(Guid? modifiedBy) { ModifiedBy = modifiedBy; }
+    public void ApplyLocationChanged(Guid? locationId) { LocationId = locationId; UpdatedAtUtc = DateTime.UtcNow; }
 
     public CitationDto ToDto() => new(
         Id, RecordNumber, JurisdictionId, AgencyId,

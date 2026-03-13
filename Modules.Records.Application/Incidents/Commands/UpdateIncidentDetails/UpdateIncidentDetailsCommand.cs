@@ -6,4 +6,5 @@ namespace Modules.Records.Application.Incidents.Commands.UpdateIncidentDetails;
 public sealed record UpdateIncidentDetailsCommand(
     Guid            IncidentId,
     IncidentDetails Details,
-    Guid?           LocationId = null) : IRequest;
+    Guid?           LocationId  = null,
+    DateTime?       OccurredOn  = null) : IRequest;

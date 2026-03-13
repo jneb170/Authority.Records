@@ -12,7 +12,7 @@ public interface IIncidentService
     Task OpenAsync(Guid id);
     Task CloseAsync(Guid id);
     Task ArchiveAsync(Guid id);
-    Task UpdateDetailsAsync(Guid id, IncidentDetails details, Guid? locationId = null);
+    Task UpdateDetailsAsync(Guid id, IncidentDetails details, Guid? locationId = null, DateTime? occurredOn = null);
     Task AcquireLockAsync(Guid id);
     Task ReleaseLockAsync(Guid id);
     Task SoftDeleteAsync(Guid id);
