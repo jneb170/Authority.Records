@@ -73,6 +73,75 @@
     </div>
 </div>
 
+@* ── Recent Activity ─────────────────────────────────────────────────── *@
+<div class="border-bottom pb-2 mb-3 d-flex justify-content-between align-items-center">
+    <h5 class="fw-semibold mb-0">
+        <button class="btn btn-link p-0 text-decoration-none text-body fw-semibold"
+                @onclick="() => _activityExpanded = !_activityExpanded"
+                aria-expanded="@_activityExpanded">
+            <i class="bi @(_activityExpanded ? "bi-chevron-down" : "bi-chevron-right") me-1"></i>
+            🕐 Recent Activity
+        </button>
+    </h5>
+    <small class="text-muted">Your last 20 records</small>
+</div>
+
+@if (_activityExpanded)
+{
+    @if (_loading)
+    {
+        <p class="text-muted">Loading…</p>
+    }
+    else if (_activity is null || !_activity.Any())
+    {
+        <p class="text-muted fst-italic">No recent activity found. Create your first record using the shortcuts above.</p>
+    }
+    else
+    {
+        <table class="table table-hover table-sm">
+            <thead class="table-light">
+                <tr>
+                    <th>Type</th>
+                    <th>Record</th>
+                    <th>Status</th>
+                    <th>Activity</th>
+                    <th>Date / Time</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var item in _activity)
+                {
+                    <tr>
+                        <td>@RecordTypeIcon(item.RecordType) @item.RecordType</td>
+                        <td><a href="@item.NavigationUrl">@item.DisplayIdentifier</a></td>
+                        <td>
+                            @if (item.Status is not null)
+                            {
+                                <span class="badge @StatusBadgeClass(item.Status)">@item.Status</span>
+                            }
+                            else
+                            {
+                                <span class="text-muted">—</span>
+                            }
+                        </td>
+                        <td>
+                            @if (item.ActivityKind == "Created")
+                            {
+                                <span class="text-success fw-semibold">Created</span>
+                            }
+                            else
+                            {
+                                <span class="text-primary fw-semibold">Modified</span>
+                            }
+                        </td>
+                        <td class="text-nowrap">@item.LastActivityAt.ToLocalTime().ToString("MM/dd/yyyy h:mm tt")</td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    }
+}
+
 @* ── Activity Map ─────────────────────────────────────────────────────── *@
 <div class="border-bottom pb-2 mb-3 d-flex justify-content-between align-items-center">
     <h5 class="fw-semibold mb-0">
@@ -148,75 +217,6 @@ else if (!_loading && _mapExpanded)
         <i class="bi bi-info-circle me-2"></i>
         Google Maps is not configured. A Jurisdiction Admin can add the API key under <strong>Admin → Location Settings</strong>.
     </div>
-}
-
-@* ── Recent Activity ─────────────────────────────────────────────────── *@
-<div class="border-bottom pb-2 mb-3 d-flex justify-content-between align-items-center">
-    <h5 class="fw-semibold mb-0">
-        <button class="btn btn-link p-0 text-decoration-none text-body fw-semibold"
-                @onclick="() => _activityExpanded = !_activityExpanded"
-                aria-expanded="@_activityExpanded">
-            <i class="bi @(_activityExpanded ? "bi-chevron-down" : "bi-chevron-right") me-1"></i>
-            🕐 Recent Activity
-        </button>
-    </h5>
-    <small class="text-muted">Your last 20 records</small>
-</div>
-
-@if (_activityExpanded)
-{
-    @if (_loading)
-    {
-        <p class="text-muted">Loading…</p>
-    }
-    else if (_activity is null || !_activity.Any())
-    {
-        <p class="text-muted fst-italic">No recent activity found. Create your first record using the shortcuts above.</p>
-    }
-    else
-    {
-        <table class="table table-hover table-sm">
-            <thead class="table-light">
-                <tr>
-                    <th>Type</th>
-                    <th>Record</th>
-                    <th>Status</th>
-                    <th>Activity</th>
-                    <th>Date / Time</th>
-                </tr>
-            </thead>
-            <tbody>
-                @foreach (var item in _activity)
-                {
-                    <tr>
-                        <td>@RecordTypeIcon(item.RecordType) @item.RecordType</td>
-                        <td><a href="@item.NavigationUrl">@item.DisplayIdentifier</a></td>
-                        <td>
-                            @if (item.Status is not null)
-                            {
-                                <span class="badge @StatusBadgeClass(item.Status)">@item.Status</span>
-                            }
-                            else
-                            {
-                                <span class="text-muted">—</span>
-                            }
-                        </td>
-                        <td>
-                            @if (item.ActivityKind == "Created")
-                            {
-                                <span class="text-success fw-semibold">Created</span>
-                            }
-                            else
-                            {
-                                <span class="text-primary fw-semibold">Modified</span>
-                            }
-                        </td>
-                        <td class="text-nowrap">@item.LastActivityAt.ToLocalTime().ToString("MM/dd/yyyy h:mm tt")</td>
-                    </tr>
-                }
-            </tbody>
-        </table>
-    }
 }
 
 @code {
