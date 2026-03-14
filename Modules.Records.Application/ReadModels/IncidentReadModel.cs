@@ -27,6 +27,8 @@ public sealed class IncidentReadModel
     public Guid?  ModifiedBy      { get; private set; }
     public DateTime CreatedAtUtc  { get; private set; }
     public DateTime UpdatedAtUtc  { get; private set; }
+    public Guid?  LocationId      { get; private set; }
+    public DateTime? OccurredOn   { get; private set; }
 
     private IncidentReadModel() { } // EF
 
@@ -69,7 +71,7 @@ public sealed class IncidentReadModel
             Description = Description, 
             CFSNum = CFSNum },
         Status, IsDeleted, IsLocked, LockedByUserId, ArrestCount, CitationCount,
-        CreatedBy, ModifiedBy, CreatedAtUtc, UpdatedAtUtc);
+        CreatedBy, ModifiedBy, CreatedAtUtc, UpdatedAtUtc, LocationId, OccurredOn);
 
     public void ApplyDetailsChanged(IncidentDetails d) { 
         IncidentNum = d.IncidentNum; 
@@ -77,6 +79,9 @@ public sealed class IncidentReadModel
         Description = d.Description; 
         CFSNum = d.CFSNum; 
         UpdatedAtUtc = DateTime.UtcNow; }
+
+    public void ApplyLocationChanged(Guid? locationId) { LocationId = locationId; UpdatedAtUtc = DateTime.UtcNow; }
+    public void ApplyOccurredOnChanged(DateTime? occurredOn) { OccurredOn = occurredOn; UpdatedAtUtc = DateTime.UtcNow; }
 
     public void ApplyModifiedAudit(Guid? modifiedBy) { ModifiedBy = modifiedBy; }
 

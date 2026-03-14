@@ -17,7 +17,7 @@ public interface IArrestService
     Task CloseAsync(Guid id);
     Task ArchiveAsync(Guid id);
     Task FinalizeAsync(Guid id);
-    Task UpdateDetailsAsync(Guid id, string suspectName, DateTime arrestedAt, Guid? arrestTypeId = null, string arrestNum = "");
+    Task UpdateDetailsAsync(Guid id, string suspectName, DateTime arrestedAt, Guid? arrestTypeId = null, string arrestNum = "", Guid? locationId = null);
     Task AcquireLockAsync(Guid id);
     Task ReleaseLockAsync(Guid id);
     Task SoftDeleteAsync(Guid id);

@@ -30,4 +30,6 @@ public sealed record NameDto(
     string? LocalNumber = null,
     string? SocialSecurityNumber = null,
     bool IsCitizen = false,
-    DateTime? DeceasedDate = null);
+    DateTime? DeceasedDate = null,
+    Guid? PrimaryLocationId = null,
+    Guid? SecondaryLocationId = null);

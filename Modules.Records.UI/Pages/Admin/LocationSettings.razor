@@ -1,0 +1,176 @@
+@page "/admin/location-settings"
+@attribute [Authorize(Roles = "Admin")]
+@inject IMediator Mediator
+@inject IGoogleMapsConfigService GoogleMapsConfig
+@using MediatR
+@using Microsoft.AspNetCore.Authorization
+@using Modules.Records.Application.Configurations.Commands.UpdateJurisdictionGoogleMapsApiKey
+@using Modules.Records.UI.Services
+
+<PageTitle>Location Settings</PageTitle>
+
+<div class="page-header">
+    <div>
+        <h2 class="page-header-title"><i class="bi bi-geo-alt-fill"></i> Location Settings</h2>
+        <div class="page-header-sub">Configure Google Maps integration for this jurisdiction. The API key is shared across all agencies.</div>
+    </div>
+</div>
+
+@if (_error is not null)
+{
+    <div class="alert alert-danger alert-dismissible">
+        @_error
+        <button type="button" class="btn-close" @onclick="() => _error = null"></button>
+    </div>
+}
+@if (_success)
+{
+    <div class="alert alert-success">Location settings saved successfully.</div>
+}
+
+@if (_loading)
+{
+    <LoadingSpinner />
+}
+else
+{
+    <div class="card mb-4">
+        <div class="card-header"><strong>Google Maps API Key</strong></div>
+        <div class="card-body">
+            <p class="text-muted small mb-3">
+                Required to enable the interactive map picker on the Location Create and Location Details pages.
+                Obtain a key from the
+                <a href="https://console.cloud.google.com/apis/credentials" target="_blank" rel="noopener">Google Cloud Console</a>
+                with the <strong>Maps JavaScript API</strong> and <strong>Places API</strong> enabled.
+            </p>
+
+            <div class="row g-3 align-items-end">
+                <div class="col-md-8">
+                    <label class="form-label fw-semibold">API Key</label>
+                    <div class="input-group">
+                        <input type="@(_showKey ? "text" : "password")"
+                               class="form-control font-monospace"
+                               placeholder="AIza…"
+                               @bind="_pendingKey"
+                               @bind:event="oninput" />
+                        <button class="btn btn-outline-secondary" type="button" @onclick="ToggleShow" title="@(_showKey ? "Hide" : "Show")">
+                            <i class="bi @(_showKey ? "bi-eye-slash" : "bi-eye")"></i>
+                        </button>
+                        @if (!string.IsNullOrWhiteSpace(_pendingKey))
+                        {
+                            <button class="btn btn-outline-danger" type="button" @onclick="ClearKey" title="Clear key">
+                                <i class="bi bi-x-lg"></i>
+                            </button>
+                        }
+                    </div>
+                    @if (string.IsNullOrWhiteSpace(_pendingKey) && !string.IsNullOrWhiteSpace(_savedKey))
+                    {
+                        <div class="form-text text-warning"><i class="bi bi-exclamation-triangle-fill me-1"></i>Clearing the key will disable the Google Maps features. Save to confirm.</div>
+                    }
+                    else if (!string.IsNullOrWhiteSpace(_savedKey))
+                    {
+                        <div class="form-text text-success"><i class="bi bi-check-circle-fill me-1"></i>A key is currently configured.</div>
+                    }
+                    else
+                    {
+                        <div class="form-text text-muted">No key configured — Google Maps features are disabled.</div>
+                    }
+                </div>
+            </div>
+        </div>
+        <div class="card-footer d-flex gap-2 justify-content-end">
+            <button class="btn btn-outline-secondary btn-sm" @onclick="ResetPending" disabled="@(!_hasChanges || _saving)">
+                <i class="bi bi-arrow-counterclockwise me-1"></i>Discard Changes
+            </button>
+            <button class="btn btn-primary btn-sm" @onclick="SaveAsync" disabled="@(!_hasChanges || _saving)">
+                @if (_saving)
+                {
+                    <span class="spinner-border spinner-border-sm me-1"></span>
+                }
+                else
+                {
+                    <i class="bi bi-floppy-fill me-1"></i>
+                }
+                Save Changes
+            </button>
+        </div>
+    </div>
+
+    <div class="card">
+        <div class="card-header"><strong><i class="bi bi-info-circle me-1"></i>Map Starting Point</strong></div>
+        <div class="card-body small text-muted">
+            <p class="mb-1">
+                Each agency can configure a map starting point (default center) via
+                <a href="/admin/configurations">Configurations</a> using the well-known key <code>MapStartCoordinates</code>.
+            </p>
+            <p class="mb-0">
+                Format: <code>latitude,longitude</code> — e.g. <code>41.8781,-87.6298</code> for Chicago, IL.
+                If not set, the map defaults to the geographic center of the United States.
+            </p>
+        </div>
+    </div>
+}
+
+@code {
+    private bool _loading = true;
+    private bool _saving;
+    private bool _success;
+    private string? _error;
+    private bool _showKey;
+
+    private string? _savedKey;
+    private string? _pendingKey;
+
+    private bool _hasChanges => _pendingKey != _savedKey;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadAsync();
+    }
+
+    private async Task LoadAsync()
+    {
+        _loading = true;
+        try
+        {
+            GoogleMapsConfig.InvalidateCache();
+            _savedKey = await GoogleMapsConfig.GetApiKeyAsync();
+            _pendingKey = _savedKey;
+        }
+        finally
+        {
+            _loading = false;
+        }
+    }
+
+    private void ToggleShow() => _showKey = !_showKey;
+
+    private void ClearKey() => _pendingKey = null;
+
+    private void ResetPending() => _pendingKey = _savedKey;
+
+    private async Task SaveAsync()
+    {
+        _saving = true;
+        _error = null;
+        _success = false;
+        try
+        {
+            await Mediator.Send(new UpdateJurisdictionGoogleMapsApiKeyCommand(
+                ApiKey: string.IsNullOrWhiteSpace(_pendingKey) ? null : _pendingKey));
+
+            GoogleMapsConfig.InvalidateCache();
+            await LoadAsync();
+            _success = true;
+            _ = Task.Delay(3000).ContinueWith(_ => InvokeAsync(() => { _success = false; StateHasChanged(); }));
+        }
+        catch (Exception ex)
+        {
+            _error = ex.Message;
+        }
+        finally
+        {
+            _saving = false;
+        }
+    }
+}

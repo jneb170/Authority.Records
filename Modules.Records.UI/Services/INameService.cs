@@ -64,7 +64,9 @@ public interface INameService
         string? localNumber = null,
         string? socialSecurityNumber = null,
         bool isCitizen = false,
-        DateTime? deceasedDate = null);
+        DateTime? deceasedDate = null,
+        Guid? primaryLocationId = null,
+        Guid? secondaryLocationId = null);
     Task AcquireLockAsync(Guid id);
     Task ReleaseLockAsync(Guid id);
     Task SoftDeleteAsync(Guid id);

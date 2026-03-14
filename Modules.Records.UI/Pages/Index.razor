@@ -1,9 +1,16 @@
 @page "/"
 @using System.Security.Claims
+@using Microsoft.JSInterop
+@using Modules.Records.Application.Common.Queries.GetMapMarkers
+@using Modules.Records.Application.Common.Queries.GetRecentActivity
+@using Modules.Records.UI.Interop
 @inject IHomeService HomeService
 @inject AuthenticationStateProvider AuthStateProvider
 @inject NavigationManager Nav
-
+@inject IGoogleMapsConfigService GoogleMapsConfigService
+@inject IAgencyConfigurationService AgencyConfigService
+@inject IGoogleMapsInterop GoogleMapsInterop
+@implements IAsyncDisposable
 <PageTitle>Home — Authority Records</PageTitle>
 
 @* ── Welcome Banner ─────────────────────────────────────────────────── *@
@@ -68,67 +75,164 @@
 
 @* ── Recent Activity ─────────────────────────────────────────────────── *@
 <div class="border-bottom pb-2 mb-3 d-flex justify-content-between align-items-center">
-    <h5 class="fw-semibold mb-0">🕐 Recent Activity</h5>
+    <h5 class="fw-semibold mb-0">
+        <button class="btn btn-link p-0 text-decoration-none text-body fw-semibold"
+                @onclick="() => _activityExpanded = !_activityExpanded"
+                aria-expanded="@_activityExpanded">
+            <i class="bi @(_activityExpanded ? "bi-chevron-down" : "bi-chevron-right") me-1"></i>
+            🕐 Recent Activity
+        </button>
+    </h5>
     <small class="text-muted">Your last 20 records</small>
 </div>
 
-@if (_loading)
+@if (_activityExpanded)
 {
-    <p class="text-muted">Loading…</p>
-}
-else if (_activity is null || !_activity.Any())
-{
-    <p class="text-muted fst-italic">No recent activity found. Create your first record using the shortcuts above.</p>
-}
-else
-{
-    <table class="table table-hover table-sm">
-        <thead class="table-light">
-            <tr>
-                <th>Type</th>
-                <th>Record</th>
-                <th>Status</th>
-                <th>Activity</th>
-                <th>Date / Time</th>
-            </tr>
-        </thead>
-        <tbody>
-            @foreach (var item in _activity)
-            {
+    @if (_loading)
+    {
+        <p class="text-muted">Loading…</p>
+    }
+    else if (_activity is null || !_activity.Any())
+    {
+        <p class="text-muted fst-italic">No recent activity found. Create your first record using the shortcuts above.</p>
+    }
+    else
+    {
+        <table class="table table-hover table-sm">
+            <thead class="table-light">
                 <tr>
-                    <td>@RecordTypeIcon(item.RecordType) @item.RecordType</td>
-                    <td><a href="@item.NavigationUrl">@item.DisplayIdentifier</a></td>
-                    <td>
-                        @if (item.Status is not null)
-                        {
-                            <span class="badge @StatusBadgeClass(item.Status)">@item.Status</span>
-                        }
-                        else
-                        {
-                            <span class="text-muted">—</span>
-                        }
-                    </td>
-                    <td>
-                        @if (item.ActivityKind == "Created")
-                        {
-                            <span class="text-success fw-semibold">Created</span>
-                        }
-                        else
-                        {
-                            <span class="text-primary fw-semibold">Modified</span>
-                        }
-                    </td>
-                    <td class="text-nowrap">@item.LastActivityAt.ToLocalTime().ToString("MM/dd/yyyy h:mm tt")</td>
+                    <th>Type</th>
+                    <th>Record</th>
+                    <th>Status</th>
+                    <th>Activity</th>
+                    <th>Date / Time</th>
                 </tr>
-            }
-        </tbody>
-    </table>
+            </thead>
+            <tbody>
+                @foreach (var item in _activity)
+                {
+                    <tr>
+                        <td>@RecordTypeIcon(item.RecordType) @item.RecordType</td>
+                        <td><a href="@item.NavigationUrl">@item.DisplayIdentifier</a></td>
+                        <td>
+                            @if (item.Status is not null)
+                            {
+                                <span class="badge @StatusBadgeClass(item.Status)">@item.Status</span>
+                            }
+                            else
+                            {
+                                <span class="text-muted">—</span>
+                            }
+                        </td>
+                        <td>
+                            @if (item.ActivityKind == "Created")
+                            {
+                                <span class="text-success fw-semibold">Created</span>
+                            }
+                            else
+                            {
+                                <span class="text-primary fw-semibold">Modified</span>
+                            }
+                        </td>
+                        <td class="text-nowrap">@item.LastActivityAt.ToLocalTime().ToString("MM/dd/yyyy h:mm tt")</td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    }
+}
+
+@* ── Activity Map ─────────────────────────────────────────────────────── *@
+<div class="border-bottom pb-2 mb-3 d-flex justify-content-between align-items-center">
+    <h5 class="fw-semibold mb-0">
+        <button class="btn btn-link p-0 text-decoration-none text-body fw-semibold"
+                @onclick="ToggleMapExpanded"
+                aria-expanded="@_mapExpanded">
+            <i class="bi @(_mapExpanded ? "bi-chevron-down" : "bi-chevron-right") me-1"></i>
+            🗺️ Activity Map
+        </button>
+    </h5>
+    <div class="d-flex align-items-center gap-2">
+        <label class="form-label mb-0 text-muted small" for="mapWindowSelect">Show:</label>
+        <select id="mapWindowSelect" class="form-select form-select-sm" style="width:auto"
+                value="@_mapWindowHours"
+                @onchange="async e => await OnMapWindowChangedAsync(e.Value?.ToString())">
+            <option value="24">Past 24 Hours</option>
+            <option value="168">Past 7 Days</option>
+            <option value="720">Past 30 Days</option>
+            <option value="2160">Past 90 Days</option>
+            <option value="0">All Time</option>
+        </select>
+    </div>
+</div>
+
+@if (!string.IsNullOrEmpty(_mapsApiKey))
+{
+    @* Layer toggles and map — kept in DOM always, only visually hidden when collapsed *@
+    <div class="@(_mapExpanded ? "" : "d-none")">
+        <div class="card mb-4">
+            <div class="card-body pb-2">
+                <div class="d-flex flex-wrap gap-3 mb-3">
+                    <div class="form-check form-switch mb-0">
+                        <input class="form-check-input" type="checkbox" id="toggleIncidents"
+                               checked="@_showIncidents"
+                               @onchange="async e => await ToggleIncidentsAsync((bool)e.Value!)" />
+                        <label class="form-check-label" for="toggleIncidents">
+                            <span class="badge bg-primary me-1">●</span> Incidents (@(_mapMarkers?.Count(m => m.RecordType == "Incident") ?? 0))
+                        </label>
+                    </div>
+                    <div class="form-check form-switch mb-0">
+                        <input class="form-check-input" type="checkbox" id="toggleArrests"
+                               checked="@_showArrests"
+                               @onchange="async e => await ToggleArrestsAsync((bool)e.Value!)" />
+                        <label class="form-check-label" for="toggleArrests">
+                            <span class="badge bg-danger me-1">●</span> Arrests (@(_mapMarkers?.Count(m => m.RecordType == "Arrest") ?? 0))
+                        </label>
+                    </div>
+                    <div class="form-check form-switch mb-0">
+                        <input class="form-check-input" type="checkbox" id="toggleCitations"
+                               checked="@_showCitations"
+                               @onchange="async e => await ToggleCitationsAsync((bool)e.Value!)" />
+                        <label class="form-check-label" for="toggleCitations">
+                            <span class="badge bg-warning text-dark me-1">●</span> Citations (@(_mapMarkers?.Count(m => m.RecordType == "Citation") ?? 0))
+                        </label>
+                    </div>
+                    <div class="form-check form-switch mb-0 ms-auto">
+                        <input class="form-check-input" type="checkbox" id="togglePlaces"
+                               checked="@_showPlaces"
+                               @onchange="async e => await TogglePlacesAsync((bool)e.Value!)" />
+                        <label class="form-check-label text-muted" for="togglePlaces">
+                            <i class="bi bi-shop me-1"></i>Places
+                        </label>
+                    </div>
+                </div>
+                <div id="home-activity-map" style="height:420px;border-radius:6px;overflow:hidden;"></div>
+            </div>
+        </div>
+    </div>
+}
+else if (!_loading && _mapExpanded)
+{
+    <div class="alert alert-info mb-4">
+        <i class="bi bi-info-circle me-2"></i>
+        Google Maps is not configured. A Jurisdiction Admin can add the API key under <strong>Admin → Location Settings</strong>.
+    </div>
 }
 
 @code {
     private bool _loading = true;
     private string _displayName = "Officer";
-    private IReadOnlyList<Modules.Records.Application.Common.Queries.GetRecentActivity.RecentActivityDto>? _activity;
+    private IReadOnlyList<RecentActivityDto>? _activity;
+    private IReadOnlyList<MapMarkerDto>? _mapMarkers;
+    private string? _mapsApiKey;
+    private bool _mapExpanded      = true;
+    private bool _activityExpanded = true;
+    private bool _showIncidents = true;
+    private bool _showArrests   = true;
+    private bool _showCitations = true;
+    private bool _showPlaces    = false;
+    private bool _mapInitialised = false;
+    private int  _mapWindowHours = 24;   // 0 = all time
 
     protected override async Task OnInitializedAsync()
     {
@@ -139,12 +243,120 @@ else
 
         try
         {
-            _activity = await HomeService.GetRecentActivityAsync(20);
+            _mapsApiKey = await GoogleMapsConfigService.GetApiKeyAsync();
+            var activityTask = HomeService.GetRecentActivityAsync(20);
+            var markersTask  = !string.IsNullOrEmpty(_mapsApiKey)
+                ? HomeService.GetMapMarkersAsync(SinceFromWindow())
+                : Task.FromResult<IReadOnlyList<MapMarkerDto>>(Array.Empty<MapMarkerDto>());
+
+            await Task.WhenAll(activityTask, markersTask);
+            _activity    = activityTask.Result;
+            _mapMarkers  = markersTask.Result;
         }
         finally
         {
             _loading = false;
         }
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        // _mapInitialised prevents double-init across renders.
+        // _mapsApiKey and _mapMarkers are null until OnInitializedAsync completes,
+        // so this is naturally deferred until data is ready.
+        if (_mapInitialised || string.IsNullOrEmpty(_mapsApiKey) || _mapMarkers is null)
+            return;
+
+        _mapInitialised = true;
+        await InitMapAsync();
+    }
+
+    private async Task InitMapAsync()
+    {
+        double defaultLat = 39.5, defaultLng = -98.35;
+        try
+        {
+            var startCoords = await AgencyConfigService.GetAsync("MapStartCoordinates");
+            if (startCoords is not null)
+            {
+                var parts = startCoords.Value?.Split(',', 2);
+                if (parts?.Length == 2
+                    && double.TryParse(parts[0].Trim(), System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out var lat)
+                    && double.TryParse(parts[1].Trim(), System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out var lng))
+                {
+                    defaultLat = lat;
+                    defaultLng = lng;
+                }
+            }
+
+            await GoogleMapsInterop.LoadApiAsync(_mapsApiKey!);
+
+            var markerData = (_mapMarkers ?? Array.Empty<MapMarkerDto>()).Select(m => new
+            {
+                recordType = m.RecordType,
+                label      = m.Label,
+                url        = m.Url,
+                lat        = m.Lat,
+                lng        = m.Lng
+            }).ToArray();
+
+            await GoogleMapsInterop.InitMarkersMapAsync("home-activity-map", markerData, defaultLat, defaultLng);
+        }
+        catch (Exception ex) when (ex is JSException or JSDisconnectedException or TaskCanceledException)
+        {
+            // JS interop unavailable (pre-render, circuit disconnect, navigation) — silently ignore
+            _mapInitialised = false;  // allow retry if component re-renders
+        }
+    }
+
+    private DateTime? SinceFromWindow() =>
+        _mapWindowHours == 0 ? null : DateTime.UtcNow.AddHours(-_mapWindowHours);
+
+    private async Task OnMapWindowChangedAsync(string? value)
+    {
+        if (!int.TryParse(value, out var hours)) return;
+        _mapWindowHours = hours;
+
+        if (string.IsNullOrEmpty(_mapsApiKey)) return;
+
+        _mapMarkers = await HomeService.GetMapMarkersAsync(SinceFromWindow());
+        _mapInitialised = false;   // trigger re-init in OnAfterRenderAsync
+        StateHasChanged();         // trigger re-render → OnAfterRenderAsync → InitMapAsync
+    }
+
+    private void ToggleMapExpanded()
+    {
+        _mapExpanded = !_mapExpanded;
+    }
+
+    private Task ToggleIncidentsAsync(bool v) => ToggleLayerAsync("Incident", v);
+    private Task ToggleArrestsAsync(bool v)   => ToggleLayerAsync("Arrest",   v);
+    private Task ToggleCitationsAsync(bool v) => ToggleLayerAsync("Citation", v);
+
+    private async Task TogglePlacesAsync(bool v)
+    {
+        _showPlaces = v;
+        if (_mapInitialised)
+            await GoogleMapsInterop.TogglePoiLayerAsync("home-activity-map", v);
+    }
+
+    private async Task ToggleLayerAsync(string recordType, bool visible)
+    {
+        switch (recordType)
+        {
+            case "Incident": _showIncidents = visible; break;
+            case "Arrest":   _showArrests   = visible; break;
+            case "Citation": _showCitations = visible; break;
+        }
+        if (_mapInitialised)
+            await GoogleMapsInterop.ToggleMarkerLayerAsync("home-activity-map", recordType, visible);
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        try { await GoogleMapsInterop.DisposeAsync(); }
+        catch (JSDisconnectedException) { /* circuit already gone — nothing to clean up */ }
+        catch (TaskCanceledException) { }
     }
 
     private static string RecordTypeIcon(string recordType) => recordType switch

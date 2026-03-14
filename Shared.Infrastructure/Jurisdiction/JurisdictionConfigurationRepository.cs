@@ -45,4 +45,22 @@ public sealed class JurisdictionConfigurationRepository
         entity.UpdateHotkeys(hotkeyNew, hotkeyModify, hotkeySave, hotkeyRelease);
         await _context.SaveChangesAsync(cancellationToken);
     }
+
+    public async Task SaveGoogleMapsApiKeyAsync(
+        Guid jurisdictionId,
+        string? apiKey,
+        CancellationToken cancellationToken)
+    {
+        var entity = await _context.JurisdictionConfigurations
+            .FirstOrDefaultAsync(x => x.JurisdictionId == jurisdictionId, cancellationToken);
+
+        if (entity is null)
+        {
+            entity = new JurisdictionConfiguration(jurisdictionId, false, false);
+            _context.JurisdictionConfigurations.Add(entity);
+        }
+
+        entity.UpdateGoogleMapsApiKey(apiKey);
+        await _context.SaveChangesAsync(cancellationToken);
+    }
 }

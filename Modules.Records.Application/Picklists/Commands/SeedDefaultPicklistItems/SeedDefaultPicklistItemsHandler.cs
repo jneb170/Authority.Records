@@ -47,6 +47,14 @@ public sealed class SeedDefaultPicklistItemsHandler : IRequestHandler<SeedDefaul
             _dbContext.PicklistItems.Add(item);
         }
 
-        await _dbContext.SaveChangesAsync(cancellationToken);
+        try
+        {
+            await _dbContext.SaveChangesAsync(cancellationToken);
+        }
+        catch (DbUpdateException)
+        {
+            // A concurrent request seeded the same picklist type at the same time.
+            // The unique constraint violation means the items are already present — this is safe to ignore.
+        }
     }
 }

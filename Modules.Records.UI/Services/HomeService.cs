@@ -1,4 +1,5 @@
 using MediatR;
+using Modules.Records.Application.Common.Queries.GetMapMarkers;
 using Modules.Records.Application.Common.Queries.GetRecentActivity;
 using Modules.Records.Domain.Abstractions;
 
@@ -24,4 +25,7 @@ public sealed class HomeService : IHomeService
 
         return await _mediator.Send(query);
     }
+
+    public Task<IReadOnlyList<MapMarkerDto>> GetMapMarkersAsync(DateTime? since) =>
+        _mediator.Send(new GetMapMarkersQuery(_tenantProvider.GetJurisdictionId(), since));
 }

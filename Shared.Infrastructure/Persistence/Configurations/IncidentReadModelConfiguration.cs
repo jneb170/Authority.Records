@@ -20,5 +20,9 @@ public sealed class IncidentReadModelConfiguration : IEntityTypeConfiguration<In
         builder.HasIndex(x => x.JurisdictionId);
         builder.HasIndex(x => x.Status);
         builder.HasIndex(x => x.UpdatedAtUtc);
+
+        builder.Property(x => x.OccurredOn)
+               .HasColumnType("datetime2")
+               .IsRequired(false);
     }
 }

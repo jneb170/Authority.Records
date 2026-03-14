@@ -23,4 +23,6 @@ public sealed record UpdateNameDetailsCommand(
     string? LocalNumber,
     string? SocialSecurityNumber,
     bool IsCitizen,
-    DateTime? DeceasedDate) : IRequest;
+    DateTime? DeceasedDate,
+    Guid? PrimaryLocationId   = null,
+    Guid? SecondaryLocationId = null) : IRequest;

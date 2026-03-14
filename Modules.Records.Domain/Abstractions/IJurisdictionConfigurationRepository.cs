@@ -15,4 +15,9 @@ public interface IJurisdictionConfigurationRepository
         string? hotkeySave,
         string? hotkeyRelease,
         CancellationToken cancellationToken);
+
+    Task SaveGoogleMapsApiKeyAsync(
+        Guid jurisdictionId,
+        string? apiKey,
+        CancellationToken cancellationToken);
 }
