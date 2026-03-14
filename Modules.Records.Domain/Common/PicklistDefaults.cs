@@ -22,6 +22,37 @@ public static class PicklistDefaults
                 ("ProbableCause", "Probable Cause"),
                 ("OtherAgency",   "Other Agency"),
             ],
+            PicklistTypes.Direction =>
+            [
+                ("N",  "N"),
+                ("NE", "NE"),
+                ("E",  "E"),
+                ("SE", "SE"),
+                ("S",  "S"),
+                ("SW", "SW"),
+                ("W",  "W"),
+                ("NW", "NW"),
+            ],
+            PicklistTypes.StreetType =>
+            [
+                ("St",   "St"),
+                ("Ave",  "Ave"),
+                ("Blvd", "Blvd"),
+                ("Dr",   "Dr"),
+                ("Ct",   "Ct"),
+                ("Ln",   "Ln"),
+                ("Pl",   "Pl"),
+                ("Rd",   "Rd"),
+                ("Way",  "Way"),
+                ("Hwy",  "Hwy"),
+                ("Pkwy", "Pkwy"),
+            ],
+            PicklistTypes.Country =>
+            [
+                ("US", "United States"),
+                ("CA", "Canada"),
+                ("MX", "Mexico"),
+            ],
             _ => []
         };
 }

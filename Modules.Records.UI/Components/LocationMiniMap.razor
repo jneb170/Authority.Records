@@ -1,0 +1,77 @@
+@using System.Globalization
+@using Modules.Records.Application.DTOs
+@using Modules.Records.UI.Interop
+@using Modules.Records.UI.Services
+@inject IGoogleMapsInterop GoogleMapsInterop
+@inject IGoogleMapsConfigService GoogleMapsConfigService
+@inject ILocationService LocationService
+@implements IAsyncDisposable
+
+@if (_hasCoords)
+{
+    <div id="@_elementId"
+         style="height:150px; max-width:300px; width:100%; border-radius:6px; overflow:hidden; margin-top:.5rem;"
+         class="border">
+    </div>
+}
+
+@code {
+    [Parameter] public Guid? LocationId { get; set; }
+
+    private readonly string _elementId = $"mini-map-{Guid.NewGuid():N}";
+    private bool   _hasCoords;
+    private double _lat;
+    private double _lng;
+    private bool   _initialised;
+    private Guid?  _lastLocationId;
+
+    protected override async Task OnParametersSetAsync()
+    {
+        if (LocationId == _lastLocationId) return;
+        _lastLocationId = LocationId;
+
+        // Reset state so OnAfterRenderAsync can re-init if needed
+        _hasCoords  = false;
+        _initialised = false;
+
+        if (!LocationId.HasValue) return;
+
+        var loc = await LocationService.GetByIdAsync(LocationId.Value);
+        if (loc?.Coordinates is null) return;
+
+        var parts = loc.Coordinates.Split(',', 2);
+        if (parts.Length != 2) return;
+        if (!double.TryParse(parts[0].Trim(), NumberStyles.Float, CultureInfo.InvariantCulture, out _lat)) return;
+        if (!double.TryParse(parts[1].Trim(), NumberStyles.Float, CultureInfo.InvariantCulture, out _lng)) return;
+
+        _hasCoords = true;
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!_hasCoords || _initialised) return;
+
+        var apiKey = await GoogleMapsConfigService.GetApiKeyAsync();
+        if (string.IsNullOrEmpty(apiKey)) return;
+
+        try
+        {
+            _initialised = true;
+            await GoogleMapsInterop.LoadApiAsync(apiKey);
+            await GoogleMapsInterop.InitStaticMapAsync(_elementId, _lat, _lng);
+        }
+        catch
+        {
+            _initialised = false;
+        }
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        if (_initialised)
+        {
+            try { await GoogleMapsInterop.DestroyAsync(_elementId); } catch { }
+        }
+        try { await GoogleMapsInterop.DisposeAsync(); } catch { }
+    }
+}

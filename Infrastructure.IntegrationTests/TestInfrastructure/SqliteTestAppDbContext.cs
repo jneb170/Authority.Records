@@ -29,5 +29,21 @@ public sealed class SqliteTestAppDbContext : AppDbContext
         modelBuilder.Entity<Incident>()
             .Property(x => x.RecordNumber)
             .HasDefaultValueSql("ABS(RANDOM())");
+
+        modelBuilder.Entity<Arrest>()
+            .Property(x => x.RecordNumber)
+            .HasDefaultValueSql("ABS(RANDOM())");
+
+        modelBuilder.Entity<Citation>()
+            .Property(x => x.RecordNumber)
+            .HasDefaultValueSql("ABS(RANDOM())");
+
+        modelBuilder.Entity<Name>()
+            .Property(x => x.RecordNumber)
+            .HasDefaultValueSql("ABS(RANDOM())");
+
+        modelBuilder.Entity<Location>()
+            .Property(x => x.RecordNumber)
+            .HasDefaultValueSql("ABS(RANDOM())");
     }
 }

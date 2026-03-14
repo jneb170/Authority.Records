@@ -6,6 +6,7 @@
 @inject IUserLookupService UserLookupService
 @inject NavigationManager Nav
 @inject IKeyboardShortcutService ShortcutService
+@inject ILocationService LocationService
 @using Modules.Records.Application.DTOs
 @using Modules.Records.Domain.Common
 @using Modules.Records.UI.Services
@@ -83,7 +84,7 @@ else if (_name is not null)
         {
             <div class="alert alert-warning d-flex align-items-center gap-3 py-2 mb-2">
                 <span><i class="bi bi-pencil-fill me-1"></i><strong>Modify mode</strong> — lock expires in @_lockSecondsRemaining s</span>
-                <button class="btn btn-sm btn-outline-dark ms-auto" title="Release Record (Esc)" @onclick="RequestReleaseAsync"><i class="bi bi-unlock-fill me-1"></i>Release<ShortcutHint Action="release" /></button>
+                <button class="btn btn-sm btn-outline-dark ms-auto" @onclick="RequestReleaseAsync"><i class="bi bi-unlock-fill me-1"></i>Release</button>
             </div>
         }
         else if (_name.IsLocked && _name.LockedByUserId != _currentUserId)
@@ -94,7 +95,7 @@ else if (_name is not null)
         }
         else
         {
-            <button class="btn btn-outline-primary btn-sm" title="Modify (F2)" @onclick="EnterModifyModeAsync"><i class="bi bi-pencil-fill me-1"></i>Modify<ShortcutHint Action="modify" /></button>
+            <button class="btn btn-outline-primary btn-sm" @onclick="EnterModifyModeAsync"><i class="bi bi-pencil-fill me-1"></i>Modify</button>
         }
     </div>
 
@@ -416,9 +417,68 @@ else if (_name is not null)
     @if (_modifyMode)
     {
         <div class="mb-4">
-            <button class="btn btn-sm btn-primary" title="Save Details (Alt+S)" @onclick="SaveDetailsAsync">Save Details<ShortcutHint Action="save" /></button>
+            <button class="btn btn-sm btn-primary" @onclick="SaveDetailsAsync">Save Details</button>
         </div>
     }
+
+    <!-- Address Links -->
+    <div class="card mb-4">
+        <div class="card-body">
+            <h6 class="card-title">Address Links</h6>
+            <div class="row g-3">
+                <div class="col-12">
+                    <label class="@LabelClass">Primary Address</label>
+                    <div class="d-flex align-items-center gap-2">
+                        <span class="fw-semibold">@(_editPrimaryLocationDisplay ?? "— None —")</span>
+                        @if (_modifyMode)
+                        {
+                            <button type="button" class="btn btn-sm btn-outline-secondary" @onclick="() => _showPrimaryLocationModal = true">
+                                <i class="bi bi-geo-alt me-1"></i>@(_editPrimaryLocationId.HasValue ? "Change" : "Assign")
+                            </button>
+                            @if (_editPrimaryLocationId.HasValue)
+                            {
+                                <button type="button" class="btn btn-sm btn-outline-danger" @onclick="ClearPrimaryLocation">
+                                    <i class="bi bi-x-lg"></i>
+                                </button>
+                            }
+                        }
+                    </div>
+                    <LocationMiniMap LocationId="_editPrimaryLocationId" />
+                </div>
+                <div class="col-12">
+                    <label class="@LabelClass">Secondary Address</label>
+                    <div class="d-flex align-items-center gap-2">
+                        <span class="fw-semibold">@(_editSecondaryLocationDisplay ?? "— None —")</span>
+                        @if (_modifyMode)
+                        {
+                            <button type="button" class="btn btn-sm btn-outline-secondary" @onclick="() => _showSecondaryLocationModal = true">
+                                <i class="bi bi-geo-alt me-1"></i>@(_editSecondaryLocationId.HasValue ? "Change" : "Assign")
+                            </button>
+                            @if (_editSecondaryLocationId.HasValue)
+                            {
+                                <button type="button" class="btn btn-sm btn-outline-danger" @onclick="ClearSecondaryLocation">
+                                    <i class="bi bi-x-lg"></i>
+                                </button>
+                            }
+                        }
+                    </div>
+                    <LocationMiniMap LocationId="_editSecondaryLocationId" />
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <LocationSearchModal Visible="_showPrimaryLocationModal"
+                         CurrentLocationId="_editPrimaryLocationId"
+                         OnSelected="OnPrimaryLocationSelected"
+                         OnCleared="OnPrimaryLocationCleared"
+                         OnCancelled="() => _showPrimaryLocationModal = false" />
+
+    <LocationSearchModal Visible="_showSecondaryLocationModal"
+                         CurrentLocationId="_editSecondaryLocationId"
+                         OnSelected="OnSecondaryLocationSelected"
+                         OnCleared="OnSecondaryLocationCleared"
+                         OnCancelled="() => _showSecondaryLocationModal = false" />
 
     <AuditInfoSection CreatedAt="@_name.CreatedAtUtc"
                       CreatedByName="@_createdByName"
@@ -472,6 +532,12 @@ else if (_name is not null)
     private bool _editIsCitizen;
     private DateTime? _editDeceasedDate;
     private bool _showSwitchTypeConfirm;
+    private Guid?  _editPrimaryLocationId;
+    private string? _editPrimaryLocationDisplay;
+    private bool   _showPrimaryLocationModal;
+    private Guid?  _editSecondaryLocationId;
+    private string? _editSecondaryLocationDisplay;
+    private bool   _showSecondaryLocationModal;
 
     // Read-only picklist labels
     private string? _sexLabel;
@@ -580,6 +646,8 @@ else if (_name is not null)
         _editSsn                   = _name.SocialSecurityNumber;
         _editIsCitizen             = _name.IsCitizen;
         _editDeceasedDate          = _name.DeceasedDate;
+        _editPrimaryLocationId     = _name.PrimaryLocationId;
+        _editSecondaryLocationId   = _name.SecondaryLocationId;
         _editSnapshot = ComputeEditSnapshot();
     }
 
@@ -588,7 +656,8 @@ else if (_name is not null)
             _editSexId, _editRaceId, _editDateOfBirth, _editDlNumber, _editDlStateId,
             _editHeightFeet, _editHeightInchesRemainder, _editWeightLbs,
             _editHairColorId, _editEyeColorId, _editSuffixId, _editPlaceOfBirth,
-            _editFbiNumber, _editLocalNumber, _editSsn, _editIsCitizen, _editDeceasedDate);
+            _editFbiNumber, _editLocalNumber, _editSsn, _editIsCitizen, _editDeceasedDate,
+            _editPrimaryLocationId, _editSecondaryLocationId);
 
     private bool HasPendingChanges => _modifyMode && _editSnapshot != ComputeEditSnapshot();
 
@@ -666,7 +735,10 @@ else if (_name is not null)
             _nameId = _name.Id;
 
             if (!_modifyMode)
+            {
                 LoadEditFields();
+                await ResolveLocationDisplaysAsync();
+            }
 
             _createdByName  = await UserLookupService.GetDisplayNameAsync(_name.CreatedBy);
             _modifiedByName = _name.ModifiedBy.HasValue
@@ -764,7 +836,9 @@ else if (_name is not null)
                 _editNameType == NameTypes.Person ? _editLocalNumber : null,
                 _editNameType == NameTypes.Person ? _editSsn : null,
                 _editNameType == NameTypes.Person && _editIsCitizen,
-                _editNameType == NameTypes.Person ? _editDeceasedDate : null);
+                _editNameType == NameTypes.Person ? _editDeceasedDate : null,
+                _editPrimaryLocationId,
+                _editSecondaryLocationId);
 
             await LoadAsync();
             _editSnapshot = ComputeEditSnapshot();
@@ -786,6 +860,72 @@ else if (_name is not null)
         _showDeleteConfirm = false;
         await RunActionAsync(() => NameService.SoftDeleteAsync(_nameId));
         Nav.NavigateTo("/names");
+    }
+
+    private async Task ResolveLocationDisplaysAsync()
+    {
+        if (_editPrimaryLocationId.HasValue)
+        {
+            var loc = await LocationService.GetByIdAsync(_editPrimaryLocationId.Value);
+            _editPrimaryLocationDisplay = loc is null ? null : FormatLocationDisplay(loc);
+        }
+        else _editPrimaryLocationDisplay = null;
+
+        if (_editSecondaryLocationId.HasValue)
+        {
+            var loc = await LocationService.GetByIdAsync(_editSecondaryLocationId.Value);
+            _editSecondaryLocationDisplay = loc is null ? null : FormatLocationDisplay(loc);
+        }
+        else _editSecondaryLocationDisplay = null;
+    }
+
+    private void OnPrimaryLocationSelected(LocationDto loc)
+    {
+        _editPrimaryLocationId      = loc.Id;
+        _editPrimaryLocationDisplay = FormatLocationDisplay(loc);
+        _showPrimaryLocationModal   = false;
+    }
+
+    private void OnPrimaryLocationCleared()
+    {
+        _editPrimaryLocationId      = null;
+        _editPrimaryLocationDisplay = null;
+        _showPrimaryLocationModal   = false;
+    }
+
+    private void ClearPrimaryLocation()
+    {
+        _editPrimaryLocationId      = null;
+        _editPrimaryLocationDisplay = null;
+    }
+
+    private void OnSecondaryLocationSelected(LocationDto loc)
+    {
+        _editSecondaryLocationId      = loc.Id;
+        _editSecondaryLocationDisplay = FormatLocationDisplay(loc);
+        _showSecondaryLocationModal   = false;
+    }
+
+    private void OnSecondaryLocationCleared()
+    {
+        _editSecondaryLocationId      = null;
+        _editSecondaryLocationDisplay = null;
+        _showSecondaryLocationModal   = false;
+    }
+
+    private void ClearSecondaryLocation()
+    {
+        _editSecondaryLocationId      = null;
+        _editSecondaryLocationDisplay = null;
+    }
+
+    private static string FormatLocationDisplay(LocationDto loc)
+    {
+        var parts = new List<string>();
+        if (!string.IsNullOrWhiteSpace(loc.StreetNumber))  parts.Add(loc.StreetNumber);
+        if (!string.IsNullOrWhiteSpace(loc.StreetAddress)) parts.Add(loc.StreetAddress);
+        if (!string.IsNullOrWhiteSpace(loc.City))          parts.Add(loc.City);
+        return string.Join(" ", parts);
     }
 
     private void StartLockTimer()

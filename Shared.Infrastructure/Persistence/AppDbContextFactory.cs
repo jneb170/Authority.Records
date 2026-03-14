@@ -14,9 +14,11 @@ namespace Shared.Infrastructure.Persistence
         public AppDbContext CreateDbContext(string[] args)
         {
             // 1️ Build configuration to get connection string
+            var environment = Environment.GetEnvironmentVariable("ASPNETCORE_ENVIRONMENT") ?? "Development";
             var configuration = new ConfigurationBuilder()
                 .SetBasePath(Directory.GetCurrentDirectory())
-                .AddJsonFile("appsettings.json", optional: false)
+                .AddJsonFile("appsettings.json", optional: true)
+                .AddJsonFile($"appsettings.{environment}.json", optional: true)
                 .AddEnvironmentVariables()   // allows CI/CD to override via env vars
                 .Build();
 

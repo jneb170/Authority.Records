@@ -7,4 +7,5 @@ public sealed record UpdateCitationDetailsCommand(
     string   Description,
     DateTime IssueDate,
     Guid?    CourtId,
-    string   CitationNum = "") : IRequest;
+    string   CitationNum = "",
+    Guid?    LocationId  = null) : IRequest;

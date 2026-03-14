@@ -34,6 +34,8 @@ public sealed class NameReadModel
     public Guid? ModifiedBy { get; private set; }
     public DateTime CreatedAtUtc { get; private set; }
     public DateTime UpdatedAtUtc { get; private set; }
+    public Guid? PrimaryLocationId { get; private set; }
+    public Guid? SecondaryLocationId { get; private set; }
 
     private NameReadModel() { } // EF
 
@@ -161,11 +163,19 @@ public sealed class NameReadModel
         UpdatedAtUtc = DateTime.UtcNow;
     }
 
+    public void ApplyLocationChanged(Guid? primaryLocationId, Guid? secondaryLocationId)
+    {
+        PrimaryLocationId   = primaryLocationId;
+        SecondaryLocationId = secondaryLocationId;
+        UpdatedAtUtc        = DateTime.UtcNow;
+    }
+
     public NameDto ToDto() => new(
         Id, RecordNumber, JurisdictionId, AgencyId, NameType, LastOrBusinessName,
         IsLocked, LockedByUserId, CreatedBy, ModifiedBy, CreatedAtUtc, UpdatedAtUtc,
         FirstName, MiddleName, SexId, RaceId, DateOfBirth,
         DriversLicenseNumber, DriversLicenseStateId, HeightInches, WeightLbs,
         HairColorId, EyeColorId,
-        SuffixId, PlaceOfBirth, FbiNumber, LocalNumber, SocialSecurityNumber, IsCitizen, DeceasedDate);
+        SuffixId, PlaceOfBirth, FbiNumber, LocalNumber, SocialSecurityNumber, IsCitizen, DeceasedDate,
+        PrimaryLocationId, SecondaryLocationId);
 }

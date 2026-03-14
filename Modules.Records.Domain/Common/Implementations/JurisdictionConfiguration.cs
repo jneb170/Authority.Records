@@ -18,6 +18,9 @@ public sealed class JurisdictionConfiguration
     public string? HotkeySave { get; private set; }
     public string? HotkeyRelease { get; private set; }
 
+    // Google Maps integration — null means not configured
+    public string? GoogleMapsApiKey { get; private set; }
+
     private JurisdictionConfiguration() { }
 
     public JurisdictionConfiguration(Guid jurisdictionId, bool mustCloseAllArrests, bool mustCloseAllCitations)
@@ -34,5 +37,10 @@ public sealed class JurisdictionConfiguration
         HotkeyModify  = string.IsNullOrWhiteSpace(hotkeyModify)  ? null : hotkeyModify.Trim();
         HotkeySave    = string.IsNullOrWhiteSpace(hotkeySave)    ? null : hotkeySave.Trim();
         HotkeyRelease = string.IsNullOrWhiteSpace(hotkeyRelease) ? null : hotkeyRelease.Trim();
+    }
+
+    public void UpdateGoogleMapsApiKey(string? apiKey)
+    {
+        GoogleMapsApiKey = string.IsNullOrWhiteSpace(apiKey) ? null : apiKey.Trim();
     }
 }

@@ -49,8 +49,8 @@ public sealed class IncidentService : IIncidentService
     public Task ArchiveAsync(Guid id) =>
         _sender.Send(new ArchiveIncidentCommand(id));
 
-    public Task UpdateDetailsAsync(Guid id, IncidentDetails details) =>
-        _sender.Send(new UpdateIncidentDetailsCommand(id, details));
+    public Task UpdateDetailsAsync(Guid id, IncidentDetails details, Guid? locationId = null, DateTime? occurredOn = null) =>
+        _sender.Send(new UpdateIncidentDetailsCommand(id, details, locationId, occurredOn));
 
     public Task AcquireLockAsync(Guid id) =>
         _sender.Send(new AcquireIncidentLockCommand(id));

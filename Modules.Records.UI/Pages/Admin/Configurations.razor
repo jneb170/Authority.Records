@@ -116,8 +116,9 @@ else
                         <option value="@ConfigurationKeys.IncidentFormat" />
                         <option value="@ConfigurationKeys.ArrestFormat" />
                         <option value="@ConfigurationKeys.CitationFormat" />
+                        <option value="@ConfigurationKeys.MapStartCoordinates" />
                     </datalist>
-                    <div class="form-text">Well-known keys: <code>@ConfigurationKeys.IncidentFormat</code>, <code>@ConfigurationKeys.ArrestFormat</code>, <code>@ConfigurationKeys.CitationFormat</code> — control auto-generated record numbers.</div>
+                    <div class="form-text">Well-known keys: <code>@ConfigurationKeys.IncidentFormat</code>, <code>@ConfigurationKeys.ArrestFormat</code>, <code>@ConfigurationKeys.CitationFormat</code> — control auto-generated record numbers. <code>@ConfigurationKeys.MapStartCoordinates</code> — map center (lat,lng) for the Google Maps picker.</div>
                 </div>
                 <div class="mb-3">
                     <label class="form-label">Value</label>
@@ -261,6 +262,7 @@ else
         ConfigurationKeys.IncidentFormat => "Incident Number Format",
         ConfigurationKeys.ArrestFormat   => "Arrest Number Format",
         ConfigurationKeys.CitationFormat => "Citation Number Format",
+        ConfigurationKeys.MapStartCoordinates => "Map Starting Point",
         _ => key
     };
 

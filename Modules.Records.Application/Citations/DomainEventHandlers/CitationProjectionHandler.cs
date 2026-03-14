@@ -59,6 +59,7 @@ public sealed class CitationProjectionHandler :
             .FirstOrDefaultAsync(c => c.Id == notification.CitationId, cancellationToken);
 
         readModel.ApplyDetailsChanged(notification.Description, notification.IssueDate, notification.CourtId, notification.CitationNum);
+        readModel.ApplyLocationChanged(citation?.LocationId);
         readModel.ApplyModifiedAudit(citation?.ModifiedBy);
         await _dbContext.SaveChangesAsync(cancellationToken);
     }

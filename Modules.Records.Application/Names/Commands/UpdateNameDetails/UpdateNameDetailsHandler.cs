@@ -52,6 +52,7 @@ public sealed class UpdateNameDetailsHandler : IRequestHandler<UpdateNameDetails
             request.IsCitizen,
             request.DeceasedDate,
             _modificationContext);
+        name.SetLocations(request.PrimaryLocationId, request.SecondaryLocationId, _modificationContext);
 
         await _dbContext.SaveChangesAsync(cancellationToken);
     }
