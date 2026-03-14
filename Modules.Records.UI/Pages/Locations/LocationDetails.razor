@@ -70,7 +70,7 @@ else if (_location is not null)
         {
             <div class="alert alert-warning d-flex align-items-center gap-3 py-2 mb-2">
                 <span><i class="bi bi-pencil-fill me-1"></i><strong>Modify mode</strong> — lock expires in @_lockSecondsRemaining s</span>
-                <button class="btn btn-sm btn-outline-dark ms-auto" title="Release Record (Esc)" @onclick="RequestReleaseAsync"><i class="bi bi-unlock-fill me-1"></i>Release<ShortcutHint Action="release" /></button>
+                <button class="btn btn-sm btn-outline-dark ms-auto" @onclick="RequestReleaseAsync"><i class="bi bi-unlock-fill me-1"></i>Release</button>
             </div>
         }
         else if (_location.IsLocked && _location.LockedByUserId != _currentUserId)
@@ -81,7 +81,7 @@ else if (_location is not null)
         }
         else
         {
-            <button class="btn btn-outline-primary btn-sm" title="Modify (F2)" @onclick="EnterModifyModeAsync"><i class="bi bi-pencil-fill me-1"></i>Modify<ShortcutHint Action="modify" /></button>
+            <button class="btn btn-outline-primary btn-sm" @onclick="EnterModifyModeAsync"><i class="bi bi-pencil-fill me-1"></i>Modify</button>
         }
     </div>
 
@@ -291,7 +291,7 @@ else if (_location is not null)
     @if (_modifyMode)
     {
         <div class="mb-4">
-            <button class="btn btn-sm btn-primary" title="Save Details (Alt+S)" @onclick="SaveDetailsAsync">Save Details<ShortcutHint Action="save" /></button>
+            <button class="btn btn-sm btn-primary" @onclick="SaveDetailsAsync">Save Details</button>
         </div>
     }
 
