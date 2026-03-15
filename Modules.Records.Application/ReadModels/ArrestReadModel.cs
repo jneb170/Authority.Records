@@ -21,6 +21,7 @@ public sealed class ArrestReadModel
     public Guid? ArrestTypeId { get; private set; }
     public string ArrestNum { get; private set; } = string.Empty;
     public Guid? LocationId { get; private set; }
+    public string? PrimaryMugshotUrl { get; private set; }
 
     private ArrestReadModel() { } // EF
 
@@ -59,7 +60,7 @@ public sealed class ArrestReadModel
     public ArrestDto ToDto() => new(
         Id, RecordNumber, JurisdictionId, AgencyId,
         SuspectName, ArrestedAt, Status, IsLocked, LockedByUserId,
-        CreatedBy, ModifiedBy, CreatedAtUtc, UpdatedAtUtc, ArrestTypeId, ArrestNum, LocationId);
+        CreatedBy, ModifiedBy, CreatedAtUtc, UpdatedAtUtc, ArrestTypeId, ArrestNum, LocationId, PrimaryMugshotUrl);
 
     public void ApplyDetailsChanged(string suspectName, DateTime arrestedAt, Guid? arrestTypeId, string arrestNum)
     {
@@ -71,6 +72,7 @@ public sealed class ArrestReadModel
     }
 
     public void ApplyLocationChanged(Guid? locationId) { LocationId = locationId; UpdatedAtUtc = DateTime.UtcNow; }
+    public void ApplyPrimaryMugshot(string? primaryMugshotUrl) { PrimaryMugshotUrl = primaryMugshotUrl; UpdatedAtUtc = DateTime.UtcNow; }
 
     public void ApplyStatusChange(string status) { Status = status; UpdatedAtUtc = DateTime.UtcNow; }
     public void ApplyLockAcquired(Guid userId) { IsLocked = true; LockedByUserId = userId; UpdatedAtUtc = DateTime.UtcNow; }

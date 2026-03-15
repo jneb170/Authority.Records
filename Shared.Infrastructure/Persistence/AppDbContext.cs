@@ -36,6 +36,8 @@ public class AppDbContext : DbContext, IApplicationDbContext
     public DbSet<CitationReadModel> CitationReadModels => Set<CitationReadModel>();
     public DbSet<NameReadModel> NameReadModels => Set<NameReadModel>();
     public DbSet<LocationReadModel> LocationReadModels => Set<LocationReadModel>();
+    public DbSet<MugshotReadModel> MugshotReadModels => Set<MugshotReadModel>();
+    public DbSet<MugshotLinkReadModel> MugshotLinkReadModels => Set<MugshotLinkReadModel>();
     public DbSet<IncidentArrestLinkReadModel> IncidentArrestLinkReadModels => Set<IncidentArrestLinkReadModel>();
     public DbSet<IncidentCitationLinkReadModel> IncidentCitationLinkReadModels => Set<IncidentCitationLinkReadModel>();
 
@@ -46,6 +48,8 @@ public class AppDbContext : DbContext, IApplicationDbContext
     public DbSet<Citation> Citations => Set<Citation>();
     public DbSet<Name> Names => Set<Name>();
     public DbSet<Location> Locations => Set<Location>();
+    public DbSet<Mugshot> Mugshots => Set<Mugshot>();
+    public DbSet<MugshotLink> MugshotLinks => Set<MugshotLink>();
     public DbSet<IncidentArrestLink> IncidentArrestLinks => Set<IncidentArrestLink>();
     public DbSet<IncidentCitationLink> IncidentCitationLinks => Set<IncidentCitationLink>();
 

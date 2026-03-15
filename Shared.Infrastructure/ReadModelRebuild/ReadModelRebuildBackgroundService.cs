@@ -91,11 +91,13 @@ public sealed class ReadModelRebuildBackgroundService : BackgroundService
                     _logger.LogInformation(
                         "Scheduled rebuild completed for {JurisdictionId}: " +
                         "{Names} names, {Arrests} arrests, {Citations} citations, " +
-                        "{Incidents} incidents, {ArrestLinks} arrest links, {CitationLinks} citation links " +
+                        "{Incidents} incidents, {ArrestLinks} arrest links, {CitationLinks} citation links, " +
+                        "{Mugshots} mugshots, {MugshotLinks} mugshot links " +
                         "in {Elapsed:F2}s.",
                         jid,
                         result.NamesRebuilt, result.ArrestsRebuilt, result.CitationsRebuilt,
                         result.IncidentsRebuilt, result.ArrestLinksRebuilt, result.CitationLinksRebuilt,
+                        result.MugshotsRebuilt, result.MugshotLinksRebuilt,
                         result.Elapsed.TotalSeconds);
                 }
                 catch (Exception ex)
