@@ -9,9 +9,10 @@
 
 <PageTitle>New Arrest</PageTitle>
 
-<div class="page-header">
+<div class="page-header record-page-header">
     <div>
         <h2 class="page-header-title"><i class="bi bi-person-badge-fill"></i> New Arrest</h2>
+        <div class="page-header-sub">Create an arrest record and optionally link it to one or more incidents.</div>
     </div>
 </div>
 
@@ -20,53 +21,66 @@
     <div class="alert alert-danger">@_vm.ErrorMessage</div>
 }
 
+<div class="record-form-shell">
 <EditForm Model="_vm" OnValidSubmit="SubmitAsync">
     <DataAnnotationsValidator />
-    <div class="mb-3">
-        <label class="form-label">Suspect Name</label>
-        <InputText class="form-control" @bind-Value="_vm.SuspectName" />
-        <ValidationMessage For="() => _vm.SuspectName" />
-    </div>
-    <div class="mb-3">
-        <label class="form-label">Arrested At</label>
-        <InputDate class="form-control" @bind-Value="_vm.ArrestedAt" />
-        <ValidationMessage For="() => _vm.ArrestedAt" />
-    </div>
-    <div class="mb-3">
-        <label class="form-label">Arrest Number <span class="text-muted">(auto-generated if blank)</span></label>
-        <div class="input-group">
-            <InputText class="form-control" @bind-Value="_vm.ArrestNum" placeholder="e.g. AR-2026-000001" />
-            <button type="button" class="btn btn-outline-secondary" @onclick="GenerateArrestNumAsync" disabled="@_generatingNum">
-                @(_generatingNum ? "…" : "🔁 Generate")
-            </button>
+    <ValidationSummary class="record-validation-summary" />
+    <div class="card record-form-card mb-3">
+        <div class="card-body">
+            <div class="record-form-header">
+                <h6 class="card-title">Arrest Details</h6>
+                <p class="record-form-note">Enter the subject and arrest date first. You can link the arrest to one or more incidents before submitting.</p>
+            </div>
+            <div class="record-grid-2">
+            <div class="mb-0">
+                <label class="form-label">Suspect Name</label>
+                <InputText class="form-control" @bind-Value="_vm.SuspectName" />
+                <ValidationMessage For="() => _vm.SuspectName" />
+            </div>
+            <div class="mb-0">
+                <label class="form-label">Arrested At</label>
+                <InputDate class="form-control" @bind-Value="_vm.ArrestedAt" />
+                <ValidationMessage For="() => _vm.ArrestedAt" />
+            </div>
+            <div class="mb-0">
+                <label class="form-label">Arrest Number <span class="text-muted">(auto-generated if blank)</span></label>
+                <div class="input-group">
+                    <InputText class="form-control" @bind-Value="_vm.ArrestNum" placeholder="e.g. AR-2026-000001" />
+                    <button type="button" class="btn btn-outline-secondary" @onclick="GenerateArrestNumAsync" disabled="@_generatingNum">
+                        @(_generatingNum ? "…" : "🔁 Generate")
+                    </button>
+                </div>
+            </div>
+            <div class="mb-0 record-field-span-2">
+                <label class="form-label">Link to Incident <span class="text-muted">(optional)</span></label>
+                <select class="form-select" multiple @onchange="OnIncidentSelectionChanged">
+                    @foreach (var i in _incidents)
+                    {
+                        <option value="@i.RecordNumber" selected="@(_selectedIncidentRecordNumbers.Contains(i.RecordNumber))">
+                            @i.RecordNumber — @i.Details.IncidentNum (@i.Status)
+                        </option>
+                    }
+                </select>
+                <div class="form-text">Hold Ctrl/Cmd to select multiple</div>
+            </div>
+            </div>
         </div>
     </div>
-    {
-        <div class="mb-3">
-            <label class="form-label">Link to Incident <span class="text-muted">(optional)</span></label>
-            <select class="form-select" multiple @onchange="OnIncidentSelectionChanged">
-                @foreach (var i in _incidents)
-                {
-                    <option value="@i.RecordNumber" selected="@(_selectedIncidentRecordNumbers.Contains(i.RecordNumber))">
-                        @i.RecordNumber — @i.Details.IncidentNum (@i.Status)
-                    </option>
-                }
-            </select>
-            <div class="form-text">Hold Ctrl/Cmd to select multiple</div>
-        </div>
-    }
-    <button type="submit" class="btn btn-primary" disabled="@_submitting">
-        @(_submitting ? "Creating…" : "Create Arrest")
-    </button>
-    @if (IncidentRecordNumber.HasValue)
-    {
-        <a class="btn btn-secondary ms-2" href="/incidents/@IncidentRecordNumber">Cancel</a>
-    }
-    else
-    {
-        <a class="btn btn-secondary ms-2" href="/arrests">Cancel</a>
-    }
+    <div class="record-form-actions">
+        <button type="submit" class="btn btn-primary" disabled="@_submitting">
+            @(_submitting ? "Creating…" : "Create Arrest")
+        </button>
+        @if (IncidentRecordNumber.HasValue)
+        {
+            <a class="btn btn-secondary" href="/incidents/@IncidentRecordNumber">Cancel</a>
+        }
+        else
+        {
+            <a class="btn btn-secondary" href="/arrests">Cancel</a>
+        }
+    </div>
 </EditForm>
+</div>
 
 <UnsavedChangesDialog Visible="_showCancelConfirm"
                       SaveLabel="Submit Record"

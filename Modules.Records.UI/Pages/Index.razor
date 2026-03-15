@@ -13,211 +13,274 @@
 @implements IAsyncDisposable
 <PageTitle>Home — Authority Records</PageTitle>
 
-@* ── Welcome Banner ─────────────────────────────────────────────────── *@
-<div class="page-header">
+<div class="page-header dashboard-page-header">
     <div>
+        <div class="dashboard-eyebrow">Operations dashboard</div>
         <h2 class="page-header-title"><i class="bi bi-house-fill"></i> Home</h2>
         <div class="page-header-sub">Welcome back, <strong>@_displayName</strong> &mdash; @DateTime.Today.ToString("dddd, MMMM d, yyyy")</div>
     </div>
-</div>
-
-@* ── Module Quick-Access Cards ───────────────────────────────────────── *@
-<div class="row g-3 mb-5">
-    <div class="col-sm-6 col-lg-3">
-        <div class="card h-100 shadow-sm">
-            <div class="card-body">
-                <h5 class="card-title"><i class="bi bi-clipboard2-pulse-fill"></i> Incidents</h5>
-                <p class="card-text text-muted small">Incident Reports</p>
-            </div>
-            <div class="card-footer bg-transparent d-flex gap-2">
-                <a href="/incidents" class="btn btn-sm btn-outline-secondary flex-fill">View All</a>
-                <a href="/incidents/create" class="btn btn-sm btn-primary flex-fill"><i class="bi bi-plus-lg me-1"></i>New</a>
-            </div>
-        </div>
-    </div>
-    <div class="col-sm-6 col-lg-3">
-        <div class="card h-100 shadow-sm">
-            <div class="card-body">
-                <h5 class="card-title"><i class="bi bi-person-badge-fill"></i> Arrests</h5>
-                <p class="card-text text-muted small">Arrest Records</p>
-            </div>
-            <div class="card-footer bg-transparent d-flex gap-2">
-                <a href="/arrests" class="btn btn-sm btn-outline-secondary flex-fill">View All</a>
-                <a href="/arrests/create" class="btn btn-sm btn-primary flex-fill"><i class="bi bi-plus-lg me-1"></i>New</a>
-            </div>
-        </div>
-    </div>
-    <div class="col-sm-6 col-lg-3">
-        <div class="card h-100 shadow-sm">
-            <div class="card-body">
-                <h5 class="card-title"><i class="bi bi-file-earmark-text-fill"></i> Citations</h5>
-                <p class="card-text text-muted small">Citation Records</p>
-            </div>
-            <div class="card-footer bg-transparent d-flex gap-2">
-                <a href="/citations" class="btn btn-sm btn-outline-secondary flex-fill">View All</a>
-                <a href="/citations/create" class="btn btn-sm btn-primary flex-fill"><i class="bi bi-plus-lg me-1"></i>New</a>
-            </div>
-        </div>
-    </div>
-    <div class="col-sm-6 col-lg-3">
-        <div class="card h-100 shadow-sm">
-            <div class="card-body">
-                <h5 class="card-title"><i class="bi bi-people-fill"></i> Names</h5>
-                <p class="card-text text-muted small">Master Name Index (MNI)</p>
-            </div>
-            <div class="card-footer bg-transparent d-flex gap-2">
-                <a href="/names" class="btn btn-sm btn-outline-secondary flex-fill">View All</a>
-                <a href="/names/create" class="btn btn-sm btn-primary flex-fill"><i class="bi bi-plus-lg me-1"></i>New</a>
-            </div>
-        </div>
+    <div class="dashboard-header-chip">
+        <i class="bi bi-shield-check"></i>
+        <span>Shift summary</span>
     </div>
 </div>
 
-@* ── Recent Activity ─────────────────────────────────────────────────── *@
-<div class="border-bottom pb-2 mb-3 d-flex justify-content-between align-items-center">
-    <h5 class="fw-semibold mb-0">
-        <button class="btn btn-link p-0 text-decoration-none text-body fw-semibold"
-                @onclick="() => _activityExpanded = !_activityExpanded"
-                aria-expanded="@_activityExpanded">
-            <i class="bi @(_activityExpanded ? "bi-chevron-down" : "bi-chevron-right") me-1"></i>
-            🕐 Recent Activity
-        </button>
-    </h5>
-    <small class="text-muted">Your last 20 records</small>
-</div>
+<section class="dashboard-hero mb-4">
+    <div class="dashboard-hero-copy">
+        <span class="dashboard-hero-kicker">Shift summary</span>
+        <h3>Current records activity and mapped enforcement events.</h3>
+        <p>Use this dashboard to review recent incidents, arrests, citations, and map activity before moving into report entry or follow-up work.</p>
+    </div>
+    <div class="dashboard-metrics">
+        <div class="dashboard-metric-card">
+            <span class="dashboard-metric-label">Recent incidents</span>
+            <strong>@RecentIncidentCount</strong>
+            <span class="dashboard-metric-detail">in the latest activity feed</span>
+        </div>
+        <div class="dashboard-metric-card">
+            <span class="dashboard-metric-label">Recent arrests</span>
+            <strong>@RecentArrestCount</strong>
+            <span class="dashboard-metric-detail">in the latest activity feed</span>
+        </div>
+        <div class="dashboard-metric-card">
+            <span class="dashboard-metric-label">Recent citations</span>
+            <strong>@RecentCitationCount</strong>
+            <span class="dashboard-metric-detail">in the latest activity feed</span>
+        </div>
+        <div class="dashboard-metric-card">
+            <span class="dashboard-metric-label">Mapped events</span>
+            <strong>@(_mapMarkers?.Count ?? 0)</strong>
+            <span class="dashboard-metric-detail">@MapWindowLabel</span>
+        </div>
+    </div>
+</section>
 
-@if (_activityExpanded)
-{
-    @if (_loading)
+<section class="dashboard-grid mb-4">
+    <div class="dashboard-grid-card">
+        <div class="dashboard-grid-card-body">
+            <div class="dashboard-grid-card-icon bg-primary-subtle text-primary">
+                <i class="bi bi-clipboard2-pulse-fill"></i>
+            </div>
+            <div>
+                <h5>Incidents</h5>
+                <p>Capture, review, and update incident reports from a single records workspace.</p>
+            </div>
+        </div>
+        <div class="dashboard-grid-card-footer">
+            <a href="/incidents" class="btn btn-sm btn-outline-secondary flex-fill">View All</a>
+            <a href="/incidents/create" class="btn btn-sm btn-primary flex-fill"><i class="bi bi-plus-lg me-1"></i>New</a>
+        </div>
+    </div>
+    <div class="dashboard-grid-card">
+        <div class="dashboard-grid-card-body">
+            <div class="dashboard-grid-card-icon bg-danger-subtle text-danger">
+                <i class="bi bi-person-badge-fill"></i>
+            </div>
+            <div>
+                <h5>Arrests</h5>
+                <p>Review booking details, status changes, and follow-up activity for arrest records.</p>
+            </div>
+        </div>
+        <div class="dashboard-grid-card-footer">
+            <a href="/arrests" class="btn btn-sm btn-outline-secondary flex-fill">View All</a>
+            <a href="/arrests/create" class="btn btn-sm btn-primary flex-fill"><i class="bi bi-plus-lg me-1"></i>New</a>
+        </div>
+    </div>
+    <div class="dashboard-grid-card">
+        <div class="dashboard-grid-card-body">
+            <div class="dashboard-grid-card-icon bg-warning-subtle text-warning-emphasis">
+                <i class="bi bi-file-earmark-text-fill"></i>
+            </div>
+            <div>
+                <h5>Citations</h5>
+                <p>Issue, review, and track citation records with direct access to updates and history.</p>
+            </div>
+        </div>
+        <div class="dashboard-grid-card-footer">
+            <a href="/citations" class="btn btn-sm btn-outline-secondary flex-fill">View All</a>
+            <a href="/citations/create" class="btn btn-sm btn-primary flex-fill"><i class="bi bi-plus-lg me-1"></i>New</a>
+        </div>
+    </div>
+    <div class="dashboard-grid-card">
+        <div class="dashboard-grid-card-body">
+            <div class="dashboard-grid-card-icon bg-success-subtle text-success">
+                <i class="bi bi-people-fill"></i>
+            </div>
+            <div>
+                <h5>Names</h5>
+                <p>Search the Master Name Index for cross-record lookups and subject history review.</p>
+            </div>
+        </div>
+        <div class="dashboard-grid-card-footer">
+            <a href="/names" class="btn btn-sm btn-outline-secondary flex-fill">View All</a>
+            <a href="/names/create" class="btn btn-sm btn-primary flex-fill"><i class="bi bi-plus-lg me-1"></i>New</a>
+        </div>
+    </div>
+</section>
+
+<section class="dashboard-section mb-4">
+    <div class="dashboard-section-header">
+        <div>
+            <div class="dashboard-section-kicker">Activity feed</div>
+            <h5 class="dashboard-section-title mb-0">
+                <button class="dashboard-section-toggle"
+                        @onclick="() => _activityExpanded = !_activityExpanded"
+                        aria-expanded="@_activityExpanded">
+                    <i class="bi @(_activityExpanded ? "bi-chevron-down" : "bi-chevron-right")"></i>
+                    <span>Recent Activity</span>
+                </button>
+            </h5>
+        </div>
+        <small class="dashboard-section-meta">Your last 20 records</small>
+    </div>
+
+    @if (_activityExpanded)
     {
-        <p class="text-muted">Loading…</p>
-    }
-    else if (_activity is null || !_activity.Any())
-    {
-        <p class="text-muted fst-italic">No recent activity found. Create your first record using the shortcuts above.</p>
-    }
-    else
-    {
-        <table class="table table-hover table-sm">
-            <thead class="table-light">
-                <tr>
-                    <th>Type</th>
-                    <th>Record</th>
-                    <th>Status</th>
-                    <th>Activity</th>
-                    <th>Date / Time</th>
-                </tr>
-            </thead>
-            <tbody>
-                @foreach (var item in _activity)
-                {
-                    <tr>
-                        <td>@RecordTypeIcon(item.RecordType) @item.RecordType</td>
-                        <td><a href="@item.NavigationUrl">@item.DisplayIdentifier</a></td>
-                        <td>
-                            @if (item.Status is not null)
-                            {
-                                <span class="badge @StatusBadgeClass(item.Status)">@item.Status</span>
-                            }
-                            else
-                            {
-                                <span class="text-muted">—</span>
-                            }
-                        </td>
-                        <td>
-                            @if (item.ActivityKind == "Created")
-                            {
-                                <span class="text-success fw-semibold">Created</span>
-                            }
-                            else
-                            {
-                                <span class="text-primary fw-semibold">Modified</span>
-                            }
-                        </td>
-                        <td class="text-nowrap">@item.LastActivityAt.ToLocalTime().ToString("MM/dd/yyyy h:mm tt")</td>
-                    </tr>
-                }
-            </tbody>
-        </table>
-    }
-}
-
-@* ── Activity Map ─────────────────────────────────────────────────────── *@
-<div class="border-bottom pb-2 mb-3 d-flex justify-content-between align-items-center">
-    <h5 class="fw-semibold mb-0">
-        <button class="btn btn-link p-0 text-decoration-none text-body fw-semibold"
-                @onclick="ToggleMapExpanded"
-                aria-expanded="@_mapExpanded">
-            <i class="bi @(_mapExpanded ? "bi-chevron-down" : "bi-chevron-right") me-1"></i>
-            🗺️ Activity Map
-        </button>
-    </h5>
-    <div class="d-flex align-items-center gap-2">
-        <label class="form-label mb-0 text-muted small" for="mapWindowSelect">Show:</label>
-        <select id="mapWindowSelect" class="form-select form-select-sm" style="width:auto"
-                value="@_mapWindowHours"
-                @onchange="async e => await OnMapWindowChangedAsync(e.Value?.ToString())">
-            <option value="24">Past 24 Hours</option>
-            <option value="168">Past 7 Days</option>
-            <option value="720">Past 30 Days</option>
-            <option value="2160">Past 90 Days</option>
-            <option value="0">All Time</option>
-        </select>
-    </div>
-</div>
-
-@if (!string.IsNullOrEmpty(_mapsApiKey))
-{
-    @* Layer toggles and map — kept in DOM always, only visually hidden when collapsed *@
-    <div class="@(_mapExpanded ? "" : "d-none")">
-        <div class="card mb-4">
-            <div class="card-body pb-2">
-                <div class="d-flex flex-wrap gap-3 mb-3">
-                    <div class="form-check form-switch mb-0">
-                        <input class="form-check-input" type="checkbox" id="toggleIncidents"
-                               checked="@_showIncidents"
-                               @onchange="async e => await ToggleIncidentsAsync((bool)e.Value!)" />
-                        <label class="form-check-label" for="toggleIncidents">
-                            <span class="badge bg-primary me-1">●</span> Incidents (@(_mapMarkers?.Count(m => m.RecordType == "Incident") ?? 0))
-                        </label>
-                    </div>
-                    <div class="form-check form-switch mb-0">
-                        <input class="form-check-input" type="checkbox" id="toggleArrests"
-                               checked="@_showArrests"
-                               @onchange="async e => await ToggleArrestsAsync((bool)e.Value!)" />
-                        <label class="form-check-label" for="toggleArrests">
-                            <span class="badge bg-danger me-1">●</span> Arrests (@(_mapMarkers?.Count(m => m.RecordType == "Arrest") ?? 0))
-                        </label>
-                    </div>
-                    <div class="form-check form-switch mb-0">
-                        <input class="form-check-input" type="checkbox" id="toggleCitations"
-                               checked="@_showCitations"
-                               @onchange="async e => await ToggleCitationsAsync((bool)e.Value!)" />
-                        <label class="form-check-label" for="toggleCitations">
-                            <span class="badge bg-warning text-dark me-1">●</span> Citations (@(_mapMarkers?.Count(m => m.RecordType == "Citation") ?? 0))
-                        </label>
-                    </div>
-                    <div class="form-check form-switch mb-0 ms-auto">
-                        <input class="form-check-input" type="checkbox" id="togglePlaces"
-                               checked="@_showPlaces"
-                               @onchange="async e => await TogglePlacesAsync((bool)e.Value!)" />
-                        <label class="form-check-label text-muted" for="togglePlaces">
-                            <i class="bi bi-shop me-1"></i>Places
-                        </label>
-                    </div>
+        <div class="dashboard-section-body">
+            @if (_loading)
+            {
+                <div class="loading-state">
+                    <div class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></div>
+                    <span>Loading recent activity…</span>
                 </div>
-                <div id="home-activity-map" style="height:420px;border-radius:6px;overflow:hidden;"></div>
-            </div>
+            }
+            else if (_activity is null || !_activity.Any())
+            {
+                <div class="empty-state">
+                    <i class="bi bi-clock-history"></i>
+                    <div>No recent activity found yet.</div>
+                    <div class="small">Create a record to populate the command activity feed.</div>
+                </div>
+            }
+            else
+            {
+                <div class="table-responsive">
+                    <table class="table table-hover table-sm dashboard-table mb-0">
+                        <thead class="table-light">
+                            <tr>
+                                <th>Type</th>
+                                <th>Record</th>
+                                <th>Status</th>
+                                <th>Activity</th>
+                                <th>Date / Time</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var item in _activity)
+                            {
+                                <tr>
+                                    <td>@RecordTypeIcon(item.RecordType) @item.RecordType</td>
+                                    <td><a href="@item.NavigationUrl">@item.DisplayIdentifier</a></td>
+                                    <td>
+                                        @if (item.Status is not null)
+                                        {
+                                            <span class="badge @StatusBadgeClass(item.Status)">@item.Status</span>
+                                        }
+                                        else
+                                        {
+                                            <span class="text-muted">—</span>
+                                        }
+                                    </td>
+                                    <td>
+                                        @if (item.ActivityKind == "Created")
+                                        {
+                                            <span class="text-success fw-semibold">Created</span>
+                                        }
+                                        else
+                                        {
+                                            <span class="text-primary fw-semibold">Modified</span>
+                                        }
+                                    </td>
+                                    <td class="text-nowrap">@item.LastActivityAt.ToLocalTime().ToString("MM/dd/yyyy h:mm tt")</td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            }
+        </div>
+    }
+</section>
+
+<section class="dashboard-section dashboard-section-map">
+    <div class="dashboard-section-header">
+        <div>
+            <div class="dashboard-section-kicker">Geospatial activity</div>
+            <h5 class="dashboard-section-title mb-0">
+                <button class="dashboard-section-toggle"
+                        @onclick="ToggleMapExpanded"
+                        aria-expanded="@_mapExpanded">
+                    <i class="bi @(_mapExpanded ? "bi-chevron-down" : "bi-chevron-right")"></i>
+                    <span>Activity Map</span>
+                </button>
+            </h5>
+        </div>
+        <div class="dashboard-map-toolbar">
+            <label class="form-label mb-0 text-muted small" for="mapWindowSelect">Window</label>
+            <select id="mapWindowSelect" class="form-select form-select-sm"
+                    value="@_mapWindowHours"
+                    @onchange="async e => await OnMapWindowChangedAsync(e.Value?.ToString())">
+                <option value="24">Past 24 Hours</option>
+                <option value="168">Past 7 Days</option>
+                <option value="720">Past 30 Days</option>
+                <option value="2160">Past 90 Days</option>
+                <option value="0">All Time</option>
+            </select>
         </div>
     </div>
-}
-else if (!_loading && _mapExpanded)
-{
-    <div class="alert alert-info mb-4">
-        <i class="bi bi-info-circle me-2"></i>
-        Google Maps is not configured. A Jurisdiction Admin can add the API key under <strong>Admin → Location Settings</strong>.
-    </div>
-}
+
+    @if (!string.IsNullOrEmpty(_mapsApiKey))
+    {
+        <div class="@(_mapExpanded ? "dashboard-section-body" : "d-none")">
+            <div class="dashboard-map-filters">
+                <div class="form-check form-switch mb-0">
+                    <input class="form-check-input" type="checkbox" id="toggleIncidents"
+                           checked="@_showIncidents"
+                           @onchange="async e => await ToggleIncidentsAsync((bool)e.Value!)" />
+                    <label class="form-check-label" for="toggleIncidents">
+                        <span class="badge bg-primary me-1">●</span> Incidents (@(_mapMarkers?.Count(m => m.RecordType == "Incident") ?? 0))
+                    </label>
+                </div>
+                <div class="form-check form-switch mb-0">
+                    <input class="form-check-input" type="checkbox" id="toggleArrests"
+                           checked="@_showArrests"
+                           @onchange="async e => await ToggleArrestsAsync((bool)e.Value!)" />
+                    <label class="form-check-label" for="toggleArrests">
+                        <span class="badge bg-danger me-1">●</span> Arrests (@(_mapMarkers?.Count(m => m.RecordType == "Arrest") ?? 0))
+                    </label>
+                </div>
+                <div class="form-check form-switch mb-0">
+                    <input class="form-check-input" type="checkbox" id="toggleCitations"
+                           checked="@_showCitations"
+                           @onchange="async e => await ToggleCitationsAsync((bool)e.Value!)" />
+                    <label class="form-check-label" for="toggleCitations">
+                        <span class="badge bg-warning text-dark me-1">●</span> Citations (@(_mapMarkers?.Count(m => m.RecordType == "Citation") ?? 0))
+                    </label>
+                </div>
+                <div class="form-check form-switch mb-0 dashboard-map-places">
+                    <input class="form-check-input" type="checkbox" id="togglePlaces"
+                           checked="@_showPlaces"
+                           @onchange="async e => await TogglePlacesAsync((bool)e.Value!)" />
+                    <label class="form-check-label text-muted" for="togglePlaces">
+                        <i class="bi bi-shop me-1"></i>Places
+                    </label>
+                </div>
+            </div>
+            <div class="dashboard-map-canvas">
+                <div id="home-activity-map"></div>
+            </div>
+        </div>
+    }
+    else if (!_loading && _mapExpanded)
+    {
+        <div class="dashboard-section-body">
+            <div class="alert alert-info mb-0">
+                <i class="bi bi-info-circle me-2"></i>
+                Google Maps is not configured. A Jurisdiction Admin can add the API key under <strong>Admin → Location Settings</strong>.
+            </div>
+        </div>
+    }
+</section>
 
 @code {
     private bool _loading = true;
@@ -233,6 +296,17 @@ else if (!_loading && _mapExpanded)
     private bool _showPlaces    = false;
     private bool _mapInitialised = false;
     private int  _mapWindowHours = 24;   // 0 = all time
+    private int RecentIncidentCount => _activity?.Count(a => string.Equals(a.RecordType, "Incident", StringComparison.OrdinalIgnoreCase)) ?? 0;
+    private int RecentArrestCount => _activity?.Count(a => string.Equals(a.RecordType, "Arrest", StringComparison.OrdinalIgnoreCase)) ?? 0;
+    private int RecentCitationCount => _activity?.Count(a => string.Equals(a.RecordType, "Citation", StringComparison.OrdinalIgnoreCase)) ?? 0;
+    private string MapWindowLabel => _mapWindowHours switch
+    {
+        24 => "past 24 hours",
+        168 => "past 7 days",
+        720 => "past 30 days",
+        2160 => "past 90 days",
+        _ => "all available records"
+    };
 
     protected override async Task OnInitializedAsync()
     {

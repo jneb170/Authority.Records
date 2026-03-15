@@ -21,14 +21,22 @@
                         <button class="hamburger-btn" @onclick="ToggleSidebar" title="Menu">
                             <i class="bi bi-list"></i>
                         </button>
-                        <i class="bi bi-shield-fill-check text-primary" style="font-size:1.1rem;"></i>
-                        <span class="top-header-agency">@(_agencyName ?? "Authority Records")</span>
+                        <div class="top-header-context">
+                            <span class="top-header-context-label">@CurrentWorkspaceLabel</span>
+                            <span class="top-header-context-name">@(_agencyName ?? "Operational workspace")</span>
+                        </div>
                         <div class="top-header-user">
                             <div class="top-header-avatar">@_initials</div>
-                            <span>@_displayName</span>
+                            <div class="top-header-user-copy">
+                                <span class="top-header-user-name">@_displayName</span>
+                                @if (_role is not null)
+                                {
+                                    <span class="top-header-user-role">@_role</span>
+                                }
+                            </div>
                             @if (_role is not null)
                             {
-                                <span class="badge bg-secondary" style="font-size:0.65rem;">@_role</span>
+                                <span class="top-header-role-pill">@_role</span>
                             }
                             <a href="/account/change-password" title="Change Password" class="top-header-pwd-link">
                                 <i class="bi bi-key"></i>
@@ -60,6 +68,7 @@
     private string? _agencyName;
     private string? _role;
     private string _initials = "?";
+    private string CurrentWorkspaceLabel => GetWorkspaceLabel(new Uri(Nav.Uri).AbsolutePath);
 
     protected override async Task OnInitializedAsync()
     {
@@ -102,6 +111,21 @@
         if (!_isSuper) { _suppressBody = false; return; }
         var path = new Uri(Nav.Uri).AbsolutePath.TrimEnd('/');
         _suppressBody = !path.StartsWith("/super", StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static string GetWorkspaceLabel(string absolutePath)
+    {
+        if (absolutePath.StartsWith("/admin", StringComparison.OrdinalIgnoreCase))
+        {
+            return "Administration";
+        }
+
+        if (absolutePath.StartsWith("/super", StringComparison.OrdinalIgnoreCase))
+        {
+            return "Super Administration";
+        }
+
+        return "Operations";
     }
 
     protected override async Task OnAfterRenderAsync(bool firstRender)

@@ -31,19 +31,19 @@ else if (_error is not null)
 }
 else if (_location is not null)
 {
-    <nav aria-label="breadcrumb" class="mb-3">
+    <nav aria-label="breadcrumb" class="record-breadcrumb">
         <ol class="breadcrumb">
             <li class="breadcrumb-item"><a href="/locations">Locations</a></li>
             <li class="breadcrumb-item active">@FormatAddressTitle(_location)</li>
         </ol>
     </nav>
 
-    <div class="page-header">
+    <div class="page-header record-page-header">
         <div>
             <h2 class="page-header-title"><i class="bi bi-geo-alt-fill"></i> Location Record</h2>
             <div class="page-header-sub">@FormatFullAddress(_location)</div>
         </div>
-        <div class="d-flex gap-2 align-items-center">
+        <div class="d-flex gap-2 align-items-center record-header-meta">
             <LockBadge IsLocked="@_location.IsLocked" LockedByName="@_lockedByName" />
         </div>
     </div>
@@ -52,7 +52,7 @@ else if (_location is not null)
     {
         <div class="alert alert-danger alert-dismissible">
             @_actionError
-            <button type="button" class="btn-close" @onclick="() => _actionError = null"></button>
+            <button type="button" class="btn-close" aria-label="Dismiss message" @onclick="() => _actionError = null"></button>
         </div>
     }
 
@@ -60,15 +60,15 @@ else if (_location is not null)
     {
         <div class="alert alert-success alert-dismissible">
             @_saveSuccessMessage
-            <button type="button" class="btn-close" @onclick="() => _saveSuccessMessage = null"></button>
+            <button type="button" class="btn-close" aria-label="Dismiss message" @onclick="() => _saveSuccessMessage = null"></button>
         </div>
     }
 
     <!-- Modify Mode Bar -->
-    <div class="mb-3">
+    <div class="record-toolbar mb-3">
         @if (_modifyMode)
         {
-            <div class="alert alert-warning d-flex align-items-center gap-3 py-2 mb-2">
+            <div class="alert alert-warning d-flex align-items-center gap-3 py-2 mb-2 record-mode-banner">
                 <span><i class="bi bi-pencil-fill me-1"></i><strong>Modify mode</strong> — lock expires in @_lockSecondsRemaining s</span>
                 <button class="btn btn-sm btn-outline-dark ms-auto" @onclick="RequestReleaseAsync"><i class="bi bi-unlock-fill me-1"></i>Release</button>
             </div>
@@ -88,7 +88,7 @@ else if (_location is not null)
     <!-- Action Bar (modify mode only) -->
     @if (_modifyMode)
     {
-        <div class="action-bar mb-4 d-flex flex-wrap gap-2">
+        <div class="action-bar record-action-bar mb-4 d-flex flex-wrap gap-2">
             <button class="btn btn-outline-danger btn-sm" @onclick="() => _showDeleteConfirm = true">Delete</button>
         </div>
     }
@@ -108,7 +108,7 @@ else if (_location is not null)
                           OnCancel="CancelRelease" />
 
     <!-- Street Address Card -->
-    <div class="card mb-3">
+    <div class="card record-content-card mb-3">
         <div class="card-body">
             <h6 class="card-title">Street Address</h6>
             <div class="row g-3">
@@ -183,7 +183,7 @@ else if (_location is not null)
     </div>
 
     <!-- City / State / ZIP Card -->
-    <div class="card mb-3">
+    <div class="card record-content-card mb-3">
         <div class="card-body">
             <h6 class="card-title">City / State / ZIP</h6>
             <div class="row g-3">
@@ -236,7 +236,7 @@ else if (_location is not null)
     </div>
 
     <!-- Additional Info Card -->
-    <div class="card mb-3">
+    <div class="card record-content-card mb-3">
         <div class="card-body">
             <h6 class="card-title">Additional Info</h6>
             <div class="row g-3">
@@ -290,7 +290,7 @@ else if (_location is not null)
 
     @if (_modifyMode)
     {
-        <div class="mb-4">
+        <div class="record-save-row mb-4">
             <button class="btn btn-sm btn-primary" @onclick="SaveDetailsAsync">Save Details</button>
         </div>
     }
@@ -300,7 +300,7 @@ else if (_location is not null)
     {
         @if (_modifyMode)
         {
-            <div class="card mb-3">
+            <div class="card record-content-card mb-3">
                 <div class="card-header d-flex justify-content-between align-items-center">
                     <strong><i class="bi bi-map me-1"></i>Pick from Map</strong>
                     <button type="button" class="btn btn-sm @(_mapOpen ? "btn-outline-secondary" : "btn-outline-primary")"
@@ -325,7 +325,7 @@ else if (_location is not null)
         }
         else if (!string.IsNullOrWhiteSpace(_location.Coordinates))
         {
-            <div class="card mb-3">
+            <div class="card record-content-card mb-3">
                 <div class="card-header"><strong><i class="bi bi-map me-1"></i>Map</strong></div>
                 <div class="card-body p-0">
                     <div id="location-static-map" style="height:300px; border-radius:0 0 4px 4px;"></div>

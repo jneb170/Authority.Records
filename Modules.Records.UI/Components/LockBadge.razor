@@ -1,13 +1,16 @@
 @if (IsLocked)
 {
-    <span class="badge bg-danger" title="@(LockedByName is not null ? $"Locked by {LockedByName}" : "Locked")">
+    <span class="record-pill record-pill-danger @(Compact ? "record-pill-compact" : string.Empty)"
+          title="@(LockedByName is not null ? $"Locked by {LockedByName}" : "Locked")">
         @if (Compact)
         {
-            <i class="bi bi-lock-fill me-1"></i>@GetInitials(LockedByName)
+            <i class="bi bi-lock-fill" aria-hidden="true"></i>
+            <span>@(GetInitials(LockedByName) ?? "LK")</span>
         }
         else
         {
-            <i class="bi bi-lock-fill me-1"></i>@(LockedByName is not null ? $"Locked · {LockedByName}" : "Locked")
+            <i class="bi bi-lock-fill" aria-hidden="true"></i>
+            <span>@(LockedByName is not null ? $"Locked · {LockedByName}" : "Locked")</span>
         }
     </span>
 }

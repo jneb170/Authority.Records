@@ -25,14 +25,14 @@ else if (_error is not null)
 }
 else if (_incident is not null)
 {
-    <nav aria-label="breadcrumb" class="mb-2">
+    <nav aria-label="breadcrumb" class="record-breadcrumb">
         <ol class="breadcrumb">
             <li class="breadcrumb-item"><a href="/incidents">Incidents</a></li>
             <li class="breadcrumb-item active">Incident #@RecordNumber</li>
         </ol>
     </nav>
 
-    <div class="page-header">
+    <div class="page-header record-page-header">
         <div>
             <h2 class="page-header-title"><i class="bi bi-clipboard2-pulse-fill"></i> Incident Report</h2>
             <div class="page-header-sub">
@@ -41,7 +41,7 @@ else if (_incident is not null)
                     : _incident.Details.IncidentNum)
             </div>
         </div>
-        <div class="d-flex gap-2">
+        <div class="d-flex gap-2 record-header-meta">
             <StatusBadge Status="@_incident.Status" />
             <LockBadge IsLocked="@_incident.IsLocked" LockedByName="@_lockedByName" />
         </div>
@@ -51,7 +51,7 @@ else if (_incident is not null)
     {
         <div class="alert alert-danger alert-dismissible">
             @_actionError
-            <button type="button" class="btn-close" @onclick="() => _actionError = null"></button>
+            <button type="button" class="btn-close" aria-label="Dismiss message" @onclick="() => _actionError = null"></button>
         </div>
     }
 
@@ -59,15 +59,15 @@ else if (_incident is not null)
     {
         <div class="alert alert-success alert-dismissible">
             @_saveSuccessMessage
-            <button type="button" class="btn-close" @onclick="() => _saveSuccessMessage = null"></button>
+            <button type="button" class="btn-close" aria-label="Dismiss message" @onclick="() => _saveSuccessMessage = null"></button>
         </div>
     }
 
     <!-- Modify Mode Bar -->
-    <div class="mb-3">
+    <div class="record-toolbar mb-3">
         @if (_modifyMode)
         {
-            <div class="alert alert-warning d-flex align-items-center gap-3 py-2 mb-2">
+            <div class="alert alert-warning d-flex align-items-center gap-3 py-2 mb-2 record-mode-banner">
                 <span><i class="bi bi-pencil-fill me-1"></i><strong>Modify mode</strong> — lock expires in @_lockSecondsRemaining s</span>
                 <button class="btn btn-sm btn-outline-dark ms-auto" @onclick="RequestReleaseAsync"><i class="bi bi-unlock-fill me-1"></i>Release</button>
             </div>
@@ -87,7 +87,7 @@ else if (_incident is not null)
     <!-- Action Bar (only in modify mode) -->
     @if (_modifyMode)
     {
-        <div class="action-bar mb-4 d-flex flex-wrap gap-2">
+        <div class="action-bar record-action-bar mb-4 d-flex flex-wrap gap-2">
             @if (_incident.Status == "Draft")
             {
                 <button class="btn btn-success btn-sm" @onclick="OpenAsync">Open</button>
@@ -126,35 +126,35 @@ else if (_incident is not null)
                           OnCancel="CancelRelease" />
 
     <!-- Incident Fields (always visible; inputs become editable in modify mode) -->
-    <div class="card mb-4">
+    <div class="card record-content-card mb-4">
         <div class="card-body">
             <h6 class="card-title">Incident Details</h6>
-            <div class="row g-3">
-                <div class="col-sm-4">
+            <div class="record-grid-3">
+                <div>
                     <label class="form-label mb-1">Incident Number</label>
                     <input type="text" class="@(_modifyMode ? "form-control form-control-sm" : "form-control-plaintext form-control-sm ps-0")"
                            maxlength="30" readonly="@(!_modifyMode)"
                            @bind="_editIncidentNum" placeholder="@(_modifyMode ? "(optional)" : "—")" />
                 </div>
-                <div class="col-sm-4">
+                <div class="record-field-span-2">
                     <label class="form-label mb-1">Description</label>
                     <input type="text" class="@(_modifyMode ? "form-control form-control-sm" : "form-control-plaintext form-control-sm ps-0")"
                            readonly="@(!_modifyMode)"
                            @bind="_editDescription" placeholder="—" />
                 </div>
-                <div class="col-sm-4">
+                <div>
                     <label class="form-label mb-1">CFS Number</label>
                     <input type="text" class="@(_modifyMode ? "form-control form-control-sm" : "form-control-plaintext form-control-sm ps-0")"
                            maxlength="30" readonly="@(!_modifyMode)"
                            @bind="_editCFSNum" placeholder="@(_modifyMode ? "(optional)" : "—")" />
                 </div>
-                <div class="col-sm-4">
+                <div>
                     <label class="form-label mb-1">Local Number</label>
                     <input type="text" class="@(_modifyMode ? "form-control form-control-sm" : "form-control-plaintext form-control-sm ps-0")"
                            maxlength="30" readonly="@(!_modifyMode)"
                            @bind="_editLocalNum" placeholder="@(_modifyMode ? "(optional)" : "—")" />
                 </div>
-                <div class="col-sm-4">
+                <div>
                     <label class="form-label mb-1">Occurred On</label>
                     @if (_modifyMode)
                     {
@@ -169,10 +169,10 @@ else if (_incident is not null)
                         </div>
                     }
                 </div>
-                <div class="col-12">
+                <div class="record-field-span-full">
                     <label class="form-label mb-1">Location</label>
                     <div class="d-flex align-items-center gap-2">
-                        <span class="fw-semibold">@(_editLocationDisplay ?? "— None —")</span>
+                        <span class="@(_modifyMode ? "fw-semibold" : "record-reference-display")">@(_editLocationDisplay ?? "— None —")</span>
                         @if (_modifyMode)
                         {
                             <button type="button" class="btn btn-sm btn-outline-secondary" @onclick="() => _showLocationModal = true">
@@ -180,7 +180,7 @@ else if (_incident is not null)
                             </button>
                             @if (_editLocationId.HasValue)
                             {
-                                <button type="button" class="btn btn-sm btn-outline-danger" @onclick="ClearLocation">
+                                <button type="button" class="btn btn-sm btn-outline-danger" aria-label="Clear assigned location" title="Clear assigned location" @onclick="ClearLocation">
                                     <i class="bi bi-x-lg"></i>
                                 </button>
                             }
@@ -191,7 +191,7 @@ else if (_incident is not null)
             </div>
             @if (_modifyMode)
             {
-                <div class="mt-3">
+                <div class="record-save-row">
                     <button class="btn btn-sm btn-primary" @onclick="SaveDetailsAsync">Save Details</button>
                 </div>
             }
@@ -205,25 +205,32 @@ else if (_incident is not null)
                          OnCancelled="() => _showLocationModal = false" />
 
     <!-- Arrests -->
-    <div class="mb-4">
-        <div class="d-flex justify-content-between align-items-center mb-2">
-            <h4>Arrests</h4>
+    <div class="record-related-section">
+        <div class="record-related-header">
+            <h4 class="record-related-title">Arrests</h4>
             @if (_modifyMode)
             {
                 <a class="btn btn-sm btn-outline-primary" href="/incidents/@RecordNumber/arrests/create">+ Add Arrest</a>
             }
         </div>
+        <div class="record-related-body">
         @if (_arrests is null)
         {
-            <p>Loading arrests…</p>
+            <LoadingSpinner Message="Loading arrests..." />
         }
         else if (!_arrests.Any())
         {
-            <p class="text-muted">No arrests recorded.</p>
+            <div class="record-related-empty-state">
+                <div class="empty-state">
+                    <i class="bi bi-person-x"></i>
+                    <div class="fw-medium">No arrests recorded.</div>
+                    <div class="small mt-1">Add an arrest from modify mode when this incident results in a custodial action.</div>
+                </div>
+            </div>
         }
         else
         {
-            <table class="table table-sm">
+            <table class="table table-sm mb-0">
                 <thead>
                     <tr>
                         <th>Suspect</th>
@@ -247,28 +254,36 @@ else if (_incident is not null)
                 </tbody>
             </table>
         }
+        </div>
     </div>
 
     <!-- Citations -->
-    <div class="mb-4">
-        <div class="d-flex justify-content-between align-items-center mb-2">
-            <h4>Citations</h4>
+    <div class="record-related-section">
+        <div class="record-related-header">
+            <h4 class="record-related-title">Citations</h4>
             @if (_modifyMode)
             {
                 <a class="btn btn-sm btn-outline-primary" href="/incidents/@RecordNumber/citations/create">+ Add Citation</a>
             }
         </div>
+        <div class="record-related-body">
         @if (_citations is null)
         {
-            <p>Loading citations…</p>
+            <LoadingSpinner Message="Loading citations..." />
         }
         else if (!_citations.Any())
         {
-            <p class="text-muted">No citations recorded.</p>
+            <div class="record-related-empty-state">
+                <div class="empty-state">
+                    <i class="bi bi-file-earmark-minus"></i>
+                    <div class="fw-medium">No citations recorded.</div>
+                    <div class="small mt-1">Add a citation from modify mode when an enforcement action is issued for this incident.</div>
+                </div>
+            </div>
         }
         else
         {
-            <table class="table table-sm">
+            <table class="table table-sm mb-0">
                 <thead>
                     <tr>
                         <th>Description</th>
@@ -284,7 +299,12 @@ else if (_incident is not null)
                         <tr>
                             <td>@c.Description</td>
                             <td>@c.IssueDate.ToShortDateString()</td>
-                            <td>@(c.IsIssued ? "✅" : "⏳")</td>
+                            <td>
+                                <span class="record-pill @(c.IsIssued ? "record-pill-success" : "record-pill-warning")">
+                                    <i class="bi @(c.IsIssued ? "bi-check2-circle" : "bi-hourglass-split")" aria-hidden="true"></i>
+                                    <span>@(c.IsIssued ? "Issued" : "Pending")</span>
+                                </span>
+                            </td>
                             <td><LockBadge IsLocked="@c.IsLocked" LockedByName="@(c.LockedByUserId.HasValue ? _linkLockNames.GetValueOrDefault(c.LockedByUserId.Value) : null)" Compact="true" /></td>
                             <td><a class="btn btn-sm btn-outline-primary" href="/citations/@c.RecordNumber">View</a></td>
                         </tr>
@@ -292,6 +312,7 @@ else if (_incident is not null)
                 </tbody>
             </table>
         }
+        </div>
     <!-- Incidents Fields ... -->
     </div>
 

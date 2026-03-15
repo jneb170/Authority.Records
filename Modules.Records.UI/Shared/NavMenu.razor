@@ -1,5 +1,7 @@
 <a href="/" class="sidebar-brand" @onclick="OnNavClicked">
-    <img src="/favicon.svg" width="24" height="24" alt="AR" />
+    <span class="sidebar-brand-icon-wrap">
+        <img src="/favicon.svg" width="24" height="24" alt="AR" />
+    </span>
     <span class="sidebar-brand-text">
         Authority Records
         <span class="sidebar-brand-sub">Records Management</span>
@@ -7,6 +9,7 @@
 </a>
 
 <nav class="nav flex-column px-0 pb-2">
+    <div class="sidebar-section-label">Operations</div>
 
     <AuthorizeView Roles="Admin,Supervisor,Officer,Dispatcher">
         <NavLink class="nav-link" href="" Match="NavLinkMatch.All" @onclick="OnNavClicked">
@@ -68,6 +71,7 @@
     </AuthorizeView>
 
     <div class="sidebar-footer">
+        <div class="sidebar-footer-label">Session</div>
         <a href="/account/logout" class="nav-link">
             <i class="bi bi-box-arrow-left"></i> Sign Out
         </a>

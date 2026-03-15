@@ -21,14 +21,14 @@
 {
     <div class="alert alert-danger alert-dismissible">
         @_error
-        <button type="button" class="btn-close" @onclick="() => _error = null"></button>
+        <button type="button" class="btn-close" aria-label="Dismiss message" @onclick="() => _error = null"></button>
     </div>
 }
 @if (_successMessage is not null)
 {
     <div class="alert alert-success alert-dismissible">
         @_successMessage
-        <button type="button" class="btn-close" @onclick="() => _successMessage = null"></button>
+        <button type="button" class="btn-close" aria-label="Dismiss message" @onclick="() => _successMessage = null"></button>
     </div>
 }
 
