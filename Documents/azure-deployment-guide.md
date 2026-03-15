@@ -31,7 +31,7 @@ Development override that won't be committed:
 ```json
 {
   "ConnectionStrings": {
-    "DefaultConnection": "Server=localhost;Database=AuthorityRecords;User Id=AuthorityAdmin;***REMOVED***idtv3Cc6RhLFt8!;TrustServerCertificate=True;"
+    "DefaultConnection": "Server=localhost;Database=AuthorityRecords;User Id=AuthorityAdmin;Password=idtv3Cc6RhLFt8!;TrustServerCertificate=True;"
   }
 }
 ```
@@ -53,7 +53,7 @@ az login
 
 cd C:\Users\jneb1\source\repos\Authority.Records
 
-.\azure-provision.ps1 -SqlAdminPassword "***REMOVED***"
+.\azure-provision.ps1 -SqlAdminPassword "YourStrongPassword123!"
 ```
 
 The script will create:

@@ -17,12 +17,16 @@
 {
     <LoadingSpinner />
 }
+else if (_error is not null)
+{
+    <div class="alert alert-danger">@_error</div>
+}
 else
 {
     <div class="list-results-summary mb-3">
-        <div class="list-results-count">@VisibleTypeCount picklists shown</div>
+        <div class="list-results-count">@_visibleGroups.Sum(g => g.Types.Count) picklists shown</div>
         <div class="list-results-flags">
-            <span class="list-summary-chip"><i class="bi bi-collection"></i>@VisibleGroupCount groups</span>
+            <span class="list-summary-chip"><i class="bi bi-collection"></i>@_visibleGroups.Count groups</span>
             <span class="list-summary-chip"><i class="bi bi-grid-3x3-gap"></i>@_allTypes.Count total types</span>
             @if (!string.IsNullOrWhiteSpace(_searchText))
             {
@@ -38,8 +42,8 @@ else
                     <label class="form-label">Find a picklist</label>
                     <input class="form-control"
                            placeholder="Search by picklist name, type key, or operational area"
-                           @bind="_searchText"
-                           @bind:event="oninput" />
+                           value="@_searchText"
+                           @oninput="OnSearchInput" />
                     <div class="form-text">Try terms like <code>name</code>, <code>location</code>, <code>court</code>, or a specific type key.</div>
                 </div>
                 <div class="col-lg-4">
@@ -51,7 +55,7 @@ else
         </div>
     </div>
 
-    @if (!VisibleGroups.Any())
+    @if (!_visibleGroups.Any())
     {
         <div class="record-related-empty-state">
             <div class="empty-state">
@@ -64,7 +68,7 @@ else
     else
     {
         <div class="admin-picklist-groups">
-            @foreach (var group in VisibleGroups)
+            @foreach (var group in _visibleGroups)
             {
                 <section class="admin-picklist-group">
                     <div class="admin-picklist-group-header">
@@ -104,11 +108,62 @@ else
 
 @code {
     private List<PicklistTypeCard> _allTypes = [];
+    private IReadOnlyList<PicklistGroupCard> _visibleGroups = [];
     private bool _loading = true;
+    private string? _error;
     private string _searchText = string.Empty;
 
-    private IReadOnlyList<PicklistGroupCard> VisibleGroups =>
-        _allTypes
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            var types = await PicklistService.GetPicklistTypesAsync();
+
+            _allTypes = types
+                .Select(type =>
+                {
+                    var groupKey = PicklistAdminMetadata.GetGroupKey(type);
+                    return new PicklistTypeCard(
+                        type,
+                        PicklistAdminMetadata.GetDisplayName(type),
+                        PicklistAdminMetadata.GetDescription(type),
+                        groupKey,
+                        PicklistAdminMetadata.GetGroupName(groupKey),
+                        PicklistAdminMetadata.GetGroupDescription(groupKey),
+                        PicklistAdminMetadata.GetGroupIcon(groupKey),
+                        PicklistAdminMetadata.GetGroupTag(groupKey));
+                })
+                .OrderBy(type => PicklistAdminMetadata.GetGroupOrder(type.GroupKey))
+                .ThenBy(type => type.DisplayName, StringComparer.OrdinalIgnoreCase)
+                .ToList();
+
+            RecomputeVisibleGroups();
+        }
+        catch (Exception ex)
+        {
+            _error = ex.Message;
+        }
+        finally
+        {
+            _loading = false;
+        }
+    }
+
+    private void OnSearchInput(ChangeEventArgs e)
+    {
+        _searchText = e.Value?.ToString() ?? string.Empty;
+        RecomputeVisibleGroups();
+    }
+
+    private void ClearSearch()
+    {
+        _searchText = string.Empty;
+        RecomputeVisibleGroups();
+    }
+
+    private void RecomputeVisibleGroups()
+    {
+        _visibleGroups = _allTypes
             .Where(MatchesSearch)
             .GroupBy(card => card.GroupKey)
             .Select(group =>
@@ -124,36 +179,7 @@ else
             .OrderBy(group => PicklistAdminMetadata.GetGroupOrder(group.Key))
             .ThenBy(group => group.Name, StringComparer.OrdinalIgnoreCase)
             .ToList();
-
-    private int VisibleTypeCount => VisibleGroups.Sum(group => group.Types.Count);
-    private int VisibleGroupCount => VisibleGroups.Count;
-
-    protected override async Task OnInitializedAsync()
-    {
-        var types = await PicklistService.GetPicklistTypesAsync();
-
-        _allTypes = types
-            .Select(type =>
-            {
-                var groupKey = PicklistAdminMetadata.GetGroupKey(type);
-                return new PicklistTypeCard(
-                    type,
-                    PicklistAdminMetadata.GetDisplayName(type),
-                    PicklistAdminMetadata.GetDescription(type),
-                    groupKey,
-                    PicklistAdminMetadata.GetGroupName(groupKey),
-                    PicklistAdminMetadata.GetGroupDescription(groupKey),
-                    PicklistAdminMetadata.GetGroupIcon(groupKey),
-                    PicklistAdminMetadata.GetGroupTag(groupKey));
-            })
-            .OrderBy(type => PicklistAdminMetadata.GetGroupOrder(type.GroupKey))
-            .ThenBy(type => type.DisplayName, StringComparer.OrdinalIgnoreCase)
-            .ToList();
-
-        _loading = false;
     }
-
-    private void ClearSearch() => _searchText = string.Empty;
 
     private bool MatchesSearch(PicklistTypeCard card)
     {

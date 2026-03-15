@@ -235,7 +235,7 @@ else if (_names is not null)
     private Guid? _filterEyeColorId;
     private string _filterDlNumber = string.Empty;
     private Guid? _filterDlStateId;
-    private int VisibleCount => SortedNames.Count();
+    private int VisibleCount => _names?.Count ?? 0;
     private int ActiveFilterCount =>
         (string.IsNullOrWhiteSpace(_filterNameType) ? 0 : 1) +
         (string.IsNullOrWhiteSpace(_filterNameContains) ? 0 : 1) +

@@ -163,7 +163,7 @@ else if (_arrests is not null)
     private DateTime? _filterDateFrom;
     private DateTime? _filterDateTo;
     private string    _filterStatus   = string.Empty;
-    private int VisibleCount => SortedArrests.Count();
+    private int VisibleCount => FilteredArrests.Count();
     private int ActiveFilterCount =>
         (string.IsNullOrWhiteSpace(_filterSuspect) ? 0 : 1) +
         (_filterDateFrom.HasValue ? 1 : 0) +

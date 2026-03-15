@@ -150,7 +150,7 @@ else if (_incidents is not null)
     private string    _filterStatus      = string.Empty;
     private DateTime? _filterDateFrom;
     private DateTime? _filterDateTo;
-    private int VisibleCount => SortedIncidents.Count();
+    private int VisibleCount => FilteredIncidents.Count();
     private int ActiveFilterCount =>
         (string.IsNullOrWhiteSpace(_filterIncidentNum) ? 0 : 1) +
         (string.IsNullOrWhiteSpace(_filterStatus) ? 0 : 1) +
