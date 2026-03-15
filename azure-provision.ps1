@@ -7,7 +7,7 @@
 #   2. Log in first: az login
 #
 # Usage:
-#   .\azure-provision.ps1 -SqlAdminPassword "***REMOVED***"
+#   .\azure-provision.ps1 -SqlAdminPassword "YourStrongPassword123!"
 #
 # Re-run after a partial failure (reuse existing SQL server name):
 #   .\azure-provision.ps1 -SqlAdminPassword "..." -ExistingSqlServerName "sql-authority-records-abc123"
@@ -152,7 +152,7 @@ if ($LASTEXITCODE -ne 0) {
     exit 1
 }
 
-$connStr = "Server=tcp:$SqlServerName.database.windows.net,1433;Initial Catalog=$DatabaseName;User ID=$SqlAdminUser;***REMOVED***$SqlAdminPassword;Encrypt=True;TrustServerCertificate=False;Connection Timeout=30;"
+$connStr = "Server=tcp:$SqlServerName.database.windows.net,1433;Initial Catalog=$DatabaseName;User ID=$SqlAdminUser;Password=$SqlAdminPassword;Encrypt=True;TrustServerCertificate=False;Connection Timeout=30;"
 
 # 6. UI App Service
 Write-Host ""

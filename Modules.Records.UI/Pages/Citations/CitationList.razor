@@ -172,7 +172,7 @@ else if (_citations is not null)
     private DateTime? _filterDateFrom;
     private DateTime? _filterDateTo;
     private string    _filterIsIssued     = string.Empty;
-    private int VisibleCount => SortedCitations.Count();
+    private int VisibleCount => FilteredCitations.Count();
     private int ActiveFilterCount =>
         (string.IsNullOrWhiteSpace(_filterDescription) ? 0 : 1) +
         (_filterDateFrom.HasValue ? 1 : 0) +
