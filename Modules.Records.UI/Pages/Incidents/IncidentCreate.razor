@@ -8,9 +8,10 @@
 
 <PageTitle>New Incident</PageTitle>
 
-<div class="page-header">
+<div class="page-header record-page-header">
     <div>
         <h2 class="page-header-title"><i class="bi bi-clipboard2-pulse-fill"></i> New Incident</h2>
+        <div class="page-header-sub">Create the initial report and open the incident record for follow-up work.</div>
     </div>
 </div>
 
@@ -19,47 +20,62 @@
     <div class="alert alert-danger">@_vm.ErrorMessage</div>
 }
 
+<div class="record-form-shell">
 <EditForm Model="_vm" OnValidSubmit="SubmitAsync">
     <DataAnnotationsValidator />
-    <div class="mb-3">
-        <label class="form-label">Incident Number</label>
-        <div class="input-group">
-            <InputText class="form-control" @bind-Value="_vm.IncidentNum"
-                       placeholder="@(_hasFormat ? "Leave blank to auto-generate" : "")" />
-            @if (_hasFormat)
-            {
-                <button type="button" class="btn btn-outline-secondary" @onclick="GenerateAsync"
-                        disabled="@_generating" title="Generate next incident number">
-                    @(_generating ? "…" : "🔁 Generate")
-                </button>
-            }
+    <ValidationSummary class="record-validation-summary" />
+    <div class="card record-form-card mb-3">
+        <div class="card-body">
+            <div class="record-form-header">
+                <h6 class="card-title">Incident Details</h6>
+                <p class="record-form-note">Capture the primary incident identifiers first. Linked arrests, citations, and location details can be added after the report is opened.</p>
+            </div>
+            <div class="record-grid-2">
+            <div class="mb-0">
+                <label class="form-label">Incident Number</label>
+                <div class="input-group">
+                    <InputText class="form-control" @bind-Value="_vm.IncidentNum"
+                               placeholder="@(_hasFormat ? "Leave blank to auto-generate" : "")" />
+                    @if (_hasFormat)
+                    {
+                        <button type="button" class="btn btn-outline-secondary" @onclick="GenerateAsync"
+                                disabled="@_generating" title="Generate next incident number">
+                            @(_generating ? "…" : "🔁 Generate")
+                        </button>
+                    }
+                </div>
+                <ValidationMessage For="() => _vm.IncidentNum" />
+                @if (_hasFormat)
+                {
+                    <div class="form-text text-muted">A number will be auto-generated if you leave this blank.</div>
+                }
+            </div>
+            <div class="mb-0 record-field-span-2">
+                <label class="form-label">Description</label>
+                <InputTextArea class="form-control" @bind-Value="_vm.Description" rows="3" />
+                <ValidationMessage For="() => _vm.Description" />
+            </div>
+            <div class="mb-0">
+                <label class="form-label">CFS Number <span class="text-muted">(optional, max 30 chars)</span></label>
+                <InputText class="form-control" @bind-Value="_vm.CFSNum" maxlength="30" />
+                <ValidationMessage For="() => _vm.CFSNum" />
+            </div>
+            <div class="mb-0">
+                <label class="form-label">Local Number <span class="text-muted">(optional)</span></label>
+                <InputText class="form-control" @bind-Value="_vm.LocalNum" />
+                <ValidationMessage For="() => _vm.LocalNum" />
+            </div>
+            </div>
         </div>
-        <ValidationMessage For="() => _vm.IncidentNum" />
-        @if (_hasFormat)
-        {
-            <div class="form-text text-muted">A number will be auto-generated if you leave this blank.</div>
-        }
     </div>
-    <div class="mb-3">
-        <label class="form-label">Description</label>
-        <InputTextArea class="form-control" @bind-Value="_vm.Description" rows="3" />
-        <ValidationMessage For="() => _vm.Description" />
+    <div class="record-form-actions">
+        <button type="submit" class="btn btn-primary" disabled="@_submitting">
+            @(_submitting ? "Creating…" : "Create Incident")
+        </button>
+        <a class="btn btn-secondary" href="/incidents">Cancel</a>
     </div>
-    <div class="mb-3">
-        <label class="form-label">CFS Number <span class="text-muted">(optional, max 30 chars)</span></label>
-        <InputText class="form-control" @bind-Value="_vm.CFSNum" maxlength="30" />
-        <ValidationMessage For="() => _vm.CFSNum" />
-    </div>
-    <div class="mb-3">
-        <label class="form-label">Local Number <span class="text-muted">(optional)</span></label>
-        <InputText class="form-control" @bind-Value="_vm.LocalNum" />
-        <ValidationMessage For="() => _vm.LocalNum" />
-    </div>
-    <button type="submit" class="btn btn-primary" disabled="@_submitting">
-        @(_submitting ? "Creating…" : "Create Incident")
-    </button>
-    <a class="btn btn-secondary ms-2" href="/incidents">Cancel</a>
 </EditForm>
+</div>
 
 <UnsavedChangesDialog Visible="_showCancelConfirm"
                       SaveLabel="Submit Record"

@@ -23,14 +23,14 @@ else if (_error is not null)
 }
 else if (_name is not null)
 {
-    <nav aria-label="breadcrumb" class="mb-3">
+    <nav aria-label="breadcrumb" class="record-breadcrumb">
         <ol class="breadcrumb">
             <li class="breadcrumb-item"><a href="/names">Names</a></li>
             <li class="breadcrumb-item active">@(_name.NameType == NameTypes.Person ? $"{_name.LastOrBusinessName}, {_name.FirstName}" : _name.LastOrBusinessName)</li>
         </ol>
     </nav>
 
-    <div class="page-header">
+    <div class="page-header record-page-header">
         <div>
             <h2 class="page-header-title"><i class="bi bi-people-fill"></i> @(_name.NameType == NameTypes.Person ? "Person Record" : "Business Record")</h2>
             <div class="page-header-sub">
@@ -43,7 +43,10 @@ else if (_name is not null)
                     }
                     @if (_name.DeceasedDate.HasValue)
                     {
-                        <span class="badge bg-dark ms-2 align-middle" style="font-size: 0.55rem; letter-spacing: 0.1em; vertical-align: middle">DECEASED</span>
+                        <span class="record-pill record-pill-danger ms-2 align-middle">
+                            <i class="bi bi-exclamation-octagon-fill" aria-hidden="true"></i>
+                            <span>Deceased</span>
+                        </span>
                     }
                 }
                 else
@@ -52,8 +55,11 @@ else if (_name is not null)
                 }
             </div>
         </div>
-        <div class="d-flex gap-2 align-items-center">
-            <span class="badge @(_name.NameType == NameTypes.Person ? "bg-primary" : "bg-secondary")">@_name.NameType</span>
+        <div class="d-flex gap-2 align-items-center record-header-meta">
+            <span class="record-pill @(_name.NameType == NameTypes.Person ? "record-pill-primary" : "record-pill-neutral")">
+                <i class="bi @(_name.NameType == NameTypes.Person ? "bi-person-badge" : "bi-building")" aria-hidden="true"></i>
+                <span>@_name.NameType</span>
+            </span>
             <LockBadge IsLocked="@_name.IsLocked" LockedByName="@_lockedByName" />
             <a href="/names/@RecordNumber/print" target="_blank"
                class="btn btn-outline-secondary btn-sm" title="Print / Save as PDF">
@@ -66,7 +72,7 @@ else if (_name is not null)
     {
         <div class="alert alert-danger alert-dismissible">
             @_actionError
-            <button type="button" class="btn-close" @onclick="() => _actionError = null"></button>
+            <button type="button" class="btn-close" aria-label="Dismiss message" @onclick="() => _actionError = null"></button>
         </div>
     }
 
@@ -74,15 +80,15 @@ else if (_name is not null)
     {
         <div class="alert alert-success alert-dismissible">
             @_saveSuccessMessage
-            <button type="button" class="btn-close" @onclick="() => _saveSuccessMessage = null"></button>
+            <button type="button" class="btn-close" aria-label="Dismiss message" @onclick="() => _saveSuccessMessage = null"></button>
         </div>
     }
 
     <!-- Modify Mode Bar -->
-    <div class="mb-3">
+    <div class="record-toolbar mb-3">
         @if (_modifyMode)
         {
-            <div class="alert alert-warning d-flex align-items-center gap-3 py-2 mb-2">
+            <div class="alert alert-warning d-flex align-items-center gap-3 py-2 mb-2 record-mode-banner">
                 <span><i class="bi bi-pencil-fill me-1"></i><strong>Modify mode</strong> — lock expires in @_lockSecondsRemaining s</span>
                 <button class="btn btn-sm btn-outline-dark ms-auto" @onclick="RequestReleaseAsync"><i class="bi bi-unlock-fill me-1"></i>Release</button>
             </div>
@@ -102,7 +108,7 @@ else if (_name is not null)
     <!-- Action Bar (modify mode only) -->
     @if (_modifyMode)
     {
-        <div class="action-bar mb-4 d-flex flex-wrap gap-2">
+        <div class="action-bar record-action-bar mb-4 d-flex flex-wrap gap-2">
             <button class="btn btn-outline-danger btn-sm" @onclick="() => _showDeleteConfirm = true">Delete</button>
         </div>
     }
@@ -122,7 +128,7 @@ else if (_name is not null)
                           OnCancel="CancelRelease" />
 
     <!-- Name Type (protected field — requires switch button in modify mode) -->
-    <div class="d-flex align-items-center gap-3 mb-3">
+    <div class="record-summary-strip">
         <div>
             <span class="text-muted small">Name Type</span>
             <span class="ms-2 badge @(_editNameType == NameTypes.Person ? "bg-primary" : "bg-success") fs-6">
@@ -156,7 +162,7 @@ else if (_name is not null)
     }
 
     <!-- Identity Fields -->
-    <div class="card mb-4">
+    <div class="card record-content-card mb-4">
         <div class="card-body">
             <h6 class="card-title">Identity</h6>
             <div class="row g-3">
@@ -245,7 +251,7 @@ else if (_name is not null)
     @if (_editNameType == NameTypes.Person)
     {
         <!-- Physical Description -->
-        <div class="card mb-4">
+        <div class="card record-content-card mb-4">
             <div class="card-body">
                 <h6 class="card-title">Physical Description</h6>
                 <div class="row g-3">
@@ -352,7 +358,7 @@ else if (_name is not null)
         </div>
 
         <!-- Identification -->
-        <div class="card mb-4">
+        <div class="card record-content-card mb-4">
             <div class="card-body">
                 <h6 class="card-title">Identification</h6>
                 <div class="row g-3">
@@ -387,7 +393,7 @@ else if (_name is not null)
         </div>
 
         <!-- Driver's License -->
-        <div class="card mb-4">
+        <div class="card record-content-card mb-4">
             <div class="card-body">
                 <h6 class="card-title">Driver's License</h6>
                 <div class="row g-3">
@@ -416,20 +422,20 @@ else if (_name is not null)
 
     @if (_modifyMode)
     {
-        <div class="mb-4">
+        <div class="record-save-row mb-4">
             <button class="btn btn-sm btn-primary" @onclick="SaveDetailsAsync">Save Details</button>
         </div>
     }
 
     <!-- Address Links -->
-    <div class="card mb-4">
+    <div class="card record-content-card mb-4">
         <div class="card-body">
             <h6 class="card-title">Address Links</h6>
             <div class="row g-3">
                 <div class="col-12">
                     <label class="@LabelClass">Primary Address</label>
                     <div class="d-flex align-items-center gap-2">
-                        <span class="fw-semibold">@(_editPrimaryLocationDisplay ?? "— None —")</span>
+                        <span class="@(_modifyMode ? "fw-semibold" : "record-reference-display")">@(_editPrimaryLocationDisplay ?? "— None —")</span>
                         @if (_modifyMode)
                         {
                             <button type="button" class="btn btn-sm btn-outline-secondary" @onclick="() => _showPrimaryLocationModal = true">
@@ -437,7 +443,7 @@ else if (_name is not null)
                             </button>
                             @if (_editPrimaryLocationId.HasValue)
                             {
-                                <button type="button" class="btn btn-sm btn-outline-danger" @onclick="ClearPrimaryLocation">
+                                <button type="button" class="btn btn-sm btn-outline-danger" aria-label="Clear primary address" title="Clear primary address" @onclick="ClearPrimaryLocation">
                                     <i class="bi bi-x-lg"></i>
                                 </button>
                             }
@@ -448,7 +454,7 @@ else if (_name is not null)
                 <div class="col-12">
                     <label class="@LabelClass">Secondary Address</label>
                     <div class="d-flex align-items-center gap-2">
-                        <span class="fw-semibold">@(_editSecondaryLocationDisplay ?? "— None —")</span>
+                        <span class="@(_modifyMode ? "fw-semibold" : "record-reference-display")">@(_editSecondaryLocationDisplay ?? "— None —")</span>
                         @if (_modifyMode)
                         {
                             <button type="button" class="btn btn-sm btn-outline-secondary" @onclick="() => _showSecondaryLocationModal = true">
@@ -456,7 +462,7 @@ else if (_name is not null)
                             </button>
                             @if (_editSecondaryLocationId.HasValue)
                             {
-                                <button type="button" class="btn btn-sm btn-outline-danger" @onclick="ClearSecondaryLocation">
+                                <button type="button" class="btn btn-sm btn-outline-danger" aria-label="Clear secondary address" title="Clear secondary address" @onclick="ClearSecondaryLocation">
                                     <i class="bi bi-x-lg"></i>
                                 </button>
                             }

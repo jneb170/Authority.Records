@@ -9,9 +9,10 @@
 
 <PageTitle>New Citation</PageTitle>
 
-<div class="page-header">
+<div class="page-header record-page-header">
     <div>
         <h2 class="page-header-title"><i class="bi bi-file-earmark-text-fill"></i> New Citation</h2>
+        <div class="page-header-sub">Create a citation record and connect it to the related incident when applicable.</div>
     </div>
 </div>
 
@@ -20,54 +21,69 @@
     <div class="alert alert-danger">@_vm.ErrorMessage</div>
 }
 
+<div class="record-form-shell">
 <EditForm Model="_vm" OnValidSubmit="SubmitAsync">
     <DataAnnotationsValidator />
-    <div class="mb-3">
-        <label class="form-label">Description</label>
-        <InputTextArea class="form-control" @bind-Value="_vm.Description" rows="3" />
-        <ValidationMessage For="() => _vm.Description" />
-    </div>
-    <div class="mb-3">
-        <label class="form-label">Issue Date</label>
-        <InputDate class="form-control" @bind-Value="_vm.IssueDate" />
-        <ValidationMessage For="() => _vm.IssueDate" />
-    </div>
-    <div class="mb-3">
-        <label class="form-label">Citation Number <span class="text-muted">(auto-generated if blank)</span></label>
-        <div class="input-group">
-            <InputText class="form-control" @bind-Value="_vm.CitationNum" placeholder="e.g. CT-2026-000001" />
-            <button type="button" class="btn btn-outline-secondary" @onclick="GenerateCitationNumAsync" disabled="@_generatingNum">
-                @(_generatingNum ? "…" : "🔁 Generate")
-            </button>
-        </div>
-    </div>
-    @if (_incidents is not null && _incidents.Any())
-    {
-        <div class="mb-3">
-            <label class="form-label">Link to Incident <span class="text-muted">(optional)</span></label>
-            <select class="form-select" multiple @onchange="OnIncidentSelectionChanged">
-                @foreach (var i in _incidents)
+    <ValidationSummary class="record-validation-summary" />
+    <div class="card record-form-card mb-3">
+        <div class="card-body">
+            <div class="record-form-header">
+                <h6 class="card-title">Citation Details</h6>
+                <p class="record-form-note">Record the enforcement details first, then link the citation to the related incident when case association is needed.</p>
+            </div>
+            <div class="record-grid-2">
+                <div class="mb-0 record-field-span-2">
+                    <label class="form-label">Description</label>
+                    <InputTextArea class="form-control" @bind-Value="_vm.Description" rows="3" />
+                    <ValidationMessage For="() => _vm.Description" />
+                </div>
+                <div class="mb-0">
+                    <label class="form-label">Issue Date</label>
+                    <InputDate class="form-control" @bind-Value="_vm.IssueDate" />
+                    <ValidationMessage For="() => _vm.IssueDate" />
+                </div>
+                <div class="mb-0">
+                    <label class="form-label">Citation Number <span class="text-muted">(auto-generated if blank)</span></label>
+                    <div class="input-group">
+                        <InputText class="form-control" @bind-Value="_vm.CitationNum" placeholder="e.g. CT-2026-000001" />
+                        <button type="button" class="btn btn-outline-secondary" @onclick="GenerateCitationNumAsync" disabled="@_generatingNum">
+                            @(_generatingNum ? "…" : "🔁 Generate")
+                        </button>
+                    </div>
+                </div>
+                @if (_incidents is not null && _incidents.Any())
                 {
-                    <option value="@i.RecordNumber" selected="@(_selectedIncidentRecordNumbers.Contains(i.RecordNumber))">
-                        @i.RecordNumber — @i.Details.IncidentNum (@i.Status)
-                    </option>
+                    <div class="mb-0 record-field-span-2">
+                        <label class="form-label">Link to Incident <span class="text-muted">(optional)</span></label>
+                        <select class="form-select" multiple @onchange="OnIncidentSelectionChanged">
+                            @foreach (var i in _incidents)
+                            {
+                                <option value="@i.RecordNumber" selected="@(_selectedIncidentRecordNumbers.Contains(i.RecordNumber))">
+                                    @i.RecordNumber — @i.Details.IncidentNum (@i.Status)
+                                </option>
+                            }
+                        </select>
+                        <div class="form-text">Hold Ctrl/Cmd to select multiple</div>
+                    </div>
                 }
-            </select>
-            <div class="form-text">Hold Ctrl/Cmd to select multiple</div>
+            </div>
         </div>
-    }
-    <button type="submit" class="btn btn-primary" disabled="@_submitting">
-        @(_submitting ? "Creating…" : "Create Citation")
-    </button>
-    @if (IncidentRecordNumber.HasValue)
-    {
-        <a class="btn btn-secondary ms-2" href="/incidents/@IncidentRecordNumber">Cancel</a>
-    }
-    else
-    {
-        <a class="btn btn-secondary ms-2" href="/citations">Cancel</a>
-    }
+    </div>
+    <div class="record-form-actions">
+        <button type="submit" class="btn btn-primary" disabled="@_submitting">
+            @(_submitting ? "Creating…" : "Create Citation")
+        </button>
+        @if (IncidentRecordNumber.HasValue)
+        {
+            <a class="btn btn-secondary" href="/incidents/@IncidentRecordNumber">Cancel</a>
+        }
+        else
+        {
+            <a class="btn btn-secondary" href="/citations">Cancel</a>
+        }
+    </div>
 </EditForm>
+</div>
 
 <UnsavedChangesDialog Visible="_showCancelConfirm"
                       SaveLabel="Submit Record"

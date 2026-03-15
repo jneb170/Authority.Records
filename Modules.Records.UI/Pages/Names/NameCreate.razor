@@ -7,9 +7,10 @@
 
 <PageTitle>New Name</PageTitle>
 
-<div class="page-header">
+<div class="page-header record-page-header">
     <div>
         <h2 class="page-header-title"><i class="bi bi-people-fill"></i> New Name</h2>
+        <div class="page-header-sub">Create a person or business record for use across incidents, arrests, and citations.</div>
     </div>
 </div>
 
@@ -18,12 +19,15 @@
     <div class="alert alert-danger">@_vm.ErrorMessage</div>
 }
 
+<div class="record-form-shell">
 <EditForm Model="_vm" OnValidSubmit="SubmitAsync">
     <DataAnnotationsValidator />
+    <ValidationSummary class="record-validation-summary" />
 
-    <div class="card mb-3">
+    <div class="card record-form-card mb-3">
         <div class="card-body">
             <h6 class="card-title">Identity</h6>
+            <p class="record-form-note">Start with the primary identity fields. Additional descriptors can be completed now or added later during case work.</p>
             <div class="row g-3">
                 <div class="col-sm-6">
                     <label class="form-label">Name Type <span class="text-danger">*</span></label>
@@ -84,7 +88,7 @@
 
     @if (_vm.IsPerson)
     {
-        <div class="card mb-3">
+        <div class="card record-form-card mb-3">
             <div class="card-body">
                 <h6 class="card-title">Physical Description</h6>
                 <div class="row g-3">
@@ -132,7 +136,7 @@
             </div>
         </div>
 
-        <div class="card mb-3">
+        <div class="card record-form-card mb-3">
             <div class="card-body">
                 <h6 class="card-title">Driver's License</h6>
                 <div class="row g-3">
@@ -148,7 +152,7 @@
             </div>
         </div>
 
-        <div class="card mb-3">
+        <div class="card record-form-card mb-3">
             <div class="card-body">
                 <h6 class="card-title">Identification</h6>
                 <div class="row g-3">
@@ -169,11 +173,14 @@
         </div>
     }
 
-    <button type="submit" class="btn btn-primary" disabled="@_submitting">
-        @(_submitting ? "Creating…" : "Create Name")
-    </button>
-    <a class="btn btn-secondary ms-2" href="/names">Cancel</a>
+    <div class="record-form-actions">
+        <button type="submit" class="btn btn-primary" disabled="@_submitting">
+            @(_submitting ? "Creating…" : "Create Name")
+        </button>
+        <a class="btn btn-secondary" href="/names">Cancel</a>
+    </div>
 </EditForm>
+</div>
 
 <UnsavedChangesDialog Visible="_showCancelConfirm"
                       SaveLabel="Submit Record"
