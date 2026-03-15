@@ -22,7 +22,7 @@
 {
     <div class="alert alert-danger alert-dismissible">
         @_error
-        <button type="button" class="btn-close" @onclick="() => _error = null"></button>
+        <button type="button" class="btn-close" aria-label="Dismiss message" @onclick="() => _error = null"></button>
     </div>
 }
 @if (_success)

@@ -1,16 +1,28 @@
 @using Modules.Records.Domain.Common
 
-<span class="badge @BadgeClass">@Status</span>
+<span class="record-pill @BadgeClass">
+    <i class="@BadgeIcon" aria-hidden="true"></i>
+    <span>@Status</span>
+</span>
 
 @code {
     [Parameter, EditorRequired] public string Status { get; set; } = string.Empty;
 
     private string BadgeClass => Status switch
     {
-        nameof(RecordStatus.Draft)     => "bg-secondary",
-        nameof(RecordStatus.Open)      => "bg-primary",
-        nameof(RecordStatus.Closed)    => "bg-success",
-        nameof(RecordStatus.Archived)  => "bg-warning text-dark",
-        _                              => "bg-light text-dark"
+        nameof(RecordStatus.Draft)     => "record-pill-neutral",
+        nameof(RecordStatus.Open)      => "record-pill-primary",
+        nameof(RecordStatus.Closed)    => "record-pill-success",
+        nameof(RecordStatus.Archived)  => "record-pill-warning",
+        _                              => "record-pill-neutral"
+    };
+
+    private string BadgeIcon => Status switch
+    {
+        nameof(RecordStatus.Draft)     => "bi bi-pencil-square",
+        nameof(RecordStatus.Open)      => "bi bi-unlock-fill",
+        nameof(RecordStatus.Closed)    => "bi bi-check2-circle",
+        nameof(RecordStatus.Archived)  => "bi bi-archive-fill",
+        _                              => "bi bi-circle-fill"
     };
 }

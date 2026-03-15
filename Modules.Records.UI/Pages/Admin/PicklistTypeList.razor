@@ -1,16 +1,15 @@
 @page "/admin/picklists"
 @attribute [Authorize(Roles = "Admin,Supervisor")]
 @inject IPicklistService PicklistService
-@inject NavigationManager Nav
 @using Microsoft.AspNetCore.Authorization
-@using Modules.Records.Domain.Common
+@using Modules.Records.UI.Helpers
 
 <PageTitle>Picklist Types</PageTitle>
 
 <div class="page-header">
     <div>
         <h2 class="page-header-title"><i class="bi bi-list-ul"></i> Picklist Management</h2>
-        <div class="page-header-sub">Configure the dropdown options used across arrests, citations, and other records.</div>
+        <div class="page-header-sub">Browse and manage the dropdown sets used across records, names, and location entry.</div>
     </div>
 </div>
 
@@ -18,37 +17,198 @@
 {
     <LoadingSpinner />
 }
+else if (_error is not null)
+{
+    <div class="alert alert-danger">@_error</div>
+}
 else
 {
-    <div class="list-group">
-        @foreach (var type in _types)
-        {
-            <a class="list-group-item list-group-item-action d-flex justify-content-between align-items-center"
-               href="/admin/picklists/@type">
-                <span>
-                    <strong>@FriendlyType(type)</strong>
-                    <br /><small class="text-muted">@type</small>
-                </span>
-                <span class="text-secondary">›</span>
-            </a>
-        }
+    <div class="list-results-summary mb-3">
+        <div class="list-results-count">@_visibleGroups.Sum(g => g.Types.Count) picklists shown</div>
+        <div class="list-results-flags">
+            <span class="list-summary-chip"><i class="bi bi-collection"></i>@_visibleGroups.Count groups</span>
+            <span class="list-summary-chip"><i class="bi bi-grid-3x3-gap"></i>@_allTypes.Count total types</span>
+            @if (!string.IsNullOrWhiteSpace(_searchText))
+            {
+                <span class="list-summary-chip"><i class="bi bi-funnel"></i>Filtered by "@_searchText"</span>
+            }
+        </div>
     </div>
+
+    <div class="card list-filter-card mb-3">
+        <div class="card-body">
+            <div class="row g-3 align-items-end">
+                <div class="col-lg-8">
+                    <label class="form-label">Find a picklist</label>
+                    <input class="form-control"
+                           placeholder="Search by picklist name, type key, or operational area"
+                           value="@_searchText"
+                           @oninput="OnSearchInput" />
+                    <div class="form-text">Try terms like <code>name</code>, <code>location</code>, <code>court</code>, or a specific type key.</div>
+                </div>
+                <div class="col-lg-4">
+                    <div class="d-flex gap-2 justify-content-lg-end">
+                        <button class="btn btn-outline-secondary" @onclick="ClearSearch" disabled="@string.IsNullOrWhiteSpace(_searchText)">Clear Search</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    @if (!_visibleGroups.Any())
+    {
+        <div class="record-related-empty-state">
+            <div class="empty-state">
+                <i class="bi bi-search"></i>
+                <div class="fw-medium">No picklists match that search.</div>
+                <div class="small mt-1">Try a broader term or clear the search to view all configured picklists.</div>
+            </div>
+        </div>
+    }
+    else
+    {
+        <div class="admin-picklist-groups">
+            @foreach (var group in _visibleGroups)
+            {
+                <section class="admin-picklist-group">
+                    <div class="admin-picklist-group-header">
+                        <div class="admin-picklist-group-title-wrap">
+                            <span class="admin-picklist-group-icon">
+                                <i class="@group.Icon"></i>
+                            </span>
+                            <div>
+                                <div class="admin-picklist-group-title">@group.Name</div>
+                                <div class="admin-picklist-group-sub">@group.Description</div>
+                            </div>
+                        </div>
+                        <span class="list-summary-chip">@group.Types.Count picklists</span>
+                    </div>
+
+                    <div class="admin-picklist-grid">
+                        @foreach (var type in group.Types)
+                        {
+                            <a class="admin-picklist-card" href="/admin/picklists/@type.Type">
+                                <div class="admin-picklist-card-top">
+                                    <div class="admin-picklist-card-title">@type.DisplayName</div>
+                                    <span class="list-summary-chip">@type.GroupTag</span>
+                                </div>
+                                <div class="admin-picklist-card-sub">@type.Description</div>
+                                <div class="admin-picklist-card-meta">
+                                    <code>@type.Type</code>
+                                    <span class="admin-picklist-card-link">Manage <i class="bi bi-arrow-right"></i></span>
+                                </div>
+                            </a>
+                        }
+                    </div>
+                </section>
+            }
+        </div>
+    }
 }
 
 @code {
-    private IReadOnlyList<string> _types = [];
+    private List<PicklistTypeCard> _allTypes = [];
+    private IReadOnlyList<PicklistGroupCard> _visibleGroups = [];
     private bool _loading = true;
+    private string? _error;
+    private string _searchText = string.Empty;
 
     protected override async Task OnInitializedAsync()
     {
-        _types = await PicklistService.GetPicklistTypesAsync();
-        _loading = false;
+        try
+        {
+            var types = await PicklistService.GetPicklistTypesAsync();
+
+            _allTypes = types
+                .Select(type =>
+                {
+                    var groupKey = PicklistAdminMetadata.GetGroupKey(type);
+                    return new PicklistTypeCard(
+                        type,
+                        PicklistAdminMetadata.GetDisplayName(type),
+                        PicklistAdminMetadata.GetDescription(type),
+                        groupKey,
+                        PicklistAdminMetadata.GetGroupName(groupKey),
+                        PicklistAdminMetadata.GetGroupDescription(groupKey),
+                        PicklistAdminMetadata.GetGroupIcon(groupKey),
+                        PicklistAdminMetadata.GetGroupTag(groupKey));
+                })
+                .OrderBy(type => PicklistAdminMetadata.GetGroupOrder(type.GroupKey))
+                .ThenBy(type => type.DisplayName, StringComparer.OrdinalIgnoreCase)
+                .ToList();
+
+            RecomputeVisibleGroups();
+        }
+        catch (Exception ex)
+        {
+            _error = ex.Message;
+        }
+        finally
+        {
+            _loading = false;
+        }
     }
 
-    private static string FriendlyType(string type) => type switch
+    private void OnSearchInput(ChangeEventArgs e)
     {
-        PicklistTypes.ArrestType => "Arrest Type",
-        PicklistTypes.Court      => "Court",
-        _                        => type
-    };
+        _searchText = e.Value?.ToString() ?? string.Empty;
+        RecomputeVisibleGroups();
+    }
+
+    private void ClearSearch()
+    {
+        _searchText = string.Empty;
+        RecomputeVisibleGroups();
+    }
+
+    private void RecomputeVisibleGroups()
+    {
+        _visibleGroups = _allTypes
+            .Where(MatchesSearch)
+            .GroupBy(card => card.GroupKey)
+            .Select(group =>
+            {
+                var first = group.First();
+                return new PicklistGroupCard(
+                    first.GroupKey,
+                    first.GroupName,
+                    first.GroupDescription,
+                    first.GroupIcon,
+                    group.OrderBy(card => card.DisplayName, StringComparer.OrdinalIgnoreCase).ToList());
+            })
+            .OrderBy(group => PicklistAdminMetadata.GetGroupOrder(group.Key))
+            .ThenBy(group => group.Name, StringComparer.OrdinalIgnoreCase)
+            .ToList();
+    }
+
+    private bool MatchesSearch(PicklistTypeCard card)
+    {
+        if (string.IsNullOrWhiteSpace(_searchText))
+        {
+            return true;
+        }
+
+        return card.DisplayName.Contains(_searchText, StringComparison.OrdinalIgnoreCase)
+            || card.Type.Contains(_searchText, StringComparison.OrdinalIgnoreCase)
+            || card.Description.Contains(_searchText, StringComparison.OrdinalIgnoreCase)
+            || card.GroupName.Contains(_searchText, StringComparison.OrdinalIgnoreCase)
+            || card.GroupTag.Contains(_searchText, StringComparison.OrdinalIgnoreCase);
+    }
+
+    private sealed record PicklistTypeCard(
+        string Type,
+        string DisplayName,
+        string Description,
+        string GroupKey,
+        string GroupName,
+        string GroupDescription,
+        string GroupIcon,
+        string GroupTag);
+
+    private sealed record PicklistGroupCard(
+        string Key,
+        string Name,
+        string Description,
+        string Icon,
+        IReadOnlyList<PicklistTypeCard> Types);
 }

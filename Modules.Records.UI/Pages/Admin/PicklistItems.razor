@@ -6,6 +6,7 @@
 @inject IKeyboardShortcutService ShortcutService
 @using Microsoft.AspNetCore.Authorization
 @using Modules.Records.Domain.Common
+@using Modules.Records.UI.Helpers
 @using Modules.Records.UI.Services
 
 <PageTitle>@FriendlyType(PicklistType) — Picklist Items</PageTitle>
@@ -20,6 +21,7 @@
 <div class="page-header">
     <div>
         <h2 class="page-header-title"><i class="bi bi-list-ul"></i> @FriendlyType(PicklistType)</h2>
+        <div class="page-header-sub">Manage the values used by the <code>@PicklistType</code> dropdown set.</div>
     </div>
     <div class="d-flex gap-3 align-items-center">
         <div class="form-check form-switch mb-0">
@@ -249,10 +251,5 @@ else
         }
     }
 
-    private static string FriendlyType(string type) => type switch
-    {
-        PicklistTypes.ArrestType => "Arrest Type",
-        PicklistTypes.Court      => "Court",
-        _                        => type
-    };
+    private static string FriendlyType(string type) => PicklistAdminMetadata.GetDisplayName(type);
 }

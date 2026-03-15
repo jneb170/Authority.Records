@@ -1,15 +1,23 @@
 @if (Visible)
 {
-    <div class="modal d-block" tabindex="-1" style="background: rgba(0,0,0,0.5);">
-        <div class="modal-dialog modal-dialog-centered">
-            <div class="modal-content">
-                <div class="modal-header">
-                    <h5 class="modal-title">@Title</h5>
+    <div class="modal d-block ar-modal-backdrop" tabindex="-1" role="dialog" aria-modal="true">
+        <div class="modal-dialog modal-dialog-centered modal-sm">
+            <div class="modal-content ar-modal-content ar-modal-content-danger">
+                <div class="modal-header ar-modal-header">
+                    <div class="ar-modal-title-wrap">
+                        <span class="ar-modal-icon ar-modal-icon-danger">
+                            <i class="bi bi-exclamation-triangle-fill" aria-hidden="true"></i>
+                        </span>
+                        <div>
+                            <h5 class="modal-title mb-0">@Title</h5>
+                            <div class="ar-modal-subtitle">Review this action before continuing.</div>
+                        </div>
+                    </div>
                 </div>
-                <div class="modal-body">
-                    <p>@Message</p>
+                <div class="modal-body ar-modal-body">
+                    <p class="mb-0">@Message</p>
                 </div>
-                <div class="modal-footer">
+                <div class="modal-footer ar-modal-footer">
                     <button class="btn btn-secondary" @onclick="Cancel">Cancel</button>
                     <button class="btn btn-danger" @onclick="Confirm">Confirm</button>
                 </div>

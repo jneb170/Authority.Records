@@ -25,7 +25,7 @@ else if (_error is not null)
 }
 else if (_citation is not null)
 {
-    <nav aria-label="breadcrumb" class="mb-3">
+    <nav aria-label="breadcrumb" class="record-breadcrumb">
         <ol class="breadcrumb">
             <li class="breadcrumb-item"><a href="/citations">Citations</a></li>
             @if (IncidentRecordNumber.HasValue)
@@ -36,7 +36,7 @@ else if (_citation is not null)
         </ol>
     </nav>
 
-    <div class="page-header">
+    <div class="page-header record-page-header">
         <div>
             <h2 class="page-header-title"><i class="bi bi-file-earmark-text-fill"></i> Citation Record</h2>
             <div class="page-header-sub">
@@ -45,14 +45,20 @@ else if (_citation is not null)
                     : _citation.CitationNum)
             </div>
         </div>
-        <LockBadge IsLocked="@_citation.IsLocked" LockedByName="@_lockedByName" />
+        <div class="d-flex gap-2 align-items-center record-header-meta">
+            <span class="record-pill @(_citation.IsIssued ? "record-pill-success" : "record-pill-warning")">
+                <i class="bi @(_citation.IsIssued ? "bi-check2-circle" : "bi-hourglass-split")" aria-hidden="true"></i>
+                <span>@(_citation.IsIssued ? "Issued" : "Pending")</span>
+            </span>
+            <LockBadge IsLocked="@_citation.IsLocked" LockedByName="@_lockedByName" />
+        </div>
     </div>
 
     @if (_actionError is not null)
     {
         <div class="alert alert-danger alert-dismissible">
             @_actionError
-            <button type="button" class="btn-close" @onclick="() => _actionError = null"></button>
+            <button type="button" class="btn-close" aria-label="Dismiss message" @onclick="() => _actionError = null"></button>
         </div>
     }
 
@@ -60,15 +66,15 @@ else if (_citation is not null)
     {
         <div class="alert alert-success alert-dismissible">
             @_saveSuccessMessage
-            <button type="button" class="btn-close" @onclick="() => _saveSuccessMessage = null"></button>
+            <button type="button" class="btn-close" aria-label="Dismiss message" @onclick="() => _saveSuccessMessage = null"></button>
         </div>
     }
 
     <!-- Modify Mode Bar -->
-    <div class="mb-3">
+    <div class="record-toolbar mb-3">
         @if (_modifyMode)
         {
-            <div class="alert alert-warning d-flex align-items-center gap-3 py-2 mb-2">
+            <div class="alert alert-warning d-flex align-items-center gap-3 py-2 mb-2 record-mode-banner">
                 <span><i class="bi bi-pencil-fill me-1"></i><strong>Modify mode</strong> — lock expires in @_lockSecondsRemaining s</span>
                 <button class="btn btn-sm btn-outline-dark ms-auto" @onclick="RequestReleaseAsync"><i class="bi bi-unlock-fill me-1"></i>Release</button>
             </div>
@@ -88,7 +94,7 @@ else if (_citation is not null)
     <!-- Action Bar (only in modify mode) -->
     @if (_modifyMode)
     {
-        <div class="action-bar mb-4 d-flex flex-wrap gap-2">
+        <div class="action-bar record-action-bar mb-4 d-flex flex-wrap gap-2">
             @if (!_citation.IsIssued)
             {
                 <button class="btn btn-success btn-sm" @onclick="IssueAsync">Issue Citation</button>
@@ -112,11 +118,11 @@ else if (_citation is not null)
                           OnCancel="CancelRelease" />
 
     <!-- Citation Fields (always visible; inputs become editable in modify mode) -->
-    <div class="card mb-4">
+    <div class="card record-content-card mb-4">
         <div class="card-body">
             <h6 class="card-title">Citation Details</h6>
-            <div class="row g-3">
-                <div class="col-sm-6">
+            <div class="record-grid-3">
+                <div>
                     <label class="form-label mb-1">Citation Number</label>
                     @if (_modifyMode)
                     {
@@ -134,20 +140,20 @@ else if (_citation is not null)
                         <p class="form-control-plaintext form-control-sm ps-0">@(string.IsNullOrWhiteSpace(_citation.CitationNum) ? "—" : _citation.CitationNum)</p>
                     }
                 </div>
-                <div class="col-sm-6">
+                <div class="record-field-span-2">
                     <label class="form-label mb-1">Description</label>
                     <input type="text" class="@(_modifyMode ? "form-control form-control-sm" : "form-control-plaintext form-control-sm ps-0")"
                            readonly="@(!_modifyMode)"
                            @bind="_editDescription" placeholder="—" />
                 </div>
-                <div class="col-sm-6">
+                <div>
                     <label class="form-label mb-1">Issue Date</label>
                     <input type="datetime-local" class="@(_modifyMode ? "form-control form-control-sm" : "form-control-plaintext form-control-sm ps-0")"
                            readonly="@(!_modifyMode)"
                            value="@DateTimeLocalInputHelper.Format(_editIssueDate)"
                            @onchange="OnIssueDateChanged" />
                 </div>
-                <div class="col-sm-6">
+                <div>
                     <label class="form-label mb-1">Court</label>
                     @if (_modifyMode)
                     {
@@ -160,14 +166,19 @@ else if (_citation is not null)
                         <p class="form-control-plaintext form-control-sm ps-0">@(_courtLabel ?? "—")</p>
                     }
                 </div>
-                <div class="col-sm-6">
+                <div>
                     <label class="form-label mb-1">Issued</label>
-                    <p class="form-control-plaintext form-control-sm ps-0 mb-0">@(_citation.IsIssued ? "✅ Yes" : "⏳ Pending")</p>
+                    <div class="form-control-plaintext form-control-sm ps-0 mb-0">
+                        <span class="record-pill @(_citation.IsIssued ? "record-pill-success" : "record-pill-warning")">
+                            <i class="bi @(_citation.IsIssued ? "bi-check2-circle" : "bi-hourglass-split")" aria-hidden="true"></i>
+                            <span>@(_citation.IsIssued ? "Issued" : "Pending")</span>
+                        </span>
+                    </div>
                 </div>
-                <div class="col-12">
+                <div class="record-field-span-full">
                     <label class="form-label mb-1">Location</label>
                     <div class="d-flex align-items-center gap-2">
-                        <span class="fw-semibold">@(_editLocationDisplay ?? "— None —")</span>
+                        <span class="@(_modifyMode ? "fw-semibold" : "record-reference-display")">@(_editLocationDisplay ?? "— None —")</span>
                         @if (_modifyMode)
                         {
                             <button type="button" class="btn btn-sm btn-outline-secondary" @onclick="() => _showLocationModal = true">
@@ -175,7 +186,7 @@ else if (_citation is not null)
                             </button>
                             @if (_editLocationId.HasValue)
                             {
-                                <button type="button" class="btn btn-sm btn-outline-danger" @onclick="ClearLocation">
+                                <button type="button" class="btn btn-sm btn-outline-danger" aria-label="Clear assigned location" title="Clear assigned location" @onclick="ClearLocation">
                                     <i class="bi bi-x-lg"></i>
                                 </button>
                             }
@@ -186,7 +197,7 @@ else if (_citation is not null)
             </div>
             @if (_modifyMode)
             {
-                <div class="mt-3">
+                <div class="record-save-row">
                     <button class="btn btn-sm btn-primary" @onclick="SaveDetailsAsync">Save Details</button>
                 </div>
             }
@@ -205,21 +216,28 @@ else if (_citation is not null)
                       ModifiedByName="@_modifiedByName" />
 
     <!-- Linked Incidents -->
-    <div class="mb-4">
-        <div class="d-flex justify-content-between align-items-center mb-2">
-            <h4>Linked Incidents</h4>
+    <div class="record-related-section">
+        <div class="record-related-header">
+            <h4 class="record-related-title">Linked Incidents</h4>
         </div>
+        <div class="record-related-body">
         @if (_linkedIncidents is null)
         {
-            <p>Loading…</p>
+            <LoadingSpinner Message="Loading linked incidents..." />
         }
         else if (!_linkedIncidents.Any())
         {
-            <p class="text-muted">Not linked to any incidents.</p>
+            <div class="record-related-empty-state">
+                <div class="empty-state">
+                    <i class="bi bi-link-45deg"></i>
+                    <div class="fw-medium">No linked incidents.</div>
+                    <div class="small mt-1">Link this citation to an incident in modify mode when the record belongs to a larger case.</div>
+                </div>
+            </div>
         }
         else
         {
-            <table class="table table-sm">
+            <table class="table table-sm mb-0">
                 <thead>
                     <tr><th>#</th><th>Incident</th><th>Linked At</th><th></th></tr>
                 </thead>
@@ -244,8 +262,8 @@ else if (_citation is not null)
         }
         @if (_modifyMode)
         {
-            <div class="d-flex gap-2 mt-2 align-items-center">
-                <select class="form-select form-select-sm" style="max-width:300px" @bind="_linkIncidentId">
+            <div class="record-link-picker">
+                <select class="form-select form-select-sm" @bind="_linkIncidentId">
                     <option value="@Guid.Empty">— select incident to link —</option>
                     @if (_allIncidents is not null)
                     {
@@ -259,6 +277,7 @@ else if (_citation is not null)
                         disabled="@(_linkIncidentId == Guid.Empty)">+ Link</button>
             </div>
         }
+        </div>
     </div>
 }
 

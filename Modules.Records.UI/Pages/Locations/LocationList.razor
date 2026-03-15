@@ -20,12 +20,12 @@
 </div>
 
 <!-- Search / Filter Panel -->
-<div class="card mb-3">
-    <div class="card-header d-flex justify-content-between align-items-center py-2" style="cursor:pointer;" @onclick="() => _filterExpanded = !_filterExpanded">
-        <span class="fw-semibold text-uppercase" style="font-size:0.8rem;letter-spacing:0.05em;">
+<div class="card list-filter-card mb-3">
+    <div class="card-header list-filter-card-header" @onclick="() => _filterExpanded = !_filterExpanded">
+        <span class="list-filter-card-title">
             <i class="bi bi-search me-1"></i>Search / Filter
         </span>
-        <i class="bi @(_filterExpanded ? "bi-chevron-up" : "bi-chevron-down") text-muted" style="font-size:0.8rem;"></i>
+        <i class="bi @(_filterExpanded ? "bi-chevron-up" : "bi-chevron-down") list-filter-card-chevron"></i>
     </div>
 @if (_filterExpanded)
 {
@@ -52,13 +52,31 @@
                 <input class="form-control form-control-sm" @bind="_filterCommonPlaceName" placeholder="Park, school, business…" />
             </div>
         </div>
-        <div class="mt-2 d-flex gap-2">
+        <div class="list-filter-actions">
             <button class="btn btn-sm btn-primary" @onclick="RunSearchAsync">Search</button>
             <button class="btn btn-sm btn-outline-secondary" @onclick="ClearFiltersAsync">Clear</button>
         </div>
     </div>
 }
 </div>
+
+@if (!_loading && _error is null && _locations is not null)
+{
+    <div class="list-results-summary">
+        <div class="list-results-count">
+            <strong>@VisibleCount</strong> location record@(VisibleCount == 1 ? string.Empty : "s")
+        </div>
+        <div class="list-results-flags">
+            @if (ActiveFilterCount > 0)
+            {
+                <span class="list-summary-chip">
+                    <i class="bi bi-funnel-fill"></i>
+                    <span>@ActiveFilterCount filter@(ActiveFilterCount == 1 ? string.Empty : "s") applied</span>
+                </span>
+            }
+        </div>
+    </div>
+}
 
 @if (_loading)
 {
@@ -76,8 +94,8 @@ else if (_locations is not null)
     }
     else
     {
-        <div class="table-responsive">
-        <table class="table table-hover">
+        <div class="table-responsive list-table-shell">
+        <table class="table table-hover list-page-table">
             <thead>
                 <tr>
                     <th style="width:3rem"></th>
@@ -99,7 +117,7 @@ else if (_locations is not null)
                 {
                     <tr>
                         <td>
-                            <button class="btn btn-sm btn-outline-danger" title="Delete"
+                            <button class="btn btn-sm row-delete-button" title="Delete location" aria-label="Delete location"
                                     @onclick="() => InitiateDelete(loc.Id, loc.StreetAddress)"><i class="bi bi-trash3"></i></button>
                         </td>
                         <td><a href="/locations/@loc.RecordNumber">@loc.RecordNumber</a></td>
@@ -167,6 +185,13 @@ else if (_locations is not null)
     private Guid?  _filterStateId;
     private string _filterZip             = string.Empty;
     private string _filterCommonPlaceName = string.Empty;
+    private int VisibleCount => _locations?.Count ?? 0;
+    private int ActiveFilterCount =>
+        (string.IsNullOrWhiteSpace(_filterAddressContains) ? 0 : 1) +
+        (string.IsNullOrWhiteSpace(_filterCity) ? 0 : 1) +
+        (_filterStateId.HasValue ? 1 : 0) +
+        (string.IsNullOrWhiteSpace(_filterZip) ? 0 : 1) +
+        (string.IsNullOrWhiteSpace(_filterCommonPlaceName) ? 0 : 1);
 
     protected override async Task OnInitializedAsync()
     {

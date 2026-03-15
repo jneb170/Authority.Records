@@ -18,9 +18,10 @@
 
 <PageTitle>New Location</PageTitle>
 
-<div class="page-header">
+<div class="page-header record-page-header">
     <div>
         <h2 class="page-header-title"><i class="bi bi-geo-alt-fill"></i> New Location</h2>
+        <div class="page-header-sub">Create a verified address record for incidents, citations, arrests, and associated names.</div>
     </div>
 </div>
 
@@ -29,12 +30,15 @@
     <div class="alert alert-danger">@_vm.ErrorMessage</div>
 }
 
+<div class="record-form-shell">
 <EditForm Model="_vm" OnValidSubmit="SubmitAsync">
     <DataAnnotationsValidator />
+    <ValidationSummary class="record-validation-summary" />
 
-    <div class="card mb-3">
+    <div class="card record-form-card mb-3">
         <div class="card-body">
             <h6 class="card-title">Street Address</h6>
+            <p class="record-form-note">Use the most accurate street address available. Supplemental place names, comments, and map-assisted details can be added below.</p>
             <div class="row g-3">
                 <div class="col-sm-6 col-md-2">
                     <label class="form-label">Street #</label>
@@ -65,7 +69,7 @@
         </div>
     </div>
 
-    <div class="card mb-3">
+    <div class="card record-form-card mb-3">
         <div class="card-body">
             <h6 class="card-title">City / State / ZIP</h6>
             <div class="row g-3">
@@ -90,7 +94,7 @@
         </div>
     </div>
 
-    <div class="card mb-3">
+    <div class="card record-form-card mb-3">
         <div class="card-body">
             <h6 class="card-title">Additional Info</h6>
             <div class="row g-3">
@@ -116,7 +120,7 @@
 
     @if (_mapsAvailable)
     {
-        <div class="card mb-3">
+        <div class="card record-form-card mb-3">
             <div class="card-header d-flex justify-content-between align-items-center">
                 <strong><i class="bi bi-map me-1"></i>Pick from Map</strong>
                 <button type="button" class="btn btn-sm @(_mapOpen ? "btn-outline-secondary" : "btn-outline-primary")"
@@ -140,11 +144,14 @@
         </div>
     }
 
-    <button type="submit" class="btn btn-primary" disabled="@_submitting">
-        @(_submitting ? "Creating…" : "Create Location")
-    </button>
-    <a class="btn btn-secondary ms-2" href="/locations">Cancel</a>
+    <div class="record-form-actions">
+        <button type="submit" class="btn btn-primary" disabled="@_submitting">
+            @(_submitting ? "Creating…" : "Create Location")
+        </button>
+        <a class="btn btn-secondary" href="/locations">Cancel</a>
+    </div>
 </EditForm>
+</div>
 
 <UnsavedChangesDialog Visible="_showCancelConfirm"
                       SaveLabel="Submit Record"
