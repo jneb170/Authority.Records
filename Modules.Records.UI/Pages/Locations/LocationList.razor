@@ -185,7 +185,7 @@ else if (_locations is not null)
     private Guid?  _filterStateId;
     private string _filterZip             = string.Empty;
     private string _filterCommonPlaceName = string.Empty;
-    private int VisibleCount => SortedLocations.Count();
+    private int VisibleCount => _locations?.Count ?? 0;
     private int ActiveFilterCount =>
         (string.IsNullOrWhiteSpace(_filterAddressContains) ? 0 : 1) +
         (string.IsNullOrWhiteSpace(_filterCity) ? 0 : 1) +
