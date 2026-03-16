@@ -79,6 +79,7 @@ public sealed class MugshotLink : AggregateRoot, IMultiTenant
             MugshotId,
             JurisdictionId,
             OwnerType,
-            OwnerId));
+            OwnerId,
+            userId));
     }
 }

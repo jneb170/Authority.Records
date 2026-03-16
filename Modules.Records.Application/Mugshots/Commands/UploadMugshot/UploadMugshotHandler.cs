@@ -36,47 +36,55 @@ public sealed class UploadMugshotHandler : IRequestHandler<UploadMugshotCommand,
             request.ContentType,
             cancellationToken);
 
-        var mugshot = new Mugshot(
-            jurisdictionId,
-            agencyId,
-            request.FileName,
-            request.ContentType,
-            saveResult.FileSizeBytes,
-            saveResult.StoragePath,
-            saveResult.PublicUrl,
-            request.CapturedAtUtc ?? DateTime.UtcNow);
-
-        _dbContext.Mugshots.Add(mugshot);
-        await _dbContext.SaveChangesAsync(cancellationToken);
-
-        var existingLinks = await _dbContext.MugshotLinks
-            .Where(l => l.OwnerType == request.OwnerType && l.OwnerId == request.OwnerId)
-            .OrderBy(l => l.DisplayOrder)
-            .ToListAsync(cancellationToken);
-
-        var shouldBePrimary = request.MakePrimary || existingLinks.Count == 0 || existingLinks.All(l => !l.IsPrimary);
-
-        if (shouldBePrimary)
+        try
         {
-            foreach (var existingLink in existingLinks.Where(l => l.IsPrimary))
+            var mugshot = new Mugshot(
+                jurisdictionId,
+                agencyId,
+                request.FileName,
+                request.ContentType,
+                saveResult.FileSizeBytes,
+                saveResult.StoragePath,
+                saveResult.PublicUrl,
+                request.CapturedAtUtc ?? DateTime.UtcNow);
+
+            _dbContext.Mugshots.Add(mugshot);
+            await _dbContext.SaveChangesAsync(cancellationToken);
+
+            var existingLinks = await _dbContext.MugshotLinks
+                .Where(l => l.OwnerType == request.OwnerType && l.OwnerId == request.OwnerId)
+                .OrderBy(l => l.DisplayOrder)
+                .ToListAsync(cancellationToken);
+
+            var shouldBePrimary = request.MakePrimary || existingLinks.Count == 0 || existingLinks.All(l => !l.IsPrimary);
+
+            if (shouldBePrimary)
             {
-                existingLink.SetPrimary(false);
+                foreach (var existingLink in existingLinks.Where(l => l.IsPrimary))
+                {
+                    existingLink.SetPrimary(false);
+                }
             }
+
+            var link = new MugshotLink(
+                jurisdictionId,
+                mugshot.Id,
+                request.OwnerType,
+                request.OwnerId,
+                _tenantProvider.GetUserId(),
+                shouldBePrimary,
+                existingLinks.Count);
+
+            _dbContext.MugshotLinks.Add(link);
+            await _dbContext.SaveChangesAsync(cancellationToken);
+
+            return mugshot.Id;
         }
-
-        var link = new MugshotLink(
-            jurisdictionId,
-            mugshot.Id,
-            request.OwnerType,
-            request.OwnerId,
-            _tenantProvider.GetUserId(),
-            shouldBePrimary,
-            existingLinks.Count);
-
-        _dbContext.MugshotLinks.Add(link);
-        await _dbContext.SaveChangesAsync(cancellationToken);
-
-        return mugshot.Id;
+        catch
+        {
+            await _storageService.DeleteAsync(saveResult.StoragePath, CancellationToken.None);
+            throw;
+        }
     }
 
     private async Task EnsureOwnerExistsAsync(string ownerType, Guid ownerId, CancellationToken cancellationToken)

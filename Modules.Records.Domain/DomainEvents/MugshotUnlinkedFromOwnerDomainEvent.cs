@@ -5,4 +5,5 @@ public sealed record MugshotUnlinkedFromOwnerDomainEvent(
     Guid MugshotId,
     Guid JurisdictionId,
     string OwnerType,
-    Guid OwnerId) : DomainEvent;
+    Guid OwnerId,
+    Guid UnlinkedByUserId) : DomainEvent;
