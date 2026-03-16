@@ -52,6 +52,14 @@ public sealed class RebuildReadModelsHandler
             .Where(r => r.JurisdictionId == jid)
             .ExecuteDeleteAsync(cancellationToken);
 
+        await _db.MugshotLinkReadModels
+            .Where(r => r.JurisdictionId == jid)
+            .ExecuteDeleteAsync(cancellationToken);
+
+        await _db.MugshotReadModels
+            .Where(r => r.JurisdictionId == jid)
+            .ExecuteDeleteAsync(cancellationToken);
+
         // ── 2. Rebuild Names (global filter excludes soft-deleted) ───────────
         var names = await _db.Names
             .AsNoTracking()
@@ -254,6 +262,75 @@ public sealed class RebuildReadModelsHandler
         _db.IncidentCitationLinkReadModels.AddRange(citationLinkReadModels);
         await _db.SaveChangesAsync(cancellationToken);
 
+        // ── 8. Rebuild Mugshots ────────────────────────────────────────────────
+        var mugshots = await _db.Mugshots
+            .AsNoTracking()
+            .Where(m => m.JurisdictionId == jid)
+            .ToListAsync(cancellationToken);
+
+        var mugshotReadModels = mugshots.Select(m => MugshotReadModel.Create(
+            m.Id,
+            m.JurisdictionId,
+            m.AgencyId,
+            m.FileName,
+            m.ContentType,
+            m.FileSizeBytes,
+            m.StoragePath,
+            m.PublicUrl,
+            m.CapturedAtUtc,
+            m.CreatedBy,
+            m.CreatedAt)).ToList();
+
+        _db.MugshotReadModels.AddRange(mugshotReadModels);
+        await _db.SaveChangesAsync(cancellationToken);
+
+        // ── 9. Rebuild Mugshot Links and owner previews ───────────────────────
+        var mugshotLinks = await _db.MugshotLinks
+            .AsNoTracking()
+            .Where(l => l.JurisdictionId == jid)
+            .ToListAsync(cancellationToken);
+
+        var mugshotLinkReadModels = mugshotLinks.Select(l => MugshotLinkReadModel.Create(
+            l.Id,
+            l.JurisdictionId,
+            l.MugshotId,
+            l.OwnerType,
+            l.OwnerId,
+            l.IsPrimary,
+            l.DisplayOrder,
+            l.LinkedAtUtc)).ToList();
+
+        _db.MugshotLinkReadModels.AddRange(mugshotLinkReadModels);
+        await _db.SaveChangesAsync(cancellationToken);
+
+        var mugshotUrlLookup = mugshotReadModels.ToDictionary(m => m.Id, m => m.PublicUrl);
+
+        foreach (var group in mugshotLinkReadModels.GroupBy(l => new { l.OwnerType, l.OwnerId }))
+        {
+            var primaryLink = group
+                .OrderByDescending(l => l.IsPrimary)
+                .ThenBy(l => l.DisplayOrder)
+                .ThenBy(l => l.LinkedAtUtc)
+                .FirstOrDefault();
+
+            var primaryUrl = primaryLink is not null
+                ? mugshotUrlLookup.GetValueOrDefault(primaryLink.MugshotId)
+                : null;
+
+            if (group.Key.OwnerType == Domain.Common.MugshotOwnerTypes.Name)
+            {
+                var nameReadModel = nameReadModels.FirstOrDefault(n => n.Id == group.Key.OwnerId);
+                nameReadModel?.ApplyPrimaryMugshot(primaryUrl);
+            }
+            else if (group.Key.OwnerType == Domain.Common.MugshotOwnerTypes.Arrest)
+            {
+                var arrestReadModel = arrestReadModels.FirstOrDefault(a => a.Id == group.Key.OwnerId);
+                arrestReadModel?.ApplyPrimaryMugshot(primaryUrl);
+            }
+        }
+
+        await _db.SaveChangesAsync(cancellationToken);
+
         sw.Stop();
         return new RebuildReadModelsResult(
             NamesRebuilt:          nameReadModels.Count,
@@ -262,6 +339,8 @@ public sealed class RebuildReadModelsHandler
             IncidentsRebuilt:      incidentReadModels.Count,
             ArrestLinksRebuilt:    arrestLinkReadModels.Count,
             CitationLinksRebuilt:  citationLinkReadModels.Count,
+            MugshotsRebuilt:       mugshotReadModels.Count,
+            MugshotLinksRebuilt:   mugshotLinkReadModels.Count,
             Elapsed:               sw.Elapsed);
     }
 }

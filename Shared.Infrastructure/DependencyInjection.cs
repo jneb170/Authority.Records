@@ -19,6 +19,7 @@ using Shared.Infrastructure.DomainEvents;
 using Shared.Infrastructure.Identity;
 using Shared.Infrastructure.Jurisdiction;
 using Shared.Infrastructure.Locks;
+using Shared.Infrastructure.Mugshots;
 using Shared.Infrastructure.Outbox;
 using Shared.Infrastructure.Arrests;
 using Shared.Infrastructure.Citations;
@@ -219,6 +220,7 @@ public static class DependencyInjection
         // User Lookup (display names for audit info)
         // -------------------------------------------------------
         services.AddScoped<IUserLookupService, UserLookupService>();
+        services.AddScoped<IMugshotStorageService, LocalMugshotStorageService>();
 
         // -------------------------------------------------------
         // Arrest Repository

@@ -46,6 +46,11 @@ else if (_arrest is not null)
             </div>
         </div>
         <div class="d-flex gap-2 record-header-meta">
+            <div class="record-header-thumb" title="Primary mugshot">
+                <MugshotThumbnail ImageUrl="@_arrest.PrimaryMugshotUrl"
+                                  Alt="@($"Primary mugshot for arrest record {RecordNumber}")"
+                                  Compact="true" />
+            </div>
             <StatusBadge Status="@_arrest.Status" />
             <LockBadge IsLocked="@_arrest.IsLocked" LockedByName="@_lockedByName" />
         </div>
@@ -276,6 +281,8 @@ else if (_arrest is not null)
         }
         </div>
     </div>
+
+    <MugshotGallery ArrestId="_arrest.Id" CanModify="_modifyMode" />
 }
 
 @code {

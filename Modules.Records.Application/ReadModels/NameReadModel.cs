@@ -36,6 +36,7 @@ public sealed class NameReadModel
     public DateTime UpdatedAtUtc { get; private set; }
     public Guid? PrimaryLocationId { get; private set; }
     public Guid? SecondaryLocationId { get; private set; }
+    public string? PrimaryMugshotUrl { get; private set; }
 
     private NameReadModel() { } // EF
 
@@ -170,6 +171,12 @@ public sealed class NameReadModel
         UpdatedAtUtc        = DateTime.UtcNow;
     }
 
+    public void ApplyPrimaryMugshot(string? primaryMugshotUrl)
+    {
+        PrimaryMugshotUrl = primaryMugshotUrl;
+        UpdatedAtUtc = DateTime.UtcNow;
+    }
+
     public NameDto ToDto() => new(
         Id, RecordNumber, JurisdictionId, AgencyId, NameType, LastOrBusinessName,
         IsLocked, LockedByUserId, CreatedBy, ModifiedBy, CreatedAtUtc, UpdatedAtUtc,
@@ -177,5 +184,5 @@ public sealed class NameReadModel
         DriversLicenseNumber, DriversLicenseStateId, HeightInches, WeightLbs,
         HairColorId, EyeColorId,
         SuffixId, PlaceOfBirth, FbiNumber, LocalNumber, SocialSecurityNumber, IsCitizen, DeceasedDate,
-        PrimaryLocationId, SecondaryLocationId);
+        PrimaryLocationId, SecondaryLocationId, PrimaryMugshotUrl);
 }

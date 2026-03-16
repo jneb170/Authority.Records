@@ -24,12 +24,16 @@ internal sealed class TestAppDbContext : DbContext, IApplicationDbContext
     public DbSet<Arrest>                        Arrests                        => throw new NotImplementedException();
     public DbSet<Citation>                      Citations                      => throw new NotImplementedException();
     public DbSet<Name>                          Names                          => throw new NotImplementedException();
+    public DbSet<Mugshot>                       Mugshots                       => throw new NotImplementedException();
+    public DbSet<MugshotLink>                   MugshotLinks                   => throw new NotImplementedException();
     public DbSet<IncidentArrestLink>            IncidentArrestLinks            => throw new NotImplementedException();
     public DbSet<IncidentCitationLink>          IncidentCitationLinks          => throw new NotImplementedException();
     public DbSet<IncidentReadModel>             IncidentReadModels             => throw new NotImplementedException();
     public DbSet<ArrestReadModel>               ArrestReadModels               => throw new NotImplementedException();
     public DbSet<CitationReadModel>             CitationReadModels             => throw new NotImplementedException();
     public DbSet<NameReadModel>                 NameReadModels                 => throw new NotImplementedException();
+    public DbSet<MugshotReadModel>              MugshotReadModels              => throw new NotImplementedException();
+    public DbSet<MugshotLinkReadModel>          MugshotLinkReadModels          => throw new NotImplementedException();
     public DbSet<IncidentArrestLinkReadModel>   IncidentArrestLinkReadModels   => throw new NotImplementedException();
     public DbSet<IncidentCitationLinkReadModel> IncidentCitationLinkReadModels => throw new NotImplementedException();
     public DbSet<AgencyConfiguration>           AgencyConfigurations           => throw new NotImplementedException();

@@ -1,0 +1,333 @@
+@using FluentValidation
+@inject IMugshotService MugshotService
+
+<div class="card record-content-card mb-4 mugshot-gallery-section">
+    <div class="card-body">
+        <div class="record-related-header">
+            <div>
+                <h4 class="record-related-title mb-1">
+                    <button type="button"
+                            class="mugshot-section-toggle"
+                            @onclick="ToggleExpanded"
+                            aria-expanded="@_expanded">
+                        <i class="bi @(_expanded ? "bi-chevron-down" : "bi-chevron-right")" aria-hidden="true"></i>
+                        <span>Mugshots</span>
+                    </button>
+                </h4>
+                <div class="text-muted small">
+                    @if (_expanded)
+                    {
+                        <span>Primary mugshots drive the preview shown on list pages and provide a quick visual on detail pages.</span>
+                    }
+                    else
+                    {
+                        <span>Section minimized on load. Expand to manage or review related mugshots.</span>
+                    }
+                </div>
+            </div>
+            <div class="mugshot-header-chips">
+                <span class="list-summary-chip">
+                    <i class="bi bi-images"></i>
+                    <span>@_mugshots.Count image@(_mugshots.Count == 1 ? string.Empty : "s")</span>
+                </span>
+                @if (!_expanded)
+                {
+                    <span class="list-summary-chip">
+                        <i class="bi bi-arrows-collapse"></i>
+                        <span>Collapsed</span>
+                    </span>
+                }
+            </div>
+        </div>
+
+        @if (_expanded)
+        {
+            @if (_error is not null)
+            {
+                <div class="alert alert-danger mt-3 mb-0">@_error</div>
+            }
+
+            @if (CanModify)
+            {
+                <div class="mugshot-upload-panel mt-3">
+                    <div class="mugshot-upload-controls">
+                        <InputFile OnChange="HandleFilesSelectedAsync"
+                                   class="form-control"
+                                   accept="image/jpeg,image/png,image/webp"
+                                   multiple />
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" id="@_primaryCheckboxId" @bind="_makeNextUploadPrimary" />
+                            <label class="form-check-label" for="@_primaryCheckboxId">Set next upload as primary</label>
+                        </div>
+                    </div>
+                    <div class="small text-muted mt-2">JPEG, PNG, and WebP supported. Maximum size: 5 MB per image.</div>
+                </div>
+            }
+
+            @if (_loading)
+            {
+                <div class="mt-3">
+                    <LoadingSpinner />
+                </div>
+            }
+            else if (_mugshots.Count == 0)
+            {
+                <div class="record-related-empty-state mt-3">
+                    <div class="empty-state">
+                        <i class="bi bi-camera"></i>
+                        <div class="fw-medium">No mugshots have been added yet.</div>
+                        <div class="small mt-1">Upload a mugshot to create a primary preview for this record.</div>
+                    </div>
+                </div>
+            }
+            else
+            {
+                <div class="mugshot-gallery-grid mt-3">
+                    @foreach (var mugshot in _mugshots)
+                    {
+                        <article class="mugshot-card">
+                            <div class="mugshot-card-media">
+                                <MugshotThumbnail ImageUrl="@mugshot.PublicUrl"
+                                                  Alt="@($"{OwnerLabel} mugshot {mugshot.FileName}")" />
+                            </div>
+                            <div class="mugshot-card-body">
+                                <div class="mugshot-card-top">
+                                    <strong class="mugshot-card-title">@mugshot.FileName</strong>
+                                    @if (mugshot.IsPrimary)
+                                    {
+                                        <span class="record-pill record-pill-primary">
+                                            <i class="bi bi-star-fill" aria-hidden="true"></i>
+                                            <span>Primary</span>
+                                        </span>
+                                    }
+                                </div>
+                                <div class="mugshot-card-meta">
+                                    <span>@mugshot.ContentType</span>
+                                    <span>@FormatFileSize(mugshot.FileSizeBytes)</span>
+                                    <span>@mugshot.CapturedAtUtc.ToLocalTime().ToString("g")</span>
+                                </div>
+
+                                @if (CanModify)
+                                {
+                                    <div class="mugshot-card-actions">
+                                        @if (!mugshot.IsPrimary)
+                                        {
+                                            <button class="btn btn-sm btn-outline-primary"
+                                                    @onclick="() => SetPrimaryAsync(mugshot.Id)">
+                                                <i class="bi bi-star me-1"></i>Make Primary
+                                            </button>
+                                        }
+                                        <button class="btn btn-sm btn-outline-danger"
+                                                @onclick="() => PromptRemove(mugshot)">
+                                            <i class="bi bi-trash3 me-1"></i>Remove
+                                        </button>
+                                    </div>
+                                }
+                            </div>
+                        </article>
+                    }
+                </div>
+            }
+        }
+    </div>
+</div>
+
+<ConfirmDialog Visible="_showRemoveConfirm"
+               Title="Remove Mugshot"
+               Message="@_removeMessage"
+               OnConfirm="RemoveAsync"
+               OnCancel="CancelRemove" />
+
+@code {
+    private const long MaxUploadBytes = 5 * 1024 * 1024;
+
+    [Parameter] public Guid? NameId { get; set; }
+    [Parameter] public Guid? ArrestId { get; set; }
+    [Parameter] public bool CanModify { get; set; }
+
+    private readonly string _primaryCheckboxId = $"mugshot-primary-{Guid.NewGuid():N}";
+    private IReadOnlyList<MugshotDto> _mugshots = [];
+    private bool _loading = true;
+    private bool _expanded;
+    private bool _makeNextUploadPrimary;
+    private string? _error;
+    private bool _showRemoveConfirm;
+    private MugshotDto? _removeTarget;
+
+    private string OwnerLabel => NameId.HasValue ? "Name" : "Arrest";
+    private string _removeMessage => _removeTarget is null
+        ? "Remove this mugshot from the record?"
+        : $"Remove \"{_removeTarget.FileName}\" from this {OwnerLabel.ToLowerInvariant()} record?";
+
+    protected override async Task OnParametersSetAsync()
+    {
+        if (!NameId.HasValue && !ArrestId.HasValue)
+        {
+            _mugshots = [];
+            _loading = false;
+            return;
+        }
+
+        await LoadAsync();
+    }
+
+    private void ToggleExpanded() => _expanded = !_expanded;
+
+    private async Task LoadAsync()
+    {
+        _loading = true;
+        _error = null;
+
+        try
+        {
+            _mugshots = NameId.HasValue
+                ? await MugshotService.GetForNameAsync(NameId.Value)
+                : await MugshotService.GetForArrestAsync(ArrestId!.Value);
+        }
+        catch (ValidationException ex)
+        {
+            _error = ex.Message;
+        }
+        catch (InvalidOperationException ex)
+        {
+            _error = ex.Message;
+        }
+        finally
+        {
+            _loading = false;
+        }
+    }
+
+    private async Task HandleFilesSelectedAsync(InputFileChangeEventArgs args)
+    {
+        if (!CanModify || (!NameId.HasValue && !ArrestId.HasValue))
+        {
+            return;
+        }
+
+        await ExecuteWithErrorHandlingAsync(async () =>
+        {
+            var makePrimary = _makeNextUploadPrimary;
+
+            foreach (var file in args.GetMultipleFiles())
+            {
+                await using var stream = file.OpenReadStream(MaxUploadBytes);
+                using var memoryStream = new MemoryStream();
+                await stream.CopyToAsync(memoryStream);
+
+                if (NameId.HasValue)
+                {
+                    await MugshotService.UploadForNameAsync(
+                        NameId.Value,
+                        file.Name,
+                        file.ContentType,
+                        memoryStream.ToArray(),
+                        makePrimary);
+                }
+                else
+                {
+                    await MugshotService.UploadForArrestAsync(
+                        ArrestId!.Value,
+                        file.Name,
+                        file.ContentType,
+                        memoryStream.ToArray(),
+                        makePrimary);
+                }
+
+                makePrimary = false;
+            }
+
+            _makeNextUploadPrimary = false;
+            await LoadAsync();
+        });
+    }
+
+    private async Task SetPrimaryAsync(Guid mugshotId)
+    {
+        await ExecuteWithErrorHandlingAsync(async () =>
+        {
+            if (NameId.HasValue)
+            {
+                await MugshotService.SetPrimaryForNameAsync(NameId.Value, mugshotId);
+            }
+            else
+            {
+                await MugshotService.SetPrimaryForArrestAsync(ArrestId!.Value, mugshotId);
+            }
+
+            await LoadAsync();
+        });
+    }
+
+    private void PromptRemove(MugshotDto mugshot)
+    {
+        _removeTarget = mugshot;
+        _showRemoveConfirm = true;
+    }
+
+    private async Task RemoveAsync()
+    {
+        if (_removeTarget is null)
+        {
+            return;
+        }
+
+        await ExecuteWithErrorHandlingAsync(async () =>
+        {
+            if (NameId.HasValue)
+            {
+                await MugshotService.RemoveFromNameAsync(NameId.Value, _removeTarget.Id);
+            }
+            else
+            {
+                await MugshotService.RemoveFromArrestAsync(ArrestId!.Value, _removeTarget.Id);
+            }
+
+            CancelRemove();
+            await LoadAsync();
+        });
+    }
+
+    private void CancelRemove()
+    {
+        _showRemoveConfirm = false;
+        _removeTarget = null;
+    }
+
+    private static string FormatFileSize(long bytes)
+    {
+        if (bytes < 1024)
+        {
+            return $"{bytes} B";
+        }
+
+        if (bytes < 1024 * 1024)
+        {
+            return $"{bytes / 1024d:0.#} KB";
+        }
+
+        return $"{bytes / 1024d / 1024d:0.#} MB";
+    }
+
+    private async Task ExecuteWithErrorHandlingAsync(Func<Task> action)
+    {
+        _error = null;
+
+        try
+        {
+            await action();
+        }
+        catch (ValidationException ex)
+        {
+            _error = ex.Message;
+        }
+        catch (InvalidOperationException ex)
+        {
+            _error = ex.Message;
+        }
+        catch (IOException ex)
+        {
+            _error = ex.Message;
+        }
+    }
+}

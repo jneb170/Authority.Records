@@ -7,4 +7,6 @@ public sealed record RebuildReadModelsResult(
     int      IncidentsRebuilt,
     int      ArrestLinksRebuilt,
     int      CitationLinksRebuilt,
+    int      MugshotsRebuilt,
+    int      MugshotLinksRebuilt,
     TimeSpan Elapsed);
