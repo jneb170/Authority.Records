@@ -440,7 +440,9 @@ else if (_name is not null)
                 <div class="col-12">
                     <label class="@LabelClass">Primary Address</label>
                     <div class="d-flex align-items-center gap-2">
-                        <span class="@(_modifyMode ? "fw-semibold" : "record-reference-display")">@(_editPrimaryLocationDisplay ?? "— None —")</span>
+                        <span class="@(_modifyMode ? "fw-semibold" : "record-reference-display")">@if (!_modifyMode && _editPrimaryLocationRecordNumber.HasValue) {
+                            <a href="/locations/@_editPrimaryLocationRecordNumber" class="record-reference-link">@_editPrimaryLocationDisplay</a>
+                        } else { @(_editPrimaryLocationDisplay ?? "— None —") }</span>
                         @if (_modifyMode)
                         {
                             <button type="button" class="btn btn-sm btn-outline-secondary" @onclick="() => _showPrimaryLocationModal = true">
@@ -459,7 +461,9 @@ else if (_name is not null)
                 <div class="col-12">
                     <label class="@LabelClass">Secondary Address</label>
                     <div class="d-flex align-items-center gap-2">
-                        <span class="@(_modifyMode ? "fw-semibold" : "record-reference-display")">@(_editSecondaryLocationDisplay ?? "— None —")</span>
+                        <span class="@(_modifyMode ? "fw-semibold" : "record-reference-display")">@if (!_modifyMode && _editSecondaryLocationRecordNumber.HasValue) {
+                            <a href="/locations/@_editSecondaryLocationRecordNumber" class="record-reference-link">@_editSecondaryLocationDisplay</a>
+                        } else { @(_editSecondaryLocationDisplay ?? "— None —") }</span>
                         @if (_modifyMode)
                         {
                             <button type="button" class="btn btn-sm btn-outline-secondary" @onclick="() => _showSecondaryLocationModal = true">
@@ -547,9 +551,11 @@ else if (_name is not null)
     private bool _showSwitchTypeConfirm;
     private Guid?  _editPrimaryLocationId;
     private string? _editPrimaryLocationDisplay;
+    private long?  _editPrimaryLocationRecordNumber;
     private bool   _showPrimaryLocationModal;
     private Guid?  _editSecondaryLocationId;
     private string? _editSecondaryLocationDisplay;
+    private long?  _editSecondaryLocationRecordNumber;
     private bool   _showSecondaryLocationModal;
 
     // Read-only picklist labels
@@ -880,56 +886,72 @@ else if (_name is not null)
         if (_editPrimaryLocationId.HasValue)
         {
             var loc = await LocationService.GetByIdAsync(_editPrimaryLocationId.Value);
-            _editPrimaryLocationDisplay = loc is null ? null : FormatLocationDisplay(loc);
+            _editPrimaryLocationDisplay      = loc is null ? null : FormatLocationDisplay(loc);
+            _editPrimaryLocationRecordNumber = loc?.RecordNumber;
         }
-        else _editPrimaryLocationDisplay = null;
+        else
+        {
+            _editPrimaryLocationDisplay      = null;
+            _editPrimaryLocationRecordNumber = null;
+        }
 
         if (_editSecondaryLocationId.HasValue)
         {
             var loc = await LocationService.GetByIdAsync(_editSecondaryLocationId.Value);
-            _editSecondaryLocationDisplay = loc is null ? null : FormatLocationDisplay(loc);
+            _editSecondaryLocationDisplay      = loc is null ? null : FormatLocationDisplay(loc);
+            _editSecondaryLocationRecordNumber = loc?.RecordNumber;
         }
-        else _editSecondaryLocationDisplay = null;
+        else
+        {
+            _editSecondaryLocationDisplay      = null;
+            _editSecondaryLocationRecordNumber = null;
+        }
     }
 
     private void OnPrimaryLocationSelected(LocationDto loc)
     {
-        _editPrimaryLocationId      = loc.Id;
-        _editPrimaryLocationDisplay = FormatLocationDisplay(loc);
-        _showPrimaryLocationModal   = false;
+        _editPrimaryLocationId           = loc.Id;
+        _editPrimaryLocationDisplay      = FormatLocationDisplay(loc);
+        _editPrimaryLocationRecordNumber = loc.RecordNumber;
+        _showPrimaryLocationModal        = false;
     }
 
     private void OnPrimaryLocationCleared()
     {
-        _editPrimaryLocationId      = null;
-        _editPrimaryLocationDisplay = null;
-        _showPrimaryLocationModal   = false;
+        _editPrimaryLocationId           = null;
+        _editPrimaryLocationDisplay      = null;
+        _editPrimaryLocationRecordNumber = null;
+        _showPrimaryLocationModal        = false;
     }
 
     private void ClearPrimaryLocation()
     {
-        _editPrimaryLocationId      = null;
-        _editPrimaryLocationDisplay = null;
+        _editPrimaryLocationId           = null;
+        _editPrimaryLocationDisplay      = null;
+        _editPrimaryLocationRecordNumber = null;
     }
 
     private void OnSecondaryLocationSelected(LocationDto loc)
     {
-        _editSecondaryLocationId      = loc.Id;
-        _editSecondaryLocationDisplay = FormatLocationDisplay(loc);
-        _showSecondaryLocationModal   = false;
+        _editSecondaryLocationId           = loc.Id;
+        _editSecondaryLocationDisplay      = FormatLocationDisplay(loc);
+        _editSecondaryLocationRecordNumber = loc.RecordNumber;
+        _showSecondaryLocationModal        = false;
     }
 
     private void OnSecondaryLocationCleared()
     {
-        _editSecondaryLocationId      = null;
-        _editSecondaryLocationDisplay = null;
-        _showSecondaryLocationModal   = false;
+        _editSecondaryLocationId           = null;
+        _editSecondaryLocationDisplay      = null;
+        _editSecondaryLocationRecordNumber = null;
+        _showSecondaryLocationModal        = false;
     }
 
     private void ClearSecondaryLocation()
     {
-        _editSecondaryLocationId      = null;
-        _editSecondaryLocationDisplay = null;
+        _editSecondaryLocationId           = null;
+        _editSecondaryLocationDisplay      = null;
+        _editSecondaryLocationRecordNumber = null;
     }
 
     private static string FormatLocationDisplay(LocationDto loc)
