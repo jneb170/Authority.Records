@@ -20,12 +20,13 @@ public sealed class LocalMugshotStorageService : IMugshotStorageService
         CancellationToken cancellationToken)
     {
         var extension = ResolveExtension(contentType, fileName);
+        var now = DateTime.UtcNow;
         var relativeDirectory = Path.Combine(
             "uploads",
             "mugshots",
             jurisdictionId.ToString("N"),
-            DateTime.UtcNow.Year.ToString(),
-            DateTime.UtcNow.Month.ToString("00"));
+            now.Year.ToString(),
+            now.Month.ToString("00"));
 
         var relativePath = Path.Combine(relativeDirectory, $"{Guid.NewGuid():N}{extension}");
         var webRootPath = _environment.WebRootPath ?? Path.Combine(_environment.ContentRootPath, "wwwroot");
