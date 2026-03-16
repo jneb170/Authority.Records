@@ -2,6 +2,8 @@
 @attribute [Microsoft.AspNetCore.Authorization.Authorize(Roles = "Admin,Supervisor")]
 @inject INameService NameService
 @inject IPicklistService PicklistService
+@inject IGoogleMapsConfigService GoogleMapsConfig
+@inject MediatR.ISender Sender
 
 <PageTitle>Test Data Generation</PageTitle>
 
@@ -138,6 +140,99 @@
     </div>
 }
 
+@* ── Step 3: Generate Location Records ──────────────────────────────────── *@
+<h5 class="fw-semibold mb-3">Step 3 — Generate Location Records from Google Maps</h5>
+
+@if (!_hasMapsApiKey)
+{
+    <div class="alert alert-warning mb-4">
+        ⚠️ No Google Maps API key is configured for this jurisdiction. Set one under
+        <strong>Administration → Location Settings</strong> before generating location records.
+    </div>
+}
+
+<p class="text-muted small mb-3">
+    Searches Google Maps Places Text Search for real addresses matching your keyword and creates
+    Location (MLI) records. Picklist FKs (Direction, StreetType, State, Country) are resolved
+    automatically when the relevant picklists have been seeded.
+</p>
+
+<div class="row g-3 mb-4">
+    <div class="col-md-6">
+        <div class="card h-100">
+            <div class="card-body">
+                <h6 class="card-title">Location Picklist Status</h6>
+                <p class="card-text text-muted small">
+                    Seed these picklists first to enable FK resolution on generated records.
+                </p>
+                <div class="d-flex gap-3 flex-wrap small text-muted">
+                    <span>Direction: @_directionCount items</span>
+                    <span>StreetType: @_streetTypeCount items</span>
+                    <span>Country: @_countryCount items</span>
+                    <span>State: @_stateCount items</span>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row g-3 align-items-end mb-3">
+    <div class="col-md-5">
+        <label class="form-label fw-semibold">Search Keyword</label>
+        <input type="text" class="form-control"
+               placeholder="e.g. police stations near Dallas TX"
+               @bind="_locKeyword"
+               disabled="@(_generatingLocations || !_hasMapsApiKey)" />
+    </div>
+    <div class="col-auto">
+        <label class="form-label fw-semibold">Count</label>
+        <input type="number" class="form-control" style="width:100px"
+               min="1" max="60" @bind="_locCount"
+               disabled="@(_generatingLocations || !_hasMapsApiKey)" />
+    </div>
+    <div class="col-auto">
+        <button class="btn btn-primary"
+                @onclick="GenerateLocationsAsync"
+                disabled="@(_generatingLocations || !_hasMapsApiKey || string.IsNullOrWhiteSpace(_locKeyword))">
+            @if (_generatingLocations) { <span class="spinner-border spinner-border-sm me-1"></span> }
+            Generate @_locCount Location Record@(_locCount == 1 ? "" : "s")
+        </button>
+    </div>
+</div>
+
+@if (_generatingLocations || _locGeneratedCount > 0)
+{
+    <div class="mb-2">
+        <div class="progress" style="height:22px;">
+            <div class="progress-bar progress-bar-striped @(_generatingLocations ? "progress-bar-animated" : "")"
+                 role="progressbar"
+                 style="width: @(_locCount > 0 ? (int)((_locGeneratedCount * 100.0) / _locCount) : 0)%">
+                @_locGeneratedCount / @_locCount
+            </div>
+        </div>
+    </div>
+}
+
+@if (_locResult is not null)
+{
+    <div class="alert @(_locErrors == 0 ? "alert-success" : "alert-warning") mt-2">
+        @_locResult
+    </div>
+}
+
+@if (_locErrorDetails.Count > 0)
+{
+    <details class="mt-2">
+        <summary class="small text-danger">@_locErrorDetails.Count error(s)</summary>
+        <ul class="small mt-1">
+            @foreach (var e in _locErrorDetails)
+            {
+                <li>@e</li>
+            }
+        </ul>
+    </details>
+}
+
 @code {
     // ── Picklist counts ──────────────────────────────────────────────────────
     private int _sexCount;
@@ -175,6 +270,7 @@
     protected override async Task OnInitializedAsync()
     {
         await LoadPicklistCountsAsync();
+        _hasMapsApiKey = !string.IsNullOrWhiteSpace(await GoogleMapsConfig.GetApiKeyAsync());
     }
 
     private async Task LoadPicklistCountsAsync()
@@ -183,15 +279,21 @@
         var raceItems   = await PicklistService.GetItemsAsync(Modules.Records.Domain.Common.PicklistTypes.Race,     activeOnly: false);
         var hairItems   = await PicklistService.GetItemsAsync(Modules.Records.Domain.Common.PicklistTypes.HairColor, activeOnly: false);
         var eyeItems    = await PicklistService.GetItemsAsync(Modules.Records.Domain.Common.PicklistTypes.EyeColor,  activeOnly: false);
-        var stateItems  = await PicklistService.GetItemsAsync(Modules.Records.Domain.Common.PicklistTypes.State,    activeOnly: false);
-        var suffixItems = await PicklistService.GetItemsAsync(Modules.Records.Domain.Common.PicklistTypes.Suffix,   activeOnly: false);
+        var stateItems  = await PicklistService.GetItemsAsync(Modules.Records.Domain.Common.PicklistTypes.State,     activeOnly: false);
+        var suffixItems = await PicklistService.GetItemsAsync(Modules.Records.Domain.Common.PicklistTypes.Suffix,    activeOnly: false);
+        var dirItems    = await PicklistService.GetItemsAsync(Modules.Records.Domain.Common.PicklistTypes.Direction,  activeOnly: false);
+        var stTypeItems = await PicklistService.GetItemsAsync(Modules.Records.Domain.Common.PicklistTypes.StreetType, activeOnly: false);
+        var countryItems = await PicklistService.GetItemsAsync(Modules.Records.Domain.Common.PicklistTypes.Country,  activeOnly: false);
 
         _sexCount    = sexItems.Count;
         _raceCount   = raceItems.Count;
         _hairCount   = hairItems.Count;
         _eyeCount    = eyeItems.Count;
-        _stateCount  = stateItems.Count;
-        _suffixCount = suffixItems.Count;
+        _stateCount      = stateItems.Count;
+        _suffixCount     = suffixItems.Count;
+        _directionCount  = dirItems.Count;
+        _streetTypeCount = stTypeItems.Count;
+        _countryCount    = countryItems.Count;
 
         _sexIds    = sexItems.ToDictionary(x => x.Value, x => x.Id);
         _raceIds   = raceItems.ToDictionary(x => x.Value, x => x.Id);
@@ -401,5 +503,65 @@
             weightLbs:             weight,
             hairColorId:           hairId,
             eyeColorId:            eyeId);
+    }
+
+    // ── Location generation state ────────────────────────────────────────────
+    private bool         _hasMapsApiKey       = false;
+    private int          _directionCount      = 0;
+    private int          _streetTypeCount     = 0;
+    private int          _countryCount        = 0;
+    private string?      _locKeyword;
+    private int          _locCount            = 10;
+    private bool         _generatingLocations = false;
+    private int          _locGeneratedCount   = 0;
+    private int          _locErrors           = 0;
+    private string?      _locResult;
+    private List<string> _locErrorDetails     = new();
+
+    // ── Generate Locations ───────────────────────────────────────────────────
+
+    private async Task GenerateLocationsAsync()
+    {
+        _generatingLocations = true;
+        _locGeneratedCount   = 0;
+        _locErrors           = 0;
+        _locResult           = null;
+        _locErrorDetails.Clear();
+
+        try
+        {
+            var apiKey = await GoogleMapsConfig.GetApiKeyAsync();
+            if (string.IsNullOrWhiteSpace(apiKey))
+            {
+                _locResult = "❌ No Google Maps API key configured.";
+                return;
+            }
+
+            var count = Math.Clamp(_locCount, 1, 60);
+            _locCount = count;
+
+            var result = await Sender.Send(
+                new Modules.Records.Application.Locations.Commands.GenerateTestLocations
+                    .GenerateTestLocationsCommand(_locKeyword!, count, apiKey));
+
+            _locGeneratedCount = result.Created + result.Failed;
+            _locErrors         = result.Failed;
+            _locErrorDetails   = result.Errors.ToList();
+
+            _locResult = result.Failed == 0
+                ? $"✅ Successfully created {result.Created} location record(s)."
+                : $"⚠️ Created {result.Created} record(s); {result.Failed} error(s).";
+
+            await LoadPicklistCountsAsync();
+        }
+        catch (Exception ex)
+        {
+            _locResult = $"❌ Error: {ex.Message}";
+        }
+        finally
+        {
+            _generatingLocations = false;
+            StateHasChanged();
+        }
     }
 }
