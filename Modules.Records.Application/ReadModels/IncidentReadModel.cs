@@ -83,7 +83,11 @@ public sealed class IncidentReadModel
     public void ApplyLocationChanged(Guid? locationId) { LocationId = locationId; UpdatedAtUtc = DateTime.UtcNow; }
     public void ApplyOccurredOnChanged(DateTime? occurredOn) { OccurredOn = occurredOn; UpdatedAtUtc = DateTime.UtcNow; }
 
-    public void ApplyModifiedAudit(Guid? modifiedBy) { ModifiedBy = modifiedBy; }
+    public void ApplyModifiedAudit(Guid? modifiedBy, DateTime? modifiedAt)
+    {
+        ModifiedBy   = modifiedBy;
+        UpdatedAtUtc = modifiedAt ?? UpdatedAtUtc;
+    }
 
     public void ApplyStatusChange(string status)           { Status = status; UpdatedAtUtc = DateTime.UtcNow; }
     public void ApplyDeleted()                             { IsDeleted = true;  UpdatedAtUtc = DateTime.UtcNow; }

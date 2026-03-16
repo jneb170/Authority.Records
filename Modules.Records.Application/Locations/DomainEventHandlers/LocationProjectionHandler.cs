@@ -84,7 +84,7 @@ public sealed class LocationProjectionHandler :
             notification.Comments,
             notification.Address);
 
-        readModel.ApplyModifiedAudit(location?.ModifiedBy);
+        readModel.ApplyModifiedAudit(location?.ModifiedBy, location?.ModifiedAt);
         await _dbContext.SaveChangesAsync(cancellationToken);
     }
 

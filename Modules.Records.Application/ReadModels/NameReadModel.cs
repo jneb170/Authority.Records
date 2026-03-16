@@ -158,10 +158,10 @@ public sealed class NameReadModel
         LockedByUserId = null;
     }
 
-    public void ApplyModifiedAudit(Guid? modifiedBy)
+    public void ApplyModifiedAudit(Guid? modifiedBy, DateTime? modifiedAt)
     {
         ModifiedBy   = modifiedBy;
-        UpdatedAtUtc = DateTime.UtcNow;
+        UpdatedAtUtc = modifiedAt ?? UpdatedAtUtc;
     }
 
     public void ApplyLocationChanged(Guid? primaryLocationId, Guid? secondaryLocationId)
