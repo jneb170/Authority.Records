@@ -5,6 +5,7 @@ public sealed record GooglePlaceResult(
     string  FormattedAddress,
     string? StreetNumber,
     string? StreetAddress,
+    string? AptSuite,
     string? City,
     string? Zip,
     string? StateAbbreviation,

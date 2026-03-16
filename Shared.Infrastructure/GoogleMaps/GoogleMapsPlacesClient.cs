@@ -86,6 +86,7 @@ public sealed class GoogleMapsPlacesClient : IGoogleMapsPlacesClient
 
         string? streetNumber = null;
         string? route        = null;
+        string? aptSuite     = null;
         string? city         = null;
         string? state        = null;
         string? country      = null;
@@ -116,7 +117,7 @@ public sealed class GoogleMapsPlacesClient : IGoogleMapsPlacesClient
         }
         else if (!string.IsNullOrWhiteSpace(place.FormattedAddress))
         {
-            (streetNumber, route, city, state, zip, country) =
+            (streetNumber, route, aptSuite, city, state, zip, country) =
                 ParseFormattedAddress(place.FormattedAddress);
         }
 
@@ -128,6 +129,7 @@ public sealed class GoogleMapsPlacesClient : IGoogleMapsPlacesClient
             FormattedAddress:  place.FormattedAddress ?? string.Empty,
             StreetNumber:      streetNumber,
             StreetAddress:     route,
+            AptSuite:          aptSuite,
             City:              city,
             Zip:               zip,
             StateAbbreviation: state,
@@ -141,30 +143,50 @@ public sealed class GoogleMapsPlacesClient : IGoogleMapsPlacesClient
     /// Handles the standard US format: "1370 S Rigsbee Dr, Plano, TX 75074, USA"
     ///   → streetNumber="1370", route="S Rigsbee Dr", city="Plano",
     ///     state="TX", zip="75074", country="US"
+    /// Also handles suite/apt suffixes on the street part:
+    ///   "101 E Park Blvd Suite 600, Plano, TX 75074, USA"
+    ///   → route="E Park Blvd", aptSuite="Suite 600"
     /// </summary>
-    private static (string? streetNumber, string? route, string? city,
+    private static (string? streetNumber, string? route, string? aptSuite, string? city,
                     string? state, string? zip, string? country)
         ParseFormattedAddress(string formatted)
     {
         // Split on ", " — the standard separator Google Maps uses between address parts.
         var parts = formatted.Split(new[] { ", " }, StringSplitOptions.RemoveEmptyEntries);
         if (parts.Length == 0)
-            return (null, null, null, null, null, null);
+            return (null, null, null, null, null, null, null);
 
         // ── Street (first part) ──────────────────────────────────────────────
-        // "1370 S Rigsbee Dr"  →  streetNumber="1370", route="S Rigsbee Dr"
-        // "Main Street Clinic" →  streetNumber=null,   route="Main Street Clinic"
+        // "1370 S Rigsbee Dr"         → streetNumber="1370", route="S Rigsbee Dr"
+        // "101 E Park Blvd Suite 600" → streetNumber="101",  route="E Park Blvd", aptSuite="Suite 600"
+        // "Main Street Clinic"        → streetNumber=null,   route="Main Street Clinic"
         string? streetNumber = null;
         string? route        = null;
-        var streetTokens = parts[0].Split(' ', 2, StringSplitOptions.RemoveEmptyEntries);
-        if (streetTokens.Length == 2 && int.TryParse(streetTokens[0], out _))
+        string? aptSuite     = null;
+
+        var streetTokens = parts[0].Split(' ', StringSplitOptions.RemoveEmptyEntries);
+        int routeEnd = streetTokens.Length; // exclusive index where route ends
+
+        // Detect suite/apt keywords and split there
+        for (int i = 1; i < streetTokens.Length; i++)
         {
-            streetNumber = streetTokens[0];
-            route        = streetTokens[1];
+            if (SuiteKeywords.Contains(streetTokens[i], StringComparer.OrdinalIgnoreCase))
+            {
+                aptSuite = string.Join(' ', streetTokens[i..]);
+                routeEnd = i;
+                break;
+            }
         }
-        else
+
+        var routeTokens = streetTokens[..routeEnd];
+        if (routeTokens.Length >= 2 && int.TryParse(routeTokens[0], out _))
         {
-            route = parts[0];
+            streetNumber = routeTokens[0];
+            route        = string.Join(' ', routeTokens[1..]);
+        }
+        else if (routeTokens.Length > 0)
+        {
+            route = string.Join(' ', routeTokens);
         }
 
         // ── Remaining parts (work from the end) ──────────────────────────────
@@ -192,8 +214,15 @@ public sealed class GoogleMapsPlacesClient : IGoogleMapsPlacesClient
             city = parts[1];
         }
 
-        return (streetNumber, route, city, state, zip, country);
+        return (streetNumber, route, aptSuite, city, state, zip, country);
     }
+
+    // Suite/apt keywords that may appear inline in the street part of a formatted address.
+    private static readonly HashSet<string> SuiteKeywords =
+    [
+        "Suite", "Ste", "Apt", "Apt.", "Unit", "Fl", "Floor",
+        "Bldg", "Building", "Rm", "Room", "#"
+    ];
 
     private static void ParseStateZip(string part, out string? state, out string? zip)
     {

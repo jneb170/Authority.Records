@@ -86,6 +86,7 @@ public sealed class GenerateTestLocationsHandler
                     StreetAddress:   streetName ?? place.StreetAddress ?? place.FormattedAddress,
                     City:            place.City           ?? "Unknown",
                     StreetNumber:    place.StreetNumber,
+                    AptSuite:        place.AptSuite,
                     PreDirectionId:  preDir,
                     StreetTypeId:    streetType,
                     PostDirectionId: postDir,
