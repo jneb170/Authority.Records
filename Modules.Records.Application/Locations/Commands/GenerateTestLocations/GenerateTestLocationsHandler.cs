@@ -135,9 +135,11 @@ public sealed class GenerateTestLocationsHandler
     }
 
     /// <summary>
-    /// Splits a Google Maps route string (e.g. "N Oak Avenue NW") into its
+    /// Splits a Google Maps route string (e.g. "S Rigsbee Dr" or "Oak Ave NW") into its
     /// pre-direction, base street name, post-direction, and street-type components,
     /// resolving each to picklist IDs where possible.
+    /// Post-direction is checked BEFORE street type so that e.g. "Oak Ave NW" correctly
+    /// strips "NW" as a direction first, then "Ave" as the street type.
     /// </summary>
     private static (Guid? preDir, string? streetName, Guid? postDir, Guid? streetType)
         ParseStreet(
@@ -154,7 +156,7 @@ public sealed class GenerateTestLocationsHandler
         int start = 0;
         int end   = tokens.Length - 1;
 
-        // Pre-direction: first token
+        // 1. Pre-direction: first token
         Guid? preDir = null;
         if (start <= end && directionDict.TryGetValue(tokens[start], out var preDirId))
         {
@@ -162,7 +164,16 @@ public sealed class GenerateTestLocationsHandler
             start++;
         }
 
-        // Street type: last token (check both value and full-name synonym)
+        // 2. Post-direction: last token — must be checked BEFORE street type
+        //    so "Oak Ave NW" → postDir=NW, then streetType=Ave (not the reverse).
+        Guid? postDir = null;
+        if (start < end && directionDict.TryGetValue(tokens[end], out var postDirId))
+        {
+            postDir = postDirId;
+            end--;
+        }
+
+        // 3. Street type: now-last token (after post-direction has been removed)
         Guid? streetType = null;
         if (start <= end)
         {
@@ -180,15 +191,7 @@ public sealed class GenerateTestLocationsHandler
             }
         }
 
-        // Post-direction: now-last token (after removing street type)
-        Guid? postDir = null;
-        if (start <= end && directionDict.TryGetValue(tokens[end], out var postDirId))
-        {
-            postDir = postDirId;
-            end--;
-        }
-
-        // Remaining tokens are the core street name
+        // 4. Remaining tokens are the core street name
         var streetName = start <= end
             ? string.Join(' ', tokens[start..(end + 1)])
             : null;

@@ -91,7 +91,10 @@ public sealed class GoogleMapsPlacesClient : IGoogleMapsPlacesClient
         string? country      = null;
         string? zip          = null;
 
-        if (place.AddressComponents is not null)
+        // address_components are only returned by the Place Details and Geocoding
+        // APIs, NOT by the Text Search API used here.  When present, use them;
+        // otherwise fall back to parsing formatted_address.
+        if (place.AddressComponents is { Length: > 0 })
         {
             foreach (var component in place.AddressComponents)
             {
@@ -111,21 +114,108 @@ public sealed class GoogleMapsPlacesClient : IGoogleMapsPlacesClient
                     zip = component.LongName;
             }
         }
+        else if (!string.IsNullOrWhiteSpace(place.FormattedAddress))
+        {
+            (streetNumber, route, city, state, zip, country) =
+                ParseFormattedAddress(place.FormattedAddress);
+        }
 
         double? lat = place.Geometry?.Location?.Lat;
         double? lng = place.Geometry?.Location?.Lng;
 
         return new GooglePlaceResult(
-            PlaceName:        place.Name ?? string.Empty,
-            FormattedAddress: place.FormattedAddress ?? string.Empty,
-            StreetNumber:     streetNumber,
-            StreetAddress:    route,
-            City:             city,
-            Zip:              zip,
+            PlaceName:         place.Name ?? string.Empty,
+            FormattedAddress:  place.FormattedAddress ?? string.Empty,
+            StreetNumber:      streetNumber,
+            StreetAddress:     route,
+            City:              city,
+            Zip:               zip,
             StateAbbreviation: state,
-            CountryCode:      country,
-            Lat:              lat,
-            Lng:              lng);
+            CountryCode:       country,
+            Lat:               lat,
+            Lng:               lng);
+    }
+
+    /// <summary>
+    /// Parses a Google Maps formatted_address string into individual address components.
+    /// Handles the standard US format: "1370 S Rigsbee Dr, Plano, TX 75074, USA"
+    ///   → streetNumber="1370", route="S Rigsbee Dr", city="Plano",
+    ///     state="TX", zip="75074", country="US"
+    /// </summary>
+    private static (string? streetNumber, string? route, string? city,
+                    string? state, string? zip, string? country)
+        ParseFormattedAddress(string formatted)
+    {
+        // Split on ", " — the standard separator Google Maps uses between address parts.
+        var parts = formatted.Split(new[] { ", " }, StringSplitOptions.RemoveEmptyEntries);
+        if (parts.Length == 0)
+            return (null, null, null, null, null, null);
+
+        // ── Street (first part) ──────────────────────────────────────────────
+        // "1370 S Rigsbee Dr"  →  streetNumber="1370", route="S Rigsbee Dr"
+        // "Main Street Clinic" →  streetNumber=null,   route="Main Street Clinic"
+        string? streetNumber = null;
+        string? route        = null;
+        var streetTokens = parts[0].Split(' ', 2, StringSplitOptions.RemoveEmptyEntries);
+        if (streetTokens.Length == 2 && int.TryParse(streetTokens[0], out _))
+        {
+            streetNumber = streetTokens[0];
+            route        = streetTokens[1];
+        }
+        else
+        {
+            route = parts[0];
+        }
+
+        // ── Remaining parts (work from the end) ──────────────────────────────
+        // Typical layout (4 parts): street | city | "STATE ZIP" | country
+        // 3 parts: street | city | "STATE ZIP"   (country omitted)
+        // 5+ parts: extra neighbourhood/suite segment before city — city is ^3
+        string? city    = null;
+        string? state   = null;
+        string? zip     = null;
+        string? country = null;
+
+        if (parts.Length >= 4)
+        {
+            country = NormalizeCountryCode(parts[^1]);
+            ParseStateZip(parts[^2], out state, out zip);
+            city = parts[^3];
+        }
+        else if (parts.Length == 3)
+        {
+            ParseStateZip(parts[^1], out state, out zip);
+            city = parts[^2];
+        }
+        else if (parts.Length == 2)
+        {
+            city = parts[1];
+        }
+
+        return (streetNumber, route, city, state, zip, country);
+    }
+
+    private static void ParseStateZip(string part, out string? state, out string? zip)
+    {
+        // "TX 75074"  →  state="TX", zip="75074"
+        // "TX"        →  state="TX", zip=null
+        var t = part.Split(' ', 2, StringSplitOptions.RemoveEmptyEntries);
+        state = t.Length > 0 ? t[0] : null;
+        zip   = t.Length > 1 ? t[1] : null;
+    }
+
+    private static string? NormalizeCountryCode(string? part)
+    {
+        if (string.IsNullOrWhiteSpace(part)) return null;
+        var t = part.Trim();
+        if (t.Equals("USA", StringComparison.OrdinalIgnoreCase)
+         || t.Contains("United States", StringComparison.OrdinalIgnoreCase))
+            return "US";
+        if (t.Contains("Canada",  StringComparison.OrdinalIgnoreCase)) return "CA";
+        if (t.Contains("Mexico",  StringComparison.OrdinalIgnoreCase)) return "MX";
+        // Already a 2-letter code (e.g., from address_components short_name)
+        if (t.Length == 2) return t.ToUpperInvariant();
+        return null;
     }
 
     // ── JSON models ──────────────────────────────────────────────────────────
