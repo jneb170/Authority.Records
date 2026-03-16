@@ -13,7 +13,6 @@ namespace Shared.Infrastructure.GoogleMaps;
 public sealed class GoogleMapsPlacesClient : IGoogleMapsPlacesClient
 {
     private const string BaseUrl        = "https://maps.googleapis.com/maps/api/place/textsearch/json";
-    private const int    PageSize       = 20;
     private const int    MaxPages       = 3;
     private const int    PageDelayMs    = 2000;
     private const int    MaxRetries     = 3;
@@ -105,10 +104,11 @@ public sealed class GoogleMapsPlacesClient : IGoogleMapsPlacesClient
                 return response ?? new PlacesTextSearchResponse();
             }
             catch (HttpRequestException ex) when (attempt < MaxRetries
-                && ex.StatusCode is System.Net.HttpStatusCode.TooManyRequests
-                                 or System.Net.HttpStatusCode.ServiceUnavailable
-                                 or System.Net.HttpStatusCode.GatewayTimeout
-                                 or System.Net.HttpStatusCode.InternalServerError)
+                && (ex.StatusCode is null
+                 || ex.StatusCode is System.Net.HttpStatusCode.TooManyRequests
+                                  or System.Net.HttpStatusCode.ServiceUnavailable
+                                  or System.Net.HttpStatusCode.GatewayTimeout
+                                  or System.Net.HttpStatusCode.InternalServerError))
             {
                 var delay = RetryBaseDelayMs * (int)Math.Pow(2, attempt);
                 await Task.Delay(delay, cancellationToken);
@@ -206,15 +206,6 @@ public sealed class GoogleMapsPlacesClient : IGoogleMapsPlacesClient
                     string? state, string? zip, string? country)
         ParseFormattedAddress(string formatted)
         => AddressParser.ParseFormattedAddress(formatted);
-
-    // Suite/apt keywords — delegates to AddressParser for consistency.
-    private static readonly HashSet<string> SuiteKeywords = AddressParser.SuiteKeywords;
-
-    private static void ParseStateZip(string part, out string? state, out string? zip)
-        => AddressParser.ParseStateZip(part, out state, out zip);
-
-    private static string? NormalizeCountryCode(string? part)
-        => AddressParser.NormalizeCountryCode(part);
 
     // ── JSON models ──────────────────────────────────────────────────────────
 

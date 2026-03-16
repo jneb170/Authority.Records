@@ -7,11 +7,11 @@ namespace Shared.Infrastructure.GoogleMaps;
 internal static class AddressParser
 {
     // Suite/apt keywords that may appear inline in the street part of a formatted address.
-    internal static readonly HashSet<string> SuiteKeywords =
-    [
+    internal static readonly HashSet<string> SuiteKeywords = new(StringComparer.OrdinalIgnoreCase)
+    {
         "Suite", "Ste", "Apt", "Apt.", "Unit", "Fl", "Floor",
         "Bldg", "Building", "Rm", "Room", "#"
-    ];
+    };
 
     /// <summary>
     /// Parses a Google Maps formatted_address string into individual address components.
@@ -46,7 +46,7 @@ internal static class AddressParser
         // edge cases like "Suite 600, Dallas, TX" with no street prefix).
         for (int i = 0; i < streetTokens.Length; i++)
         {
-            if (SuiteKeywords.Contains(streetTokens[i], StringComparer.OrdinalIgnoreCase))
+            if (SuiteKeywords.Contains(streetTokens[i]))
             {
                 aptSuite = string.Join(' ', streetTokens[i..]);
                 routeEnd = i;

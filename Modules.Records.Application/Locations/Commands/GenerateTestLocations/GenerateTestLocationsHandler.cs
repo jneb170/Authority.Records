@@ -10,10 +10,6 @@ namespace Modules.Records.Application.Locations.Commands.GenerateTestLocations;
 public sealed class GenerateTestLocationsHandler
     : IRequestHandler<GenerateTestLocationsCommand, GenerateTestLocationsResult>
 {
-    // Full-name → abbreviated synonyms so Google Maps long-form names resolve to picklist values.
-    private static readonly IReadOnlyDictionary<string, string> StreetTypeSynonyms =
-        StreetParser.StreetTypeSynonyms;
-
     private readonly IGoogleMapsPlacesClient _placesClient;
     private readonly ISender                 _sender;
     private readonly IApplicationDbContext   _dbContext;
@@ -62,9 +58,9 @@ public sealed class GenerateTestLocationsHandler
                 var stateId   = Lookup(stateDict,   place.StateAbbreviation);
                 var countryId = Lookup(countryDict,  place.CountryCode);
 
-                string coordinates = place.Lat.HasValue && place.Lng.HasValue
+                string? coordinates = place.Lat.HasValue && place.Lng.HasValue
                     ? $"{place.Lat.Value},{place.Lng.Value}"
-                    : null!;
+                    : null;
 
                 await _sender.Send(new CreateLocationCommand(
                     StreetAddress:   streetName ?? place.StreetAddress ?? place.FormattedAddress,
@@ -77,7 +73,7 @@ public sealed class GenerateTestLocationsHandler
                     StateId:         stateId,
                     CountryId:       countryId,
                     Zip:             place.Zip,
-                    Coordinates:     string.IsNullOrWhiteSpace(coordinates) ? null : coordinates,
+                    Coordinates:     coordinates,
                     CommonPlaceName: place.PlaceName,
                     Address:         place.FormattedAddress),
                     cancellationToken);
