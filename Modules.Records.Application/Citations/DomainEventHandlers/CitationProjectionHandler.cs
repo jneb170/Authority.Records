@@ -60,7 +60,7 @@ public sealed class CitationProjectionHandler :
 
         readModel.ApplyDetailsChanged(notification.Description, notification.IssueDate, notification.CourtId, notification.CitationNum);
         readModel.ApplyLocationChanged(citation?.LocationId);
-        readModel.ApplyModifiedAudit(citation?.ModifiedBy);
+        readModel.ApplyModifiedAudit(citation?.ModifiedBy, citation?.ModifiedAt);
         await _dbContext.SaveChangesAsync(cancellationToken);
     }
 

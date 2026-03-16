@@ -96,7 +96,7 @@ public sealed class RebuildReadModelsHandler
                  createdAtUtc:          n.CreatedAt,
                  createdBy:             n.CreatedBy);
             rm.ApplyLocationChanged(n.PrimaryLocationId, n.SecondaryLocationId);
-            rm.ApplyModifiedAudit(n.ModifiedBy);
+            rm.ApplyModifiedAudit(n.ModifiedBy, n.ModifiedAt);
             return rm;
         }).ToList();
 
@@ -124,7 +124,7 @@ public sealed class RebuildReadModelsHandler
             rm.ApplyDetailsChanged(a.SuspectName, a.ArrestedAt, a.ArrestTypeId, a.ArrestNum);
             rm.ApplyLocationChanged(a.LocationId);
             rm.ApplyStatusChange(a.Status.ToString());
-            rm.ApplyModifiedAudit(a.ModifiedBy);
+            rm.ApplyModifiedAudit(a.ModifiedBy, a.ModifiedAt);
             return rm;
         }).ToList();
 
@@ -151,7 +151,7 @@ public sealed class RebuildReadModelsHandler
                  citationNum:    c.CitationNum);
             rm.ApplyDetailsChanged(c.Description, c.IssueDate, c.CourtId, c.CitationNum);
             rm.ApplyLocationChanged(c.LocationId);
-            rm.ApplyModifiedAudit(c.ModifiedBy);
+            rm.ApplyModifiedAudit(c.ModifiedBy, c.ModifiedAt);
             if (c.IsIssued) rm.ApplyIssued();
             return rm;
         }).ToList();
@@ -201,7 +201,7 @@ public sealed class RebuildReadModelsHandler
             rm.ApplyLocationChanged(i.LocationId);
             rm.ApplyOccurredOnChanged(i.OccurredOn);
             if (i.IsDeleted) rm.ApplyDeleted();
-            rm.ApplyModifiedAudit(i.ModifiedBy);
+            rm.ApplyModifiedAudit(i.ModifiedBy, i.ModifiedAt);
 
             // Set denormalised counts directly via multiple increments would be slow;
             // use a helper method instead.

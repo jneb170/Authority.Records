@@ -55,7 +55,11 @@ public sealed class ArrestReadModel
         };
     }
 
-    public void ApplyModifiedAudit(Guid? modifiedBy) { ModifiedBy = modifiedBy; }
+    public void ApplyModifiedAudit(Guid? modifiedBy, DateTime? modifiedAt)
+    {
+        ModifiedBy   = modifiedBy;
+        UpdatedAtUtc = modifiedAt ?? UpdatedAtUtc;
+    }
 
     public ArrestDto ToDto() => new(
         Id, RecordNumber, JurisdictionId, AgencyId,
