@@ -46,6 +46,80 @@ public sealed class GetRecordRelationshipsHandlerTests
     }
 
     [Fact]
+    public async Task ArrestQuery_Returns_PrimaryIncident_LinkedIncidents_Suspect_And_Location()
+    {
+        await using var db = RelationshipTestDbContext.Create();
+        var jurisdictionId = Guid.NewGuid();
+        var primaryIncidentId = Guid.NewGuid();
+        var linkedIncidentId = Guid.NewGuid();
+        var arrestId = Guid.NewGuid();
+        var nameId = Guid.NewGuid();
+        var locationId = Guid.NewGuid();
+
+        db.LocationReadModels.Add(CreateLocation(locationId, 6001, jurisdictionId, "Station"));
+        db.IncidentReadModels.Add(CreateIncident(primaryIncidentId, 1001, jurisdictionId, null, "INC-1001", "Robbery"));
+        db.IncidentReadModels.Add(CreateIncident(linkedIncidentId, 1002, jurisdictionId, null, "INC-1002", "Trespassing"));
+        db.NameReadModels.Add(CreateName(nameId, 3001, jurisdictionId, "Smith", "John"));
+        db.ArrestReadModels.Add(CreateArrest(arrestId, 2001, jurisdictionId, nameId, "AR-2001", primaryIncidentId, locationId));
+        db.IncidentArrestLinkReadModels.Add(IncidentArrestLinkReadModel.Create(Guid.NewGuid(), jurisdictionId, linkedIncidentId, 1002, "INC-1002", arrestId, DateTime.UtcNow));
+        await db.SaveChangesAsync(CancellationToken.None);
+
+        var handler = new GetRecordRelationshipsHandler(db, new FakeTenantProvider(jurisdictionId));
+
+        var result = await handler.Handle(
+            new GetRecordRelationshipsQuery(RecordRelationshipRecordTypes.Arrest, 2001),
+            CancellationToken.None);
+
+        Assert.NotNull(result);
+        Assert.Equal("AR-2001", result.Source.Title);
+        Assert.Contains(result.Groups, g => g.Title == "Primary Incident" && g.Items.Single().NavigationUrl == "/incidents/1001");
+        Assert.Contains(result.Groups, g => g.Title == "Linked Incidents" && g.Items.Single().NavigationUrl == "/incidents/1002");
+        Assert.Contains(result.Groups, g => g.Title == "Suspect" && g.Items.Single().NavigationUrl == "/names/3001");
+        Assert.Contains(result.Groups, g => g.Title == "Location" && g.Items.Single().NavigationUrl == "/locations/6001");
+    }
+
+    [Fact]
+    public async Task CitationQuery_Returns_LinkedIncidents_And_Location()
+    {
+        await using var db = RelationshipTestDbContext.Create();
+        var jurisdictionId = Guid.NewGuid();
+        var citationId = Guid.NewGuid();
+        var incidentId = Guid.NewGuid();
+        var locationId = Guid.NewGuid();
+
+        db.LocationReadModels.Add(CreateLocation(locationId, 6001, jurisdictionId, "Intersection"));
+        db.IncidentReadModels.Add(CreateIncident(incidentId, 1001, jurisdictionId, null, "INC-1001", "Traffic stop"));
+        db.CitationReadModels.Add(CreateCitation(citationId, 4001, jurisdictionId, "Speeding", "CT-4001", locationId));
+        db.IncidentCitationLinkReadModels.Add(IncidentCitationLinkReadModel.Create(Guid.NewGuid(), jurisdictionId, incidentId, 1001, "INC-1001", citationId, DateTime.UtcNow));
+        await db.SaveChangesAsync(CancellationToken.None);
+
+        var handler = new GetRecordRelationshipsHandler(db, new FakeTenantProvider(jurisdictionId));
+
+        var result = await handler.Handle(
+            new GetRecordRelationshipsQuery(RecordRelationshipRecordTypes.Citation, 4001),
+            CancellationToken.None);
+
+        Assert.NotNull(result);
+        Assert.Equal("CT-4001", result.Source.Title);
+        Assert.Contains(result.Groups, g => g.Title == "Linked Incidents" && g.Items.Single().NavigationUrl == "/incidents/1001");
+        Assert.Contains(result.Groups, g => g.Title == "Location" && g.Items.Single().NavigationUrl == "/locations/6001");
+    }
+
+    [Fact]
+    public async Task UnsupportedRecordType_Throws_ArgumentOutOfRangeException()
+    {
+        await using var db = RelationshipTestDbContext.Create();
+        var jurisdictionId = Guid.NewGuid();
+
+        var handler = new GetRecordRelationshipsHandler(db, new FakeTenantProvider(jurisdictionId));
+
+        await Assert.ThrowsAsync<ArgumentOutOfRangeException>(() =>
+            handler.Handle(
+                new GetRecordRelationshipsQuery("UnknownType", 1001),
+                CancellationToken.None));
+    }
+
+    [Fact]
     public async Task NameQuery_Returns_Arrests_And_Locations()
     {
         await using var db = RelationshipTestDbContext.Create();
