@@ -58,14 +58,14 @@ public sealed class GetRecordRelationshipsHandler(
                 : [CreateLocationItem(location, "Incident location")]);
         }
 
-        var arrestLinks = await dbContext.IncidentArrestLinkReadModels
+        var arrests = await dbContext.IncidentArrestLinkReadModels
             .AsNoTracking()
             .Where(x => x.JurisdictionId == jurisdictionId && x.IncidentId == incident.Id)
-            .ToListAsync(cancellationToken);
-
-        var arrests = await dbContext.ArrestReadModels
-            .AsNoTracking()
-            .Where(x => x.JurisdictionId == jurisdictionId && arrestLinks.Select(l => l.ArrestId).Contains(x.Id))
+            .Join(
+                dbContext.ArrestReadModels.AsNoTracking(),
+                link => link.ArrestId,
+                arrest => arrest.Id,
+                (_, arrest) => arrest)
             .OrderBy(x => x.RecordNumber)
             .ToListAsync(cancellationToken);
 
@@ -78,14 +78,14 @@ public sealed class GetRecordRelationshipsHandler(
             .Select(x => CreateArrestItem(x, GetNameValue(arrestNames, x.NameId), "Linked arrest"))
             .ToList());
 
-        var citationLinks = await dbContext.IncidentCitationLinkReadModels
+        var citations = await dbContext.IncidentCitationLinkReadModels
             .AsNoTracking()
             .Where(x => x.JurisdictionId == jurisdictionId && x.IncidentId == incident.Id)
-            .ToListAsync(cancellationToken);
-
-        var citations = await dbContext.CitationReadModels
-            .AsNoTracking()
-            .Where(x => x.JurisdictionId == jurisdictionId && citationLinks.Select(l => l.CitationId).Contains(x.Id))
+            .Join(
+                dbContext.CitationReadModels.AsNoTracking(),
+                link => link.CitationId,
+                citation => citation.Id,
+                (_, citation) => citation)
             .OrderBy(x => x.RecordNumber)
             .ToListAsync(cancellationToken);
 
