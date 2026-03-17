@@ -66,6 +66,11 @@ app.MapRazorPages();
 app.MapRazorComponents<Modules.Records.UI.App>()
     .AddInteractiveServerRenderMode();
 
+if (app.Environment.IsDevelopment())
+{
+    await EnsureAppDbMigrationsAppliedAsync(app.Services);
+}
+
 // Seed initial users and roles on first run (any environment).
 // SeedDevUserAsync is idempotent — it only creates users if they don't exist.
 {
@@ -74,6 +79,22 @@ app.MapRazorComponents<Modules.Records.UI.App>()
 }
 
 app.Run();
+
+static async Task EnsureAppDbMigrationsAppliedAsync(IServiceProvider services)
+{
+    using var scope = services.CreateScope();
+    var appDb = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+    var pendingMigrations = await appDb.Database.GetPendingMigrationsAsync();
+    var pendingList = pendingMigrations.ToList();
+
+    if (pendingList.Count == 0)
+        return;
+
+    var migrationSummary = string.Join(", ", pendingList);
+    throw new InvalidOperationException(
+        "Pending AppDbContext migrations were detected: " +
+        $"{migrationSummary}. Run .\\scripts\\update-db.ps1 before starting the app.");
+}
 
 static async Task SeedDevUserAsync(IServiceProvider services)
 {
