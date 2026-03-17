@@ -154,7 +154,6 @@ public sealed class RebuildReadModelsHandler
                  citationNum:    c.CitationNum);
             rm.ApplyDetailsChanged(c.Description, c.IssueDate, c.CourtId, c.CitationNum);
             rm.ApplyLocationChanged(c.LocationId);
-            rm.ApplyModifiedAudit(c.ModifiedBy, c.ModifiedAt, c.CreatedAt);
             if (c.IsIssued) rm.ApplyIssued();
             rm.ApplyModifiedAudit(c.ModifiedBy, c.ModifiedAt, c.CreatedAt);
             return rm;

@@ -112,4 +112,35 @@ public sealed class ReadModelAuditTimestampTests
 
         Assert.Equal(createdAt, model.UpdatedAtUtc);
     }
+
+    [Fact]
+    public void LocationReadModel_ApplyModifiedAudit_Uses_CreatedAt_When_ModifiedAt_Is_Null()
+    {
+        var createdAt = new DateTime(2026, 3, 1, 12, 0, 0, DateTimeKind.Utc);
+        var model = LocationReadModel.Create(
+            id:             Guid.NewGuid(),
+            recordNumber:   50018,
+            jurisdictionId: Guid.NewGuid(),
+            streetNumber:   "123",
+            preDirectionId: null,
+            streetAddress:  "Main St",
+            streetTypeId:   null,
+            postDirectionId: null,
+            city:           "Springfield",
+            stateId:        null,
+            countryId:      null,
+            zip:            null,
+            aptSuite:       null,
+            coordinates:    null,
+            commonPlaceName: null,
+            comments:       null,
+            address:        "123 Main St, Springfield",
+            createdAtUtc:   createdAt,
+            createdBy:      Guid.NewGuid());
+
+        model.ApplyDetailsChanged("123", null, "Main St", null, null, "Springfield", null, null, null, null, null, null, null, "123 Main St, Springfield");
+        model.ApplyModifiedAudit(null, null, createdAt);
+
+        Assert.Equal(createdAt, model.UpdatedAtUtc);
+    }
 }
