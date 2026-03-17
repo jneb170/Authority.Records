@@ -65,6 +65,7 @@ public sealed class RebuildReadModelsHandler
             .AsNoTracking()
             .Where(n => n.JurisdictionId == jid)
             .ToListAsync(cancellationToken);
+        var nameById = names.ToDictionary(n => n.Id);
 
         var nameReadModels = names.Select(n =>
         {
@@ -96,7 +97,7 @@ public sealed class RebuildReadModelsHandler
                  createdAtUtc:          n.CreatedAt,
                  createdBy:             n.CreatedBy);
             rm.ApplyLocationChanged(n.PrimaryLocationId, n.SecondaryLocationId);
-            rm.ApplyModifiedAudit(n.ModifiedBy, n.ModifiedAt);
+            rm.ApplyModifiedAudit(n.ModifiedBy, n.ModifiedAt, n.CreatedAt);
             return rm;
         }).ToList();
 
@@ -108,6 +109,7 @@ public sealed class RebuildReadModelsHandler
             .AsNoTracking()
             .Where(a => a.JurisdictionId == jid)
             .ToListAsync(cancellationToken);
+        var arrestById = arrests.ToDictionary(a => a.Id);
 
         var arrestReadModels = arrests.Select(a =>
         {
@@ -125,7 +127,7 @@ public sealed class RebuildReadModelsHandler
             rm.ApplyDetailsChanged(a.NameId, a.ArrestedAt, a.ArrestTypeId, a.ArrestNum, a.PrimaryIncidentId);
             rm.ApplyLocationChanged(a.LocationId);
             rm.ApplyStatusChange(a.Status.ToString());
-            rm.ApplyModifiedAudit(a.ModifiedBy, a.ModifiedAt);
+            rm.ApplyModifiedAudit(a.ModifiedBy, a.ModifiedAt, a.CreatedAt);
             return rm;
         }).ToList();
 
@@ -152,8 +154,8 @@ public sealed class RebuildReadModelsHandler
                  citationNum:    c.CitationNum);
             rm.ApplyDetailsChanged(c.Description, c.IssueDate, c.CourtId, c.CitationNum);
             rm.ApplyLocationChanged(c.LocationId);
-            rm.ApplyModifiedAudit(c.ModifiedBy, c.ModifiedAt);
             if (c.IsIssued) rm.ApplyIssued();
+            rm.ApplyModifiedAudit(c.ModifiedBy, c.ModifiedAt, c.CreatedAt);
             return rm;
         }).ToList();
 
@@ -202,7 +204,6 @@ public sealed class RebuildReadModelsHandler
             rm.ApplyLocationChanged(i.LocationId);
             rm.ApplyOccurredOnChanged(i.OccurredOn);
             if (i.IsDeleted) rm.ApplyDeleted();
-            rm.ApplyModifiedAudit(i.ModifiedBy, i.ModifiedAt);
 
             // Set denormalised counts directly via multiple increments would be slow;
             // use a helper method instead.
@@ -210,6 +211,7 @@ public sealed class RebuildReadModelsHandler
             var citationCount = citationCountByIncident.GetValueOrDefault(i.Id);
             for (var x = 0; x < arrestCount;  x++) rm.IncrementArrestCount();
             for (var x = 0; x < citationCount; x++) rm.IncrementCitationCount();
+            rm.ApplyModifiedAudit(i.ModifiedBy, i.ModifiedAt, i.CreatedAt);
 
             return rm;
         }).ToList();
@@ -327,6 +329,22 @@ public sealed class RebuildReadModelsHandler
             {
                 var arrestReadModel = arrestReadModels.FirstOrDefault(a => a.Id == group.Key.OwnerId);
                 arrestReadModel?.ApplyPrimaryMugshot(primaryUrl);
+            }
+        }
+
+        foreach (var nameReadModel in nameReadModels)
+        {
+            if (nameById.TryGetValue(nameReadModel.Id, out var name))
+            {
+                nameReadModel.ApplyModifiedAudit(name.ModifiedBy, name.ModifiedAt, name.CreatedAt);
+            }
+        }
+
+        foreach (var arrestReadModel in arrestReadModels)
+        {
+            if (arrestById.TryGetValue(arrestReadModel.Id, out var arrest))
+            {
+                arrestReadModel.ApplyModifiedAudit(arrest.ModifiedBy, arrest.ModifiedAt, arrest.CreatedAt);
             }
         }
 
