@@ -28,4 +28,29 @@ public sealed class HomeService : IHomeService
 
     public Task<IReadOnlyList<MapMarkerDto>> GetMapMarkersAsync(DateTime? since) =>
         _mediator.Send(new GetMapMarkersQuery(_tenantProvider.GetJurisdictionId(), since));
+
+    public async Task<ActivityMapWindowState> GetDefaultMapWindowAsync()
+    {
+        var now           = DateTime.UtcNow;
+        // Default to the widest window (0 = all time) as the fallback.
+        var selectedHours = ActivityMapWindowSelector.CandidateWindowHours[^1];
+
+        foreach (var hours in ActivityMapWindowSelector.CandidateWindowHours)
+        {
+            var count = await _mediator.Send(
+                new CountMapMarkersQuery(_tenantProvider.GetJurisdictionId(), SinceFromWindow(hours, now)));
+
+            if (count >= ActivityMapWindowSelector.MinimumMarkers)
+            {
+                selectedHours = hours;
+                break;
+            }
+        }
+
+        var markers = await GetMapMarkersAsync(SinceFromWindow(selectedHours, now));
+        return new ActivityMapWindowState(selectedHours, markers);
+    }
+
+    private static DateTime? SinceFromWindow(int windowHours, DateTime now) =>
+        windowHours == 0 ? null : now.AddHours(-windowHours);
 }

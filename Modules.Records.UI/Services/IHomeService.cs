@@ -7,4 +7,5 @@ public interface IHomeService
 {
     Task<IReadOnlyList<RecentActivityDto>> GetRecentActivityAsync(int take = 20);
     Task<IReadOnlyList<MapMarkerDto>> GetMapMarkersAsync(DateTime? since);
+    Task<ActivityMapWindowState> GetDefaultMapWindowAsync();
 }
