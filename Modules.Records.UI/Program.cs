@@ -1,3 +1,4 @@
+using System.Data.Common;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Modules.Records.Application;
@@ -84,8 +85,19 @@ static async Task EnsureAppDbMigrationsAppliedAsync(IServiceProvider services)
 {
     using var scope = services.CreateScope();
     var appDb = scope.ServiceProvider.GetRequiredService<AppDbContext>();
-    var pendingMigrations = await appDb.Database.GetPendingMigrationsAsync();
-    var pendingList = pendingMigrations.ToList();
+
+    IReadOnlyList<string> pendingList;
+    try
+    {
+        pendingList = (await appDb.Database.GetPendingMigrationsAsync()).ToList();
+    }
+    catch (DbException ex)
+    {
+        throw new InvalidOperationException(
+            "Could not check pending AppDbContext migrations. Ensure the database is reachable " +
+            "and run .\\scripts\\update-db.ps1 to apply any outstanding migrations.",
+            ex);
+    }
 
     if (pendingList.Count == 0)
         return;

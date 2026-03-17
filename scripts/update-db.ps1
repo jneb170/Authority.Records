@@ -8,6 +8,7 @@ $repoRoot = Split-Path -Parent $PSScriptRoot
 $project = '.\Shared.Infrastructure\Shared.Infrastructure.csproj'
 
 Push-Location $repoRoot
+$previousEnvironment = $env:ASPNETCORE_ENVIRONMENT
 try {
     $env:ASPNETCORE_ENVIRONMENT = $Environment
 
@@ -34,5 +35,6 @@ try {
     Write-Host "Database migrations applied successfully."
 }
 finally {
+    $env:ASPNETCORE_ENVIRONMENT = $previousEnvironment
     Pop-Location
 }
