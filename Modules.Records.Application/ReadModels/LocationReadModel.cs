@@ -122,10 +122,10 @@ public sealed class LocationReadModel
         LockedByUserId = null;
     }
 
-    public void ApplyModifiedAudit(Guid? modifiedBy, DateTime? modifiedAt)
+    public void ApplyModifiedAudit(Guid? modifiedBy, DateTime? modifiedAt, DateTime? createdAtFallback = null)
     {
         ModifiedBy   = modifiedBy;
-        UpdatedAtUtc = modifiedAt ?? UpdatedAtUtc;
+        UpdatedAtUtc = modifiedAt ?? createdAtFallback ?? UpdatedAtUtc;
     }
 
     public LocationDto ToDto() => new(
