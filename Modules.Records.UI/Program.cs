@@ -1,3 +1,4 @@
+using System.Data.Common;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Modules.Records.Application;
@@ -66,6 +67,11 @@ app.MapRazorPages();
 app.MapRazorComponents<Modules.Records.UI.App>()
     .AddInteractiveServerRenderMode();
 
+if (app.Environment.IsDevelopment())
+{
+    await EnsureAppDbMigrationsAppliedAsync(app.Services);
+}
+
 // Seed initial users and roles on first run (any environment).
 // SeedDevUserAsync is idempotent — it only creates users if they don't exist.
 {
@@ -74,6 +80,33 @@ app.MapRazorComponents<Modules.Records.UI.App>()
 }
 
 app.Run();
+
+static async Task EnsureAppDbMigrationsAppliedAsync(IServiceProvider services)
+{
+    using var scope = services.CreateScope();
+    var appDb = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+
+    IReadOnlyList<string> pendingList;
+    try
+    {
+        pendingList = (await appDb.Database.GetPendingMigrationsAsync()).ToList();
+    }
+    catch (DbException ex)
+    {
+        throw new InvalidOperationException(
+            "Could not check pending AppDbContext migrations. Ensure the database is reachable " +
+            "and run .\\scripts\\update-db.ps1 to apply any outstanding migrations.",
+            ex);
+    }
+
+    if (pendingList.Count == 0)
+        return;
+
+    var migrationSummary = string.Join(", ", pendingList);
+    throw new InvalidOperationException(
+        "Pending AppDbContext migrations were detected: " +
+        $"{migrationSummary}. Run .\\scripts\\update-db.ps1 before starting the app.");
+}
 
 static async Task SeedDevUserAsync(IServiceProvider services)
 {
