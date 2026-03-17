@@ -56,6 +56,10 @@ else if (_arrest is not null)
         </div>
     </div>
 
+    <RecordDetailsTabs DetailsUrl="@DetailsTabUrl"
+                       RelationshipsUrl="@RelationshipsTabUrl"
+                       ActiveTab="Details" />
+
     @if (_actionError is not null)
     {
         <div class="alert alert-danger alert-dismissible">
@@ -350,6 +354,16 @@ else if (_arrest is not null)
 @code {
     [Parameter] public long? IncidentRecordNumber { get; set; }
     [Parameter] public long RecordNumber { get; set; }
+
+    private string DetailsTabUrl =>
+        IncidentRecordNumber.HasValue
+            ? $"/incidents/{IncidentRecordNumber.Value}/arrests/{RecordNumber}"
+            : $"/arrests/{RecordNumber}";
+
+    private string RelationshipsTabUrl =>
+        IncidentRecordNumber.HasValue
+            ? $"/incidents/{IncidentRecordNumber.Value}/arrests/{RecordNumber}/relationships"
+            : $"/arrests/{RecordNumber}/relationships";
 
     private Guid _arrestId;
     private ArrestDto? _arrest;

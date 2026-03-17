@@ -73,6 +73,10 @@ else if (_name is not null)
         </div>
     </div>
 
+    <RecordDetailsTabs DetailsUrl="@DetailsTabUrl"
+                       RelationshipsUrl="@RelationshipsTabUrl"
+                       ActiveTab="Details" />
+
     @if (_actionError is not null)
     {
         <div class="alert alert-danger alert-dismissible">
@@ -505,6 +509,9 @@ else if (_name is not null)
 
 @code {
     [Parameter] public long RecordNumber { get; set; }
+
+    private string DetailsTabUrl => $"/names/{RecordNumber}";
+    private string RelationshipsTabUrl => $"/names/{RecordNumber}/relationships";
 
     [SupplyParameterFromQuery(Name = "autoModify")]
     public bool AutoModify { get; set; }
