@@ -46,6 +46,9 @@
         <NavLink class="nav-link" href="admin/read-model-rebuild" @onclick="OnNavClicked">
             <i class="bi bi-arrow-repeat"></i> Read Model Rebuild
         </NavLink>
+        <NavLink class="nav-link" href="admin/logs" @onclick="OnNavClicked">
+            <i class="bi bi-journal-text"></i> Logs
+        </NavLink>
     </AuthorizeView>
 
     <AuthorizeView Roles="Admin">
@@ -67,6 +70,9 @@
         <div class="sidebar-section-label">Super Admin</div>
         <NavLink class="nav-link" href="super/jurisdictions" @onclick="OnNavClicked">
             <i class="bi bi-bank"></i> Jurisdictions
+        </NavLink>
+        <NavLink class="nav-link" href="super/logs" @onclick="OnNavClicked">
+            <i class="bi bi-journal-richtext"></i> Logs
         </NavLink>
     </AuthorizeView>
 

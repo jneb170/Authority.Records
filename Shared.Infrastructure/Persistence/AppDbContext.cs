@@ -28,7 +28,7 @@ public class AppDbContext : DbContext, IApplicationDbContext
 
     public DbSet<OutboxMessage> OutboxMessages => Set<OutboxMessage>();
     public DbSet<DeadLetterMessage> DeadLetterMessages => Set<DeadLetterMessage>();
-    public DbSet<AuditTrailEntry> AuditTrailEntries => Set<AuditTrailEntry>();
+    public DbSet<AuditLogReadModel> AuditLogReadModels => Set<AuditLogReadModel>();
 
     // Read models
     public DbSet<IncidentReadModel> IncidentReadModels => Set<IncidentReadModel>();
@@ -134,18 +134,20 @@ public class AppDbContext : DbContext, IApplicationDbContext
         {
             var tenantId = CurrentTenantId;
 
+            var aggregatesById = domainEntities
+                .Select(x => x.Entity)
+                .GroupBy(x => x.Id)
+                .ToDictionary(x => x.Key, x => x.Last());
+
             foreach (var domainEvent in domainEvents)
             {
                 OutboxMessages.Add(new OutboxMessage(domainEvent, tenantId));
 
-                AuditTrailEntries.Add(AuditTrailEntry.Create(
-                    eventId:          domainEvent.EventId,
-                    eventType:        domainEvent.GetType().Name,
-                    occurredOnUtc:    domainEvent.OccurredOnUtc,
-                    jurisdictionId:   tenantId,
-                    aggregateId:      domainEvent.AggregateId,
-                    aggregateVersion: domainEvent.AggregateVersion,
-                    payload:          JsonSerializer.Serialize(domainEvent, domainEvent.GetType())));
+                aggregatesById.TryGetValue(domainEvent.AggregateId, out var aggregate);
+                AuditLogReadModels.Add(AuditLogEntryFactory.CreateFromDomainEvent(
+                    domainEvent,
+                    aggregate,
+                    tenantId));
             }
         }
 

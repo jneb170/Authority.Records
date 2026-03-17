@@ -36,6 +36,7 @@ internal sealed class TestAppDbContext : DbContext, IApplicationDbContext
     public DbSet<MugshotLinkReadModel>          MugshotLinkReadModels          => throw new NotImplementedException();
     public DbSet<IncidentArrestLinkReadModel>   IncidentArrestLinkReadModels   => throw new NotImplementedException();
     public DbSet<IncidentCitationLinkReadModel> IncidentCitationLinkReadModels => throw new NotImplementedException();
+    public DbSet<AuditLogReadModel>             AuditLogReadModels             => throw new NotImplementedException();
     public DbSet<AgencyConfiguration>           AgencyConfigurations           => throw new NotImplementedException();
     public DbSet<AgencySequenceCounter>         AgencySequenceCounters         => throw new NotImplementedException();
     public DbSet<PicklistItem>                  PicklistItems                  => throw new NotImplementedException();

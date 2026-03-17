@@ -10,6 +10,26 @@ public sealed class UserManagementService(
     RoleManager<IdentityRole> roleManager,
     AuthDbContext authDb) : IUserManagementService
 {
+    public async Task<List<UserDto>> GetAllAsync()
+    {
+        var users = await userManager.Users
+            .OrderBy(u => u.LastName).ThenBy(u => u.FirstName)
+            .ToListAsync();
+
+        var result = new List<UserDto>();
+        foreach (var u in users)
+        {
+            var roles = (await userManager.GetRolesAsync(u)).ToList();
+            var agencyIds = await authDb.UserAgencies
+                .Where(ua => ua.UserId == u.Id)
+                .Select(ua => ua.AgencyId)
+                .ToListAsync();
+            result.Add(ToDto(u, roles, agencyIds));
+        }
+
+        return result;
+    }
+
     public async Task<List<UserDto>> GetByJurisdictionAsync(Guid jurisdictionId)
     {
         var users = await userManager.Users

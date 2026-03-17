@@ -5,7 +5,6 @@ using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Shared.Infrastructure.Audit;
 using Shared.Infrastructure.Persistence;
-using System.Text.Json;
 
 namespace Shared.Infrastructure.Locks;
 
@@ -19,9 +18,6 @@ public sealed class LockCleanupService : BackgroundService
     private readonly IServiceScopeFactory _scopeFactory;
     private readonly LockCleanupOptions _options;
     private readonly ILogger<LockCleanupService> _logger;
-
-    // Synthetic event type name written to AuditTrailEntries for system-released locks.
-    private const string SystemLockExpiredEvent = "SystemLockExpired";
 
     public LockCleanupService(
         IServiceScopeFactory scopeFactory,
@@ -82,7 +78,7 @@ public sealed class LockCleanupService : BackgroundService
                 .Concat(BuildAuditEntries(expiredArrests, "Arrest", now))
                 .Concat(BuildAuditEntries(expiredCitations, "Citation", now));
 
-            db.AuditTrailEntries.AddRange(auditEntries);
+            db.AuditLogReadModels.AddRange(auditEntries);
             await db.SaveChangesAsync(ct);
 
             _logger.LogInformation(
@@ -218,27 +214,17 @@ public sealed class LockCleanupService : BackgroundService
     // Audit helpers
     // -----------------------------------------------------------------------
 
-    private static IEnumerable<AuditTrailEntry> BuildAuditEntries(
+    private static IEnumerable<Modules.Records.Application.ReadModels.AuditLogReadModel> BuildAuditEntries(
         List<ExpiredLockRecord> records, string aggregateType, DateTime expiredAtUtc) =>
         records.Select(r =>
-        {
-            var payload = JsonSerializer.Serialize(new
-            {
-                AggregateType    = aggregateType,
-                LockedByUserId   = r.LockedByUserId,
-                LockedAtUtc      = r.LockedAtUtc,
-                ExpiredAtUtc     = expiredAtUtc,
-            });
-
-            return AuditTrailEntry.Create(
-                eventId:          Guid.NewGuid(),
-                eventType:        SystemLockExpiredEvent,
-                occurredOnUtc:    expiredAtUtc,
-                jurisdictionId:   r.JurisdictionId,
-                aggregateId:      r.Id,
-                aggregateVersion: r.Version,
-                payload:          payload);
-        });
+            AuditLogEntryFactory.CreateSystemLockExpired(
+                r.JurisdictionId,
+                r.Id,
+                r.Version,
+                aggregateType,
+                expiredAtUtc,
+                r.LockedByUserId,
+                r.LockedAtUtc));
 
     // -----------------------------------------------------------------------
     // Internal projection for query results

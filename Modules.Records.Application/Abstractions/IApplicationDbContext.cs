@@ -28,6 +28,7 @@ public interface IApplicationDbContext
     DbSet<MugshotLinkReadModel> MugshotLinkReadModels { get; }
     DbSet<IncidentArrestLinkReadModel> IncidentArrestLinkReadModels { get; }
     DbSet<IncidentCitationLinkReadModel> IncidentCitationLinkReadModels { get; }
+    DbSet<AuditLogReadModel> AuditLogReadModels { get; }
 
     DbSet<AgencyConfiguration> AgencyConfigurations { get; }
     DbSet<AgencySequenceCounter> AgencySequenceCounters { get; }

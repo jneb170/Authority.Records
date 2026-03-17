@@ -17,6 +17,7 @@ public sealed record UserDto(
 
 public interface IUserManagementService
 {
+    Task<List<UserDto>> GetAllAsync();
     Task<List<UserDto>> GetByJurisdictionAsync(Guid jurisdictionId);
     Task<UserDto?> GetByIdAsync(string userId);
     Task<(IdentityResult Result, string? UserId)> CreateAsync(
