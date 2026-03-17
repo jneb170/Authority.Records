@@ -116,12 +116,13 @@ public sealed class RebuildReadModelsHandler
                 recordNumber:   a.RecordNumber,
                 jurisdictionId: a.JurisdictionId,
                 agencyId:       a.AgencyId,
-                suspectName:    a.SuspectName,
+                nameId:         a.NameId,
                 arrestedAt:     a.ArrestedAt,
                 createdAtUtc:   a.CreatedAt,
                  createdBy:      a.CreatedBy,
-                 arrestNum:      a.ArrestNum);
-            rm.ApplyDetailsChanged(a.SuspectName, a.ArrestedAt, a.ArrestTypeId, a.ArrestNum);
+                 arrestNum:      a.ArrestNum,
+                 primaryIncidentId: a.PrimaryIncidentId);
+            rm.ApplyDetailsChanged(a.NameId, a.ArrestedAt, a.ArrestTypeId, a.ArrestNum, a.PrimaryIncidentId);
             rm.ApplyLocationChanged(a.LocationId);
             rm.ApplyStatusChange(a.Status.ToString());
             rm.ApplyModifiedAudit(a.ModifiedBy, a.ModifiedAt);
