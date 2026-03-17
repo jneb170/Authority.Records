@@ -153,11 +153,7 @@
         _error = null;
         try
         {
-            var all = await IncidentService.GetByJurisdictionAsync();
-            _results = all
-                .Where(i => string.IsNullOrWhiteSpace(_searchTerm) || Matches(i, _searchTerm))
-                .OrderByDescending(i => i.RecordNumber)
-                .ToList();
+            _results = await IncidentService.SearchAsync(_searchTerm);
         }
         catch (Exception ex)
         {
@@ -238,15 +234,6 @@
         ResetSearch();
         _createMode = false;
         _createVm.Reset();
-    }
-
-    private static bool Matches(IncidentDto incident, string term)
-    {
-        return incident.RecordNumber.ToString().Contains(term, StringComparison.OrdinalIgnoreCase)
-            || (incident.Details.IncidentNum?.Contains(term, StringComparison.OrdinalIgnoreCase) ?? false)
-            || (incident.Details.Description?.Contains(term, StringComparison.OrdinalIgnoreCase) ?? false)
-            || (incident.Details.CFSNum?.Contains(term, StringComparison.OrdinalIgnoreCase) ?? false)
-            || (incident.Details.LocalNum?.Contains(term, StringComparison.OrdinalIgnoreCase) ?? false);
     }
 
     private static string FormatIncident(IncidentDto incident)

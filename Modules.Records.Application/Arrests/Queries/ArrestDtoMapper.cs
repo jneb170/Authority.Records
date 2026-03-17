@@ -28,15 +28,19 @@ internal static class ArrestDtoMapper
             .Distinct()
             .ToList();
 
-        var names = await dbContext.NameReadModels
-            .AsNoTracking()
-            .Where(n => nameIds.Contains(n.Id))
-            .ToDictionaryAsync(n => n.Id, cancellationToken);
+        var names = nameIds.Count > 0
+            ? await dbContext.NameReadModels
+                .AsNoTracking()
+                .Where(n => nameIds.Contains(n.Id))
+                .ToDictionaryAsync(n => n.Id, cancellationToken)
+            : new Dictionary<Guid, NameReadModel>();
 
-        var incidents = await dbContext.IncidentReadModels
-            .AsNoTracking()
-            .Where(i => incidentIds.Contains(i.Id))
-            .ToDictionaryAsync(i => i.Id, cancellationToken);
+        var incidents = incidentIds.Count > 0
+            ? await dbContext.IncidentReadModels
+                .AsNoTracking()
+                .Where(i => incidentIds.Contains(i.Id))
+                .ToDictionaryAsync(i => i.Id, cancellationToken)
+            : new Dictionary<Guid, IncidentReadModel>();
 
         return arrests
             .Select(a =>

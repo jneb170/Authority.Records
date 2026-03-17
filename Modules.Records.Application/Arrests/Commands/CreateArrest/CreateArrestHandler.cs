@@ -31,12 +31,9 @@ public sealed class CreateArrestHandler : IRequestHandler<CreateArrestCommand, l
         var agencyId = _tenantProvider.GetAgencyId();
         var userId = _tenantProvider.GetUserId();
 
-        if (!request.NameId.HasValue)
-            throw new InvalidOperationException("Linked name is required.");
-
         var nameExists = await _dbContext.Names
             .AsNoTracking()
-            .AnyAsync(n => n.Id == request.NameId.Value && n.JurisdictionId == jurisdictionId, cancellationToken);
+            .AnyAsync(n => n.Id == request.NameId && n.JurisdictionId == jurisdictionId, cancellationToken);
 
         if (!nameExists)
             throw new InvalidOperationException("Linked name not found.");

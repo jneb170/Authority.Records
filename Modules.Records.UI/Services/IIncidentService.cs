@@ -6,6 +6,7 @@ namespace Modules.Records.UI.Services;
 public interface IIncidentService
 {
     Task<IReadOnlyList<IncidentDto>> GetByJurisdictionAsync();
+    Task<IReadOnlyList<IncidentDto>> SearchAsync(string? term);
     Task<IncidentDto?> GetByIdAsync(Guid id);
     Task<IncidentDto?> GetByRecordNumberAsync(long recordNumber);
     Task<long> CreateAsync(IncidentDetails details);

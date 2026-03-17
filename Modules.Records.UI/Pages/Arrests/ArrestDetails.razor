@@ -10,7 +10,6 @@
 @inject NavigationManager Nav
 @inject IKeyboardShortcutService ShortcutService
 @inject ILocationService LocationService
-@inject INameService NameService
 @using Modules.Records.Domain.Common
 @using Modules.Records.UI.Services
 
@@ -642,9 +641,14 @@ else if (_arrest is not null)
     {
         _actionError = null;
         _saveSuccessMessage = null;
+        if (!_editNameId.HasValue)
+        {
+            _actionError = "A linked name is required before saving.";
+            return;
+        }
         try
         {
-            await ArrestService.UpdateDetailsAsync(_arrestId, _editNameId, _editArrestedAt, _editArrestTypeId, _editArrestNum, _editLocationId, _editPrimaryIncidentId);
+            await ArrestService.UpdateDetailsAsync(_arrestId, _editNameId.Value, _editArrestedAt, _editArrestTypeId, _editArrestNum, _editLocationId, _editPrimaryIncidentId);
             await LoadAsync();
             _editSnapshot = ComputeEditSnapshot();
             _saveSuccessMessage = "Details saved successfully.";
