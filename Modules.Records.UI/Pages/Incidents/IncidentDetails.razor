@@ -172,7 +172,9 @@ else if (_incident is not null)
                 <div class="record-field-span-full">
                     <label class="form-label mb-1">Location</label>
                     <div class="d-flex align-items-center gap-2">
-                        <span class="@(_modifyMode ? "fw-semibold" : "record-reference-display")">@(_editLocationDisplay ?? "— None —")</span>
+                        <span class="@(_modifyMode ? "fw-semibold" : "record-reference-display")">@if (!_modifyMode && _editLocationRecordNumber.HasValue) {
+                            <a href="/locations/@_editLocationRecordNumber" class="record-reference-link">@_editLocationDisplay</a>
+                        } else { @(_editLocationDisplay ?? "— None —") }</span>
                         @if (_modifyMode)
                         {
                             <button type="button" class="btn btn-sm btn-outline-secondary" @onclick="() => _showLocationModal = true">
@@ -347,6 +349,7 @@ else if (_incident is not null)
     private string _editDescription = string.Empty;
     private Guid?  _editLocationId;
     private string? _editLocationDisplay;
+    private long?  _editLocationRecordNumber;
     private bool   _showLocationModal;
     private DateTime? _editOccurredOn;
     private string? _saveSuccessMessage;
@@ -650,32 +653,37 @@ else if (_incident is not null)
         if (_editLocationId.HasValue)
         {
             var loc = await LocationService.GetByIdAsync(_editLocationId.Value);
-            _editLocationDisplay = loc is null ? null : FormatLocationDisplay(loc);
+            _editLocationDisplay      = loc is null ? null : FormatLocationDisplay(loc);
+            _editLocationRecordNumber = loc?.RecordNumber;
         }
         else
         {
-            _editLocationDisplay = null;
+            _editLocationDisplay      = null;
+            _editLocationRecordNumber = null;
         }
     }
 
     private void OnLocationSelected(LocationDto loc)
     {
-        _editLocationId      = loc.Id;
-        _editLocationDisplay = FormatLocationDisplay(loc);
-        _showLocationModal   = false;
+        _editLocationId           = loc.Id;
+        _editLocationDisplay      = FormatLocationDisplay(loc);
+        _editLocationRecordNumber = loc.RecordNumber;
+        _showLocationModal        = false;
     }
 
     private void OnLocationCleared()
     {
-        _editLocationId      = null;
-        _editLocationDisplay = null;
-        _showLocationModal   = false;
+        _editLocationId           = null;
+        _editLocationDisplay      = null;
+        _editLocationRecordNumber = null;
+        _showLocationModal        = false;
     }
 
     private void ClearLocation()
     {
-        _editLocationId      = null;
-        _editLocationDisplay = null;
+        _editLocationId           = null;
+        _editLocationDisplay      = null;
+        _editLocationRecordNumber = null;
     }
 
     private static string FormatLocationDisplay(LocationDto loc)

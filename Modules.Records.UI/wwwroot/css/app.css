@@ -1407,6 +1407,20 @@ button:focus-visible,
     font-weight: 600;
 }
 
+.record-reference-link {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25rem;
+    font-weight: 600;
+    color: #1a5fb4;
+    text-decoration: none;
+}
+
+.record-reference-link:hover {
+    color: #0e3a7a;
+    text-decoration: underline;
+}
+
 .record-save-row {
     margin-top: 0.85rem;
     padding-top: 0.65rem;
