@@ -42,6 +42,7 @@ builder.Services.AddScoped<IAdminService, AdminService>();
 builder.Services.AddScoped<IJurisdictionManagementService, JurisdictionManagementService>();
 builder.Services.AddScoped<IAgencyManagementService, AgencyManagementService>();
 builder.Services.AddScoped<IUserManagementService, UserManagementService>();
+builder.Services.AddScoped<IRelationshipService, RelationshipService>();
 
 builder.Services.AddHttpContextAccessor();
 
