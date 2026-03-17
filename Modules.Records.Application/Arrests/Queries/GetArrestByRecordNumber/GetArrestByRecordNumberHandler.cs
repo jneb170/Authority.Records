@@ -20,6 +20,9 @@ public sealed class GetArrestByRecordNumberHandler : IRequestHandler<GetArrestBy
             .AsNoTracking()
             .FirstOrDefaultAsync(a => a.RecordNumber == request.RecordNumber, cancellationToken);
 
-        return rm?.ToDto();
+        if (rm is null)
+            return null;
+
+        return (await ArrestDtoMapper.ToDtosAsync([rm], _dbContext, cancellationToken)).Single();
     }
 }

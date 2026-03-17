@@ -30,6 +30,6 @@ public sealed class GetArrestsByIncidentHandler
             .Where(a => arrestIds.Contains(a.Id))
             .ToListAsync(cancellationToken);
 
-        return results.Select(rm => rm.ToDto()).ToList();
+        return await ArrestDtoMapper.ToDtosAsync(results, _dbContext, cancellationToken);
     }
 }

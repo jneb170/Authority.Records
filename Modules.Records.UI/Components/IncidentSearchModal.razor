@@ -1,0 +1,278 @@
+@inject IIncidentService IncidentService
+@using System.ComponentModel.DataAnnotations
+@using Modules.Records.Application.DTOs
+@using Modules.Records.Domain.ValueObjects
+@using Modules.Records.UI.Services
+
+@if (Visible)
+{
+    <div class="modal fade show d-block" tabindex="-1" role="dialog" style="background:rgba(0,0,0,0.45);">
+        <div class="modal-dialog modal-lg modal-dialog-scrollable" role="document">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">
+                        <i class="bi bi-clipboard2-pulse-fill me-2"></i>@(_createMode ? "New Incident" : "Search Incidents")
+                    </h5>
+                    <button type="button" class="btn-close" aria-label="Close incident search" @onclick="Cancel"></button>
+                </div>
+
+                @if (_createMode)
+                {
+                    <div class="modal-body">
+                        @if (_error is not null)
+                        {
+                            <div class="alert alert-danger py-2">@_error</div>
+                        }
+
+                        <EditForm Model="_createVm" OnValidSubmit="CreateAndSelectAsync" id="incident-modal-form">
+                            <DataAnnotationsValidator />
+                            <div class="row g-3">
+                                <div class="col-md-6">
+                                    <label class="form-label">Incident Number</label>
+                                    <InputText class="form-control form-control-sm" @bind-Value="_createVm.IncidentNum" />
+                                </div>
+                                <div class="col-12">
+                                    <label class="form-label">Description <span class="text-danger">*</span></label>
+                                    <InputTextArea class="form-control form-control-sm" @bind-Value="_createVm.Description" rows="3" />
+                                    <ValidationMessage For="() => _createVm.Description" />
+                                </div>
+                                <div class="col-md-6">
+                                    <label class="form-label">CFS Number</label>
+                                    <InputText class="form-control form-control-sm" @bind-Value="_createVm.CFSNum" />
+                                </div>
+                                <div class="col-md-6">
+                                    <label class="form-label">Local Number</label>
+                                    <InputText class="form-control form-control-sm" @bind-Value="_createVm.LocalNum" />
+                                </div>
+                            </div>
+                        </EditForm>
+                    </div>
+
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary btn-sm me-auto" @onclick="BackToSearch">
+                            <i class="bi bi-arrow-left me-1"></i>Back to Search
+                        </button>
+                        <button type="submit" form="incident-modal-form" class="btn btn-primary btn-sm" disabled="@_submitting">
+                            @(_submitting ? "Creating..." : "Save & Select")
+                        </button>
+                    </div>
+                }
+                else
+                {
+                    <div class="modal-body">
+                        <div class="row g-2 mb-3">
+                            <div class="col-sm-9">
+                                <input class="form-control form-control-sm"
+                                       @bind="_searchTerm"
+                                       @bind:event="oninput"
+                                       placeholder="Incident #, description, CFS, or local #..." />
+                            </div>
+                            <div class="col-sm-3">
+                                <button class="btn btn-sm btn-primary w-100" @onclick="RunSearchAsync">Search</button>
+                            </div>
+                        </div>
+
+                        @if (_loading)
+                        {
+                            <LoadingSpinner />
+                        }
+                        else if (_error is not null)
+                        {
+                            <div class="alert alert-danger py-2">@_error</div>
+                        }
+                        else if (_results is not null)
+                        {
+                            @if (_results.Count == 0)
+                            {
+                                <p class="text-muted small mb-0">No incidents found.</p>
+                            }
+                            else
+                            {
+                                <div class="list-group list-group-flush">
+                                    @foreach (var incident in _results)
+                                    {
+                                        <button type="button" class="list-group-item list-group-item-action py-2" @onclick="() => SelectAsync(incident)">
+                                            <div class="d-flex justify-content-between align-items-start">
+                                                <div>
+                                                    <span class="fw-semibold">@FormatIncident(incident)</span>
+                                                    @if (!string.IsNullOrWhiteSpace(incident.Details.Description))
+                                                    {
+                                                        <div class="text-muted small">@incident.Details.Description</div>
+                                                    }
+                                                </div>
+                                                <span class="text-muted small ms-3 text-nowrap">#@incident.RecordNumber</span>
+                                            </div>
+                                        </button>
+                                    }
+                                </div>
+                            }
+                        }
+                        else
+                        {
+                            <p class="text-muted small mb-0">Enter a search term to find an incident record.</p>
+                        }
+                    </div>
+
+                    <div class="modal-footer">
+                        @if (AllowClear && CurrentIncidentId.HasValue)
+                        {
+                            <button type="button" class="btn btn-outline-danger btn-sm me-auto" @onclick="ClearAsync">
+                                <i class="bi bi-x-lg me-1"></i>Clear Incident
+                            </button>
+                        }
+                        <button type="button" class="btn btn-outline-primary btn-sm" @onclick="SwitchToCreate">
+                            <i class="bi bi-plus-lg me-1"></i>New Incident
+                        </button>
+                        <button type="button" class="btn btn-secondary btn-sm" @onclick="Cancel">Cancel</button>
+                    </div>
+                }
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    [Parameter] public bool Visible { get; set; }
+    [Parameter] public Guid? CurrentIncidentId { get; set; }
+    [Parameter] public bool AllowClear { get; set; } = true;
+    [Parameter] public EventCallback<IncidentDto> OnSelected { get; set; }
+    [Parameter] public EventCallback OnCleared { get; set; }
+    [Parameter] public EventCallback OnCancelled { get; set; }
+
+    private string _searchTerm = string.Empty;
+    private bool _loading;
+    private bool _submitting;
+    private bool _createMode;
+    private string? _error;
+    private IReadOnlyList<IncidentDto>? _results;
+    private readonly QuickCreateIncidentModel _createVm = new();
+
+    private async Task RunSearchAsync()
+    {
+        _loading = true;
+        _error = null;
+        try
+        {
+            var all = await IncidentService.GetByJurisdictionAsync();
+            _results = all
+                .Where(i => string.IsNullOrWhiteSpace(_searchTerm) || Matches(i, _searchTerm))
+                .OrderByDescending(i => i.RecordNumber)
+                .ToList();
+        }
+        catch (Exception ex)
+        {
+            _error = ex.Message;
+        }
+        finally
+        {
+            _loading = false;
+        }
+    }
+
+    private Task SelectAsync(IncidentDto incident) => OnSelected.InvokeAsync(incident);
+
+    private async Task ClearAsync()
+    {
+        ResetSearch();
+        await OnCleared.InvokeAsync();
+    }
+
+    private async Task CreateAndSelectAsync()
+    {
+        _submitting = true;
+        _error = null;
+        try
+        {
+            var recordNumber = await IncidentService.CreateAsync(new IncidentDetails
+            {
+                IncidentNum = _createVm.IncidentNum,
+                Description = _createVm.Description.Trim(),
+                CFSNum = _createVm.CFSNum ?? string.Empty,
+                LocalNum = _createVm.LocalNum ?? string.Empty
+            });
+
+            var created = await IncidentService.GetByRecordNumberAsync(recordNumber)
+                ?? throw new InvalidOperationException("Newly created incident could not be loaded.");
+
+            ResetAll();
+            await OnSelected.InvokeAsync(created);
+        }
+        catch (Exception ex)
+        {
+            _error = ex.Message;
+        }
+        finally
+        {
+            _submitting = false;
+        }
+    }
+
+    private void SwitchToCreate()
+    {
+        _createMode = true;
+        _error = null;
+    }
+
+    private void BackToSearch()
+    {
+        _createMode = false;
+        _error = null;
+    }
+
+    private async Task Cancel()
+    {
+        ResetAll();
+        await OnCancelled.InvokeAsync();
+    }
+
+    private void ResetSearch()
+    {
+        _searchTerm = string.Empty;
+        _results = null;
+        _loading = false;
+        _error = null;
+    }
+
+    private void ResetAll()
+    {
+        ResetSearch();
+        _createMode = false;
+        _createVm.Reset();
+    }
+
+    private static bool Matches(IncidentDto incident, string term)
+    {
+        return incident.RecordNumber.ToString().Contains(term, StringComparison.OrdinalIgnoreCase)
+            || (incident.Details.IncidentNum?.Contains(term, StringComparison.OrdinalIgnoreCase) ?? false)
+            || (incident.Details.Description?.Contains(term, StringComparison.OrdinalIgnoreCase) ?? false)
+            || (incident.Details.CFSNum?.Contains(term, StringComparison.OrdinalIgnoreCase) ?? false)
+            || (incident.Details.LocalNum?.Contains(term, StringComparison.OrdinalIgnoreCase) ?? false);
+    }
+
+    private static string FormatIncident(IncidentDto incident)
+    {
+        if (!string.IsNullOrWhiteSpace(incident.Details.IncidentNum))
+            return incident.Details.IncidentNum;
+
+        return $"Incident #{incident.RecordNumber}";
+    }
+
+    private sealed class QuickCreateIncidentModel
+    {
+        public string IncidentNum { get; set; } = string.Empty;
+
+        [Required]
+        public string Description { get; set; } = string.Empty;
+
+        public string? CFSNum { get; set; }
+        public string? LocalNum { get; set; }
+
+        public void Reset()
+        {
+            IncidentNum = string.Empty;
+            Description = string.Empty;
+            CFSNum = null;
+            LocalNum = null;
+        }
+    }
+}

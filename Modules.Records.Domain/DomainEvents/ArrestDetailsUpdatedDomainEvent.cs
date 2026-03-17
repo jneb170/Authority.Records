@@ -2,7 +2,8 @@ namespace Modules.Records.Domain.DomainEvents;
 
 public sealed record ArrestDetailsUpdatedDomainEvent(
     Guid     ArrestId,
-    string   SuspectName,
+    Guid?    NameId,
     DateTime ArrestedAt,
     Guid?    ArrestTypeId,
-    string   ArrestNum) : DomainEvent;
+    string   ArrestNum,
+    Guid?    PrimaryIncidentId) : DomainEvent;

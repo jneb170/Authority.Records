@@ -12,11 +12,12 @@ public sealed class ArrestReadModelConfiguration : IEntityTypeConfiguration<Arre
 
         builder.HasKey(x => x.Id);
 
-        builder.Property(x => x.SuspectName).IsRequired();
         builder.Property(x => x.Status).IsRequired().HasMaxLength(50);
         builder.Property(x => x.ArrestNum).HasMaxLength(50).IsRequired(false);
 
         builder.HasIndex(x => x.JurisdictionId);
         builder.HasIndex(x => x.Status);
+        builder.HasIndex(x => x.NameId);
+        builder.HasIndex(x => x.PrimaryIncidentId);
     }
 }
