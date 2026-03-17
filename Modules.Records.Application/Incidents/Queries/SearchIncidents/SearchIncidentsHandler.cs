@@ -30,10 +30,10 @@ public sealed class SearchIncidentsHandler : IRequestHandler<SearchIncidentsQuer
             var term = request.Term.Trim();
             query = query.Where(i =>
                 i.RecordNumber.ToString().Contains(term) ||
-                i.IncidentNum.Contains(term) ||
-                i.Description.Contains(term) ||
-                i.CFSNum.Contains(term) ||
-                i.LocalNum.Contains(term));
+                (i.IncidentNum != null && i.IncidentNum.Contains(term)) ||
+                (i.Description != null && i.Description.Contains(term)) ||
+                (i.CFSNum != null && i.CFSNum.Contains(term)) ||
+                (i.LocalNum != null && i.LocalNum.Contains(term)));
         }
 
         var results = await query
