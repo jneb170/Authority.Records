@@ -4,7 +4,7 @@ using Modules.Records.Application.ReadModels;
 
 namespace Shared.Infrastructure.Persistence.Configurations;
 
-public sealed class AuditTrailEntryConfiguration : IEntityTypeConfiguration<AuditLogReadModel>
+public sealed class AuditLogReadModelConfiguration : IEntityTypeConfiguration<AuditLogReadModel>
 {
     public void Configure(EntityTypeBuilder<AuditLogReadModel> builder)
     {

@@ -16,18 +16,7 @@ public sealed class UserManagementService(
             .OrderBy(u => u.LastName).ThenBy(u => u.FirstName)
             .ToListAsync();
 
-        var result = new List<UserDto>();
-        foreach (var u in users)
-        {
-            var roles = (await userManager.GetRolesAsync(u)).ToList();
-            var agencyIds = await authDb.UserAgencies
-                .Where(ua => ua.UserId == u.Id)
-                .Select(ua => ua.AgencyId)
-                .ToListAsync();
-            result.Add(ToDto(u, roles, agencyIds));
-        }
-
-        return result;
+        return await BuildUserDtosAsync(users);
     }
 
     public async Task<List<UserDto>> GetByJurisdictionAsync(Guid jurisdictionId)
@@ -37,17 +26,7 @@ public sealed class UserManagementService(
             .OrderBy(u => u.LastName).ThenBy(u => u.FirstName)
             .ToListAsync();
 
-        var result = new List<UserDto>();
-        foreach (var u in users)
-        {
-            var roles = (await userManager.GetRolesAsync(u)).ToList();
-            var agencyIds = await authDb.UserAgencies
-                .Where(ua => ua.UserId == u.Id)
-                .Select(ua => ua.AgencyId)
-                .ToListAsync();
-            result.Add(ToDto(u, roles, agencyIds));
-        }
-        return result;
+        return await BuildUserDtosAsync(users);
     }
 
     public async Task<UserDto?> GetByIdAsync(string userId)
@@ -194,4 +173,35 @@ public sealed class UserManagementService(
     private static UserDto ToDto(ApplicationUser u, List<string> roles, List<Guid> agencyIds)
         => new(u.Id, u.Email ?? string.Empty, u.FirstName, u.LastName, u.FullName,
                u.IsActive, u.JurisdictionId, u.AgencyId, roles, agencyIds);
+
+    private async Task<List<UserDto>> BuildUserDtosAsync(List<ApplicationUser> users)
+    {
+        if (users.Count == 0) return [];
+
+        var userIds = users.Select(u => u.Id).ToList();
+
+        var roleNames = await authDb.Roles.ToDictionaryAsync(r => r.Id, r => r.Name ?? string.Empty);
+        var userRoleEntries = await authDb.UserRoles
+            .Where(ur => userIds.Contains(ur.UserId))
+            .ToListAsync();
+        var rolesByUserId = userRoleEntries
+            .GroupBy(ur => ur.UserId)
+            .ToDictionary(
+                g => g.Key,
+                g => g.Select(ur => roleNames.GetValueOrDefault(ur.RoleId, string.Empty))
+                      .Where(n => n.Length > 0)
+                      .ToList());
+
+        var agencyAssignments = await authDb.UserAgencies
+            .Where(ua => userIds.Contains(ua.UserId))
+            .ToListAsync();
+        var agenciesByUserId = agencyAssignments
+            .GroupBy(ua => ua.UserId)
+            .ToDictionary(g => g.Key, g => g.Select(ua => ua.AgencyId).ToList());
+
+        return users.Select(u => ToDto(
+            u,
+            rolesByUserId.GetValueOrDefault(u.Id, []),
+            agenciesByUserId.GetValueOrDefault(u.Id, []))).ToList();
+    }
 }

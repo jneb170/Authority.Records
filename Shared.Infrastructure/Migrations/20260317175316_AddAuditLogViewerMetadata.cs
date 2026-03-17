@@ -187,6 +187,13 @@ namespace Shared.Infrastructure.Migrations
                 name: "UserId",
                 table: "AuditTrailEntries");
 
+            migrationBuilder.Sql(
+                """
+                UPDATE AuditTrailEntries
+                SET JurisdictionId = '00000000-0000-0000-0000-000000000000'
+                WHERE JurisdictionId IS NULL;
+                """);
+
             migrationBuilder.AlterColumn<Guid>(
                 name: "JurisdictionId",
                 table: "AuditTrailEntries",
