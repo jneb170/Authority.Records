@@ -1,5 +1,6 @@
 using MediatR;
 using Modules.Records.Application.Admin.Commands.RebuildReadModels;
+using Modules.Records.Application.Admin.Queries.GetAuditLogs;
 using Modules.Records.Application.Configurations.Commands.SetAgencyConfiguration;
 using Modules.Records.Application.Configurations.Queries.GetAgencyConfiguration;
 using Modules.Records.Domain.Common;
@@ -36,4 +37,10 @@ public sealed class AdminService : IAdminService
             ? dt
             : null;
     }
+
+    public Task<AuditLogQueryResult> GetJurisdictionAuditLogsAsync(AuditLogSearchRequest request) =>
+        _sender.Send(new GetJurisdictionAuditLogsQuery(request));
+
+    public Task<AuditLogQueryResult> GetSuperAuditLogsAsync(AuditLogSearchRequest request) =>
+        _sender.Send(new GetSuperAuditLogsQuery(request));
 }
