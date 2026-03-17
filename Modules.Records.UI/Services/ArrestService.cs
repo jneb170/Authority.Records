@@ -45,16 +45,16 @@ public sealed class ArrestService : IArrestService
     public Task<IReadOnlyList<IncidentArrestLinkDto>> GetLinkedIncidentsAsync(Guid arrestId) =>
         _sender.Send(new GetIncidentsByArrestQuery(arrestId));
 
-    public Task<long> CreateAsync(string suspectName, DateTime arrestedAt, IReadOnlyList<long> incidentRecordNumbers, string arrestNum = "") =>
-        _sender.Send(new CreateArrestCommand(suspectName, arrestedAt, incidentRecordNumbers, arrestNum));
+    public Task<long> CreateAsync(Guid nameId, DateTime arrestedAt, IReadOnlyList<long> incidentRecordNumbers, string arrestNum = "", Guid? primaryIncidentId = null) =>
+        _sender.Send(new CreateArrestCommand(nameId, arrestedAt, incidentRecordNumbers, arrestNum, primaryIncidentId));
 
-    public async Task<long> CreateAsync(Guid incidentId, string suspectName, DateTime arrestedAt)
+    public async Task<long> CreateAsync(Guid incidentId, Guid nameId, DateTime arrestedAt)
     {
         var incident = await _sender.Send(new GetIncidentByIdQuery(incidentId));
         var recordNumbers = incident is not null
             ? new List<long> { incident.RecordNumber } as IReadOnlyList<long>
             : new List<long>() as IReadOnlyList<long>;
-        return await _sender.Send(new CreateArrestCommand(suspectName, arrestedAt, recordNumbers));
+        return await _sender.Send(new CreateArrestCommand(nameId, arrestedAt, recordNumbers, PrimaryIncidentId: incidentId));
     }
 
     public Task LinkToIncidentAsync(Guid arrestId, Guid incidentId) =>
@@ -75,8 +75,8 @@ public sealed class ArrestService : IArrestService
     public Task FinalizeAsync(Guid id) =>
         _sender.Send(new FinalizeArrestCommand(id));
 
-    public Task UpdateDetailsAsync(Guid id, string suspectName, DateTime arrestedAt, Guid? arrestTypeId = null, string arrestNum = "", Guid? locationId = null) =>
-        _sender.Send(new UpdateArrestDetailsCommand(id, suspectName, arrestedAt, arrestTypeId, arrestNum, locationId));
+    public Task UpdateDetailsAsync(Guid id, Guid nameId, DateTime arrestedAt, Guid? arrestTypeId = null, string arrestNum = "", Guid? locationId = null, Guid? primaryIncidentId = null) =>
+        _sender.Send(new UpdateArrestDetailsCommand(id, nameId, arrestedAt, arrestTypeId, arrestNum, locationId, primaryIncidentId));
 
     public Task AcquireLockAsync(Guid id) =>
         _sender.Send(new AcquireArrestLockCommand(id));

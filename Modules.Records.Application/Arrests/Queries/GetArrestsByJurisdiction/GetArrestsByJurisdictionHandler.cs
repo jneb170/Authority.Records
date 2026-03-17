@@ -29,6 +29,6 @@ public sealed class GetArrestsByJurisdictionHandler
             .OrderByDescending(a => a.ArrestedAt)
             .ToListAsync(cancellationToken);
 
-        return results.Select(rm => rm.ToDto()).ToList();
+        return await ArrestDtoMapper.ToDtosAsync(results, _dbContext, cancellationToken);
     }
 }

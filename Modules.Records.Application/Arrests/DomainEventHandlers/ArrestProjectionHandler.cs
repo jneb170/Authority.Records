@@ -36,11 +36,12 @@ public sealed class ArrestProjectionHandler :
             recordNumber: arrest?.RecordNumber ?? 0,
             jurisdictionId: notification.JurisdictionId,
             agencyId: arrest?.AgencyId ?? Guid.Empty,
-            suspectName: notification.SuspectName,
+            nameId: notification.NameId,
             arrestedAt: notification.ArrestedAt,
             createdAtUtc: notification.OccurredOnUtc,
             createdBy: arrest?.CreatedBy ?? Guid.Empty,
-            arrestNum: notification.ArrestNum);
+            arrestNum: notification.ArrestNum,
+            primaryIncidentId: notification.PrimaryIncidentId);
 
         _dbContext.ArrestReadModels.Add(readModel);
         await _dbContext.SaveChangesAsync(cancellationToken);
@@ -58,7 +59,7 @@ public sealed class ArrestProjectionHandler :
             .AsNoTracking()
             .FirstOrDefaultAsync(a => a.Id == notification.ArrestId, cancellationToken);
 
-        readModel.ApplyDetailsChanged(notification.SuspectName, notification.ArrestedAt, notification.ArrestTypeId, notification.ArrestNum);
+        readModel.ApplyDetailsChanged(notification.NameId, notification.ArrestedAt, notification.ArrestTypeId, notification.ArrestNum, notification.PrimaryIncidentId);
         readModel.ApplyLocationChanged(arrest?.LocationId);
         readModel.ApplyModifiedAudit(arrest?.ModifiedBy, arrest?.ModifiedAt);
         await _dbContext.SaveChangesAsync(cancellationToken);

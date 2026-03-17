@@ -12,7 +12,7 @@ namespace Modules.Records.Domain.Entities
     {
         public Guid JurisdictionId { get; private set; }
         public Guid AgencyId { get; private set; }
-        public string SuspectName { get; private set; }
+        public Guid? NameId { get; private set; }
         public DateTime ArrestedAt { get; private set; }
         public bool IsFinalized { get; private set; }
 
@@ -24,6 +24,9 @@ namespace Modules.Records.Domain.Entities
 
         /// <summary>Optional reference to the agency-configured ArrestType picklist item.</summary>
         public Guid? ArrestTypeId { get; private set; }
+
+        /// <summary>Optional reference to the primary incident this arrest belongs to.</summary>
+        public Guid? PrimaryIncidentId { get; private set; }
 
         /// <summary>Optional reference to a Master Location Index record for the arrest location.</summary>
         public Guid? LocationId { get; private set; }
@@ -56,19 +59,19 @@ namespace Modules.Records.Domain.Entities
         // -------------------------------
         private Arrest() { } // EF Core materialization — must NOT raise domain events
 
-        public Arrest(Guid jurisdictionId, Guid agencyId, string suspectName, DateTime arrestedAt, string arrestNum)
+        public Arrest(Guid jurisdictionId, Guid agencyId, Guid? nameId, DateTime arrestedAt, string arrestNum, Guid? primaryIncidentId)
         {
             Id = Guid.NewGuid();
             JurisdictionId = jurisdictionId;
             AgencyId = agencyId;
-            SuspectName = suspectName ?? string.Empty;
-
+            NameId = nameId;
             ArrestedAt = arrestedAt;
             ArrestNum  = arrestNum;
+            PrimaryIncidentId = primaryIncidentId;
 
             Status = RecordStatus.Draft;
 
-            AddDomainEvent(new ArrestCreatedDomainEvent(Id, JurisdictionId, SuspectName, ArrestedAt, ArrestNum));
+            AddDomainEvent(new ArrestCreatedDomainEvent(Id, JurisdictionId, NameId, ArrestedAt, ArrestNum, PrimaryIncidentId));
         }
 
         // ----------------------------------------------------
@@ -91,14 +94,15 @@ namespace Modules.Records.Domain.Entities
 
         public void Finalize() => IsFinalized = true;
 
-        public void UpdateDetails(string suspectName, DateTime arrestedAt, Guid? arrestTypeId, string arrestNum, IModificationContext context)
+        public void UpdateDetails(Guid? nameId, DateTime arrestedAt, Guid? arrestTypeId, string arrestNum, Guid? primaryIncidentId, IModificationContext context)
         {
-            SuspectName  = suspectName ?? string.Empty;
+            NameId       = nameId;
             ArrestedAt   = arrestedAt;
             ArrestTypeId = arrestTypeId;
             ArrestNum    = arrestNum;
+            PrimaryIncidentId = primaryIncidentId;
 
-            AddDomainEvent(new ArrestDetailsUpdatedDomainEvent(Id, SuspectName, ArrestedAt, ArrestTypeId, ArrestNum));
+            AddDomainEvent(new ArrestDetailsUpdatedDomainEvent(Id, NameId, ArrestedAt, ArrestTypeId, ArrestNum, PrimaryIncidentId));
         }
 
         /// <summary>Sets or clears the linked Master Location Index record for this arrest.</summary>

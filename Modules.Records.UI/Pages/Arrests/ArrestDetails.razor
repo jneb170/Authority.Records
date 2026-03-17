@@ -134,10 +134,31 @@ else if (_arrest is not null)
             <h6 class="card-title">Arrest Details</h6>
             <div class="record-grid-3">
                 <div class="record-field-span-2">
-                    <label class="form-label mb-1">Suspect Name</label>
-                    <input type="text" class="@(_modifyMode ? "form-control form-control-sm" : "form-control-plaintext form-control-sm ps-0")"
-                           readonly="@(!_modifyMode)"
-                           @bind="_editSuspectName" placeholder="—" />
+                    <label class="form-label mb-1">Suspect</label>
+                    <div class="d-flex align-items-center gap-2">
+                        <span class="@(_modifyMode ? "fw-semibold" : "record-reference-display")">
+                            @if (!_modifyMode && _editNameRecordNumber.HasValue)
+                            {
+                                <a href="/names/@_editNameRecordNumber" class="record-reference-link">@(_editNameDisplay ?? "— None —")</a>
+                            }
+                            else
+                            {
+                                @(_editNameDisplay ?? "— None —")
+                            }
+                        </span>
+                        @if (_modifyMode)
+                        {
+                            <button type="button" class="btn btn-sm btn-outline-secondary" @onclick="() => _showNameModal = true">
+                                <i class="bi bi-people me-1"></i>@(_editNameId.HasValue ? "Change" : "Assign") Name
+                            </button>
+                            @if (_editNameId.HasValue)
+                            {
+                                <button type="button" class="btn btn-sm btn-outline-danger" aria-label="Clear assigned name" title="Clear assigned name" @onclick="ClearName">
+                                    <i class="bi bi-x-lg"></i>
+                                </button>
+                            }
+                        }
+                    </div>
                 </div>
                 <div>
                     <label class="form-label mb-1">Arrested At</label>
@@ -178,6 +199,33 @@ else if (_arrest is not null)
                     }
                 </div>
                 <div class="record-field-span-full">
+                    <label class="form-label mb-1">Primary Incident</label>
+                    <div class="d-flex align-items-center gap-2">
+                        <span class="@(_modifyMode ? "fw-semibold" : "record-reference-display")">
+                            @if (!_modifyMode && _editPrimaryIncidentRecordNumber.HasValue)
+                            {
+                                <a href="/incidents/@_editPrimaryIncidentRecordNumber" class="record-reference-link">@(_editPrimaryIncidentDisplay ?? "— None —")</a>
+                            }
+                            else
+                            {
+                                @(_editPrimaryIncidentDisplay ?? "— None —")
+                            }
+                        </span>
+                        @if (_modifyMode)
+                        {
+                            <button type="button" class="btn btn-sm btn-outline-secondary" @onclick="() => _showPrimaryIncidentModal = true">
+                                <i class="bi bi-clipboard2-pulse me-1"></i>@(_editPrimaryIncidentId.HasValue ? "Change" : "Assign") Incident
+                            </button>
+                            @if (_editPrimaryIncidentId.HasValue)
+                            {
+                                <button type="button" class="btn btn-sm btn-outline-danger" aria-label="Clear primary incident" title="Clear primary incident" @onclick="ClearPrimaryIncident">
+                                    <i class="bi bi-x-lg"></i>
+                                </button>
+                            }
+                        }
+                    </div>
+                </div>
+                <div class="record-field-span-full">
                     <label class="form-label mb-1">Location</label>
                     <div class="d-flex align-items-center gap-2">
                         <span class="@(_modifyMode ? "fw-semibold" : "record-reference-display")">@if (!_modifyMode && _editLocationRecordNumber.HasValue) {
@@ -213,6 +261,18 @@ else if (_arrest is not null)
                          OnSelected="OnLocationSelected"
                          OnCleared="OnLocationCleared"
                          OnCancelled="() => _showLocationModal = false" />
+
+    <NameSearchModal Visible="_showNameModal"
+                     CurrentNameId="_editNameId"
+                     OnSelected="OnNameSelected"
+                     OnCleared="OnNameCleared"
+                     OnCancelled="() => _showNameModal = false" />
+
+    <IncidentSearchModal Visible="_showPrimaryIncidentModal"
+                         CurrentIncidentId="_editPrimaryIncidentId"
+                         OnSelected="OnPrimaryIncidentSelected"
+                         OnCleared="OnPrimaryIncidentCleared"
+                         OnCancelled="() => _showPrimaryIncidentModal = false" />
 
     <AuditInfoSection CreatedAt="@_arrest.CreatedAtUtc"
                       CreatedByName="@_createdByName"
@@ -311,13 +371,20 @@ else if (_arrest is not null)
     private System.Threading.Timer? _lockTimer;
     private static readonly TimeSpan LockTimeout = TimeSpan.FromMinutes(10);
 
-    private string _editSuspectName = string.Empty;
+    private Guid? _editNameId;
+    private string? _editNameDisplay;
+    private long? _editNameRecordNumber;
     private DateTime _editArrestedAt = DateTime.Now;
     private string _editArrestNum = string.Empty;
     private bool _generatingArrestNum;
     private Guid? _editArrestTypeId;
     private string? _arrestTypeLabel;
     private bool _arrestTypeRequired;
+    private Guid? _editPrimaryIncidentId;
+    private string? _editPrimaryIncidentDisplay;
+    private long? _editPrimaryIncidentRecordNumber;
+    private bool _showNameModal;
+    private bool _showPrimaryIncidentModal;
     private Guid?  _editLocationId;
     private string? _editLocationDisplay;
     private long?  _editLocationRecordNumber;
@@ -363,11 +430,16 @@ else if (_arrest is not null)
         if (_arrest is not null && _arrest.IsLocked && _arrest.LockedByUserId == _currentUserId)
         {
             _modifyMode = true;
-            _editSuspectName  = _arrest.SuspectName;
-            _editArrestedAt   = _arrest.ArrestedAt;
-            _editArrestNum    = _arrest.ArrestNum;
-            _editArrestTypeId = _arrest.ArrestTypeId;
-            _editLocationId   = _arrest.LocationId;
+            _editNameId                   = _arrest.NameId;
+            _editNameDisplay              = _arrest.SuspectName;
+            _editNameRecordNumber         = _arrest.NameRecordNumber;
+            _editArrestedAt               = _arrest.ArrestedAt;
+            _editArrestNum                = _arrest.ArrestNum;
+            _editArrestTypeId             = _arrest.ArrestTypeId;
+            _editPrimaryIncidentId        = _arrest.PrimaryIncidentId;
+            _editPrimaryIncidentDisplay   = FormatIncidentDisplay(_arrest);
+            _editPrimaryIncidentRecordNumber = _arrest.PrimaryIncidentRecordNumber;
+            _editLocationId               = _arrest.LocationId;
             _editSnapshot = ComputeEditSnapshot();
             StartLockTimer();
         }
@@ -386,11 +458,16 @@ else if (_arrest is not null)
 
             if (_arrest is not null && !_modifyMode)
             {
-                _editSuspectName  = _arrest.SuspectName;
-                _editArrestedAt   = _arrest.ArrestedAt;
-                _editArrestNum    = _arrest.ArrestNum;
-                _editArrestTypeId = _arrest.ArrestTypeId;
-                _editLocationId   = _arrest.LocationId;
+                _editNameId                    = _arrest.NameId;
+                _editNameDisplay               = _arrest.SuspectName;
+                _editNameRecordNumber          = _arrest.NameRecordNumber;
+                _editArrestedAt                = _arrest.ArrestedAt;
+                _editArrestNum                 = _arrest.ArrestNum;
+                _editArrestTypeId              = _arrest.ArrestTypeId;
+                _editPrimaryIncidentId         = _arrest.PrimaryIncidentId;
+                _editPrimaryIncidentDisplay    = FormatIncidentDisplay(_arrest);
+                _editPrimaryIncidentRecordNumber = _arrest.PrimaryIncidentRecordNumber;
+                _editLocationId                = _arrest.LocationId;
                 await ResolveLocationDisplayAsync();
             }
 
@@ -454,11 +531,16 @@ else if (_arrest is not null)
         {
             await ArrestService.AcquireLockAsync(_arrestId);
             _modifyMode = true;
-            _editSuspectName  = _arrest?.SuspectName ?? string.Empty;
-            _editArrestedAt   = _arrest?.ArrestedAt ?? DateTime.Now;
-            _editArrestNum    = _arrest?.ArrestNum ?? string.Empty;
-            _editArrestTypeId = _arrest?.ArrestTypeId;
-            _editLocationId   = _arrest?.LocationId;
+            _editNameId                    = _arrest?.NameId;
+            _editNameDisplay               = _arrest?.SuspectName;
+            _editNameRecordNumber          = _arrest?.NameRecordNumber;
+            _editArrestedAt                = _arrest?.ArrestedAt ?? DateTime.Now;
+            _editArrestNum                 = _arrest?.ArrestNum ?? string.Empty;
+            _editArrestTypeId              = _arrest?.ArrestTypeId;
+            _editPrimaryIncidentId         = _arrest?.PrimaryIncidentId;
+            _editPrimaryIncidentDisplay    = _arrest is null ? null : FormatIncidentDisplay(_arrest);
+            _editPrimaryIncidentRecordNumber = _arrest?.PrimaryIncidentRecordNumber;
+            _editLocationId                = _arrest?.LocationId;
             _editSnapshot = ComputeEditSnapshot();
             StartLockTimer();
             await LoadAsync();
@@ -478,7 +560,7 @@ else if (_arrest is not null)
     }
 
     private string ComputeEditSnapshot() =>
-        string.Join("§", _editSuspectName, _editArrestedAt, _editArrestNum, _editArrestTypeId, _editLocationId);
+        string.Join("§", _editNameId, _editArrestedAt, _editArrestNum, _editArrestTypeId, _editPrimaryIncidentId, _editLocationId);
 
     private bool HasPendingChanges => _modifyMode && _editSnapshot != ComputeEditSnapshot();
 
@@ -559,9 +641,14 @@ else if (_arrest is not null)
     {
         _actionError = null;
         _saveSuccessMessage = null;
+        if (!_editNameId.HasValue)
+        {
+            _actionError = "A linked name is required before saving.";
+            return;
+        }
         try
         {
-            await ArrestService.UpdateDetailsAsync(_arrestId, _editSuspectName, _editArrestedAt, _editArrestTypeId, _editArrestNum, _editLocationId);
+            await ArrestService.UpdateDetailsAsync(_arrestId, _editNameId.Value, _editArrestedAt, _editArrestTypeId, _editArrestNum, _editLocationId, _editPrimaryIncidentId);
             await LoadAsync();
             _editSnapshot = ComputeEditSnapshot();
             _saveSuccessMessage = "Details saved successfully.";
@@ -586,6 +673,52 @@ else if (_arrest is not null)
 
     private Task UnlinkFromIncidentAsync(Guid incidentId) =>
         RunActionAsync(() => ArrestService.UnlinkFromIncidentAsync(_arrestId, incidentId));
+
+    private Task OnNameSelected(NameDto name)
+    {
+        _editNameId = name.Id;
+        _editNameDisplay = FormatNameDisplay(name);
+        _editNameRecordNumber = name.RecordNumber;
+        _showNameModal = false;
+        return Task.CompletedTask;
+    }
+
+    private Task OnNameCleared()
+    {
+        ClearName();
+        _showNameModal = false;
+        return Task.CompletedTask;
+    }
+
+    private void ClearName()
+    {
+        _editNameId = null;
+        _editNameDisplay = null;
+        _editNameRecordNumber = null;
+    }
+
+    private Task OnPrimaryIncidentSelected(IncidentDto incident)
+    {
+        _editPrimaryIncidentId = incident.Id;
+        _editPrimaryIncidentDisplay = FormatIncidentDisplay(incident);
+        _editPrimaryIncidentRecordNumber = incident.RecordNumber;
+        _showPrimaryIncidentModal = false;
+        return Task.CompletedTask;
+    }
+
+    private Task OnPrimaryIncidentCleared()
+    {
+        ClearPrimaryIncident();
+        _showPrimaryIncidentModal = false;
+        return Task.CompletedTask;
+    }
+
+    private void ClearPrimaryIncident()
+    {
+        _editPrimaryIncidentId = null;
+        _editPrimaryIncidentDisplay = null;
+        _editPrimaryIncidentRecordNumber = null;
+    }
 
     private void StartLockTimer()
     {
@@ -675,6 +808,34 @@ else if (_arrest is not null)
         if (!string.IsNullOrWhiteSpace(loc.StreetAddress)) parts.Add(loc.StreetAddress);
         if (!string.IsNullOrWhiteSpace(loc.City))          parts.Add(loc.City);
         return string.Join(" ", parts);
+    }
+
+    private static string FormatNameDisplay(NameDto name)
+    {
+        if (name.NameType == NameTypes.Business)
+            return name.LastOrBusinessName;
+
+        return string.IsNullOrWhiteSpace(name.FirstName)
+            ? name.LastOrBusinessName
+            : $"{name.LastOrBusinessName}, {name.FirstName}";
+    }
+
+    private static string? FormatIncidentDisplay(ArrestDto arrest)
+    {
+        if (!string.IsNullOrWhiteSpace(arrest.PrimaryIncidentNum))
+            return arrest.PrimaryIncidentNum;
+
+        return arrest.PrimaryIncidentRecordNumber.HasValue
+            ? $"Incident #{arrest.PrimaryIncidentRecordNumber.Value}"
+            : null;
+    }
+
+    private static string FormatIncidentDisplay(IncidentDto incident)
+    {
+        if (!string.IsNullOrWhiteSpace(incident.Details.IncidentNum))
+            return incident.Details.IncidentNum;
+
+        return $"Incident #{incident.RecordNumber}";
     }
 
     public ValueTask DisposeAsync()

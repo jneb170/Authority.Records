@@ -1,11 +1,11 @@
 using FluentValidation;
-using Modules.Records.Application.Arrests.Commands.CreateArrest;
+using Modules.Records.Application.Arrests.Commands.UpdateArrestDetails;
 
 namespace Modules.Records.Application.Arrests.Validators;
 
-public sealed class CreateArrestCommandValidator : AbstractValidator<CreateArrestCommand>
+public sealed class UpdateArrestDetailsCommandValidator : AbstractValidator<UpdateArrestDetailsCommand>
 {
-    public CreateArrestCommandValidator()
+    public UpdateArrestDetailsCommandValidator()
     {
         RuleFor(x => x.NameId)
             .NotEmpty().WithMessage("Linked name is required.");

@@ -31,6 +31,26 @@ public sealed class CreateArrestHandler : IRequestHandler<CreateArrestCommand, l
         var agencyId = _tenantProvider.GetAgencyId();
         var userId = _tenantProvider.GetUserId();
 
+        var nameExists = await _dbContext.Names
+            .AsNoTracking()
+            .AnyAsync(n => n.Id == request.NameId && n.JurisdictionId == jurisdictionId, cancellationToken);
+
+        if (!nameExists)
+            throw new InvalidOperationException("Linked name not found.");
+
+        long? primaryIncidentRecordNumber = null;
+        if (request.PrimaryIncidentId.HasValue)
+        {
+            primaryIncidentRecordNumber = await _dbContext.IncidentReadModels
+                .AsNoTracking()
+                .Where(i => i.Id == request.PrimaryIncidentId.Value && i.JurisdictionId == jurisdictionId)
+                .Select(i => (long?)i.RecordNumber)
+                .FirstOrDefaultAsync(cancellationToken);
+
+            if (!primaryIncidentRecordNumber.HasValue)
+                throw new InvalidOperationException("Primary incident not found.");
+        }
+
         var arrestNum = string.IsNullOrWhiteSpace(request.ArrestNum)
             ? await TryGenerateArrestNumAsync(cancellationToken)
             : request.ArrestNum;
@@ -38,15 +58,21 @@ public sealed class CreateArrestHandler : IRequestHandler<CreateArrestCommand, l
         var arrest = _factory.Create(
             jurisdictionId,
             agencyId,
-            request.SuspectName,
+            request.NameId,
             request.ArrestedAt,
-            arrestNum);
+            arrestNum,
+            request.PrimaryIncidentId);
 
         _dbContext.Arrests.Add(arrest);
         await _dbContext.SaveChangesAsync(cancellationToken);
 
         // Link to any specified incidents
-        foreach (var recordNumber in request.IncidentRecordNumbers)
+        var incidentRecordNumbers = request.IncidentRecordNumbers
+            .Concat(primaryIncidentRecordNumber.HasValue ? [primaryIncidentRecordNumber.Value] : [])
+            .Distinct()
+            .ToList();
+
+        foreach (var recordNumber in incidentRecordNumbers)
         {
             var incident = await _dbContext.IncidentReadModels
                 .AsNoTracking()
@@ -63,7 +89,7 @@ public sealed class CreateArrestHandler : IRequestHandler<CreateArrestCommand, l
             _dbContext.IncidentArrestLinks.Add(link);
         }
 
-        if (request.IncidentRecordNumbers.Any())
+        if (incidentRecordNumbers.Any())
             await _dbContext.SaveChangesAsync(cancellationToken);
 
         return arrest.RecordNumber;

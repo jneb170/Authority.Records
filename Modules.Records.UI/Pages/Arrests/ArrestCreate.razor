@@ -6,6 +6,8 @@
 @inject IAgencyConfigurationService ConfigService
 @inject IKeyboardShortcutService ShortcutService
 @inject NavigationManager Nav
+@using Modules.Records.Application.DTOs
+@using Modules.Records.Domain.Common
 
 <PageTitle>New Arrest</PageTitle>
 
@@ -33,9 +35,19 @@
             </div>
             <div class="record-grid-2">
             <div class="mb-0">
-                <label class="form-label">Suspect Name</label>
-                <InputText class="form-control" @bind-Value="_vm.SuspectName" />
-                <ValidationMessage For="() => _vm.SuspectName" />
+                <label class="form-label">Suspect</label>
+                <div class="d-flex align-items-center gap-2">
+                    <span class="record-reference-display">@(_selectedNameDisplay ?? "— None —")</span>
+                    <button type="button" class="btn btn-sm btn-outline-secondary" @onclick="() => _showNameModal = true">
+                        <i class="bi bi-people me-1"></i>@(_selectedNameId.HasValue ? "Change" : "Assign") Name
+                    </button>
+                    @if (_selectedNameId.HasValue)
+                    {
+                        <button type="button" class="btn btn-sm btn-outline-danger" aria-label="Clear selected name" title="Clear selected name" @onclick="ClearSelectedName">
+                            <i class="bi bi-x-lg"></i>
+                        </button>
+                    }
+                </div>
             </div>
             <div class="mb-0">
                 <label class="form-label">Arrested At</label>
@@ -52,9 +64,24 @@
                 </div>
             </div>
             <div class="mb-0 record-field-span-2">
-                <label class="form-label">Link to Incident <span class="text-muted">(optional)</span></label>
+                <label class="form-label">Primary Incident <span class="text-muted">(optional)</span></label>
+                <div class="d-flex align-items-center gap-2 mb-2">
+                    <span class="record-reference-display">@(_primaryIncidentDisplay ?? "— None —")</span>
+                    <button type="button" class="btn btn-sm btn-outline-secondary" @onclick="() => _showPrimaryIncidentModal = true">
+                        <i class="bi bi-clipboard2-pulse me-1"></i>@(_primaryIncidentId.HasValue ? "Change" : "Assign") Incident
+                    </button>
+                    @if (_primaryIncidentId.HasValue)
+                    {
+                        <button type="button" class="btn btn-sm btn-outline-danger" aria-label="Clear primary incident" title="Clear primary incident" @onclick="ClearPrimaryIncident">
+                            <i class="bi bi-x-lg"></i>
+                        </button>
+                    }
+                </div>
+            </div>
+            <div class="mb-0 record-field-span-2">
+                <label class="form-label">Additional Incident Links <span class="text-muted">(optional)</span></label>
                 <select class="form-select" multiple @onchange="OnIncidentSelectionChanged">
-                    @foreach (var i in _incidents)
+                    @foreach (var i in _incidents ?? [])
                     {
                         <option value="@i.RecordNumber" selected="@(_selectedIncidentRecordNumbers.Contains(i.RecordNumber))">
                             @i.RecordNumber — @i.Details.IncidentNum (@i.Status)
@@ -82,6 +109,18 @@
 </EditForm>
 </div>
 
+<NameSearchModal Visible="_showNameModal"
+                 CurrentNameId="_selectedNameId"
+                 OnSelected="OnNameSelected"
+                 OnCleared="OnNameCleared"
+                 OnCancelled="() => _showNameModal = false" />
+
+<IncidentSearchModal Visible="_showPrimaryIncidentModal"
+                     CurrentIncidentId="_primaryIncidentId"
+                     OnSelected="OnPrimaryIncidentSelected"
+                     OnCleared="OnPrimaryIncidentCleared"
+                     OnCancelled="() => _showPrimaryIncidentModal = false" />
+
 <UnsavedChangesDialog Visible="_showCancelConfirm"
                       SaveLabel="Submit Record"
                       DiscardLabel="Discard"
@@ -97,12 +136,21 @@
     private bool _submitting;
     private bool _generatingNum;
     private bool _showCancelConfirm;
+    private bool _showNameModal;
+    private bool _showPrimaryIncidentModal;
     private IReadOnlyList<IncidentDto>? _incidents = new List<IncidentDto>();
     private readonly List<long> _selectedIncidentRecordNumbers = new();
+    private Guid? _selectedNameId;
+    private string? _selectedNameDisplay;
+    private long? _selectedNameRecordNumber;
+    private Guid? _primaryIncidentId;
+    private string? _primaryIncidentDisplay;
+    private long? _primaryIncidentRecordNumber;
 
     private bool HasEnteredData =>
-        !string.IsNullOrEmpty(_vm.SuspectName) ||
+        _selectedNameId.HasValue ||
         !string.IsNullOrEmpty(_vm.ArrestNum)   ||
+        _primaryIncidentId.HasValue ||
         _selectedIncidentRecordNumbers.Count > 0;
 
     private string CancelUrl =>
@@ -139,6 +187,52 @@
                 if (long.TryParse(s, out var rn))
                     _selectedIncidentRecordNumbers.Add(rn);
         }
+    }
+
+    private Task OnNameSelected(NameDto name)
+    {
+        _selectedNameId = name.Id;
+        _selectedNameDisplay = FormatName(name);
+        _selectedNameRecordNumber = name.RecordNumber;
+        _showNameModal = false;
+        return Task.CompletedTask;
+    }
+
+    private Task OnNameCleared()
+    {
+        ClearSelectedName();
+        _showNameModal = false;
+        return Task.CompletedTask;
+    }
+
+    private void ClearSelectedName()
+    {
+        _selectedNameId = null;
+        _selectedNameDisplay = null;
+        _selectedNameRecordNumber = null;
+    }
+
+    private Task OnPrimaryIncidentSelected(IncidentDto incident)
+    {
+        _primaryIncidentId = incident.Id;
+        _primaryIncidentDisplay = FormatIncident(incident);
+        _primaryIncidentRecordNumber = incident.RecordNumber;
+        _showPrimaryIncidentModal = false;
+        return Task.CompletedTask;
+    }
+
+    private Task OnPrimaryIncidentCleared()
+    {
+        ClearPrimaryIncident();
+        _showPrimaryIncidentModal = false;
+        return Task.CompletedTask;
+    }
+
+    private void ClearPrimaryIncident()
+    {
+        _primaryIncidentId = null;
+        _primaryIncidentDisplay = null;
+        _primaryIncidentRecordNumber = null;
     }
 
     private void HandleShortcutRelease()
@@ -182,11 +276,15 @@
 
         try
         {
+            if (!_selectedNameId.HasValue)
+                throw new InvalidOperationException("Select a suspect name before creating the arrest.");
+
             var recordNumber = await ArrestService.CreateAsync(
-                _vm.SuspectName,
+                _selectedNameId.Value,
                 _vm.ArrestedAt,
                 _selectedIncidentRecordNumbers.AsReadOnly(),
-                _vm.ArrestNum);
+                _vm.ArrestNum,
+                _primaryIncidentId);
 
             if (IncidentRecordNumber.HasValue)
                 Nav.NavigateTo($"/incidents/{IncidentRecordNumber}");
@@ -201,6 +299,24 @@
         {
             _submitting = false;
         }
+    }
+
+    private static string FormatName(NameDto name)
+    {
+        if (name.NameType == NameTypes.Business)
+            return name.LastOrBusinessName;
+
+        return string.IsNullOrWhiteSpace(name.FirstName)
+            ? name.LastOrBusinessName
+            : $"{name.LastOrBusinessName}, {name.FirstName}";
+    }
+
+    private static string FormatIncident(IncidentDto incident)
+    {
+        if (!string.IsNullOrWhiteSpace(incident.Details.IncidentNum))
+            return incident.Details.IncidentNum;
+
+        return $"Incident #{incident.RecordNumber}";
     }
 }
 

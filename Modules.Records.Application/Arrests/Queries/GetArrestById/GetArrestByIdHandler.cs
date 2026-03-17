@@ -23,6 +23,6 @@ public sealed class GetArrestByIdHandler : IRequestHandler<GetArrestByIdQuery, A
         if (rm is null)
             return null;
 
-        return rm.ToDto();
+        return (await ArrestDtoMapper.ToDtosAsync([rm], _dbContext, cancellationToken)).Single();
     }
 }
