@@ -31,22 +31,26 @@ public sealed class HomeService : IHomeService
 
     public async Task<ActivityMapWindowState> GetDefaultMapWindowAsync()
     {
-        ActivityMapWindowState? fallback = null;
+        var now           = DateTime.UtcNow;
+        // Default to the widest window (0 = all time) as the fallback.
+        var selectedHours = ActivityMapWindowSelector.CandidateWindowHours[^1];
 
         foreach (var hours in ActivityMapWindowSelector.CandidateWindowHours)
         {
-            var markers = await GetMapMarkersAsync(SinceFromWindow(hours));
-            var state = new ActivityMapWindowState(hours, markers);
+            var count = await _mediator.Send(
+                new CountMapMarkersQuery(_tenantProvider.GetJurisdictionId(), SinceFromWindow(hours, now)));
 
-            if (ActivityMapWindowSelector.HasMinimumActivity(markers))
-                return state;
-
-            fallback = state;
+            if (count >= ActivityMapWindowSelector.MinimumMarkers)
+            {
+                selectedHours = hours;
+                break;
+            }
         }
 
-        return fallback ?? new ActivityMapWindowState(0, Array.Empty<MapMarkerDto>());
+        var markers = await GetMapMarkersAsync(SinceFromWindow(selectedHours, now));
+        return new ActivityMapWindowState(selectedHours, markers);
     }
 
-    private static DateTime? SinceFromWindow(int windowHours) =>
-        windowHours == 0 ? null : DateTime.UtcNow.AddHours(-windowHours);
+    private static DateTime? SinceFromWindow(int windowHours, DateTime now) =>
+        windowHours == 0 ? null : now.AddHours(-windowHours);
 }
