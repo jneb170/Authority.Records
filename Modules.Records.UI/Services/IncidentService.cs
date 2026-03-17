@@ -12,6 +12,7 @@ using Modules.Records.Application.Incidents.Commands.UpdateIncidentDetails;
 using Modules.Records.Application.Incidents.Queries.GetIncidentById;
 using Modules.Records.Application.Incidents.Queries.GetIncidentByRecordNumber;
 using Modules.Records.Application.Incidents.Queries.GetIncidentsByJurisdiction;
+using Modules.Records.Application.Incidents.Queries.SearchIncidents;
 using Modules.Records.Domain.Abstractions;
 using Modules.Records.Domain.ValueObjects;
 
@@ -57,6 +58,9 @@ public sealed class IncidentService : IIncidentService
 
     public Task ReleaseLockAsync(Guid id) =>
         _sender.Send(new ReleaseIncidentLockCommand(id));
+
+    public Task<IReadOnlyList<IncidentDto>> SearchAsync(string? term) =>
+        _sender.Send(new SearchIncidentsQuery(term));
 
     public Task SoftDeleteAsync(Guid id) =>
         _sender.Send(new SoftDeleteIncidentCommand(id));

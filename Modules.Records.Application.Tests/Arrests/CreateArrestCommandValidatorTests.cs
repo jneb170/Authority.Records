@@ -25,7 +25,7 @@ public sealed class CreateArrestCommandValidatorTests
     public void Validate_WithoutNameId_IsInvalid()
     {
         var command = new CreateArrestCommand(
-            NameId: null,
+            NameId: Guid.Empty,
             ArrestedAt: DateTime.UtcNow.AddHours(-1),
             IncidentRecordNumbers: []);
 
