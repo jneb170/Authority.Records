@@ -1,5 +1,6 @@
 using Modules.Records.Domain.Abstractions;
 using Modules.Records.Domain.Common.Primitives;
+using Modules.Records.Domain.DomainEvents;
 
 namespace Modules.Records.Domain.Entities;
 
@@ -29,8 +30,7 @@ public sealed class Charge : AggregateRoot, IMultiTenant
         string ucrCode,
         string chargeLevel,
         string? stateClass,
-        bool isCitationEligible,
-        bool isActive)
+        bool isCitationEligible)
     {
         Id = Guid.NewGuid();
         JurisdictionId = jurisdictionId;
@@ -43,6 +43,47 @@ public sealed class Charge : AggregateRoot, IMultiTenant
         ChargeLevel = chargeLevel;
         StateClass = stateClass;
         IsCitationEligible = isCitationEligible;
-        IsActive = isActive;
+        IsActive = true;
+
+        AddDomainEvent(new ChargeCreatedDomainEvent(Id, JurisdictionId, AgencyId, OffenseName, UcrCode, ChargeLevel, IsCitationEligible));
+    }
+
+    public void Update(
+        string offenseName,
+        string ucrCategory,
+        string nibrsGroup,
+        string crimeAgainst,
+        string ucrCode,
+        string chargeLevel,
+        string? stateClass,
+        bool isCitationEligible)
+    {
+        OffenseName = offenseName;
+        UcrCategory = ucrCategory;
+        NibrsGroup = nibrsGroup;
+        CrimeAgainst = crimeAgainst;
+        UcrCode = ucrCode;
+        ChargeLevel = chargeLevel;
+        StateClass = stateClass;
+        IsCitationEligible = isCitationEligible;
+
+        AddDomainEvent(new ChargeUpdatedDomainEvent(Id, OffenseName, UcrCategory, NibrsGroup, CrimeAgainst, UcrCode, ChargeLevel, StateClass, IsCitationEligible));
+    }
+
+    public void Activate()
+    {
+        IsActive = true;
+        AddDomainEvent(new ChargeActivatedDomainEvent(Id));
+    }
+
+    public void Deactivate()
+    {
+        IsActive = false;
+        AddDomainEvent(new ChargeDeactivatedDomainEvent(Id));
+    }
+
+    public void Delete(Guid deletedByUserId)
+    {
+        AddDomainEvent(new ChargeDeletedDomainEvent(Id, deletedByUserId));
     }
 }

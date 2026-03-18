@@ -2,8 +2,10 @@
 @attribute [Microsoft.AspNetCore.Authorization.Authorize(Roles = "Admin,Supervisor")]
 @inject INameService NameService
 @inject IPicklistService PicklistService
+@inject IChargeService ChargeService
 @inject IGoogleMapsConfigService GoogleMapsConfig
 @inject MediatR.ISender Sender
+@inject IWebHostEnvironment HostEnvironment
 
 <PageTitle>Test Data Generation</PageTitle>
 
@@ -95,8 +97,40 @@
     </div>
 </div>
 
-@* ── Step 2: Generate Fake Names ─────────────────────────────────────────── *@
-<h5 class="fw-semibold mb-3">Step 2 — Generate Fake Name Records</h5>
+@* ── Step 2: Seed Charges ───────────────────────────────────────────────── *@
+<h5 class="fw-semibold mb-3">Step 2 — Seed Charges</h5>
+
+<p class="text-muted small mb-3">
+    Loads the initial charge catalog from <code>Documents\charges.json</code>. Existing entries are updated by offense name and UCR code.
+</p>
+
+<div class="row g-3 mb-5">
+    <div class="col-md-6">
+        <div class="card h-100">
+            <div class="card-body">
+                <h6 class="card-title">Charge Catalog</h6>
+                <p class="card-text text-muted small">
+                    Seeds the violations / charges master list used by incidents, arrests, and citations.
+                </p>
+                <div class="d-flex gap-3 small text-muted mb-3">
+                    <span>Charges: @_chargeCount item(s)</span>
+                </div>
+            </div>
+            <div class="card-footer bg-transparent">
+                <button class="btn btn-outline-primary btn-sm" @onclick="SeedChargesAsync" disabled="@_seeding">
+                    @if (_seedingCharges) { <span class="spinner-border spinner-border-sm me-1"></span> } Seed Charges
+                </button>
+                @if (_chargesSeedResult is not null)
+                {
+                    <span class="ms-2 small @(_chargesSeedResult.StartsWith("✅") ? "text-success" : "text-danger")">@_chargesSeedResult</span>
+                }
+            </div>
+        </div>
+    </div>
+</div>
+
+@* ── Step 3: Generate Fake Names ─────────────────────────────────────────── *@
+<h5 class="fw-semibold mb-3">Step 3 — Generate Fake Name Records</h5>
 
 @if (!_canGenerate)
 {
@@ -140,8 +174,8 @@
     </div>
 }
 
-@* ── Step 3: Generate Location Records ──────────────────────────────────── *@
-<h5 class="fw-semibold mb-3">Step 3 — Generate Location Records from Google Maps</h5>
+@* ── Step 4: Generate Location Records ──────────────────────────────────── *@
+<h5 class="fw-semibold mb-3">Step 4 — Generate Location Records from Google Maps</h5>
 
 @if (!_hasMapsApiKey)
 {
@@ -241,6 +275,7 @@
     private int _eyeCount;
     private int _stateCount;
     private int _suffixCount;
+    private int _chargeCount;
 
     // ── Picklist ID lookups (value → Guid) ───────────────────────────────────
     private Dictionary<string, Guid> _sexIds    = new();
@@ -255,9 +290,11 @@
     private bool    _seedingMni      = false;
     private bool    _seedingStates   = false;
     private bool    _seedingSuffixes = false;
+    private bool    _seedingCharges  = false;
     private string? _mniSeedResult;
     private string? _stateSeedResult;
     private string? _suffixSeedResult;
+    private string? _chargesSeedResult;
 
     // ── Generate state ───────────────────────────────────────────────────────
     private int     _generateCount   = 50;
@@ -291,6 +328,7 @@
         _eyeCount    = eyeItems.Count;
         _stateCount      = stateItems.Count;
         _suffixCount     = suffixItems.Count;
+        _chargeCount     = await ChargeService.CountAsync(includeInactive: true);
         _directionCount  = dirItems.Count;
         _streetTypeCount = stTypeItems.Count;
         _countryCount    = countryItems.Count;
@@ -303,6 +341,33 @@
         _suffixIds = suffixItems.Select(x => x.Id).ToList();
 
         _canGenerate = _sexCount > 0 && _raceCount > 0 && _hairCount > 0 && _eyeCount > 0 && _stateCount > 0;
+    }
+
+    private async Task SeedChargesAsync()
+    {
+        _seeding = _seedingCharges = true;
+        _chargesSeedResult = null;
+
+        try
+        {
+            var path = Path.GetFullPath(Path.Combine(HostEnvironment.ContentRootPath, "..", "Documents", "charges.json"));
+            if (!File.Exists(path))
+                throw new InvalidOperationException($"Could not find charge seed file at '{path}'.");
+
+            var json = await File.ReadAllTextAsync(path);
+            var result = await ChargeService.SeedFromJsonAsync(json);
+            _chargesSeedResult = $"✅ Inserted {result.Inserted}, updated {result.Updated}.";
+            await LoadPicklistCountsAsync();
+        }
+        catch (Exception ex)
+        {
+            _chargesSeedResult = $"❌ {ex.Message}";
+        }
+        finally
+        {
+            _seedingCharges = false;
+            _seeding = false;
+        }
     }
 
     // ── Seed MNI Picklists ───────────────────────────────────────────────────

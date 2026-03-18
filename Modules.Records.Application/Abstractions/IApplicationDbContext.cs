@@ -12,13 +12,13 @@ public interface IApplicationDbContext
     IQueryable<Incident> AllIncidentsWithDeleted { get; }
     DbSet<Arrest> Arrests { get; }
     DbSet<Citation> Citations { get; }
+    DbSet<Charge> Charges { get; }
     DbSet<Name> Names { get; }
     DbSet<Location> Locations { get; }
     DbSet<Mugshot> Mugshots { get; }
     DbSet<MugshotLink> MugshotLinks { get; }
     DbSet<IncidentArrestLink> IncidentArrestLinks { get; }
     DbSet<IncidentCitationLink> IncidentCitationLinks { get; }
-    DbSet<Charge> Charges { get; }
     DbSet<ArrestChargeLink> ArrestChargeLinks { get; }
     DbSet<CitationChargeLink> CitationChargeLinks { get; }
     DbSet<IncidentChargeLink> IncidentChargeLinks { get; }

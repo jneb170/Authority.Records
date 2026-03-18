@@ -2,6 +2,7 @@
 @page "/incidents/{IncidentRecordNumber:long}/arrests/create"
 @implements IAsyncDisposable
 @inject IArrestService ArrestService
+@inject IChargeService ChargeService
 @inject IIncidentService IncidentService
 @inject IAgencyConfigurationService ConfigService
 @inject IKeyboardShortcutService ShortcutService
@@ -90,6 +91,34 @@
                 </select>
                 <div class="form-text">Hold Ctrl/Cmd to select multiple</div>
             </div>
+            <div class="mb-0 record-field-span-2">
+                <label class="form-label">Charges <span class="text-muted">(optional)</span></label>
+                <div class="d-flex align-items-center gap-2 mb-2">
+                    <button type="button" class="btn btn-sm btn-outline-secondary" @onclick="() => _showChargeModal = true">
+                        <i class="bi bi-search me-1"></i>Add Charge
+                    </button>
+                    <span class="small text-muted">@_selectedCharges.Count charge(s) selected</span>
+                </div>
+                @if (_selectedCharges.Count == 0)
+                {
+                    <div class="form-text">Search and select one or more charges to attach as soon as the arrest is created.</div>
+                }
+                else
+                {
+                    <div class="list-group list-group-flush border rounded">
+                        @foreach (var charge in _selectedCharges)
+                        {
+                            <div class="list-group-item py-2 d-flex justify-content-between align-items-center">
+                                <div>
+                                    <div class="fw-semibold">@charge.OffenseName</div>
+                                    <div class="small text-muted">UCR @charge.UcrCode · @charge.ChargeLevel</div>
+                                </div>
+                                <button type="button" class="btn btn-sm btn-outline-danger" @onclick="() => RemoveCharge(charge.Id)">Remove</button>
+                            </div>
+                        }
+                    </div>
+                }
+            </div>
             </div>
         </div>
     </div>
@@ -121,6 +150,10 @@
                      OnCleared="OnPrimaryIncidentCleared"
                      OnCancelled="() => _showPrimaryIncidentModal = false" />
 
+<ChargeSearchModal Visible="_showChargeModal"
+                   OnSelected="OnChargeSelected"
+                   OnCancelled="() => _showChargeModal = false" />
+
 <UnsavedChangesDialog Visible="_showCancelConfirm"
                       SaveLabel="Submit Record"
                       DiscardLabel="Discard"
@@ -138,8 +171,10 @@
     private bool _showCancelConfirm;
     private bool _showNameModal;
     private bool _showPrimaryIncidentModal;
+    private bool _showChargeModal;
     private IReadOnlyList<IncidentDto>? _incidents = new List<IncidentDto>();
     private readonly List<long> _selectedIncidentRecordNumbers = new();
+    private readonly List<ChargeDto> _selectedCharges = [];
     private Guid? _selectedNameId;
     private string? _selectedNameDisplay;
     private long? _selectedNameRecordNumber;
@@ -151,7 +186,8 @@
         _selectedNameId.HasValue ||
         !string.IsNullOrEmpty(_vm.ArrestNum)   ||
         _primaryIncidentId.HasValue ||
-        _selectedIncidentRecordNumbers.Count > 0;
+        _selectedIncidentRecordNumbers.Count > 0 ||
+        _selectedCharges.Count > 0;
 
     private string CancelUrl =>
         IncidentRecordNumber.HasValue ? $"/incidents/{IncidentRecordNumber}" : "/arrests";
@@ -286,6 +322,15 @@
                 _vm.ArrestNum,
                 _primaryIncidentId);
 
+            if (_selectedCharges.Count > 0)
+            {
+                var arrest = await ArrestService.GetByRecordNumberAsync(recordNumber)
+                    ?? throw new InvalidOperationException("Arrest was created but could not be reloaded for charge linking.");
+
+                foreach (var charge in _selectedCharges)
+                    await ChargeService.LinkToArrestAsync(arrest.Id, charge.Id);
+            }
+
             if (IncidentRecordNumber.HasValue)
                 Nav.NavigateTo($"/incidents/{IncidentRecordNumber}");
             else
@@ -299,6 +344,22 @@
         {
             _submitting = false;
         }
+    }
+
+    private Task OnChargeSelected(ChargeDto charge)
+    {
+        if (_selectedCharges.All(c => c.Id != charge.Id))
+            _selectedCharges.Add(charge);
+
+        _showChargeModal = false;
+        return Task.CompletedTask;
+    }
+
+    private void RemoveCharge(Guid chargeId)
+    {
+        var existing = _selectedCharges.FirstOrDefault(c => c.Id == chargeId);
+        if (existing is not null)
+            _selectedCharges.Remove(existing);
     }
 
     private static string FormatName(NameDto name)

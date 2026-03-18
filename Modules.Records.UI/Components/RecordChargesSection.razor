@@ -1,0 +1,92 @@
+@using Modules.Records.Application.DTOs
+
+<div class="record-related-section">
+    <div class="record-related-header">
+        <h4 class="record-related-title">@Title</h4>
+        @if (ModifyMode)
+        {
+            <button class="btn btn-sm btn-outline-primary" @onclick="() => _showSearchModal = true">+ Add Charge</button>
+        }
+    </div>
+    <div class="record-related-body">
+        @if (Charges is null)
+        {
+            <LoadingSpinner Message="Loading charges..." />
+        }
+        else if (!Charges.Any())
+        {
+            <div class="record-related-empty-state">
+                <div class="empty-state">
+                    <i class="bi bi-exclamation-octagon"></i>
+                    <div class="fw-medium">@EmptyTitle</div>
+                    <div class="small mt-1">@EmptyHint</div>
+                </div>
+            </div>
+        }
+        else
+        {
+            <table class="table table-sm mb-0">
+                <thead>
+                    <tr>
+                        <th>Offense</th>
+                        <th>UCR</th>
+                        <th>Level</th>
+                        <th>State Class</th>
+                        <th>Linked</th>
+                        <th></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var charge in Charges)
+                    {
+                        <tr class="@(!charge.IsActive ? "text-muted" : string.Empty)">
+                            <td>
+                                <div class="fw-semibold">@charge.OffenseName</div>
+                                @if (charge.IsCitationEligible)
+                                {
+                                    <div class="small text-muted">Citation eligible</div>
+                                }
+                            </td>
+                            <td><code>@charge.UcrCode</code></td>
+                            <td>@charge.ChargeLevel</td>
+                            <td>@(string.IsNullOrWhiteSpace(charge.StateClass) ? "—" : charge.StateClass)</td>
+                            <td>@charge.LinkedAtUtc.ToShortDateString()</td>
+                            <td class="text-end">
+                                @if (ModifyMode)
+                                {
+                                    <button class="btn btn-sm btn-outline-danger" @onclick="() => RemoveAsync(charge.ChargeId)">Unlink</button>
+                                }
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        }
+    </div>
+</div>
+
+<ChargeSearchModal Visible="_showSearchModal"
+                   CitationEligibleOnly="CitationEligibleOnly"
+                   OnSelected="OnSelectedAsync"
+                   OnCancelled="() => _showSearchModal = false" />
+
+@code {
+    [Parameter] public string Title { get; set; } = "Charges";
+    [Parameter] public string EmptyTitle { get; set; } = "No charges linked.";
+    [Parameter] public string EmptyHint { get; set; } = "Add one or more charges in modify mode.";
+    [Parameter] public IReadOnlyList<RecordChargeDto>? Charges { get; set; }
+    [Parameter] public bool ModifyMode { get; set; }
+    [Parameter] public bool CitationEligibleOnly { get; set; }
+    [Parameter] public EventCallback<Guid> OnChargeSelected { get; set; }
+    [Parameter] public EventCallback<Guid> OnChargeRemoved { get; set; }
+
+    private bool _showSearchModal;
+
+    private async Task OnSelectedAsync(ChargeDto charge)
+    {
+        _showSearchModal = false;
+        await OnChargeSelected.InvokeAsync(charge.Id);
+    }
+
+    private Task RemoveAsync(Guid chargeId) => OnChargeRemoved.InvokeAsync(chargeId);
+}

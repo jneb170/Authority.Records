@@ -3,6 +3,7 @@
 @implements IAsyncDisposable
 @inject ICitationService CitationService
 @inject IIncidentService IncidentService
+@inject IChargeService ChargeService
 @inject IPicklistService PicklistService
 @inject IAgencyConfigurationService ConfigService
 @inject ITenantProvider TenantProvider
@@ -219,6 +220,15 @@ else if (_citation is not null)
                       ModifiedAt="@(_citation.ModifiedBy.HasValue ? _citation.UpdatedAtUtc : null)"
                       ModifiedByName="@_modifiedByName" />
 
+    <RecordChargesSection Title="Charges"
+                          EmptyTitle="No charges linked."
+                          EmptyHint="Add citation-eligible charges in modify mode for this citation."
+                          Charges="_charges"
+                          ModifyMode="_modifyMode"
+                          CitationEligibleOnly="true"
+                          OnChargeSelected="LinkChargeAsync"
+                          OnChargeRemoved="UnlinkChargeAsync" />
+
     <!-- Linked Incidents -->
     <div class="record-related-section">
         <div class="record-related-header">
@@ -302,6 +312,7 @@ else if (_citation is not null)
     private Guid _citationId;
     private CitationDto? _citation;
     private IReadOnlyList<IncidentCitationLinkDto>? _linkedIncidents;
+    private IReadOnlyList<RecordChargeDto>? _charges;
     private IReadOnlyList<IncidentDto>? _allIncidents;
     private Guid _linkIncidentId = Guid.Empty;
     private bool _loading = true;
@@ -412,6 +423,7 @@ else if (_citation is not null)
                     : null;
 
                 _linkedIncidents = await CitationService.GetLinkedIncidentsAsync(_citationId);
+                _charges = await ChargeService.GetByCitationAsync(_citationId);
 
                 if (_modifyMode)
                     _allIncidents = await IncidentService.GetByJurisdictionAsync();
@@ -593,6 +605,8 @@ else if (_citation is not null)
 
     private Task UnlinkFromIncidentAsync(Guid incidentId) =>
         RunActionAsync(() => CitationService.UnlinkFromIncidentAsync(_citationId, incidentId));
+    private Task LinkChargeAsync(Guid chargeId) => RunActionAsync(() => ChargeService.LinkToCitationAsync(_citationId, chargeId));
+    private Task UnlinkChargeAsync(Guid chargeId) => RunActionAsync(() => ChargeService.UnlinkFromCitationAsync(_citationId, chargeId));
 
     private void StartLockTimer()
     {

@@ -1,0 +1,149 @@
+@inject IChargeService ChargeService
+@using Modules.Records.Application.DTOs
+@using Modules.Records.UI.Services
+
+@if (Visible)
+{
+    <div class="modal fade show d-block" tabindex="-1" role="dialog" style="background:rgba(0,0,0,0.45);">
+        <div class="modal-dialog modal-lg modal-dialog-scrollable" role="document">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title"><i class="bi bi-search me-2"></i>Search Charges</h5>
+                    <button type="button" class="btn-close" aria-label="Close charge search" @onclick="Cancel"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="row g-2 mb-3">
+                        <div class="col-sm-9">
+                            <input class="form-control form-control-sm"
+                                   @bind="_term"
+                                   @bind:event="oninput"
+                                   placeholder="Search by offense name, UCR code, level, or crime against..."
+                                   @onkeydown="HandleKeyDown" />
+                        </div>
+                        <div class="col-sm-3">
+                            <button class="btn btn-sm btn-primary w-100" @onclick="RunSearchAsync">Search</button>
+                        </div>
+                    </div>
+
+                    @if (CitationEligibleOnly)
+                    {
+                        <div class="alert alert-info py-2 small">
+                            Showing only charges eligible for citation use.
+                        </div>
+                    }
+
+                    @if (_loading)
+                    {
+                        <LoadingSpinner />
+                    }
+                    else if (_error is not null)
+                    {
+                        <div class="alert alert-danger py-2">@_error</div>
+                    }
+                    else if (_results is not null)
+                    {
+                        @if (!_results.Any())
+                        {
+                            <p class="text-muted small mb-0">No charges found.</p>
+                        }
+                        else
+                        {
+                            <div class="list-group list-group-flush">
+                                @foreach (var charge in _results)
+                                {
+                                    <button type="button"
+                                            class="list-group-item list-group-item-action py-2"
+                                            @onclick="() => SelectAsync(charge)">
+                                        <div class="d-flex justify-content-between align-items-start gap-3">
+                                            <div>
+                                                <div class="fw-semibold">@charge.OffenseName</div>
+                                                <div class="small text-muted">
+                                                    UCR @charge.UcrCode · @charge.ChargeLevel · @charge.CrimeAgainst
+                                                    @if (!string.IsNullOrWhiteSpace(charge.StateClass))
+                                                    {
+                                                        <span>· @charge.StateClass</span>
+                                                    }
+                                                </div>
+                                            </div>
+                                            <div class="text-end small text-muted">
+                                                @if (charge.IsCitationEligible)
+                                                {
+                                                    <div>Eligible for citation</div>
+                                                }
+                                                else
+                                                {
+                                                    <div>Arrest / incident only</div>
+                                                }
+                                            </div>
+                                        </div>
+                                    </button>
+                                }
+                            </div>
+                        }
+                    }
+                    else
+                    {
+                        <p class="text-muted small mb-0">Enter a search term above to find charges.</p>
+                    }
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary btn-sm" @onclick="Cancel">Cancel</button>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    [Parameter] public bool Visible { get; set; }
+    [Parameter] public bool CitationEligibleOnly { get; set; }
+    [Parameter] public EventCallback<ChargeDto> OnSelected { get; set; }
+    [Parameter] public EventCallback OnCancelled { get; set; }
+
+    private string _term = string.Empty;
+    private bool _loading;
+    private string? _error;
+    private IReadOnlyList<ChargeDto>? _results;
+
+    protected override async Task OnParametersSetAsync()
+    {
+        if (Visible && _results is null)
+            await RunSearchAsync();
+    }
+
+    private async Task RunSearchAsync()
+    {
+        _loading = true;
+        _error = null;
+
+        try
+        {
+            _results = await ChargeService.SearchAsync(_term, includeInactive: false, citationEligibleOnly: CitationEligibleOnly);
+        }
+        catch (Exception ex)
+        {
+            _error = ex.Message;
+        }
+        finally
+        {
+            _loading = false;
+        }
+    }
+
+    private Task HandleKeyDown(KeyboardEventArgs args) =>
+        args.Key == "Enter" ? RunSearchAsync() : Task.CompletedTask;
+
+    private async Task SelectAsync(ChargeDto charge)
+    {
+        await OnSelected.InvokeAsync(charge);
+        _results = null;
+        _term = string.Empty;
+    }
+
+    private async Task Cancel()
+    {
+        _results = null;
+        _term = string.Empty;
+        await OnCancelled.InvokeAsync();
+    }
+}

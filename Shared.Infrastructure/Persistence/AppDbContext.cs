@@ -46,13 +46,13 @@ public class AppDbContext : DbContext, IApplicationDbContext
     public IQueryable<Incident> AllIncidentsWithDeleted => Set<Incident>().IgnoreQueryFilters();
     public DbSet<Arrest> Arrests => Set<Arrest>();
     public DbSet<Citation> Citations => Set<Citation>();
+    public DbSet<Charge> Charges => Set<Charge>();
     public DbSet<Name> Names => Set<Name>();
     public DbSet<Location> Locations => Set<Location>();
     public DbSet<Mugshot> Mugshots => Set<Mugshot>();
     public DbSet<MugshotLink> MugshotLinks => Set<MugshotLink>();
     public DbSet<IncidentArrestLink> IncidentArrestLinks => Set<IncidentArrestLink>();
     public DbSet<IncidentCitationLink> IncidentCitationLinks => Set<IncidentCitationLink>();
-    public DbSet<Charge> Charges => Set<Charge>();
     public DbSet<ArrestChargeLink> ArrestChargeLinks => Set<ArrestChargeLink>();
     public DbSet<CitationChargeLink> CitationChargeLinks => Set<CitationChargeLink>();
     public DbSet<IncidentChargeLink> IncidentChargeLinks => Set<IncidentChargeLink>();

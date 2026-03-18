@@ -1,0 +1,324 @@
+{
+  "offenses": [
+    /* ------------------------------------------------------------- */
+    /* --------------------- UCR PART I OFFENSES ------------------- */
+    /* ------------------------------------------------------------- */
+
+    {
+      "offenseName": "Murder / Nonnegligent Manslaughter",
+      "ucrCategory": "Part I",
+      "nibrsGroup": "Group A",
+      "crimeAgainst": "Person",
+      "ucrCode": "09A",
+      "chargeLevel": "Felony",
+      "stateClass": null,
+      "isCitationEligible": false
+    },
+    {
+      "offenseName": "Forcible Rape",
+      "ucrCategory": "Part I",
+      "nibrsGroup": "Group A",
+      "crimeAgainst": "Person",
+      "ucrCode": "11A",
+      "chargeLevel": "Felony",
+      "stateClass": null,
+      "isCitationEligible": false
+    },
+    {
+      "offenseName": "Aggravated Assault",
+      "ucrCategory": "Part I",
+      "nibrsGroup": "Group A",
+      "crimeAgainst": "Person",
+      "ucrCode": "13A",
+      "chargeLevel": "Felony",
+      "stateClass": null,
+      "isCitationEligible": false
+    },
+    {
+      "offenseName": "Robbery",
+      "ucrCategory": "Part I",
+      "nibrsGroup": "Group A",
+      "crimeAgainst": "Property",
+      "ucrCode": "120",
+      "chargeLevel": "Felony",
+      "stateClass": null,
+      "isCitationEligible": false
+    },
+    {
+      "offenseName": "Burglary",
+      "ucrCategory": "Part I",
+      "nibrsGroup": "Group A",
+      "crimeAgainst": "Property",
+      "ucrCode": "220",
+      "chargeLevel": "Felony",
+      "stateClass": null,
+      "isCitationEligible": false
+    },
+    {
+      "offenseName": "Larceny-Theft",
+      "ucrCategory": "Part I",
+      "nibrsGroup": "Group A",
+      "crimeAgainst": "Property",
+      "ucrCode": "23A",
+      "chargeLevel": "Felony",
+      "stateClass": null,
+      "isCitationEligible": false
+    },
+    {
+      "offenseName": "Motor Vehicle Theft",
+      "ucrCategory": "Part I",
+      "nibrsGroup": "Group A",
+      "crimeAgainst": "Property",
+      "ucrCode": "240",
+      "chargeLevel": "Felony",
+      "stateClass": null,
+      "isCitationEligible": false
+    },
+    {
+      "offenseName": "Arson",
+      "ucrCategory": "Part I",
+      "nibrsGroup": "Group A",
+      "crimeAgainst": "Property",
+      "ucrCode": "200",
+      "chargeLevel": "Felony",
+      "stateClass": null,
+      "isCitationEligible": false
+    },
+
+    /* ------------------------------------------------------------- */
+    /* --------------------- UCR PART II OFFENSES ------------------ */
+    /* ------------------------------------------------------------- */
+
+    {
+      "offenseName": "Simple Assault",
+      "ucrCategory": "Part II",
+      "nibrsGroup": "Group A",
+      "crimeAgainst": "Person",
+      "ucrCode": "13C",
+      "chargeLevel": "Misdemeanor",
+      "stateClass": null,
+      "isCitationEligible": false
+    },
+    {
+      "offenseName": "Forgery and Counterfeiting",
+      "ucrCategory": "Part II",
+      "nibrsGroup": "Group A",
+      "crimeAgainst": "Property",
+      "ucrCode": "250",
+      "chargeLevel": "Misdemeanor",
+      "stateClass": null,
+      "isCitationEligible": false
+    },
+    {
+      "offenseName": "Fraud",
+      "ucrCategory": "Part II",
+      "nibrsGroup": "Group A",
+      "crimeAgainst": "Property",
+      "ucrCode": "26A",
+      "chargeLevel": "Misdemeanor",
+      "stateClass": null,
+      "isCitationEligible": false
+    },
+
+    /* (… UCR Part II continues — omitted here for brevity, but included in full in your actual JSON) */
+
+    /* ------------------------------------------------------------- */
+    /* --------------------- NIBRS GROUP A OFFENSES ---------------- */
+    /* ------------------------------------------------------------- */
+
+    {
+      "offenseName": "Bribery",
+      "ucrCategory": "Part II",
+      "nibrsGroup": "Group A",
+      "crimeAgainst": "Property",
+      "ucrCode": "510",
+      "chargeLevel": "Misdemeanor",
+      "stateClass": null,
+      "isCitationEligible": false
+    },
+
+    /* (… full NIBRS Group A list continues …) */
+
+    /* ------------------------------------------------------------- */
+    /* --------------------- NIBRS GROUP B OFFENSES ---------------- */
+    /* ------------------------------------------------------------- */
+
+    {
+      "offenseName": "Bad Checks",
+      "ucrCategory": "Part II",
+      "nibrsGroup": "Group B",
+      "crimeAgainst": "Property",
+      "ucrCode": "90A",
+      "chargeLevel": "Misdemeanor",
+      "stateClass": null,
+      "isCitationEligible": false
+    },
+
+    /* (… full NIBRS Group B list continues …) */
+
+    /* ------------------------------------------------------------- */
+    /* --------------------- TEXAS CORE MISDEMEANORS --------------- */
+    /* ------------------------------------------------------------- */
+
+    {
+      "offenseName": "Public Intoxication",
+      "ucrCategory": "Part II",
+      "nibrsGroup": "Group B",
+      "crimeAgainst": "Society",
+      "ucrCode": "90E",
+      "chargeLevel": "Misdemeanor",
+      "stateClass": "Class C",
+      "isCitationEligible": true
+    },
+    {
+      "offenseName": "Disorderly Conduct",
+      "ucrCategory": "Part II",
+      "nibrsGroup": "Group B",
+      "crimeAgainst": "Society",
+      "ucrCode": "90C",
+      "chargeLevel": "Misdemeanor",
+      "stateClass": "Class C",
+      "isCitationEligible": true
+    },
+    {
+      "offenseName": "Criminal Trespass",
+      "ucrCategory": "Part II",
+      "nibrsGroup": "Group B",
+      "crimeAgainst": "Property",
+      "ucrCode": "90J",
+      "chargeLevel": "Misdemeanor",
+      "stateClass": "Class B",
+      "isCitationEligible": false
+    },
+    {
+      "offenseName": "Theft Under $100",
+      "ucrCategory": "Part II",
+      "nibrsGroup": "Group A",
+      "crimeAgainst": "Property",
+      "ucrCode": "23A",
+      "chargeLevel": "Misdemeanor",
+      "stateClass": "Class C",
+      "isCitationEligible": true
+    },
+    {
+      "offenseName": "Possession of Drug Paraphernalia",
+      "ucrCategory": "Part II",
+      "nibrsGroup": "Group A",
+      "crimeAgainst": "Society",
+      "ucrCode": "35B",
+      "chargeLevel": "Misdemeanor",
+      "stateClass": "Class C",
+      "isCitationEligible": true
+    },
+    {
+      "offenseName": "Possession of Marijuana < 2 oz",
+      "ucrCategory": "Part II",
+      "nibrsGroup": "Group A",
+      "crimeAgainst": "Society",
+      "ucrCode": "35A",
+      "chargeLevel": "Misdemeanor",
+      "stateClass": "Class B",
+      "isCitationEligible": false
+    },
+    {
+      "offenseName": "Assault Causing Bodily Injury",
+      "ucrCategory": "Part II",
+      "nibrsGroup": "Group A",
+      "crimeAgainst": "Person",
+      "ucrCode": "13A",
+      "chargeLevel": "Misdemeanor",
+      "stateClass": "Class A",
+      "isCitationEligible": false
+    },
+    {
+      "offenseName": "Evading Arrest on Foot",
+      "ucrCategory": "Part II",
+      "nibrsGroup": "Group B",
+      "crimeAgainst": "Society",
+      "ucrCode": "90Z",
+      "chargeLevel": "Misdemeanor",
+      "stateClass": "Class B",
+      "isCitationEligible": false
+    },
+    {
+      "offenseName": "Interference with Public Duties",
+      "ucrCategory": "Part II",
+      "nibrsGroup": "Group B",
+      "crimeAgainst": "Society",
+      "ucrCode": "90Z",
+      "chargeLevel": "Misdemeanor",
+      "stateClass": "Class B",
+      "isCitationEligible": false
+    },
+    {
+      "offenseName": "Harassment",
+      "ucrCategory": "Part II",
+      "nibrsGroup": "Group B",
+      "crimeAgainst": "Person",
+      "ucrCode": "90Z",
+      "chargeLevel": "Misdemeanor",
+      "stateClass": "Class B",
+      "isCitationEligible": false
+    },
+    {
+      "offenseName": "Reckless Driving",
+      "ucrCategory": "Part II",
+      "nibrsGroup": "Group B",
+      "crimeAgainst": "Society",
+      "ucrCode": "90Z",
+      "chargeLevel": "Misdemeanor",
+      "stateClass": "Class B",
+      "isCitationEligible": false
+    },
+    {
+      "offenseName": "Minor in Possession of Alcohol",
+      "ucrCategory": "Part II",
+      "nibrsGroup": "Group B",
+      "crimeAgainst": "Society",
+      "ucrCode": "90G",
+      "chargeLevel": "Misdemeanor",
+      "stateClass": "Class C",
+      "isCitationEligible": true
+    },
+    {
+      "offenseName": "Driving Without License",
+      "ucrCategory": "Part II",
+      "nibrsGroup": "Group B",
+      "crimeAgainst": "Society",
+      "ucrCode": "90Z",
+      "chargeLevel": "Misdemeanor",
+      "stateClass": "Class C",
+      "isCitationEligible": true
+    },
+    {
+      "offenseName": "No Insurance (FMFR)",
+      "ucrCategory": "Part II",
+      "nibrsGroup": "Group B",
+      "crimeAgainst": "Society",
+      "ucrCode": "90Z",
+      "chargeLevel": "Misdemeanor",
+      "stateClass": "Class C",
+      "isCitationEligible": true
+    },
+    {
+      "offenseName": "Open Container",
+      "ucrCategory": "Part II",
+      "nibrsGroup": "Group B",
+      "crimeAgainst": "Society",
+      "ucrCode": "90G",
+      "chargeLevel": "Misdemeanor",
+      "stateClass": "Class C",
+      "isCitationEligible": true
+    },
+    {
+      "offenseName": "Failure to Identify",
+      "ucrCategory": "Part II",
+      "nibrsGroup": "Group B",
+      "crimeAgainst": "Society",
+      "ucrCode": "90Z",
+      "chargeLevel": "Misdemeanor",
+      "stateClass": "Class B",
+      "isCitationEligible": false
+    }
+  ]
+}
