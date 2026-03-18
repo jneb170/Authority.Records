@@ -206,6 +206,10 @@ public sealed class GetAuditLogsHandlerTests
         public DbSet<MugshotLink> MugshotLinks => throw new NotImplementedException();
         public DbSet<IncidentArrestLink> IncidentArrestLinks => throw new NotImplementedException();
         public DbSet<IncidentCitationLink> IncidentCitationLinks => throw new NotImplementedException();
+        public DbSet<Charge> Charges => throw new NotImplementedException();
+        public DbSet<ArrestChargeLink> ArrestChargeLinks => throw new NotImplementedException();
+        public DbSet<CitationChargeLink> CitationChargeLinks => throw new NotImplementedException();
+        public DbSet<IncidentChargeLink> IncidentChargeLinks => throw new NotImplementedException();
         public DbSet<IncidentReadModel> IncidentReadModels { get; set; } = null!;
         public DbSet<ArrestReadModel> ArrestReadModels { get; set; } = null!;
         public DbSet<CitationReadModel> CitationReadModels { get; set; } = null!;
