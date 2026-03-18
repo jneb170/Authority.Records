@@ -3,6 +3,7 @@
 @implements IAsyncDisposable
 @inject IArrestService ArrestService
 @inject IIncidentService IncidentService
+@inject IChargeService ChargeService
 @inject IPicklistService PicklistService
 @inject IAgencyConfigurationService ConfigService
 @inject ITenantProvider TenantProvider
@@ -283,6 +284,14 @@ else if (_arrest is not null)
                       ModifiedAt="@(_arrest.ModifiedBy.HasValue ? _arrest.UpdatedAtUtc : null)"
                       ModifiedByName="@_modifiedByName" />
 
+    <RecordChargesSection Title="Charges"
+                          EmptyTitle="No charges linked."
+                          EmptyHint="Add one or more charges in modify mode for this arrest."
+                          Charges="_charges"
+                          ModifyMode="_modifyMode"
+                          OnChargeSelected="LinkChargeAsync"
+                          OnChargeRemoved="UnlinkChargeAsync" />
+
     <!-- Linked Incidents -->
     <div class="record-related-section">
         <div class="record-related-header">
@@ -368,6 +377,7 @@ else if (_arrest is not null)
     private Guid _arrestId;
     private ArrestDto? _arrest;
     private IReadOnlyList<IncidentArrestLinkDto>? _linkedIncidents;
+    private IReadOnlyList<RecordChargeDto>? _charges;
     private IReadOnlyList<IncidentDto>? _allIncidents;
     private Guid _linkIncidentId = Guid.Empty;
     private bool _loading = true;
@@ -496,6 +506,7 @@ else if (_arrest is not null)
                     : null;
 
                 _linkedIncidents = await ArrestService.GetLinkedIncidentsAsync(_arrestId);
+                _charges = await ChargeService.GetByArrestAsync(_arrestId);
 
                 if (_modifyMode)
                     _allIncidents = await IncidentService.GetByJurisdictionAsync();
@@ -687,6 +698,8 @@ else if (_arrest is not null)
 
     private Task UnlinkFromIncidentAsync(Guid incidentId) =>
         RunActionAsync(() => ArrestService.UnlinkFromIncidentAsync(_arrestId, incidentId));
+    private Task LinkChargeAsync(Guid chargeId) => RunActionAsync(() => ChargeService.LinkToArrestAsync(_arrestId, chargeId));
+    private Task UnlinkChargeAsync(Guid chargeId) => RunActionAsync(() => ChargeService.UnlinkFromArrestAsync(_arrestId, chargeId));
 
     private Task OnNameSelected(NameDto name)
     {

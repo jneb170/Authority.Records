@@ -6,6 +6,7 @@
 @inject IIncidentService IncidentService
 @inject IArrestService ArrestService
 @inject ICitationService CitationService
+@inject IChargeService ChargeService
 @inject ILocationService LocationService
 @inject ITenantProvider TenantProvider
 @inject IUserLookupService UserLookupService
@@ -321,6 +322,14 @@ else if (_incident is not null)
         </div>
     </div>
 
+    <RecordChargesSection Title="Charges"
+                          EmptyTitle="No charges linked."
+                          EmptyHint="Add one or more charges in modify mode when the incident needs offense tracking."
+                          Charges="_charges"
+                          ModifyMode="_modifyMode"
+                          OnChargeSelected="LinkChargeAsync"
+                          OnChargeRemoved="UnlinkChargeAsync" />
+
     <AuditInfoSection CreatedAt="@_incident.CreatedAtUtc"
                       CreatedByName="@_createdByName"
                       ModifiedAt="@(_incident.ModifiedBy.HasValue ? _incident.UpdatedAtUtc : null)"
@@ -337,6 +346,7 @@ else if (_incident is not null)
     private IncidentDto? _incident;
     private IReadOnlyList<ArrestDto>? _arrests;
     private IReadOnlyList<CitationDto>? _citations;
+    private IReadOnlyList<RecordChargeDto>? _charges;
     private bool _loading = true;
     private string? _error;
     private string? _actionError;
@@ -424,9 +434,11 @@ else if (_incident is not null)
                 _incidentId = _incident.Id;
                 var t2 = ArrestService.GetByIncidentAsync(_incidentId);
                 var t3 = CitationService.GetByIncidentAsync(_incidentId);
-                await Task.WhenAll(t2, t3);
+                var t4 = ChargeService.GetByIncidentAsync(_incidentId);
+                await Task.WhenAll(t2, t3, t4);
                 _arrests   = t2.Result;
                 _citations = t3.Result;
+                _charges   = t4.Result;
             }
 
             // Keep edit fields in sync so the unified card always shows current values
@@ -609,6 +621,8 @@ else if (_incident is not null)
     private Task OpenAsync()    => RunActionAsync(() => IncidentService.OpenAsync(_incidentId));
     private Task CloseAsync()   => RunActionAsync(() => IncidentService.CloseAsync(_incidentId));
     private Task ArchiveAsync() => RunActionAsync(() => IncidentService.ArchiveAsync(_incidentId));
+    private Task LinkChargeAsync(Guid chargeId) => RunActionAsync(() => ChargeService.LinkToIncidentAsync(_incidentId, chargeId));
+    private Task UnlinkChargeAsync(Guid chargeId) => RunActionAsync(() => ChargeService.UnlinkFromIncidentAsync(_incidentId, chargeId));
 
     private void OnOccurredOnChanged(ChangeEventArgs e)
     {

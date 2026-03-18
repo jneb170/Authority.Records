@@ -1,7 +1,6 @@
-﻿using Infrastructure.IntegrationTests.Common;
+using Infrastructure.IntegrationTests.Common;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
-using Modules.Records.Domain.Abstractions;
 using Shared.Infrastructure.Outbox;
 using Shared.Infrastructure.Persistence;
 using Infrastructure.IntegrationTests.Outbox.Idempotency;
@@ -21,14 +20,9 @@ namespace Infrastructure.IntegrationTests.Outbox.Idempotency
             // Create message
             using (var scope = ServiceProvider.CreateScope())
             {
-                var tenantProvider = (TestTenantProvider)
-                    scope.ServiceProvider.GetRequiredService<ITenantProvider>();
-
-                tenantProvider.SetJurisdictionId(tenantId);
-
                 var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
 
-                db.Add(new TestIdempotencyAggregate(Guid.NewGuid(), tenantId));
+                db.OutboxMessages.Add(new OutboxMessage(new TestIdempotencyDomainEvent(Guid.NewGuid()), tenantId));
                 await db.SaveChangesAsync();
             }
 

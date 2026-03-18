@@ -1,7 +1,6 @@
-﻿using Shared.Infrastructure.Outbox;
+using Shared.Infrastructure.Outbox;
 using Infrastructure.IntegrationTests.Common;
 using Microsoft.Extensions.DependencyInjection;
-using Modules.Records.Domain.Abstractions;
 using Shared.Infrastructure.Persistence;
 
 namespace Infrastructure.IntegrationTests.Outbox.TenantIsolation;
@@ -17,28 +16,21 @@ public class OutboxTenantIsolationTests : IntegrationTestBase
         var tenantA = Guid.NewGuid();
         var tenantB = Guid.NewGuid();
 
-
-        // Create Tenant A aggregate
+        // Create Tenant A message
         using (var scope = ServiceProvider.CreateScope())
         {
-            var tenantProvider = (TestTenantProvider)scope.ServiceProvider.GetRequiredService<ITenantProvider>();
-            tenantProvider.SetJurisdictionId(tenantA);
-
             var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
 
-            db.Add(new TestTenantIsolationAggregate(Guid.NewGuid(), tenantA));
+            db.OutboxMessages.Add(new OutboxMessage(new TestTenantIsolationDomainEvent(Guid.NewGuid()), tenantA));
             await db.SaveChangesAsync();
         }
 
-        // Create Tenant B aggregate
+        // Create Tenant B message
         using (var scope = ServiceProvider.CreateScope())
         {
-            var tenantProvider = (TestTenantProvider)scope.ServiceProvider.GetRequiredService<ITenantProvider>();
-            tenantProvider.SetJurisdictionId(tenantB);
-
             var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
 
-            db.Add(new TestTenantIsolationAggregate(Guid.NewGuid(), tenantB));
+            db.OutboxMessages.Add(new OutboxMessage(new TestTenantIsolationDomainEvent(Guid.NewGuid()), tenantB));
             await db.SaveChangesAsync();
         }
 
