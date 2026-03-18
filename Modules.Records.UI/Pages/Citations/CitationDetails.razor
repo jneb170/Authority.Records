@@ -214,11 +214,6 @@ else if (_citation is not null)
                          OnCleared="OnLocationCleared"
                          OnCancelled="() => _showLocationModal = false" />
 
-    <AuditInfoSection CreatedAt="@_citation.CreatedAtUtc"
-                      CreatedByName="@_createdByName"
-                      ModifiedAt="@(_citation.ModifiedBy.HasValue ? _citation.UpdatedAtUtc : null)"
-                      ModifiedByName="@_modifiedByName" />
-
     <RecordChargesSection Title="Charges"
                           EmptyTitle="No charges linked."
                           EmptyHint="Add citation-eligible charges in modify mode for this citation."
@@ -301,6 +296,10 @@ else if (_citation is not null)
             </button>
         </div>
     }
+    <AuditInfoSection CreatedAt="@_citation.CreatedAtUtc"
+                      CreatedByName="@_createdByName"
+                      ModifiedAt="@(_citation.ModifiedBy.HasValue ? _citation.UpdatedAtUtc : null)"
+                      ModifiedByName="@_modifiedByName" />
 }
 
 @code {

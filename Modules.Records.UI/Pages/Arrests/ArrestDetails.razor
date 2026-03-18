@@ -280,11 +280,6 @@ else if (_arrest is not null)
                          OnCleared="OnPrimaryIncidentCleared"
                          OnCancelled="() => _showPrimaryIncidentModal = false" />
 
-    <AuditInfoSection CreatedAt="@_arrest.CreatedAtUtc"
-                      CreatedByName="@_createdByName"
-                      ModifiedAt="@(_arrest.ModifiedBy.HasValue ? _arrest.UpdatedAtUtc : null)"
-                      ModifiedByName="@_modifiedByName" />
-
     <RecordChargesSection Title="Charges"
                           EmptyTitle="No charges linked."
                           EmptyHint="Add one or more charges in modify mode for this arrest."
@@ -368,6 +363,10 @@ else if (_arrest is not null)
             </button>
         </div>
     }
+    <AuditInfoSection CreatedAt="@_arrest.CreatedAtUtc"
+                      CreatedByName="@_createdByName"
+                      ModifiedAt="@(_arrest.ModifiedBy.HasValue ? _arrest.UpdatedAtUtc : null)"
+                      ModifiedByName="@_modifiedByName" />
 }
 
 @code {
