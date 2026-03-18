@@ -12,7 +12,7 @@ public sealed class CitationChargeLink : AggregateRoot, IMultiTenant
     public DateTime LinkedAtUtc { get; private set; }
     public Guid LinkedByUserId { get; private set; }
 
-    private CitationChargeLink() { }
+    private CitationChargeLink() { } // EF
 
     public CitationChargeLink(Guid jurisdictionId, Guid citationId, Guid chargeId, Guid linkedByUserId)
     {

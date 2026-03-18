@@ -11,36 +11,36 @@ internal sealed class ChargeConfiguration : IEntityTypeConfiguration<Charge>
         builder.HasKey(x => x.Id);
 
         builder.Property(x => x.OffenseName)
-            .HasMaxLength(200)
-            .IsRequired();
+               .HasMaxLength(200)
+               .IsRequired();
 
         builder.Property(x => x.UcrCategory)
-            .HasMaxLength(50)
-            .IsRequired();
+               .HasMaxLength(50)
+               .IsRequired();
 
         builder.Property(x => x.NibrsGroup)
-            .HasMaxLength(50)
-            .IsRequired();
+               .HasMaxLength(50)
+               .IsRequired();
 
         builder.Property(x => x.CrimeAgainst)
-            .HasMaxLength(50)
-            .IsRequired();
+               .HasMaxLength(50)
+               .IsRequired();
 
         builder.Property(x => x.UcrCode)
-            .HasMaxLength(50)
-            .IsRequired();
+               .HasMaxLength(50)
+               .IsRequired();
 
         builder.Property(x => x.ChargeLevel)
-            .HasMaxLength(50)
-            .IsRequired();
+               .HasMaxLength(50)
+               .IsRequired();
 
         builder.Property(x => x.StateClass)
-            .HasMaxLength(50)
-            .IsRequired(false);
-
-        builder.HasIndex(x => new { x.JurisdictionId, x.AgencyId, x.UcrCode, x.OffenseName })
-            .IsUnique();
+               .HasMaxLength(50)
+               .IsRequired(false);
 
         builder.HasIndex(x => x.IsActive);
+
+        builder.HasIndex(x => new { x.JurisdictionId, x.AgencyId, x.UcrCode, x.OffenseName })
+               .IsUnique();
     }
 }

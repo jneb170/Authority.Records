@@ -19,9 +19,10 @@ public interface IApplicationDbContext
     DbSet<MugshotLink> MugshotLinks { get; }
     DbSet<IncidentArrestLink> IncidentArrestLinks { get; }
     DbSet<IncidentCitationLink> IncidentCitationLinks { get; }
-    DbSet<IncidentChargeLink> IncidentChargeLinks { get; }
+    DbSet<Charge> Charges { get; }
     DbSet<ArrestChargeLink> ArrestChargeLinks { get; }
     DbSet<CitationChargeLink> CitationChargeLinks { get; }
+    DbSet<IncidentChargeLink> IncidentChargeLinks { get; }
 
     DbSet<IncidentReadModel> IncidentReadModels { get; }
     DbSet<ArrestReadModel> ArrestReadModels { get; }

@@ -12,7 +12,7 @@ public sealed class IncidentChargeLink : AggregateRoot, IMultiTenant
     public DateTime LinkedAtUtc { get; private set; }
     public Guid LinkedByUserId { get; private set; }
 
-    private IncidentChargeLink() { }
+    private IncidentChargeLink() { } // EF
 
     public IncidentChargeLink(Guid jurisdictionId, Guid incidentId, Guid chargeId, Guid linkedByUserId)
     {

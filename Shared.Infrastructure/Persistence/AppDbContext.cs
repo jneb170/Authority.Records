@@ -53,9 +53,10 @@ public class AppDbContext : DbContext, IApplicationDbContext
     public DbSet<MugshotLink> MugshotLinks => Set<MugshotLink>();
     public DbSet<IncidentArrestLink> IncidentArrestLinks => Set<IncidentArrestLink>();
     public DbSet<IncidentCitationLink> IncidentCitationLinks => Set<IncidentCitationLink>();
-    public DbSet<IncidentChargeLink> IncidentChargeLinks => Set<IncidentChargeLink>();
+    public DbSet<Charge> Charges => Set<Charge>();
     public DbSet<ArrestChargeLink> ArrestChargeLinks => Set<ArrestChargeLink>();
     public DbSet<CitationChargeLink> CitationChargeLinks => Set<CitationChargeLink>();
+    public DbSet<IncidentChargeLink> IncidentChargeLinks => Set<IncidentChargeLink>();
 
     public DbSet<JurisdictionConfiguration> JurisdictionConfigurations => Set<JurisdictionConfiguration>();
     public DbSet<AgencyConfiguration> AgencyConfigurations => Set<AgencyConfiguration>();

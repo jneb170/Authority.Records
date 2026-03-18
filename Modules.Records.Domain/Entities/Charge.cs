@@ -18,7 +18,7 @@ public sealed class Charge : AggregateRoot, IMultiTenant
     public bool IsCitationEligible { get; private set; }
     public bool IsActive { get; private set; }
 
-    private Charge() { }
+    private Charge() { } // EF
 
     public Charge(
         Guid jurisdictionId,
@@ -30,82 +30,20 @@ public sealed class Charge : AggregateRoot, IMultiTenant
         string ucrCode,
         string chargeLevel,
         string? stateClass,
-        bool isCitationEligible)
+        bool isCitationEligible,
+        bool isActive)
     {
         Id = Guid.NewGuid();
         JurisdictionId = jurisdictionId;
         AgencyId = agencyId;
-        OffenseName = offenseName.Trim();
-        UcrCategory = ucrCategory.Trim();
-        NibrsGroup = nibrsGroup.Trim();
-        CrimeAgainst = crimeAgainst.Trim();
-        UcrCode = ucrCode.Trim();
-        ChargeLevel = chargeLevel.Trim();
-        StateClass = string.IsNullOrWhiteSpace(stateClass) ? null : stateClass.Trim();
+        OffenseName = offenseName;
+        UcrCategory = ucrCategory;
+        NibrsGroup = nibrsGroup;
+        CrimeAgainst = crimeAgainst;
+        UcrCode = ucrCode;
+        ChargeLevel = chargeLevel;
+        StateClass = stateClass;
         IsCitationEligible = isCitationEligible;
-        IsActive = true;
-
-        AddDomainEvent(new ChargeCreatedDomainEvent(
-            Id,
-            JurisdictionId,
-            AgencyId,
-            OffenseName,
-            UcrCode,
-            ChargeLevel,
-            IsCitationEligible));
-    }
-
-    public void Update(
-        string offenseName,
-        string ucrCategory,
-        string nibrsGroup,
-        string crimeAgainst,
-        string ucrCode,
-        string chargeLevel,
-        string? stateClass,
-        bool isCitationEligible)
-    {
-        OffenseName = offenseName.Trim();
-        UcrCategory = ucrCategory.Trim();
-        NibrsGroup = nibrsGroup.Trim();
-        CrimeAgainst = crimeAgainst.Trim();
-        UcrCode = ucrCode.Trim();
-        ChargeLevel = chargeLevel.Trim();
-        StateClass = string.IsNullOrWhiteSpace(stateClass) ? null : stateClass.Trim();
-        IsCitationEligible = isCitationEligible;
-
-        AddDomainEvent(new ChargeUpdatedDomainEvent(
-            Id,
-            OffenseName,
-            UcrCategory,
-            NibrsGroup,
-            CrimeAgainst,
-            UcrCode,
-            ChargeLevel,
-            StateClass,
-            IsCitationEligible));
-    }
-
-    public void Activate()
-    {
-        if (IsActive)
-            return;
-
-        IsActive = true;
-        AddDomainEvent(new ChargeActivatedDomainEvent(Id));
-    }
-
-    public void Deactivate()
-    {
-        if (!IsActive)
-            return;
-
-        IsActive = false;
-        AddDomainEvent(new ChargeDeactivatedDomainEvent(Id));
-    }
-
-    public void Delete(Guid userId)
-    {
-        AddDomainEvent(new ChargeDeletedDomainEvent(Id, userId));
+        IsActive = isActive;
     }
 }
