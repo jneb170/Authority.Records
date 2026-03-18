@@ -1243,6 +1243,15 @@ button:focus-visible,
 .record-mode-banner {
     border: 1px solid rgba(217, 119, 6, .16);
     box-shadow: 0 10px 24px rgba(15, 23, 42, 0.04);
+    flex-wrap: wrap;
+    justify-content: flex-start;
+}
+
+.record-mode-actions {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    flex-wrap: wrap;
 }
 
 .record-action-bar {
@@ -1425,6 +1434,9 @@ button:focus-visible,
     margin-top: 0.85rem;
     padding-top: 0.65rem;
     border-top: 1px solid rgba(30,45,69,.08);
+    display: flex;
+    justify-content: flex-start;
+    gap: 0.5rem;
 }
 
 .record-link-picker {
