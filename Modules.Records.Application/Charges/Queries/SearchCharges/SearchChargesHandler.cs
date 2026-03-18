@@ -34,12 +34,12 @@ public sealed class SearchChargesHandler : IRequestHandler<SearchChargesQuery, I
 
         if (!string.IsNullOrWhiteSpace(request.Term))
         {
-            var term = request.Term.Trim().ToLower();
+            var pattern = $"%{request.Term.Trim()}%";
             query = query.Where(c =>
-                c.OffenseName.ToLower().Contains(term) ||
-                c.UcrCode.ToLower().Contains(term) ||
-                c.ChargeLevel.ToLower().Contains(term) ||
-                c.CrimeAgainst.ToLower().Contains(term));
+                EF.Functions.Like(c.OffenseName, pattern) ||
+                EF.Functions.Like(c.UcrCode, pattern) ||
+                EF.Functions.Like(c.ChargeLevel, pattern) ||
+                EF.Functions.Like(c.CrimeAgainst, pattern));
         }
 
         var charges = await query

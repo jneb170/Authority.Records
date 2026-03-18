@@ -46,22 +46,30 @@ public sealed class SeedChargesHandler : IRequestHandler<SeedChargesCommand, Cha
 
         foreach (var offense in document.Offenses)
         {
+            var offenseName = offense.OffenseName.Trim();
+            var ucrCategory = offense.UcrCategory.Trim();
+            var nibrsGroup = offense.NibrsGroup.Trim();
+            var crimeAgainst = offense.CrimeAgainst.Trim();
+            var ucrCode = offense.UcrCode.Trim();
+            var chargeLevel = offense.ChargeLevel.Trim();
+            var stateClass = offense.StateClass?.Trim();
+
             var existingCharge = existing.FirstOrDefault(c =>
-                c.OffenseName == offense.OffenseName.Trim() &&
-                c.UcrCode == offense.UcrCode.Trim());
+                c.OffenseName == offenseName &&
+                c.UcrCode == ucrCode);
 
             if (existingCharge is null)
             {
                 var charge = new Charge(
                     jurisdictionId,
                     agencyId,
-                    offense.OffenseName,
-                    offense.UcrCategory,
-                    offense.NibrsGroup,
-                    offense.CrimeAgainst,
-                    offense.UcrCode,
-                    offense.ChargeLevel,
-                    offense.StateClass,
+                    offenseName,
+                    ucrCategory,
+                    nibrsGroup,
+                    crimeAgainst,
+                    ucrCode,
+                    chargeLevel,
+                    stateClass,
                     offense.IsCitationEligible);
 
                 _dbContext.Charges.Add(charge);
@@ -70,13 +78,13 @@ public sealed class SeedChargesHandler : IRequestHandler<SeedChargesCommand, Cha
             }
 
             existingCharge.Update(
-                offense.OffenseName,
-                offense.UcrCategory,
-                offense.NibrsGroup,
-                offense.CrimeAgainst,
-                offense.UcrCode,
-                offense.ChargeLevel,
-                offense.StateClass,
+                offenseName,
+                ucrCategory,
+                nibrsGroup,
+                crimeAgainst,
+                ucrCode,
+                chargeLevel,
+                stateClass,
                 offense.IsCitationEligible);
             existingCharge.Activate();
             updated++;
