@@ -11,6 +11,7 @@ using Modules.Records.Application.Charges.Commands.UnlinkChargeFromArrest;
 using Modules.Records.Application.Charges.Commands.UnlinkChargeFromCitation;
 using Modules.Records.Application.Charges.Commands.UnlinkChargeFromIncident;
 using Modules.Records.Application.Charges.Commands.UpdateCharge;
+using Modules.Records.Application.Charges.Queries.CountCharges;
 using Modules.Records.Application.Charges.Queries.GetChargesByArrest;
 using Modules.Records.Application.Charges.Queries.GetChargesByCitation;
 using Modules.Records.Application.Charges.Queries.GetChargesByIncident;
@@ -30,6 +31,9 @@ public sealed class ChargeService : IChargeService
 
     public Task<IReadOnlyList<ChargeDto>> SearchAsync(string? term = null, bool includeInactive = false, bool citationEligibleOnly = false) =>
         _sender.Send(new SearchChargesQuery(term, includeInactive, citationEligibleOnly));
+
+    public Task<int> CountAsync(bool includeInactive = false) =>
+        _sender.Send(new CountChargesQuery(includeInactive));
 
     public Task<Guid> CreateAsync(string offenseName, string ucrCategory, string nibrsGroup, string crimeAgainst, string ucrCode, string chargeLevel, string? stateClass, bool isCitationEligible, bool isActive = true) =>
         _sender.Send(new CreateChargeCommand(offenseName, ucrCategory, nibrsGroup, crimeAgainst, ucrCode, chargeLevel, stateClass, isCitationEligible, isActive));

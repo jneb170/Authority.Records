@@ -6,6 +6,7 @@ namespace Modules.Records.UI.Services;
 public interface IChargeService
 {
     Task<IReadOnlyList<ChargeDto>> SearchAsync(string? term = null, bool includeInactive = false, bool citationEligibleOnly = false);
+    Task<int> CountAsync(bool includeInactive = false);
     Task<Guid> CreateAsync(string offenseName, string ucrCategory, string nibrsGroup, string crimeAgainst, string ucrCode, string chargeLevel, string? stateClass, bool isCitationEligible, bool isActive = true);
     Task UpdateAsync(Guid chargeId, string offenseName, string ucrCategory, string nibrsGroup, string crimeAgainst, string ucrCode, string chargeLevel, string? stateClass, bool isCitationEligible, bool isActive);
     Task ActivateAsync(Guid chargeId);

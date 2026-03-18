@@ -328,7 +328,7 @@
         _eyeCount    = eyeItems.Count;
         _stateCount      = stateItems.Count;
         _suffixCount     = suffixItems.Count;
-        _chargeCount     = (await ChargeService.SearchAsync(includeInactive: true)).Count;
+        _chargeCount     = await ChargeService.CountAsync(includeInactive: true);
         _directionCount  = dirItems.Count;
         _streetTypeCount = stTypeItems.Count;
         _countryCount    = countryItems.Count;
