@@ -498,11 +498,6 @@ else if (_name is not null)
                          OnCleared="OnSecondaryLocationCleared"
                          OnCancelled="() => _showSecondaryLocationModal = false" />
 
-    <AuditInfoSection CreatedAt="@_name.CreatedAtUtc"
-                      CreatedByName="@_createdByName"
-                      ModifiedAt="@(_name.ModifiedBy.HasValue ? _name.UpdatedAtUtc : null)"
-                      ModifiedByName="@_modifiedByName" />
-
     <MugshotGallery NameId="_name.Id" CanModify="_modifyMode" />
 
     @if (_modifyMode)
@@ -513,6 +508,11 @@ else if (_name is not null)
             </button>
         </div>
     }
+
+    <AuditInfoSection CreatedAt="@_name.CreatedAtUtc"
+                      CreatedByName="@_createdByName"
+                      ModifiedAt="@(_name.ModifiedBy.HasValue ? _name.UpdatedAtUtc : null)"
+                      ModifiedByName="@_modifiedByName" />
 }
 
 @code {
