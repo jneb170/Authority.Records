@@ -51,8 +51,13 @@
                 ? Number!
                 : $"{Number} x{Extension}";
 
-    private Task OnNumberInputAsync(ChangeEventArgs args) =>
-        NumberChanged.InvokeAsync(args.Value?.ToString());
+    private async Task OnNumberInputAsync(ChangeEventArgs args)
+    {
+        var number = args.Value?.ToString();
+        await NumberChanged.InvokeAsync(number);
+        if (string.IsNullOrWhiteSpace(number) && !string.IsNullOrWhiteSpace(Extension))
+            await ExtensionChanged.InvokeAsync(null);
+    }
 
     private Task OnExtensionInputAsync(ChangeEventArgs args) =>
         ExtensionChanged.InvokeAsync(args.Value?.ToString());
