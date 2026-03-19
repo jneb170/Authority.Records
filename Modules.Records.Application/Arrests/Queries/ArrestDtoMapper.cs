@@ -2,6 +2,7 @@ using Microsoft.EntityFrameworkCore;
 using Modules.Records.Application.Abstractions;
 using Modules.Records.Application.DTOs;
 using Modules.Records.Application.ReadModels;
+using Modules.Records.Domain.Entities;
 using Modules.Records.Domain.Common;
 
 namespace Modules.Records.Application.Arrests.Queries;
@@ -28,6 +29,11 @@ internal static class ArrestDtoMapper
             .Distinct()
             .ToList();
 
+        var arrestIds = arrests
+            .Select(a => a.Id)
+            .Distinct()
+            .ToList();
+
         var names = nameIds.Count > 0
             ? await dbContext.NameReadModels
                 .AsNoTracking()
@@ -42,17 +48,26 @@ internal static class ArrestDtoMapper
                 .ToDictionaryAsync(i => i.Id, cancellationToken)
             : new Dictionary<Guid, IncidentReadModel>();
 
+        var snapshots = arrestIds.Count > 0
+            ? await dbContext.ArrestNameSnapshots
+                .AsNoTracking()
+                .Where(snapshot => arrestIds.Contains(snapshot.ArrestId))
+                .ToDictionaryAsync(snapshot => snapshot.ArrestId, cancellationToken)
+            : new Dictionary<Guid, ArrestNameSnapshot>();
+
         return arrests
             .Select(a =>
             {
                 names.TryGetValue(a.NameId ?? Guid.Empty, out var name);
                 incidents.TryGetValue(a.PrimaryIncidentId ?? Guid.Empty, out var incident);
+                snapshots.TryGetValue(a.Id, out var snapshot);
 
                 return a.ToDto(
                     suspectName: FormatName(name),
                     nameRecordNumber: name?.RecordNumber,
                     primaryIncidentRecordNumber: incident?.RecordNumber,
-                    primaryIncidentNum: incident?.IncidentNum);
+                    primaryIncidentNum: incident?.IncidentNum,
+                    atTimeOfName: snapshot is null ? null : ArrestNameSnapshotBuilder.ToDto(snapshot));
             })
             .ToList();
     }

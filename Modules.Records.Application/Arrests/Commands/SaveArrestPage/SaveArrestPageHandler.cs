@@ -1,6 +1,7 @@
 using MediatR;
 using Microsoft.EntityFrameworkCore;
 using Modules.Records.Application.Abstractions;
+using Modules.Records.Application.Arrests;
 using Modules.Records.Domain.Abstractions;
 using Modules.Records.Domain.Entities;
 
@@ -44,12 +45,10 @@ public sealed class SaveArrestPageHandler : IRequestHandler<SaveArrestPageComman
             .FirstOrDefaultAsync(a => a.Id == request.ArrestId && a.JurisdictionId == jurisdictionId, cancellationToken)
             ?? throw new InvalidOperationException("Arrest not found.");
 
-        var nameExists = await _dbContext.Names
+        var name = await _dbContext.Names
             .AsNoTracking()
-            .AnyAsync(n => n.Id == request.NameId && n.JurisdictionId == jurisdictionId, cancellationToken);
-
-        if (!nameExists)
-            throw new InvalidOperationException("Linked name not found.");
+            .FirstOrDefaultAsync(n => n.Id == request.NameId && n.JurisdictionId == jurisdictionId, cancellationToken)
+            ?? throw new InvalidOperationException("Linked name not found.");
 
         if (request.PrimaryIncidentId.HasValue)
         {
@@ -62,6 +61,7 @@ public sealed class SaveArrestPageHandler : IRequestHandler<SaveArrestPageComman
         }
 
         arrest.SetLocation(request.LocationId, _modificationContext);
+        var nameChanged = arrest.NameId != request.NameId;
         arrest.UpdateDetails(
             request.NameId,
             request.ArrestedAt,
@@ -69,6 +69,50 @@ public sealed class SaveArrestPageHandler : IRequestHandler<SaveArrestPageComman
             request.ArrestNum,
             request.PrimaryIncidentId,
             _modificationContext);
+
+        var snapshot = await _dbContext.ArrestNameSnapshots
+            .FirstOrDefaultAsync(s => s.ArrestId == arrest.Id && s.JurisdictionId == jurisdictionId, cancellationToken);
+
+        if (request.AtTimeOfName is not null)
+        {
+            if (snapshot is null)
+            {
+                _dbContext.ArrestNameSnapshots.Add(
+                    ArrestNameSnapshotBuilder.CreateFromInput(
+                        arrest,
+                        name.Id,
+                        name.RecordNumber,
+                        request.AtTimeOfName,
+                        userId));
+            }
+            else
+            {
+                ArrestNameSnapshotBuilder.UpdateFromInput(snapshot, name.Id, name.RecordNumber, request.AtTimeOfName, userId);
+            }
+        }
+        else if (nameChanged || snapshot is null)
+        {
+            var snapshotLocations = await ArrestNameSnapshotBuilder.LoadSnapshotLocationsAsync(_dbContext, name, cancellationToken);
+            if (snapshot is null)
+            {
+                _dbContext.ArrestNameSnapshots.Add(
+                    ArrestNameSnapshotBuilder.CreateFromName(
+                        arrest,
+                        name,
+                        snapshotLocations.PrimaryLocation,
+                        snapshotLocations.SecondaryLocation,
+                        userId));
+            }
+            else
+            {
+                ArrestNameSnapshotBuilder.RefreshFromName(
+                    snapshot,
+                    name,
+                    snapshotLocations.PrimaryLocation,
+                    snapshotLocations.SecondaryLocation,
+                    userId);
+            }
+        }
 
         if (incidentIdsToRemove.Count > 0)
         {

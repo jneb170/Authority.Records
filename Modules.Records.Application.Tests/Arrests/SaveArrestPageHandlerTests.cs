@@ -83,6 +83,12 @@ public sealed class SaveArrestPageHandlerTests
         Assert.Equal(locationId, savedArrest.LocationId);
         Assert.Equal(incidentToAdd.Id, savedArrest.PrimaryIncidentId);
 
+        var snapshot = await db.ArrestNameSnapshots.SingleAsync(s => s.ArrestId == arrest.Id);
+        Assert.Equal(name.Id, snapshot.SourceNameId);
+        Assert.Equal(name.RecordNumber, snapshot.SourceNameRecordNumber);
+        Assert.Equal("Doe", snapshot.LastOrBusinessName);
+        Assert.Equal("Jane", snapshot.FirstName);
+
         var linkedIncidentIds = await db.IncidentArrestLinks
             .Where(link => link.ArrestId == arrest.Id)
             .Select(link => link.IncidentId)
@@ -265,5 +271,114 @@ public sealed class SaveArrestPageHandlerTests
         // Exactly one link should exist — no duplicates
         Assert.Single(linkedIncidentIds);
         Assert.Contains(primaryIncident.Id, linkedIncidentIds);
+    }
+
+    [Fact]
+    public async Task Handle_UpdatesAtTimeOfSnapshot_WhenManualValuesProvided()
+    {
+        await using var db = RecordPageSaveTestDbContextFactory.Create();
+
+        var jurisdictionId = Guid.NewGuid();
+        var agencyId = Guid.NewGuid();
+        var userId = Guid.NewGuid();
+
+        var tenantProvider = new TestTenantProvider(jurisdictionId, agencyId, userId);
+        var modificationContext = new UserModificationContext(userId);
+        var handler = new SaveArrestPageHandler(db, tenantProvider, modificationContext);
+
+        var name = new Name(jurisdictionId, agencyId, NameTypes.Person, "Original", "Casey", null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, false, null);
+        var arrest = new Arrest(jurisdictionId, agencyId, name.Id, DateTime.UtcNow.AddDays(-1), "AR-5", null);
+
+        db.Names.Add(name);
+        db.Arrests.Add(arrest);
+        db.ArrestNameSnapshots.Add(ArrestNameSnapshot.Create(
+            jurisdictionId,
+            agencyId,
+            arrest.Id,
+            name.Id,
+            10001,
+            NameTypes.Person,
+            "Original",
+            "Casey",
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            false,
+            null,
+            null,
+            null,
+            "Old primary address",
+            null,
+            null,
+            "Old secondary address",
+            userId));
+        await db.SaveChangesAsync(CancellationToken.None);
+
+        await handler.Handle(
+            new SaveArrestPageCommand(
+                arrest.Id,
+                name.Id,
+                DateTime.UtcNow.AddHours(-1),
+                null,
+                "AR-5",
+                AtTimeOfName: new Modules.Records.Application.DTOs.NameSnapshotInput(
+                    NameTypes.Person,
+                    "Updated",
+                    "Taylor",
+                    null,
+                    null,
+                    null,
+                    new DateTime(1992, 5, 6),
+                    "DL-200",
+                    null,
+                    71,
+                    190,
+                    null,
+                    null,
+                    null,
+                    "Plano",
+                    "FBI-200",
+                    "LOCAL-200",
+                    "555-0100",
+                    "12",
+                    "555-0200",
+                    "34",
+                    "555-0300",
+                    "56",
+                    "222-33-4444",
+                    true,
+                    null,
+                    new Modules.Records.Application.DTOs.NameSnapshotAddressDto(null, null, "New primary address"),
+                    new Modules.Records.Application.DTOs.NameSnapshotAddressDto(null, null, "New secondary address"))),
+            CancellationToken.None);
+
+        var snapshot = await db.ArrestNameSnapshots.SingleAsync(s => s.ArrestId == arrest.Id);
+        Assert.Equal("Updated", snapshot.LastOrBusinessName);
+        Assert.Equal("Taylor", snapshot.FirstName);
+        Assert.Equal("DL-200", snapshot.DriversLicenseNumber);
+        Assert.Equal("Plano", snapshot.PlaceOfBirth);
+        Assert.Equal("New primary address", snapshot.PrimaryLocationAddress);
+        Assert.Equal("New secondary address", snapshot.SecondaryLocationAddress);
+        Assert.Equal(true, snapshot.IsCitizen);
+        Assert.Equal(userId, snapshot.LastCopiedByUserId);
+        Assert.NotNull(snapshot.LastCopiedAtUtc);
     }
 }

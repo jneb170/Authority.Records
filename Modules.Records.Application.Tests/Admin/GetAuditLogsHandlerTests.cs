@@ -199,6 +199,7 @@ public sealed class GetAuditLogsHandlerTests
         public DbSet<Incident> Incidents => throw new NotImplementedException();
         public IQueryable<Incident> AllIncidentsWithDeleted => throw new NotImplementedException();
         public DbSet<Arrest> Arrests => throw new NotImplementedException();
+        public DbSet<ArrestNameSnapshot> ArrestNameSnapshots => throw new NotImplementedException();
         public DbSet<Citation> Citations => throw new NotImplementedException();
         public DbSet<Charge> Charges => throw new NotImplementedException();
         public DbSet<Name> Names => throw new NotImplementedException();

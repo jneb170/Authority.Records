@@ -17,7 +17,7 @@ public interface IArrestService
     Task CloseAsync(Guid id);
     Task ArchiveAsync(Guid id);
     Task FinalizeAsync(Guid id);
-    Task UpdateDetailsAsync(Guid id, Guid nameId, DateTime arrestedAt, Guid? arrestTypeId = null, string arrestNum = "", Guid? locationId = null, Guid? primaryIncidentId = null);
+    Task UpdateDetailsAsync(Guid id, Guid nameId, DateTime arrestedAt, Guid? arrestTypeId = null, string arrestNum = "", Guid? locationId = null, Guid? primaryIncidentId = null, NameSnapshotInput? atTimeOfName = null);
     Task SavePageAsync(
         Guid id,
         Guid nameId,
@@ -29,7 +29,8 @@ public interface IArrestService
         IReadOnlyCollection<Guid>? incidentIdsToAdd = null,
         IReadOnlyCollection<Guid>? incidentIdsToRemove = null,
         IReadOnlyCollection<Guid>? chargeIdsToAdd = null,
-        IReadOnlyCollection<Guid>? chargeIdsToRemove = null);
+        IReadOnlyCollection<Guid>? chargeIdsToRemove = null,
+        NameSnapshotInput? atTimeOfName = null);
     Task AcquireLockAsync(Guid id);
     Task ReleaseLockAsync(Guid id);
     Task SoftDeleteAsync(Guid id);

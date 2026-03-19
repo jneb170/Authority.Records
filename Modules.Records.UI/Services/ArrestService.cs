@@ -76,8 +76,8 @@ public sealed class ArrestService : IArrestService
     public Task FinalizeAsync(Guid id) =>
         _sender.Send(new FinalizeArrestCommand(id));
 
-    public Task UpdateDetailsAsync(Guid id, Guid nameId, DateTime arrestedAt, Guid? arrestTypeId = null, string arrestNum = "", Guid? locationId = null, Guid? primaryIncidentId = null) =>
-        _sender.Send(new UpdateArrestDetailsCommand(id, nameId, arrestedAt, arrestTypeId, arrestNum, locationId, primaryIncidentId));
+    public Task UpdateDetailsAsync(Guid id, Guid nameId, DateTime arrestedAt, Guid? arrestTypeId = null, string arrestNum = "", Guid? locationId = null, Guid? primaryIncidentId = null, NameSnapshotInput? atTimeOfName = null) =>
+        _sender.Send(new UpdateArrestDetailsCommand(id, nameId, arrestedAt, arrestTypeId, arrestNum, locationId, primaryIncidentId, atTimeOfName));
 
     public Task SavePageAsync(
         Guid id,
@@ -90,7 +90,8 @@ public sealed class ArrestService : IArrestService
         IReadOnlyCollection<Guid>? incidentIdsToAdd = null,
         IReadOnlyCollection<Guid>? incidentIdsToRemove = null,
         IReadOnlyCollection<Guid>? chargeIdsToAdd = null,
-        IReadOnlyCollection<Guid>? chargeIdsToRemove = null) =>
+        IReadOnlyCollection<Guid>? chargeIdsToRemove = null,
+        NameSnapshotInput? atTimeOfName = null) =>
         _sender.Send(new SaveArrestPageCommand(
             id,
             nameId,
@@ -102,7 +103,8 @@ public sealed class ArrestService : IArrestService
             incidentIdsToAdd,
             incidentIdsToRemove,
             chargeIdsToAdd,
-            chargeIdsToRemove));
+            chargeIdsToRemove,
+            atTimeOfName));
 
     public Task AcquireLockAsync(Guid id) =>
         _sender.Send(new AcquireArrestLockCommand(id));

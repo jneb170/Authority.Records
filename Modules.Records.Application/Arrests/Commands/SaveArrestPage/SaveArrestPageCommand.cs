@@ -1,3 +1,4 @@
+using Modules.Records.Application.DTOs;
 using MediatR;
 
 namespace Modules.Records.Application.Arrests.Commands.SaveArrestPage;
@@ -13,4 +14,5 @@ public sealed record SaveArrestPageCommand(
     IReadOnlyCollection<Guid>? IncidentIdsToAdd = null,
     IReadOnlyCollection<Guid>? IncidentIdsToRemove = null,
     IReadOnlyCollection<Guid>? ChargeIdsToAdd = null,
-    IReadOnlyCollection<Guid>? ChargeIdsToRemove = null) : IRequest;
+    IReadOnlyCollection<Guid>? ChargeIdsToRemove = null,
+    NameSnapshotInput? AtTimeOfName = null) : IRequest;

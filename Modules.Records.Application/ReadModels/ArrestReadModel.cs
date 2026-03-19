@@ -68,11 +68,12 @@ public sealed class ArrestReadModel
         string? suspectName,
         long? nameRecordNumber,
         long? primaryIncidentRecordNumber,
-        string? primaryIncidentNum) => new(
+        string? primaryIncidentNum,
+        NameSnapshotDto? atTimeOfName = null) => new(
         Id, RecordNumber, JurisdictionId, AgencyId,
         NameId, suspectName, nameRecordNumber, ArrestedAt, Status, IsLocked, LockedByUserId,
         CreatedBy, ModifiedBy, CreatedAtUtc, UpdatedAtUtc, ArrestTypeId, ArrestNum, LocationId,
-        PrimaryIncidentId, primaryIncidentRecordNumber, primaryIncidentNum, PrimaryMugshotUrl);
+        PrimaryIncidentId, primaryIncidentRecordNumber, primaryIncidentNum, PrimaryMugshotUrl, atTimeOfName);
 
     public void ApplyDetailsChanged(Guid? nameId, DateTime arrestedAt, Guid? arrestTypeId, string arrestNum, Guid? primaryIncidentId)
     {
