@@ -71,14 +71,21 @@ public sealed class NameService : INameService
         string? localNumber = null,
         string? socialSecurityNumber = null,
         bool isCitizen = false,
-        DateTime? deceasedDate = null) =>
+        DateTime? deceasedDate = null,
+        string? primaryPhone = null,
+        string? primaryPhoneExtension = null,
+        string? workPhone = null,
+        string? workPhoneExtension = null,
+        string? otherPhone = null,
+        string? otherPhoneExtension = null) =>
         _sender.Send(new CreateNameCommand(
             nameType, lastOrBusinessName, firstName, middleName,
             sexId, raceId, dateOfBirth,
             driversLicenseNumber, driversLicenseStateId,
             heightInches, weightLbs, hairColorId, eyeColorId,
             suffixId, placeOfBirth, fbiNumber, localNumber,
-            socialSecurityNumber, isCitizen, deceasedDate));
+            socialSecurityNumber, isCitizen, deceasedDate,
+            primaryPhone, primaryPhoneExtension, workPhone, workPhoneExtension, otherPhone, otherPhoneExtension));
 
     public Task UpdateDetailsAsync(
         Guid id,
@@ -103,7 +110,13 @@ public sealed class NameService : INameService
         bool isCitizen = false,
         DateTime? deceasedDate = null,
         Guid? primaryLocationId = null,
-        Guid? secondaryLocationId = null) =>
+        Guid? secondaryLocationId = null,
+        string? primaryPhone = null,
+        string? primaryPhoneExtension = null,
+        string? workPhone = null,
+        string? workPhoneExtension = null,
+        string? otherPhone = null,
+        string? otherPhoneExtension = null) =>
         _sender.Send(new UpdateNameDetailsCommand(
             id, nameType, lastOrBusinessName, firstName, middleName,
             sexId, raceId, dateOfBirth,
@@ -111,7 +124,8 @@ public sealed class NameService : INameService
             heightInches, weightLbs, hairColorId, eyeColorId,
             suffixId, placeOfBirth, fbiNumber, localNumber,
             socialSecurityNumber, isCitizen, deceasedDate,
-            primaryLocationId, secondaryLocationId));
+            primaryLocationId, secondaryLocationId,
+            primaryPhone, primaryPhoneExtension, workPhone, workPhoneExtension, otherPhone, otherPhoneExtension));
 
     public Task AcquireLockAsync(Guid id) =>
         _sender.Send(new AcquireNameLockCommand(id));

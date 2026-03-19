@@ -51,7 +51,13 @@ public sealed class UpdateNameDetailsHandler : IRequestHandler<UpdateNameDetails
             request.SocialSecurityNumber,
             request.IsCitizen,
             request.DeceasedDate,
-            _modificationContext);
+            _modificationContext,
+            request.PrimaryPhone,
+            request.PrimaryPhoneExtension,
+            request.WorkPhone,
+            request.WorkPhoneExtension,
+            request.OtherPhone,
+            request.OtherPhoneExtension);
         name.SetLocations(request.PrimaryLocationId, request.SecondaryLocationId, _modificationContext);
 
         await _dbContext.SaveChangesAsync(cancellationToken);
