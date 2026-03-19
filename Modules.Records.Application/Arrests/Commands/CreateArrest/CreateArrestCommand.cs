@@ -7,4 +7,5 @@ public sealed record CreateArrestCommand(
     DateTime ArrestedAt,
     IReadOnlyList<long> IncidentRecordNumbers,
     string ArrestNum = "",
-    Guid? PrimaryIncidentId = null) : IRequest<long>;
+    Guid? PrimaryIncidentId = null,
+    Guid? LocationId = null) : IRequest<long>;

@@ -10,6 +10,7 @@ using Modules.Records.Domain.Common.Implementations;
 using Modules.Records.Domain.Common.Primitives;
 using Modules.Records.Domain.DomainEvents;
 using Modules.Records.Domain.Entities;
+using Modules.Records.Domain.Factories;
 using Modules.Records.Domain.ValueObjects;
 
 namespace Modules.Records.Application.Tests.ReadModels;
@@ -94,6 +95,43 @@ public sealed class ProjectionUpdateHandlerTests
         Assert.Equal(locationId, readModel.LocationId);
         Assert.Equal(modifiedBy, readModel.ModifiedBy);
         Assert.Equal(now, readModel.UpdatedAtUtc);
+    }
+
+    [Fact]
+    public async Task ArrestProjectionCreate_CopiesAggregateLocationId()
+    {
+        await using var db = ProjectionUpdateTestDbContextFactory.Create();
+        var jurisdictionId = Guid.NewGuid();
+        var agencyId = Guid.NewGuid();
+        var arrestId = Guid.NewGuid();
+        var nameId = Guid.NewGuid();
+        var locationId = Guid.NewGuid();
+        var createdAt = new DateTime(2026, 3, 10, 12, 0, 0, DateTimeKind.Utc);
+
+        var arrest = new ArrestFactory().Create(
+            jurisdictionId,
+            agencyId,
+            nameId,
+            createdAt,
+            "AR-900",
+            null);
+
+        typeof(Arrest).GetProperty(nameof(Arrest.Id))!.SetValue(arrest, arrestId);
+        arrest.SetLocation(locationId, new UserModificationContext(Guid.NewGuid()));
+
+        db.Arrests.Add(arrest);
+        await db.SaveChangesAsync(CancellationToken.None);
+
+        var handler = new ArrestProjectionHandler(db);
+        await handler.Handle(
+            new ArrestCreatedDomainEvent(arrestId, jurisdictionId, nameId, createdAt, "AR-900", null)
+            {
+                OccurredOnUtc = createdAt
+            },
+            CancellationToken.None);
+
+        var readModel = await db.ArrestReadModels.SingleAsync(a => a.Id == arrestId);
+        Assert.Equal(locationId, readModel.LocationId);
     }
 
     [Fact]
@@ -261,10 +299,10 @@ internal sealed class ProjectionUpdateTestDbContext(DbContextOptions<ProjectionU
     public DbSet<ArrestReadModel> ArrestReadModels { get; set; } = null!;
     public DbSet<CitationReadModel> CitationReadModels { get; set; } = null!;
     public DbSet<NameReadModel> NameReadModels { get; set; } = null!;
+    public DbSet<Arrest> Arrests { get; set; } = null!;
 
     public DbSet<Incident> Incidents => throw new NotImplementedException();
     public IQueryable<Incident> AllIncidentsWithDeleted => throw new NotImplementedException();
-    public DbSet<Arrest> Arrests => throw new NotImplementedException();
     public DbSet<Citation> Citations => throw new NotImplementedException();
     public DbSet<Charge> Charges => throw new NotImplementedException();
     public DbSet<Name> Names => throw new NotImplementedException();
@@ -296,6 +334,11 @@ internal sealed class ProjectionUpdateTestDbContext(DbContextOptions<ProjectionU
         modelBuilder.Entity<ArrestReadModel>().HasKey(x => x.Id);
         modelBuilder.Entity<CitationReadModel>().HasKey(x => x.Id);
         modelBuilder.Entity<NameReadModel>().HasKey(x => x.Id);
+        modelBuilder.Entity<Arrest>(b =>
+        {
+            b.HasKey(x => x.Id);
+            b.Ignore(x => x.DomainEvents);
+        });
     }
 }
 

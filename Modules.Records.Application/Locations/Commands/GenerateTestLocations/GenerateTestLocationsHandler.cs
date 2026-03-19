@@ -1,7 +1,6 @@
 using MediatR;
-using Microsoft.EntityFrameworkCore;
 using Modules.Records.Application.Abstractions;
-using Modules.Records.Application.Locations.Commands.CreateLocation;
+using Modules.Records.Application.Locations;
 using Modules.Records.Domain.Abstractions;
 using Modules.Records.Domain.Common;
 
@@ -33,10 +32,10 @@ public sealed class GenerateTestLocationsHandler
     {
         var jurisdictionId = _tenantProvider.GetJurisdictionId();
 
-        var directionDict  = await LoadPicklistAsync(PicklistTypes.Direction,  jurisdictionId, cancellationToken);
-        var streetTypeDict = await LoadPicklistAsync(PicklistTypes.StreetType, jurisdictionId, cancellationToken);
-        var stateDict      = await LoadPicklistAsync(PicklistTypes.State,      jurisdictionId, cancellationToken);
-        var countryDict    = await LoadPicklistAsync(PicklistTypes.Country,    jurisdictionId, cancellationToken);
+        var directionDict = await LocationSeedPlaceCommandFactory.LoadPicklistAsync(_dbContext, PicklistTypes.Direction, jurisdictionId, cancellationToken);
+        var streetTypeDict = await LocationSeedPlaceCommandFactory.LoadPicklistAsync(_dbContext, PicklistTypes.StreetType, jurisdictionId, cancellationToken);
+        var stateDict = await LocationSeedPlaceCommandFactory.LoadPicklistAsync(_dbContext, PicklistTypes.State, jurisdictionId, cancellationToken);
+        var countryDict = await LocationSeedPlaceCommandFactory.LoadPicklistAsync(_dbContext, PicklistTypes.Country, jurisdictionId, cancellationToken);
 
         var places = await _placesClient.SearchAsync(
             request.Keyword,
@@ -52,30 +51,13 @@ public sealed class GenerateTestLocationsHandler
         {
             try
             {
-                var (preDir, streetName, postDir, streetType) = ParseStreet(
-                    place.StreetAddress, directionDict, streetTypeDict);
-
-                var stateId   = Lookup(stateDict,   place.StateAbbreviation);
-                var countryId = Lookup(countryDict,  place.CountryCode);
-
-                string? coordinates = place.Lat.HasValue && place.Lng.HasValue
-                    ? $"{place.Lat.Value},{place.Lng.Value}"
-                    : null;
-
-                await _sender.Send(new CreateLocationCommand(
-                    StreetAddress:   streetName ?? place.StreetAddress ?? place.FormattedAddress,
-                    City:            place.City           ?? "Unknown",
-                    StreetNumber:    place.StreetNumber,
-                    AptSuite:        place.AptSuite,
-                    PreDirectionId:  preDir,
-                    StreetTypeId:    streetType,
-                    PostDirectionId: postDir,
-                    StateId:         stateId,
-                    CountryId:       countryId,
-                    Zip:             place.Zip,
-                    Coordinates:     coordinates,
-                    CommonPlaceName: place.PlaceName,
-                    Address:         place.FormattedAddress),
+                await _sender.Send(
+                    LocationSeedPlaceCommandFactory.BuildCreateLocationCommand(
+                        place,
+                        directionDict,
+                        streetTypeDict,
+                        stateDict,
+                        countryDict),
                     cancellationToken);
 
                 created++;
@@ -89,41 +71,4 @@ public sealed class GenerateTestLocationsHandler
 
         return new GenerateTestLocationsResult(created, failed, errors);
     }
-
-    // ── Helpers ──────────────────────────────────────────────────────────────
-
-    private async Task<Dictionary<string, Guid>> LoadPicklistAsync(
-        string            picklistType,
-        Guid              jurisdictionId,
-        CancellationToken cancellationToken)
-    {
-        return await _dbContext.PicklistItems
-            .AsNoTracking()
-            .Where(p => p.JurisdictionId == jurisdictionId
-                     && p.PicklistType   == picklistType
-                     && p.IsActive)
-            .ToDictionaryAsync(
-                p => p.Value,
-                p => p.Id,
-                StringComparer.OrdinalIgnoreCase,
-                cancellationToken);
-    }
-
-    private static Guid? Lookup(Dictionary<string, Guid> dict, string? value)
-    {
-        if (string.IsNullOrWhiteSpace(value)) return null;
-        return dict.TryGetValue(value, out var id) ? id : null;
-    }
-
-    /// <summary>
-    /// Splits a Google Maps route string into its pre-direction, base street name,
-    /// post-direction, and street-type components, resolving each to picklist IDs.
-    /// Delegates to <see cref="StreetParser.Parse"/>.
-    /// </summary>
-    private static (Guid? preDir, string? streetName, Guid? postDir, Guid? streetType)
-        ParseStreet(
-            string?                    route,
-            Dictionary<string, Guid>   directionDict,
-            Dictionary<string, Guid>   streetTypeDict)
-        => StreetParser.Parse(route, directionDict, streetTypeDict);
 }
