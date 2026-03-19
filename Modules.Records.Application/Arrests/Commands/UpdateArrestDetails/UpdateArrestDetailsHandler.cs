@@ -1,7 +1,9 @@
 using MediatR;
 using Microsoft.EntityFrameworkCore;
 using Modules.Records.Application.Abstractions;
+using Modules.Records.Application.Arrests;
 using Modules.Records.Domain.Abstractions;
+using Modules.Records.Domain.Entities;
 
 namespace Modules.Records.Application.Arrests.Commands.UpdateArrestDetails;
 
@@ -32,12 +34,10 @@ public sealed class UpdateArrestDetailsHandler : IRequestHandler<UpdateArrestDet
                 cancellationToken)
             ?? throw new InvalidOperationException("Arrest not found.");
 
-        var nameExists = await _dbContext.Names
+        var name = await _dbContext.Names
             .AsNoTracking()
-            .AnyAsync(n => n.Id == request.NameId && n.JurisdictionId == jurisdictionId, cancellationToken);
-
-        if (!nameExists)
-            throw new InvalidOperationException("Linked name not found.");
+            .FirstOrDefaultAsync(n => n.Id == request.NameId && n.JurisdictionId == jurisdictionId, cancellationToken)
+            ?? throw new InvalidOperationException("Linked name not found.");
 
         if (request.PrimaryIncidentId.HasValue)
         {
@@ -50,8 +50,106 @@ public sealed class UpdateArrestDetailsHandler : IRequestHandler<UpdateArrestDet
         }
 
         arrest.SetLocation(request.LocationId, _modificationContext);
+        var nameChanged = arrest.NameId != request.NameId;
         arrest.UpdateDetails(request.NameId, request.ArrestedAt, request.ArrestTypeId, request.ArrestNum, request.PrimaryIncidentId, _modificationContext);
 
+        var snapshot = await _dbContext.ArrestNameSnapshots
+            .FirstOrDefaultAsync(s => s.ArrestId == arrest.Id && s.JurisdictionId == jurisdictionId, cancellationToken);
+
+        if (request.AtTimeOfName is not null)
+        {
+            if (snapshot is null)
+            {
+                _dbContext.ArrestNameSnapshots.Add(
+                    ArrestNameSnapshotBuilder.CreateFromInput(
+                        arrest,
+                        name.Id,
+                        name.RecordNumber,
+                        request.AtTimeOfName,
+                        _tenantProvider.GetUserId()));
+            }
+            else
+            {
+                ArrestNameSnapshotBuilder.UpdateFromInput(snapshot, name.Id, name.RecordNumber, request.AtTimeOfName);
+            }
+        }
+        else if (nameChanged || snapshot is null)
+        {
+            var snapshotLocations = await LoadSnapshotLocationsAsync(name, cancellationToken);
+            if (snapshot is null)
+            {
+                _dbContext.ArrestNameSnapshots.Add(
+                    ArrestNameSnapshotBuilder.CreateFromName(
+                        arrest,
+                        name,
+                        snapshotLocations.PrimaryLocation,
+                        snapshotLocations.SecondaryLocation,
+                        _tenantProvider.GetUserId()));
+            }
+            else
+            {
+                snapshot.RefreshFromSource(
+                    name.Id,
+                    name.RecordNumber,
+                    name.NameType,
+                    name.LastOrBusinessName,
+                    name.FirstName,
+                    name.MiddleName,
+                    name.SexId,
+                    name.RaceId,
+                    name.DateOfBirth,
+                    name.DriversLicenseNumber,
+                    name.DriversLicenseStateId,
+                    name.HeightInches,
+                    name.WeightLbs,
+                    name.HairColorId,
+                    name.EyeColorId,
+                    name.SuffixId,
+                    name.PlaceOfBirth,
+                    name.FbiNumber,
+                    name.LocalNumber,
+                    name.PrimaryPhone,
+                    name.PrimaryPhoneExtension,
+                    name.WorkPhone,
+                    name.WorkPhoneExtension,
+                    name.OtherPhone,
+                    name.OtherPhoneExtension,
+                    name.SocialSecurityNumber,
+                    name.IsCitizen,
+                    name.DeceasedDate,
+                    snapshotLocations.PrimaryLocation?.Id,
+                    snapshotLocations.PrimaryLocation?.RecordNumber,
+                    snapshotLocations.PrimaryLocation?.Address,
+                    snapshotLocations.SecondaryLocation?.Id,
+                    snapshotLocations.SecondaryLocation?.RecordNumber,
+                    snapshotLocations.SecondaryLocation?.Address,
+                    _tenantProvider.GetUserId());
+            }
+        }
+
         await _dbContext.SaveChangesAsync(cancellationToken);
+    }
+
+    private async Task<(Location? PrimaryLocation, Location? SecondaryLocation)> LoadSnapshotLocationsAsync(
+        Name name,
+        CancellationToken cancellationToken)
+    {
+        var locationIds = new[] { name.PrimaryLocationId, name.SecondaryLocationId }
+            .Where(id => id.HasValue)
+            .Select(id => id!.Value)
+            .Distinct()
+            .ToList();
+
+        if (locationIds.Count == 0)
+            return (null, null);
+
+        var locations = await _dbContext.Locations
+            .AsNoTracking()
+            .Where(location => locationIds.Contains(location.Id))
+            .ToDictionaryAsync(location => location.Id, cancellationToken);
+
+        return (
+            name.PrimaryLocationId.HasValue ? locations.GetValueOrDefault(name.PrimaryLocationId.Value) : null,
+            name.SecondaryLocationId.HasValue ? locations.GetValueOrDefault(name.SecondaryLocationId.Value) : null);
     }
 }

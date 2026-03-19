@@ -48,6 +48,7 @@ public class AppDbContext : DbContext, IApplicationDbContext
     public DbSet<Incident> Incidents => Set<Incident>();
     public IQueryable<Incident> AllIncidentsWithDeleted => Set<Incident>().IgnoreQueryFilters();
     public DbSet<Arrest> Arrests => Set<Arrest>();
+    public DbSet<ArrestNameSnapshot> ArrestNameSnapshots => Set<ArrestNameSnapshot>();
     public DbSet<Citation> Citations => Set<Citation>();
     public DbSet<Charge> Charges => Set<Charge>();
     public DbSet<Name> Names => Set<Name>();

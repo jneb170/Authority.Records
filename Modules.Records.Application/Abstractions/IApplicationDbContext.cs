@@ -11,6 +11,7 @@ public interface IApplicationDbContext
     /// <summary>Queryable that bypasses the global IsDeleted filter — use for rebuild/admin operations only.</summary>
     IQueryable<Incident> AllIncidentsWithDeleted { get; }
     DbSet<Arrest> Arrests { get; }
+    DbSet<ArrestNameSnapshot> ArrestNameSnapshots { get; }
     DbSet<Citation> Citations { get; }
     DbSet<Charge> Charges { get; }
     DbSet<Name> Names { get; }

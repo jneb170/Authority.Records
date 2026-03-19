@@ -22,7 +22,43 @@ public sealed class CreateArrestHandlerTests
         var tenantProvider = new TestTenantProvider(jurisdictionId, agencyId, userId);
         var handler = new CreateArrestHandler(db, tenantProvider, new ArrestFactory());
 
-        var name = new Name(jurisdictionId, agencyId, NameTypes.Person, "Doe", "Jordan", null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, false, null);
+        var homeLocation = new Location(
+            jurisdictionId,
+            streetAddress: "Main",
+            city: "Metro",
+            streetNumber: "123",
+            zip: "12345",
+            address: "123 Main, Metro, TX 12345");
+        var name = new Name(
+            jurisdictionId,
+            agencyId,
+            NameTypes.Person,
+            "Doe",
+            "Jordan",
+            null,
+            null,
+            null,
+            new DateTime(1990, 1, 2),
+            "DL-123",
+            null,
+            70,
+            180,
+            null,
+            null,
+            null,
+            "Springfield",
+            "FBI-1",
+            "LOCAL-1",
+            "111-22-3333",
+            true,
+            null,
+            primaryPhone: "555-1000",
+            primaryPhoneExtension: "12",
+            workPhone: "555-2000",
+            workPhoneExtension: "34",
+            otherPhone: "555-3000",
+            otherPhoneExtension: "56");
+        name.SetLocations(homeLocation.Id, null, new UserModificationContext(userId));
         var incident = new IncidentFactory().Create(new CreateIncidentRequest
         {
             JurisdictionId = jurisdictionId,
@@ -35,6 +71,7 @@ public sealed class CreateArrestHandlerTests
             }
         });
 
+        db.Locations.Add(homeLocation);
         db.Names.Add(name);
         db.Incidents.Add(incident);
         await db.SaveChangesAsync(CancellationToken.None);
@@ -54,6 +91,15 @@ public sealed class CreateArrestHandlerTests
         var arrest = await db.Arrests.SingleAsync(a => a.RecordNumber == recordNumber);
         Assert.Equal(name.Id, arrest.NameId);
         Assert.Equal(incident.Id, arrest.PrimaryIncidentId);
+
+        var snapshot = await db.ArrestNameSnapshots.SingleAsync(s => s.ArrestId == arrest.Id);
+        Assert.Equal(name.Id, snapshot.SourceNameId);
+        Assert.Equal(name.RecordNumber, snapshot.SourceNameRecordNumber);
+        Assert.Equal("Doe", snapshot.LastOrBusinessName);
+        Assert.Equal("Jordan", snapshot.FirstName);
+        Assert.Equal(homeLocation.Id, snapshot.PrimaryLocationId);
+        Assert.Equal(homeLocation.RecordNumber, snapshot.PrimaryLocationRecordNumber);
+        Assert.Equal("123 Main, Metro, TX 12345", snapshot.PrimaryLocationAddress);
 
         var links = await db.IncidentArrestLinks
             .Where(link => link.ArrestId == arrest.Id)

@@ -4,6 +4,7 @@
 @inject IArrestService ArrestService
 @inject IIncidentService IncidentService
 @inject IChargeService ChargeService
+@inject INameService NameService
 @inject IPicklistService PicklistService
 @inject IAgencyConfigurationService ConfigService
 @inject ITenantProvider TenantProvider
@@ -12,6 +13,7 @@
 @inject IKeyboardShortcutService ShortcutService
 @inject ILocationService LocationService
 @using Modules.Records.Domain.Common
+@using Modules.Records.Application.DTOs
 @using Modules.Records.UI.Services
 
 <PageTitle>Arrest Details</PageTitle>
@@ -259,6 +261,342 @@ else if (_arrest is not null)
         </div>
     </div>
 
+    <div class="card record-content-card mb-4">
+        <div class="card-body">
+            <div class="d-flex justify-content-between align-items-start gap-3 mb-3">
+                <div>
+                    <h6 class="card-title mb-1">At Time Of Name</h6>
+                    <div class="text-muted small">Historical snapshot stored on this arrest.</div>
+                </div>
+                <div class="d-flex flex-wrap gap-2">
+                    @if (_modifyMode)
+                    {
+                        <button type="button"
+                                class="btn btn-sm btn-outline-secondary"
+                                @onclick="CopyCurrentNameToAtTimeOfAsync"
+                                disabled="@(!_editNameId.HasValue)">
+                            <i class="bi bi-arrow-repeat me-1"></i>Copy current Name
+                        </button>
+                    }
+                </div>
+            </div>
+
+            @if (_editAtTimeOfCopiedAtUtc.HasValue)
+            {
+                <div class="text-muted small mb-3">
+                    Last copied @(_editAtTimeOfCopiedAtUtc.Value.ToLocalTime().ToString("g"))
+                    @if (!string.IsNullOrWhiteSpace(_editAtTimeOfCopiedByName))
+                    {
+                        <span>by @_editAtTimeOfCopiedByName</span>
+                    }
+                </div>
+            }
+
+            @if (!HasAtTimeOfNameData && !_modifyMode)
+            {
+                <div class="record-related-empty-state">
+                    <div class="empty-state">
+                        <i class="bi bi-person-vcard"></i>
+                        <div class="fw-medium">No At Time Of data stored.</div>
+                        <div class="small mt-1">Enter modify mode and copy the current linked Name to capture a historical snapshot.</div>
+                    </div>
+                </div>
+            }
+            else
+            {
+                <div class="row g-3">
+                    <div class="col-sm-6 col-md-3">
+                        <label class="form-label mb-1">Name Type</label>
+                        @if (_modifyMode)
+                        {
+                            <select class="form-select form-select-sm" @bind="_editAtTimeOfNameType">
+                                <option value="@NameTypes.Person">Person</option>
+                                <option value="@NameTypes.Business">Business</option>
+                            </select>
+                        }
+                        else
+                        {
+                            <p class="form-control-plaintext form-control-sm ps-0">@(_editAtTimeOfNameType == NameTypes.Business ? "Business" : "Person")</p>
+                        }
+                    </div>
+                    <div class="col-sm-6 col-md-3">
+                        <label class="form-label mb-1">@(_editAtTimeOfNameType == NameTypes.Business ? "Business Name" : "Last Name")</label>
+                        <input type="text"
+                               class="@(_modifyMode ? "form-control form-control-sm" : "form-control-plaintext form-control-sm ps-0")"
+                               readonly="@(!_modifyMode)"
+                               @bind="_editAtTimeOfLastOrBusinessName"
+                               placeholder="—" />
+                    </div>
+                    @if (_editAtTimeOfNameType == NameTypes.Person)
+                    {
+                        <div class="col-sm-6 col-md-3">
+                            <label class="form-label mb-1">First Name</label>
+                            <input type="text"
+                                   class="@(_modifyMode ? "form-control form-control-sm" : "form-control-plaintext form-control-sm ps-0")"
+                                   readonly="@(!_modifyMode)"
+                                   @bind="_editAtTimeOfFirstName"
+                                   placeholder="—" />
+                        </div>
+                        <div class="col-sm-6 col-md-3">
+                            <label class="form-label mb-1">Middle Name</label>
+                            <input type="text"
+                                   class="@(_modifyMode ? "form-control form-control-sm" : "form-control-plaintext form-control-sm ps-0")"
+                                   readonly="@(!_modifyMode)"
+                                   @bind="_editAtTimeOfMiddleName"
+                                   placeholder="—" />
+                        </div>
+                        <div class="col-sm-6 col-md-3">
+                            <label class="form-label mb-1">Suffix</label>
+                            @if (_modifyMode)
+                            {
+                                <PicklistSelect PicklistType="@PicklistTypes.Suffix" @bind-Value="_editAtTimeOfSuffixId" />
+                            }
+                            else
+                            {
+                                <p class="form-control-plaintext form-control-sm ps-0">@(_atTimeOfSuffixLabel ?? "—")</p>
+                            }
+                        </div>
+                        <div class="col-sm-6 col-md-3">
+                            <label class="form-label mb-1">Place of Birth</label>
+                            <input type="text"
+                                   class="@(_modifyMode ? "form-control form-control-sm" : "form-control-plaintext form-control-sm ps-0")"
+                                   readonly="@(!_modifyMode)"
+                                   @bind="_editAtTimeOfPlaceOfBirth"
+                                   placeholder="—" />
+                        </div>
+                        <div class="col-sm-6 col-md-3">
+                            <label class="form-label mb-1">Date of Birth</label>
+                            @if (_modifyMode)
+                            {
+                                <input type="date"
+                                       class="form-control form-control-sm"
+                                       value="@(_editAtTimeOfDateOfBirth.HasValue ? _editAtTimeOfDateOfBirth.Value.ToString("yyyy-MM-dd") : "")"
+                                       @onchange="@(e => _editAtTimeOfDateOfBirth = DateTime.TryParse(e.Value?.ToString(), out var value) ? value : null)" />
+                            }
+                            else
+                            {
+                                <p class="form-control-plaintext form-control-sm ps-0">@(_editAtTimeOfDateOfBirth?.ToShortDateString() ?? "—")</p>
+                            }
+                        </div>
+                        <div class="col-sm-6 col-md-3">
+                            <label class="form-label mb-1">Sex</label>
+                            @if (_modifyMode)
+                            {
+                                <PicklistSelect PicklistType="@PicklistTypes.Sex" @bind-Value="_editAtTimeOfSexId" />
+                            }
+                            else
+                            {
+                                <p class="form-control-plaintext form-control-sm ps-0">@(_atTimeOfSexLabel ?? "—")</p>
+                            }
+                        </div>
+                        <div class="col-sm-6 col-md-3">
+                            <label class="form-label mb-1">Race</label>
+                            @if (_modifyMode)
+                            {
+                                <PicklistSelect PicklistType="@PicklistTypes.Race" @bind-Value="_editAtTimeOfRaceId" />
+                            }
+                            else
+                            {
+                                <p class="form-control-plaintext form-control-sm ps-0">@(_atTimeOfRaceLabel ?? "—")</p>
+                            }
+                        </div>
+                        <div class="col-sm-6 col-md-3 d-flex align-items-end pb-1">
+                            @if (_modifyMode)
+                            {
+                                <div class="form-check">
+                                    <input type="checkbox" class="form-check-input" id="cbAtTimeCitizen" @bind="_editAtTimeOfIsCitizen" />
+                                    <label class="form-check-label" for="cbAtTimeCitizen">US Citizen</label>
+                                </div>
+                            }
+                            else
+                            {
+                                <div>
+                                    <small class="text-uppercase fw-semibold text-muted d-block" style="font-size: 0.7rem; letter-spacing: 0.05em">US Citizen</small>
+                                    <span class="fw-medium">@(_editAtTimeOfIsCitizen ? "Yes" : "No")</span>
+                                </div>
+                            }
+                        </div>
+                        <div class="col-sm-6 col-md-3">
+                            <label class="form-label mb-1">Deceased Date</label>
+                            @if (_modifyMode)
+                            {
+                                <input type="date"
+                                       class="form-control form-control-sm"
+                                       value="@(_editAtTimeOfDeceasedDate.HasValue ? _editAtTimeOfDeceasedDate.Value.ToString("yyyy-MM-dd") : "")"
+                                       @onchange="@(e => _editAtTimeOfDeceasedDate = DateTime.TryParse(e.Value?.ToString(), out var value) ? value : null)" />
+                            }
+                            else
+                            {
+                                <p class="form-control-plaintext form-control-sm ps-0">@(_editAtTimeOfDeceasedDate?.ToShortDateString() ?? "—")</p>
+                            }
+                        </div>
+                        <div class="col-sm-6 col-md-3">
+                            <label class="form-label mb-1">Height (in)</label>
+                            <input type="number"
+                                   class="@(_modifyMode ? "form-control form-control-sm" : "form-control-plaintext form-control-sm ps-0")"
+                                   readonly="@(!_modifyMode)"
+                                   @bind="_editAtTimeOfHeightInches"
+                                   placeholder="—" />
+                        </div>
+                        <div class="col-sm-6 col-md-3">
+                            <label class="form-label mb-1">Weight (lbs)</label>
+                            <input type="number"
+                                   class="@(_modifyMode ? "form-control form-control-sm" : "form-control-plaintext form-control-sm ps-0")"
+                                   readonly="@(!_modifyMode)"
+                                   @bind="_editAtTimeOfWeightLbs"
+                                   placeholder="—" />
+                        </div>
+                        <div class="col-sm-6 col-md-3">
+                            <label class="form-label mb-1">Hair Color</label>
+                            @if (_modifyMode)
+                            {
+                                <PicklistSelect PicklistType="@PicklistTypes.HairColor" @bind-Value="_editAtTimeOfHairColorId" />
+                            }
+                            else
+                            {
+                                <p class="form-control-plaintext form-control-sm ps-0">@(_atTimeOfHairColorLabel ?? "—")</p>
+                            }
+                        </div>
+                        <div class="col-sm-6 col-md-3">
+                            <label class="form-label mb-1">Eye Color</label>
+                            @if (_modifyMode)
+                            {
+                                <PicklistSelect PicklistType="@PicklistTypes.EyeColor" @bind-Value="_editAtTimeOfEyeColorId" />
+                            }
+                            else
+                            {
+                                <p class="form-control-plaintext form-control-sm ps-0">@(_atTimeOfEyeColorLabel ?? "—")</p>
+                            }
+                        </div>
+                        <div class="col-sm-6 col-md-4">
+                            <label class="form-label mb-1">SSN</label>
+                            <input type="text"
+                                   class="@(_modifyMode ? "form-control form-control-sm" : "form-control-plaintext form-control-sm ps-0")"
+                                   readonly="@(!_modifyMode)"
+                                   @bind="_editAtTimeOfSocialSecurityNumber"
+                                   placeholder="—" />
+                        </div>
+                        <div class="col-sm-6 col-md-4">
+                            <label class="form-label mb-1">FBI #</label>
+                            <input type="text"
+                                   class="@(_modifyMode ? "form-control form-control-sm" : "form-control-plaintext form-control-sm ps-0")"
+                                   readonly="@(!_modifyMode)"
+                                   @bind="_editAtTimeOfFbiNumber"
+                                   placeholder="—" />
+                        </div>
+                        <div class="col-sm-6 col-md-4">
+                            <label class="form-label mb-1">Local #</label>
+                            <input type="text"
+                                   class="@(_modifyMode ? "form-control form-control-sm" : "form-control-plaintext form-control-sm ps-0")"
+                                   readonly="@(!_modifyMode)"
+                                   @bind="_editAtTimeOfLocalNumber"
+                                   placeholder="—" />
+                        </div>
+                        <div class="col-sm-6 col-md-6">
+                            <label class="form-label mb-1">DL Number</label>
+                            <input type="text"
+                                   class="@(_modifyMode ? "form-control form-control-sm" : "form-control-plaintext form-control-sm ps-0")"
+                                   readonly="@(!_modifyMode)"
+                                   @bind="_editAtTimeOfDriversLicenseNumber"
+                                   placeholder="—" />
+                        </div>
+                        <div class="col-sm-6 col-md-6">
+                            <label class="form-label mb-1">DL State</label>
+                            @if (_modifyMode)
+                            {
+                                <StateSelect @bind-Value="_editAtTimeOfDriversLicenseStateId" />
+                            }
+                            else
+                            {
+                                <p class="form-control-plaintext form-control-sm ps-0">@(_atTimeOfDriversLicenseStateLabel ?? "—")</p>
+                            }
+                        </div>
+                    }
+                    <div class="col-lg-4">
+                        <PhoneNumberField Label="Primary Phone"
+                                          ModifyMode="_modifyMode"
+                                          LabelClass="form-label mb-1"
+                                          NumberInputClass="form-control form-control-sm"
+                                          ExtensionInputClass="form-control form-control-sm"
+                                          ReadOnlyValueClass="form-control-plaintext form-control-sm ps-0"
+                                          Number="@_editAtTimeOfPrimaryPhone"
+                                          NumberChanged="@(value => _editAtTimeOfPrimaryPhone = value)"
+                                          Extension="@_editAtTimeOfPrimaryPhoneExtension"
+                                          ExtensionChanged="@(value => _editAtTimeOfPrimaryPhoneExtension = value)" />
+                    </div>
+                    <div class="col-lg-4">
+                        <PhoneNumberField Label="@AtTimeOfWorkPhoneLabel"
+                                          ModifyMode="_modifyMode"
+                                          LabelClass="form-label mb-1"
+                                          NumberInputClass="form-control form-control-sm"
+                                          ExtensionInputClass="form-control form-control-sm"
+                                          ReadOnlyValueClass="form-control-plaintext form-control-sm ps-0"
+                                          Number="@_editAtTimeOfWorkPhone"
+                                          NumberChanged="@(value => _editAtTimeOfWorkPhone = value)"
+                                          Extension="@_editAtTimeOfWorkPhoneExtension"
+                                          ExtensionChanged="@(value => _editAtTimeOfWorkPhoneExtension = value)" />
+                    </div>
+                    <div class="col-lg-4">
+                        <PhoneNumberField Label="Other Phone"
+                                          ModifyMode="_modifyMode"
+                                          LabelClass="form-label mb-1"
+                                          NumberInputClass="form-control form-control-sm"
+                                          ExtensionInputClass="form-control form-control-sm"
+                                          ReadOnlyValueClass="form-control-plaintext form-control-sm ps-0"
+                                          Number="@_editAtTimeOfOtherPhone"
+                                          NumberChanged="@(value => _editAtTimeOfOtherPhone = value)"
+                                          Extension="@_editAtTimeOfOtherPhoneExtension"
+                                          ExtensionChanged="@(value => _editAtTimeOfOtherPhoneExtension = value)" />
+                    </div>
+                    <div class="col-12">
+                        <label class="form-label mb-1">Primary Address Link</label>
+                        <div class="d-flex align-items-center gap-2 mb-1">
+                            @if (_editAtTimeOfPrimaryLocationRecordNumber.HasValue)
+                            {
+                                <a href="/locations/@_editAtTimeOfPrimaryLocationRecordNumber.Value"
+                                   class="btn btn-sm btn-outline-secondary">Location #@_editAtTimeOfPrimaryLocationRecordNumber.Value</a>
+                            }
+                            else
+                            {
+                                <span class="text-muted small">No linked primary address.</span>
+                            }
+                        </div>
+                        @if (_modifyMode)
+                        {
+                            <InputTextArea class="form-control" @bind-Value="_editAtTimeOfPrimaryLocationAddress" rows="2" />
+                        }
+                        else
+                        {
+                            <p class="form-control-plaintext form-control-sm ps-0" style="white-space:pre-wrap;">@(_editAtTimeOfPrimaryLocationAddress ?? "—")</p>
+                        }
+                    </div>
+                    <div class="col-12">
+                        <label class="form-label mb-1">Secondary Address Link</label>
+                        <div class="d-flex align-items-center gap-2 mb-1">
+                            @if (_editAtTimeOfSecondaryLocationRecordNumber.HasValue)
+                            {
+                                <a href="/locations/@_editAtTimeOfSecondaryLocationRecordNumber.Value"
+                                   class="btn btn-sm btn-outline-secondary">Location #@_editAtTimeOfSecondaryLocationRecordNumber.Value</a>
+                            }
+                            else
+                            {
+                                <span class="text-muted small">No linked secondary address.</span>
+                            }
+                        </div>
+                        @if (_modifyMode)
+                        {
+                            <InputTextArea class="form-control" @bind-Value="_editAtTimeOfSecondaryLocationAddress" rows="2" />
+                        }
+                        else
+                        {
+                            <p class="form-control-plaintext form-control-sm ps-0" style="white-space:pre-wrap;">@(_editAtTimeOfSecondaryLocationAddress ?? "—")</p>
+                        }
+                    </div>
+                </div>
+            }
+        </div>
+    </div>
+
     <LocationSearchModal Visible="_showLocationModal"
                          CurrentLocationId="_editLocationId"
                          OnSelected="OnLocationSelected"
@@ -407,6 +745,46 @@ else if (_arrest is not null)
     private Guid? _editNameId;
     private string? _editNameDisplay;
     private long? _editNameRecordNumber;
+    private string _editAtTimeOfNameType = NameTypes.Person;
+    private string _editAtTimeOfLastOrBusinessName = string.Empty;
+    private string? _editAtTimeOfFirstName;
+    private string? _editAtTimeOfMiddleName;
+    private Guid? _editAtTimeOfSexId;
+    private Guid? _editAtTimeOfRaceId;
+    private DateTime? _editAtTimeOfDateOfBirth;
+    private string? _editAtTimeOfDriversLicenseNumber;
+    private Guid? _editAtTimeOfDriversLicenseStateId;
+    private int? _editAtTimeOfHeightInches;
+    private int? _editAtTimeOfWeightLbs;
+    private Guid? _editAtTimeOfHairColorId;
+    private Guid? _editAtTimeOfEyeColorId;
+    private Guid? _editAtTimeOfSuffixId;
+    private string? _editAtTimeOfPlaceOfBirth;
+    private string? _editAtTimeOfFbiNumber;
+    private string? _editAtTimeOfLocalNumber;
+    private string? _editAtTimeOfPrimaryPhone;
+    private string? _editAtTimeOfPrimaryPhoneExtension;
+    private string? _editAtTimeOfWorkPhone;
+    private string? _editAtTimeOfWorkPhoneExtension;
+    private string? _editAtTimeOfOtherPhone;
+    private string? _editAtTimeOfOtherPhoneExtension;
+    private string? _editAtTimeOfSocialSecurityNumber;
+    private bool _editAtTimeOfIsCitizen;
+    private DateTime? _editAtTimeOfDeceasedDate;
+    private Guid? _editAtTimeOfPrimaryLocationId;
+    private long? _editAtTimeOfPrimaryLocationRecordNumber;
+    private string? _editAtTimeOfPrimaryLocationAddress;
+    private Guid? _editAtTimeOfSecondaryLocationId;
+    private long? _editAtTimeOfSecondaryLocationRecordNumber;
+    private string? _editAtTimeOfSecondaryLocationAddress;
+    private DateTime? _editAtTimeOfCopiedAtUtc;
+    private string? _editAtTimeOfCopiedByName;
+    private string? _atTimeOfSuffixLabel;
+    private string? _atTimeOfSexLabel;
+    private string? _atTimeOfRaceLabel;
+    private string? _atTimeOfHairColorLabel;
+    private string? _atTimeOfEyeColorLabel;
+    private string? _atTimeOfDriversLicenseStateLabel;
     private DateTime _editArrestedAt = DateTime.Now;
     private string _editArrestNum = string.Empty;
     private bool _generatingArrestNum;
@@ -478,6 +856,7 @@ else if (_arrest is not null)
             _editPrimaryIncidentDisplay   = FormatIncidentDisplay(_arrest);
             _editPrimaryIncidentRecordNumber = _arrest.PrimaryIncidentRecordNumber;
             _editLocationId               = _arrest.LocationId;
+            LoadAtTimeOfName(_arrest.AtTimeOfName);
             _editSnapshot = ComputeEditSnapshot();
             StartLockTimer();
         }
@@ -507,6 +886,12 @@ else if (_arrest is not null)
                 _editPrimaryIncidentRecordNumber = _arrest.PrimaryIncidentRecordNumber;
                 _editLocationId                = _arrest.LocationId;
                 await ResolveLocationDisplayAsync();
+            }
+
+            if (_arrest is not null)
+            {
+                LoadAtTimeOfName(_arrest.AtTimeOfName);
+                await ResolveAtTimeOfLabelsAsync();
             }
 
             if (_arrest is not null)
@@ -580,6 +965,7 @@ else if (_arrest is not null)
             _editPrimaryIncidentDisplay    = _arrest is null ? null : FormatIncidentDisplay(_arrest);
             _editPrimaryIncidentRecordNumber = _arrest?.PrimaryIncidentRecordNumber;
             _editLocationId                = _arrest?.LocationId;
+            LoadAtTimeOfName(_arrest?.AtTimeOfName);
             _editSnapshot = ComputeEditSnapshot();
             StartLockTimer();
             await LoadAsync();
@@ -600,7 +986,16 @@ else if (_arrest is not null)
     }
 
     private string ComputeEditSnapshot() =>
-        string.Join("§", _editNameId, _editArrestedAt, _editArrestNum, _editArrestTypeId, _editPrimaryIncidentId, _editLocationId);
+        System.Text.Json.JsonSerializer.Serialize(new
+        {
+            _editNameId,
+            _editArrestedAt,
+            _editArrestNum,
+            _editArrestTypeId,
+            _editPrimaryIncidentId,
+            _editLocationId,
+            AtTimeOfName = BuildAtTimeOfNameInput()
+        });
 
     private bool HasPendingChanges =>
         _modifyMode &&
@@ -706,7 +1101,8 @@ else if (_arrest is not null)
                 _pendingIncidentLinkAdds.Keys.ToArray(),
                 _pendingIncidentLinkRemoves.ToArray(),
                 _pendingChargeAdds.Keys.ToArray(),
-                _pendingChargeRemoves.ToArray());
+                _pendingChargeRemoves.ToArray(),
+                BuildAtTimeOfNameInput());
             await LoadAsync();
             _editSnapshot = ComputeEditSnapshot();
             ClearPendingChanges();
@@ -780,19 +1176,19 @@ else if (_arrest is not null)
         return Task.CompletedTask;
     }
 
-    private Task OnNameSelected(NameDto name)
+    private async Task OnNameSelected(NameDto name)
     {
         _editNameId = name.Id;
         _editNameDisplay = FormatNameDisplay(name);
         _editNameRecordNumber = name.RecordNumber;
+        await PopulateAtTimeOfFromNameAsync(name);
         _showNameModal = false;
-        return Task.CompletedTask;
     }
 
-    private Task OnNameCreatedAsync(NameDto name)
+    private async Task OnNameCreatedAsync(NameDto name)
     {
         TrackCreatedForeignRecord($"Name #{name.RecordNumber} was created. If you discard this page, it will remain in the system but will not be linked to this arrest.");
-        return Task.CompletedTask;
+        await OnNameSelected(name);
     }
 
     private Task OnNameCleared()
@@ -807,6 +1203,7 @@ else if (_arrest is not null)
         _editNameId = null;
         _editNameDisplay = null;
         _editNameRecordNumber = null;
+        ClearAtTimeOfName();
     }
 
     private Task OnPrimaryIncidentSelected(IncidentDto incident)
@@ -960,6 +1357,263 @@ else if (_arrest is not null)
             return incident.Details.IncidentNum;
 
         return $"Incident #{incident.RecordNumber}";
+    }
+
+    private bool HasAtTimeOfNameData => !string.IsNullOrWhiteSpace(_editAtTimeOfLastOrBusinessName);
+
+    private string AtTimeOfWorkPhoneLabel => _editAtTimeOfNameType == NameTypes.Business ? "Secondary Phone" : "Work Phone";
+
+    private NameSnapshotInput? BuildAtTimeOfNameInput()
+    {
+        if (!HasAtTimeOfNameData)
+            return null;
+
+        return new NameSnapshotInput(
+            _editAtTimeOfNameType,
+            _editAtTimeOfLastOrBusinessName,
+            _editAtTimeOfFirstName,
+            _editAtTimeOfMiddleName,
+            _editAtTimeOfSexId,
+            _editAtTimeOfRaceId,
+            _editAtTimeOfDateOfBirth,
+            _editAtTimeOfDriversLicenseNumber,
+            _editAtTimeOfDriversLicenseStateId,
+            _editAtTimeOfHeightInches,
+            _editAtTimeOfWeightLbs,
+            _editAtTimeOfHairColorId,
+            _editAtTimeOfEyeColorId,
+            _editAtTimeOfSuffixId,
+            _editAtTimeOfPlaceOfBirth,
+            _editAtTimeOfFbiNumber,
+            _editAtTimeOfLocalNumber,
+            _editAtTimeOfPrimaryPhone,
+            _editAtTimeOfPrimaryPhoneExtension,
+            _editAtTimeOfWorkPhone,
+            _editAtTimeOfWorkPhoneExtension,
+            _editAtTimeOfOtherPhone,
+            _editAtTimeOfOtherPhoneExtension,
+            _editAtTimeOfSocialSecurityNumber,
+            _editAtTimeOfIsCitizen,
+            _editAtTimeOfDeceasedDate,
+            new NameSnapshotAddressDto(
+                _editAtTimeOfPrimaryLocationId,
+                _editAtTimeOfPrimaryLocationRecordNumber,
+                _editAtTimeOfPrimaryLocationAddress),
+            new NameSnapshotAddressDto(
+                _editAtTimeOfSecondaryLocationId,
+                _editAtTimeOfSecondaryLocationRecordNumber,
+                _editAtTimeOfSecondaryLocationAddress));
+    }
+
+    private async Task CopyCurrentNameToAtTimeOfAsync()
+    {
+        if (!_editNameId.HasValue)
+        {
+            _actionError = "Select a linked name before copying At Time Of data.";
+            return;
+        }
+
+        var name = await NameService.GetByIdAsync(_editNameId.Value);
+        if (name is null)
+        {
+            _actionError = "Linked name not found.";
+            return;
+        }
+
+        await PopulateAtTimeOfFromNameAsync(name);
+    }
+
+    private async Task PopulateAtTimeOfFromNameAsync(NameDto name)
+    {
+        _editAtTimeOfNameType = name.NameType;
+        _editAtTimeOfLastOrBusinessName = name.LastOrBusinessName;
+        _editAtTimeOfFirstName = name.FirstName;
+        _editAtTimeOfMiddleName = name.MiddleName;
+        _editAtTimeOfSexId = name.SexId;
+        _editAtTimeOfRaceId = name.RaceId;
+        _editAtTimeOfDateOfBirth = name.DateOfBirth;
+        _editAtTimeOfDriversLicenseNumber = name.DriversLicenseNumber;
+        _editAtTimeOfDriversLicenseStateId = name.DriversLicenseStateId;
+        _editAtTimeOfHeightInches = name.HeightInches;
+        _editAtTimeOfWeightLbs = name.WeightLbs;
+        _editAtTimeOfHairColorId = name.HairColorId;
+        _editAtTimeOfEyeColorId = name.EyeColorId;
+        _editAtTimeOfSuffixId = name.SuffixId;
+        _editAtTimeOfPlaceOfBirth = name.PlaceOfBirth;
+        _editAtTimeOfFbiNumber = name.FbiNumber;
+        _editAtTimeOfLocalNumber = name.LocalNumber;
+        _editAtTimeOfPrimaryPhone = name.PrimaryPhone;
+        _editAtTimeOfPrimaryPhoneExtension = name.PrimaryPhoneExtension;
+        _editAtTimeOfWorkPhone = name.WorkPhone;
+        _editAtTimeOfWorkPhoneExtension = name.WorkPhoneExtension;
+        _editAtTimeOfOtherPhone = name.OtherPhone;
+        _editAtTimeOfOtherPhoneExtension = name.OtherPhoneExtension;
+        _editAtTimeOfSocialSecurityNumber = name.SocialSecurityNumber;
+        _editAtTimeOfIsCitizen = name.IsCitizen;
+        _editAtTimeOfDeceasedDate = name.DeceasedDate;
+        _editAtTimeOfCopiedAtUtc = null;
+        _editAtTimeOfCopiedByName = null;
+
+        await PopulateAtTimeOfAddressAsync(
+            name.PrimaryLocationId,
+            isPrimary: true);
+        await PopulateAtTimeOfAddressAsync(
+            name.SecondaryLocationId,
+            isPrimary: false);
+
+        await ResolveAtTimeOfLabelsAsync();
+    }
+
+    private async Task PopulateAtTimeOfAddressAsync(Guid? locationId, bool isPrimary)
+    {
+        var location = locationId.HasValue
+            ? await LocationService.GetByIdAsync(locationId.Value)
+            : null;
+
+        if (isPrimary)
+        {
+            _editAtTimeOfPrimaryLocationId = location?.Id;
+            _editAtTimeOfPrimaryLocationRecordNumber = location?.RecordNumber;
+            _editAtTimeOfPrimaryLocationAddress = location?.Address ?? (location is null ? null : FormatLocationDisplay(location));
+            return;
+        }
+
+        _editAtTimeOfSecondaryLocationId = location?.Id;
+        _editAtTimeOfSecondaryLocationRecordNumber = location?.RecordNumber;
+        _editAtTimeOfSecondaryLocationAddress = location?.Address ?? (location is null ? null : FormatLocationDisplay(location));
+    }
+
+    private void LoadAtTimeOfName(NameSnapshotDto? snapshot)
+    {
+        if (snapshot is null)
+        {
+            ClearAtTimeOfName();
+            return;
+        }
+
+        _editAtTimeOfNameType = snapshot.NameType;
+        _editAtTimeOfLastOrBusinessName = snapshot.LastOrBusinessName;
+        _editAtTimeOfFirstName = snapshot.FirstName;
+        _editAtTimeOfMiddleName = snapshot.MiddleName;
+        _editAtTimeOfSexId = snapshot.SexId;
+        _editAtTimeOfRaceId = snapshot.RaceId;
+        _editAtTimeOfDateOfBirth = snapshot.DateOfBirth;
+        _editAtTimeOfDriversLicenseNumber = snapshot.DriversLicenseNumber;
+        _editAtTimeOfDriversLicenseStateId = snapshot.DriversLicenseStateId;
+        _editAtTimeOfHeightInches = snapshot.HeightInches;
+        _editAtTimeOfWeightLbs = snapshot.WeightLbs;
+        _editAtTimeOfHairColorId = snapshot.HairColorId;
+        _editAtTimeOfEyeColorId = snapshot.EyeColorId;
+        _editAtTimeOfSuffixId = snapshot.SuffixId;
+        _editAtTimeOfPlaceOfBirth = snapshot.PlaceOfBirth;
+        _editAtTimeOfFbiNumber = snapshot.FbiNumber;
+        _editAtTimeOfLocalNumber = snapshot.LocalNumber;
+        _editAtTimeOfPrimaryPhone = snapshot.PrimaryPhone;
+        _editAtTimeOfPrimaryPhoneExtension = snapshot.PrimaryPhoneExtension;
+        _editAtTimeOfWorkPhone = snapshot.WorkPhone;
+        _editAtTimeOfWorkPhoneExtension = snapshot.WorkPhoneExtension;
+        _editAtTimeOfOtherPhone = snapshot.OtherPhone;
+        _editAtTimeOfOtherPhoneExtension = snapshot.OtherPhoneExtension;
+        _editAtTimeOfSocialSecurityNumber = snapshot.SocialSecurityNumber;
+        _editAtTimeOfIsCitizen = snapshot.IsCitizen;
+        _editAtTimeOfDeceasedDate = snapshot.DeceasedDate;
+        _editAtTimeOfPrimaryLocationId = snapshot.PrimaryAddress?.LocationId;
+        _editAtTimeOfPrimaryLocationRecordNumber = snapshot.PrimaryAddress?.LocationRecordNumber;
+        _editAtTimeOfPrimaryLocationAddress = snapshot.PrimaryAddress?.Address;
+        _editAtTimeOfSecondaryLocationId = snapshot.SecondaryAddress?.LocationId;
+        _editAtTimeOfSecondaryLocationRecordNumber = snapshot.SecondaryAddress?.LocationRecordNumber;
+        _editAtTimeOfSecondaryLocationAddress = snapshot.SecondaryAddress?.Address;
+        _editAtTimeOfCopiedAtUtc = snapshot.LastCopiedAtUtc;
+        _editAtTimeOfCopiedByName = null;
+    }
+
+    private void ClearAtTimeOfName()
+    {
+        _editAtTimeOfNameType = NameTypes.Person;
+        _editAtTimeOfLastOrBusinessName = string.Empty;
+        _editAtTimeOfFirstName = null;
+        _editAtTimeOfMiddleName = null;
+        _editAtTimeOfSexId = null;
+        _editAtTimeOfRaceId = null;
+        _editAtTimeOfDateOfBirth = null;
+        _editAtTimeOfDriversLicenseNumber = null;
+        _editAtTimeOfDriversLicenseStateId = null;
+        _editAtTimeOfHeightInches = null;
+        _editAtTimeOfWeightLbs = null;
+        _editAtTimeOfHairColorId = null;
+        _editAtTimeOfEyeColorId = null;
+        _editAtTimeOfSuffixId = null;
+        _editAtTimeOfPlaceOfBirth = null;
+        _editAtTimeOfFbiNumber = null;
+        _editAtTimeOfLocalNumber = null;
+        _editAtTimeOfPrimaryPhone = null;
+        _editAtTimeOfPrimaryPhoneExtension = null;
+        _editAtTimeOfWorkPhone = null;
+        _editAtTimeOfWorkPhoneExtension = null;
+        _editAtTimeOfOtherPhone = null;
+        _editAtTimeOfOtherPhoneExtension = null;
+        _editAtTimeOfSocialSecurityNumber = null;
+        _editAtTimeOfIsCitizen = false;
+        _editAtTimeOfDeceasedDate = null;
+        _editAtTimeOfPrimaryLocationId = null;
+        _editAtTimeOfPrimaryLocationRecordNumber = null;
+        _editAtTimeOfPrimaryLocationAddress = null;
+        _editAtTimeOfSecondaryLocationId = null;
+        _editAtTimeOfSecondaryLocationRecordNumber = null;
+        _editAtTimeOfSecondaryLocationAddress = null;
+        _editAtTimeOfCopiedAtUtc = null;
+        _editAtTimeOfCopiedByName = null;
+        _atTimeOfSuffixLabel = null;
+        _atTimeOfSexLabel = null;
+        _atTimeOfRaceLabel = null;
+        _atTimeOfHairColorLabel = null;
+        _atTimeOfEyeColorLabel = null;
+        _atTimeOfDriversLicenseStateLabel = null;
+    }
+
+    private async Task ResolveAtTimeOfLabelsAsync()
+    {
+        if (_editAtTimeOfCopiedAtUtc.HasValue && _arrest?.AtTimeOfName?.LastCopiedByUserId is Guid copiedBy)
+        {
+            _editAtTimeOfCopiedByName = await UserLookupService.GetDisplayNameAsync(copiedBy);
+        }
+        else
+        {
+            _editAtTimeOfCopiedByName = null;
+        }
+
+        var ids = new[]
+        {
+            _editAtTimeOfSuffixId,
+            _editAtTimeOfSexId,
+            _editAtTimeOfRaceId,
+            _editAtTimeOfHairColorId,
+            _editAtTimeOfEyeColorId,
+            _editAtTimeOfDriversLicenseStateId
+        }
+        .Where(id => id.HasValue)
+        .Select(id => id!.Value)
+        .Distinct()
+        .ToArray();
+
+        if (ids.Length == 0)
+        {
+            _atTimeOfSuffixLabel = null;
+            _atTimeOfSexLabel = null;
+            _atTimeOfRaceLabel = null;
+            _atTimeOfHairColorLabel = null;
+            _atTimeOfEyeColorLabel = null;
+            _atTimeOfDriversLicenseStateLabel = null;
+            return;
+        }
+
+        var labels = await PicklistService.GetItemsByIdsAsync(ids);
+        _atTimeOfSuffixLabel = _editAtTimeOfSuffixId.HasValue ? labels.GetValueOrDefault(_editAtTimeOfSuffixId.Value) : null;
+        _atTimeOfSexLabel = _editAtTimeOfSexId.HasValue ? labels.GetValueOrDefault(_editAtTimeOfSexId.Value) : null;
+        _atTimeOfRaceLabel = _editAtTimeOfRaceId.HasValue ? labels.GetValueOrDefault(_editAtTimeOfRaceId.Value) : null;
+        _atTimeOfHairColorLabel = _editAtTimeOfHairColorId.HasValue ? labels.GetValueOrDefault(_editAtTimeOfHairColorId.Value) : null;
+        _atTimeOfEyeColorLabel = _editAtTimeOfEyeColorId.HasValue ? labels.GetValueOrDefault(_editAtTimeOfEyeColorId.Value) : null;
+        _atTimeOfDriversLicenseStateLabel = _editAtTimeOfDriversLicenseStateId.HasValue ? labels.GetValueOrDefault(_editAtTimeOfDriversLicenseStateId.Value) : null;
     }
 
     private IReadOnlyList<RecordChargeDto>? VisibleCharges =>

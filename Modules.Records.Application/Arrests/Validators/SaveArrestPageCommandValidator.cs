@@ -36,5 +36,14 @@ public sealed class SaveArrestPageCommandValidator : AbstractValidator<SaveArres
         RuleFor(x => x.ChargeIdsToRemove)
             .Must(ids => ids is null || ids.All(id => id != Guid.Empty))
             .WithMessage("Charge remove operations must reference valid charges.");
+
+        When(x => x.AtTimeOfName is not null, () =>
+        {
+            RuleFor(x => x.AtTimeOfName!.NameType)
+                .NotEmpty().WithMessage("At Time Of name type is required.");
+
+            RuleFor(x => x.AtTimeOfName!.LastOrBusinessName)
+                .NotEmpty().WithMessage("At Time Of last or business name is required.");
+        });
     }
 }
