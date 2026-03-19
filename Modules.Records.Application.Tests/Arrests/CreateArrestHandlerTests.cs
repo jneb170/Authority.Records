@@ -1,6 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using Modules.Records.Application.Arrests.Commands.CreateArrest;
 using Modules.Records.Application.Tests.Infrastructure;
+using Modules.Records.Domain.Abstractions;
 using Modules.Records.Domain.Common;
 using Modules.Records.Domain.Common.Implementations;
 using Modules.Records.Domain.Entities;
@@ -21,7 +22,7 @@ public sealed class CreateArrestHandlerTests
         var userId = Guid.NewGuid();
 
         var tenantProvider = new TestTenantProvider(jurisdictionId, agencyId, userId);
-        var handler = new CreateArrestHandler(db, tenantProvider, new ArrestFactory());
+        var handler = new CreateArrestHandler(db, tenantProvider, new ArrestFactory(), new UserModificationContext(userId));
 
         var homeLocation = new Location(
             jurisdictionId,
@@ -109,5 +110,37 @@ public sealed class CreateArrestHandlerTests
 
         Assert.Single(links);
         Assert.Contains(incident.Id, links);
+    }
+
+    [Fact]
+    public async Task Handle_WithLocationId_SetsLocationOnCreatedArrest()
+    {
+        await using var db = RecordPageSaveTestDbContextFactory.Create();
+
+        var jurisdictionId = Guid.NewGuid();
+        var agencyId = Guid.NewGuid();
+        var userId = Guid.NewGuid();
+
+        var tenantProvider = new TestTenantProvider(jurisdictionId, agencyId, userId);
+        var handler = new CreateArrestHandler(db, tenantProvider, new ArrestFactory(), new UserModificationContext(userId));
+
+        var name = new Name(jurisdictionId, agencyId, NameTypes.Person, "Doe", "Jordan", null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, false, null);
+        var location = new Location(jurisdictionId, "Main St", "Springfield", "100");
+
+        db.Names.Add(name);
+        db.Locations.Add(location);
+        await db.SaveChangesAsync(CancellationToken.None);
+
+        var recordNumber = await handler.Handle(
+            new CreateArrestCommand(
+                NameId: name.Id,
+                ArrestedAt: new DateTime(2026, 3, 1, 12, 0, 0, DateTimeKind.Utc),
+                IncidentRecordNumbers: [],
+                ArrestNum: "AR-700",
+                LocationId: location.Id),
+            CancellationToken.None);
+
+        var arrest = await db.Arrests.SingleAsync(a => a.RecordNumber == recordNumber);
+        Assert.Equal(location.Id, arrest.LocationId);
     }
 }

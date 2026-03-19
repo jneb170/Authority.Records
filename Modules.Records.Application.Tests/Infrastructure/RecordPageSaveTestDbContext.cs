@@ -41,7 +41,7 @@ internal sealed class RecordPageSaveTestDbContext(DbContextOptions<RecordPageSav
     public DbSet<AuditLogReadModel> AuditLogReadModels => throw new NotImplementedException();
     public DbSet<AgencyConfiguration> AgencyConfigurations => throw new NotImplementedException();
     public DbSet<AgencySequenceCounter> AgencySequenceCounters => throw new NotImplementedException();
-    public DbSet<PicklistItem> PicklistItems => throw new NotImplementedException();
+    public DbSet<PicklistItem> PicklistItems { get; set; } = null!;
     public DbSet<PicklistSetting> PicklistSettings => throw new NotImplementedException();
 
     public void Detach<TEntity>(TEntity entity) where TEntity : class
@@ -63,11 +63,13 @@ internal sealed class RecordPageSaveTestDbContext(DbContextOptions<RecordPageSav
         ConfigureEntity<Citation>(modelBuilder);
         ConfigureEntity<Charge>(modelBuilder);
         ConfigureEntity<Name>(modelBuilder);
+        ConfigureEntity<Location>(modelBuilder);
         ConfigureEntity<IncidentArrestLink>(modelBuilder);
         ConfigureEntity<IncidentCitationLink>(modelBuilder);
         ConfigureEntity<IncidentChargeLink>(modelBuilder);
         ConfigureEntity<ArrestChargeLink>(modelBuilder);
         ConfigureEntity<CitationChargeLink>(modelBuilder);
+        ConfigureEntity<PicklistItem>(modelBuilder);
     }
 
     private static void ConfigureEntity<TEntity>(ModelBuilder modelBuilder)

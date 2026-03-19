@@ -6,6 +6,7 @@
 @inject IGoogleMapsConfigService GoogleMapsConfig
 @inject MediatR.ISender Sender
 @inject IWebHostEnvironment HostEnvironment
+@using Modules.Records.Application.Arrests.Commands.GenerateTestArrests
 
 <PageTitle>Test Data Generation</PageTitle>
 
@@ -130,142 +131,284 @@
 </div>
 
 @* ── Step 3: Generate Fake Names ─────────────────────────────────────────── *@
-<h5 class="fw-semibold mb-3">Step 3 — Generate Fake Name Records</h5>
+<div class="row g-3 mb-5">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-body">
+                <h5 class="fw-semibold mb-3">Step 3 — Generate Fake Name Records</h5>
 
-@if (!_canGenerate)
-{
-    <div class="alert alert-warning">
-        ⚠️ One or more required picklists are empty (Sex, Race, HairColor, EyeColor, or State). Seed them in Step 1 before generating.
-    </div>
-}
+                @if (!_canGenerate)
+                {
+                    <div class="alert alert-warning">
+                        ⚠️ One or more required picklists are empty (Sex, Race, HairColor, EyeColor, or State). Seed them in Step 1 before generating.
+                    </div>
+                }
 
-<div class="row g-3 align-items-end mb-3">
-    <div class="col-auto">
-        <label class="form-label fw-semibold">Number of Records</label>
-        <input type="number" class="form-control" style="width:120px"
-               min="1" max="500" @bind="_generateCount" disabled="@_generating" />
-    </div>
-    <div class="col-auto">
-        <button class="btn btn-primary" @onclick="GenerateNamesAsync"
-                disabled="@(_generating || !_canGenerate)">
-            @if (_generating) { <span class="spinner-border spinner-border-sm me-1"></span> }
-            Generate @_generateCount Name Records
-        </button>
-    </div>
-</div>
+                <div class="row g-3 align-items-end mb-3">
+                    <div class="col-auto">
+                        <label class="form-label fw-semibold">Number of Records</label>
+                        <input type="number" class="form-control" style="width:120px"
+                               min="1" max="500" @bind="_generateCount" disabled="@_generating" />
+                    </div>
+                    <div class="col-auto">
+                        <button class="btn btn-primary" @onclick="GenerateNamesAsync"
+                                disabled="@(_generating || !_canGenerate)">
+                            @if (_generating) { <span class="spinner-border spinner-border-sm me-1"></span> }
+                            Generate @_generateCount Name Records
+                        </button>
+                    </div>
+                </div>
 
-@if (_generating || _generatedCount > 0)
-{
-    <div class="mb-2">
-        <div class="progress" style="height:22px;">
-            <div class="progress-bar progress-bar-striped @(_generating ? "progress-bar-animated" : "")"
-                 role="progressbar"
-                 style="width: @(_generateCount > 0 ? (int)((_generatedCount * 100.0) / _generateCount) : 0)%">
-                @_generatedCount / @_generateCount
+                @if (_generating || _generatedCount > 0)
+                {
+                    <div class="mb-2">
+                        <div class="progress" style="height:22px;">
+                            <div class="progress-bar progress-bar-striped @(_generating ? "progress-bar-animated" : "")"
+                                 role="progressbar"
+                                 style="width: @(_generateCount > 0 ? (int)((_generatedCount * 100.0) / _generateCount) : 0)%">
+                                @_generatedCount / @_generateCount
+                            </div>
+                        </div>
+                    </div>
+                }
+
+                @if (_generateResult is not null)
+                {
+                    <div class="alert @(_generateErrors == 0 ? "alert-success" : "alert-warning") mt-2">
+                        @_generateResult
+                    </div>
+                }
             </div>
         </div>
     </div>
-}
-
-@if (_generateResult is not null)
-{
-    <div class="alert @(_generateErrors == 0 ? "alert-success" : "alert-warning") mt-2">
-        @_generateResult
-    </div>
-}
+</div>
 
 @* ── Step 4: Generate Location Records ──────────────────────────────────── *@
-<h5 class="fw-semibold mb-3">Step 4 — Generate Location Records from Google Maps</h5>
-
-@if (!_hasMapsApiKey)
-{
-    <div class="alert alert-warning mb-4">
-        ⚠️ No Google Maps API key is configured for this jurisdiction. Set one under
-        <strong>Administration → Location Settings</strong> before generating location records.
-    </div>
-}
-
-<p class="text-muted small mb-3">
-    Searches Google Maps Places Text Search for real addresses matching your keyword and creates
-    Location (MLI) records. Picklist FKs (Direction, StreetType, State, Country) are resolved
-    automatically when the relevant picklists have been seeded.
-</p>
-
-<div class="row g-3 mb-4">
-    <div class="col-md-6">
-        <div class="card h-100">
+<div class="row g-3 mb-5">
+    <div class="col-12">
+        <div class="card">
             <div class="card-body">
-                <h6 class="card-title">Location Picklist Status</h6>
-                <p class="card-text text-muted small">
-                    Seed these picklists first to enable FK resolution on generated records.
+                <h5 class="fw-semibold mb-3">Step 4 — Generate Location Records from Google Maps</h5>
+
+                @if (!_hasMapsApiKey)
+                {
+                    <div class="alert alert-warning mb-4">
+                        ⚠️ No Google Maps API key is configured for this jurisdiction. Set one under
+                        <strong>Administration → Location Settings</strong> before generating location records.
+                    </div>
+                }
+
+                <p class="text-muted small mb-3">
+                    Searches Google Maps Places Text Search for real addresses matching your keyword and creates
+                    Location (MLI) records. Picklist FKs (Direction, StreetType, State, Country) are resolved
+                    automatically when the relevant picklists have been seeded.
                 </p>
-                <div class="d-flex gap-3 flex-wrap small text-muted">
-                    <span>Direction: @_directionCount items</span>
-                    <span>StreetType: @_streetTypeCount items</span>
-                    <span>Country: @_countryCount items</span>
-                    <span>State: @_stateCount items</span>
+
+                <div class="row g-3 mb-4">
+                    <div class="col-md-6">
+                        <div class="card h-100">
+                            <div class="card-body">
+                                <h6 class="card-title">Location Picklist Status</h6>
+                                <p class="card-text text-muted small">
+                                    Seed these picklists first to enable FK resolution on generated records.
+                                </p>
+                                <div class="d-flex gap-3 flex-wrap small text-muted">
+                                    <span>Direction: @_directionCount items</span>
+                                    <span>StreetType: @_streetTypeCount items</span>
+                                    <span>Country: @_countryCount items</span>
+                                    <span>State: @_stateCount items</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
                 </div>
+
+                <div class="row g-3 align-items-end mb-3">
+                    <div class="col-md-5">
+                        <label class="form-label fw-semibold">Search Keyword</label>
+                        <input type="text" class="form-control"
+                               placeholder="e.g. police stations near Dallas TX"
+                               @bind="_locKeyword"
+                               disabled="@(_generatingLocations || !_hasMapsApiKey)" />
+                    </div>
+                    <div class="col-auto">
+                        <label class="form-label fw-semibold">Count</label>
+                        <input type="number" class="form-control" style="width:100px"
+                               min="1" max="60" @bind="_locCount"
+                               disabled="@(_generatingLocations || !_hasMapsApiKey)" />
+                    </div>
+                    <div class="col-auto">
+                        <button class="btn btn-primary"
+                                @onclick="GenerateLocationsAsync"
+                                disabled="@(_generatingLocations || !_hasMapsApiKey || string.IsNullOrWhiteSpace(_locKeyword))">
+                            @if (_generatingLocations) { <span class="spinner-border spinner-border-sm me-1"></span> }
+                            Generate @_locCount Location Record@(_locCount == 1 ? "" : "s")
+                        </button>
+                    </div>
+                </div>
+
+                @if (_generatingLocations || _locGeneratedCount > 0)
+                {
+                    <div class="mb-2">
+                        <div class="progress" style="height:22px;">
+                            <div class="progress-bar progress-bar-striped @(_generatingLocations ? "progress-bar-animated" : "")"
+                                 role="progressbar"
+                                 style="width: @(_locCount > 0 ? (int)((_locGeneratedCount * 100.0) / _locCount) : 0)%">
+                                @_locGeneratedCount / @_locCount
+                            </div>
+                        </div>
+                    </div>
+                }
+
+                @if (_locResult is not null)
+                {
+                    <div class="alert @(_locErrors == 0 ? "alert-success" : "alert-warning") mt-2">
+                        @_locResult
+                    </div>
+                }
+
+                @if (_locErrorDetails.Count > 0)
+                {
+                    <details class="mt-2">
+                        <summary class="small text-danger">@_locErrorDetails.Count error(s)</summary>
+                        <ul class="small mt-1">
+                            @foreach (var e in _locErrorDetails)
+                            {
+                                <li>@e</li>
+                            }
+                        </ul>
+                    </details>
+                }
             </div>
         </div>
     </div>
 </div>
 
-<div class="row g-3 align-items-end mb-3">
-    <div class="col-md-5">
-        <label class="form-label fw-semibold">Search Keyword</label>
-        <input type="text" class="form-control"
-               placeholder="e.g. police stations near Dallas TX"
-               @bind="_locKeyword"
-               disabled="@(_generatingLocations || !_hasMapsApiKey)" />
-    </div>
-    <div class="col-auto">
-        <label class="form-label fw-semibold">Count</label>
-        <input type="number" class="form-control" style="width:100px"
-               min="1" max="60" @bind="_locCount"
-               disabled="@(_generatingLocations || !_hasMapsApiKey)" />
-    </div>
-    <div class="col-auto">
-        <button class="btn btn-primary"
-                @onclick="GenerateLocationsAsync"
-                disabled="@(_generatingLocations || !_hasMapsApiKey || string.IsNullOrWhiteSpace(_locKeyword))">
-            @if (_generatingLocations) { <span class="spinner-border spinner-border-sm me-1"></span> }
-            Generate @_locCount Location Record@(_locCount == 1 ? "" : "s")
-        </button>
-    </div>
-</div>
+@* ── Step 5: Generate Arrest Records ─────────────────────────────────────── *@
+<div class="row g-3 mb-5">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-body">
+                <h5 class="fw-semibold mb-3">Step 5 — Generate Arrest Records</h5>
 
-@if (_generatingLocations || _locGeneratedCount > 0)
-{
-    <div class="mb-2">
-        <div class="progress" style="height:22px;">
-            <div class="progress-bar progress-bar-striped @(_generatingLocations ? "progress-bar-animated" : "")"
-                 role="progressbar"
-                 style="width: @(_locCount > 0 ? (int)((_locGeneratedCount * 100.0) / _locCount) : 0)%">
-                @_locGeneratedCount / @_locCount
+                <p class="text-muted small mb-3">
+                    Creates arrest records and links a suspect Name plus an arrest Location using the selected source
+                    strategies. “Recently created” means records created earlier in this same generation run.
+                </p>
+
+                <div class="row g-3 align-items-end mb-3">
+                    <div class="col-auto">
+                        <label class="form-label fw-semibold">Number of Arrests</label>
+                        <input type="number" class="form-control" style="width:120px"
+                               min="1" max="250" @bind="_arrestCount" disabled="@_generatingArrests" />
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label fw-semibold">Arrested From</label>
+                        <input type="datetime-local" class="form-control"
+                               value="@_arrestFromInput"
+                               @onchange="OnArrestFromChanged"
+                               disabled="@_generatingArrests" />
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label fw-semibold">Arrested To</label>
+                        <input type="datetime-local" class="form-control"
+                               value="@_arrestToInput"
+                               @onchange="OnArrestToChanged"
+                               disabled="@_generatingArrests" />
+                    </div>
+                    <div class="col-auto">
+                        <label class="form-label fw-semibold">Max Uses per Name</label>
+                        <input type="number" class="form-control" style="width:120px"
+                               min="1" max="250" @bind="_arrestNameMaxUses" disabled="@_generatingArrests" />
+                    </div>
+                    <div class="col-auto">
+                        <label class="form-label fw-semibold">Max Uses per Location</label>
+                        <input type="number" class="form-control" style="width:120px"
+                               min="1" max="250" @bind="_arrestLocationMaxUses" disabled="@_generatingArrests" />
+                    </div>
+                </div>
+
+                <div class="row g-3 align-items-end mb-3">
+                    <div class="col-md-4">
+                        <label class="form-label fw-semibold">Name source</label>
+                        <InputSelect class="form-select" @bind-Value="_arrestNameStrategy" disabled="@_generatingArrests">
+                            <option value="@TestDataRecordLinkStrategy.Existing">Reuse existing Name records</option>
+                            <option value="@TestDataRecordLinkStrategy.CreateNew">Create a new Name per arrest</option>
+                            <option value="@TestDataRecordLinkStrategy.RecentlyCreatedOrCreateNew">Reuse Names created earlier in this run, or create new</option>
+                        </InputSelect>
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label fw-semibold">Location source</label>
+                        <InputSelect class="form-select" @bind-Value="_arrestLocationStrategy" disabled="@_generatingArrests">
+                            <option value="@TestDataRecordLinkStrategy.Existing">Reuse existing Location records</option>
+                            <option value="@TestDataRecordLinkStrategy.CreateNew">Create a new Location per arrest</option>
+                            <option value="@TestDataRecordLinkStrategy.RecentlyCreatedOrCreateNew">Reuse Locations created earlier in this run, or create new</option>
+                        </InputSelect>
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label fw-semibold">Location Search Keyword</label>
+                        <input type="text" class="form-control"
+                               placeholder="e.g. police stations near Dallas TX"
+                               @bind="_arrestLocationKeyword"
+                               disabled="@(_generatingArrests || !ArrestLocationKeywordRequired || !_hasMapsApiKey)" />
+                    </div>
+                    <div class="col-auto">
+                        <button class="btn btn-primary"
+                                @onclick="GenerateArrestsAsync"
+                                disabled="@(_generatingArrests || (ArrestLocationKeywordRequired && (!_hasMapsApiKey || string.IsNullOrWhiteSpace(_arrestLocationKeyword))))">
+                            @if (_generatingArrests) { <span class="spinner-border spinner-border-sm me-1"></span> }
+                            Generate @_arrestCount Arrest Record@(_arrestCount == 1 ? "" : "s")
+                        </button>
+                    </div>
+                </div>
+
+                @if (ArrestLocationKeywordRequired && !_hasMapsApiKey)
+                {
+                    <div class="alert alert-warning mt-2">
+                        ⚠️ A Google Maps API key is required to create new arrest locations from a search keyword.
+                    </div>
+                }
+
+                @if (_generatingArrests || _arrestGeneratedCount > 0)
+                {
+                    <div class="mb-2">
+                        <div class="progress" style="height:22px;">
+                            <div class="progress-bar progress-bar-striped @(_generatingArrests ? "progress-bar-animated" : "")"
+                                 role="progressbar"
+                                 style="width: @(_arrestCount > 0 ? (int)((_arrestGeneratedCount * 100.0) / _arrestCount) : 0)%">
+                                @_arrestGeneratedCount / @_arrestCount
+                            </div>
+                        </div>
+                    </div>
+                }
+
+                @if (_arrestResult is not null)
+                {
+                    <div class="alert @(_arrestErrors == 0 ? "alert-success" : "alert-warning") mt-2">
+                        <div>@_arrestResult</div>
+                        @if (!string.IsNullOrWhiteSpace(_arrestSummary))
+                        {
+                            <div class="small mt-1">@_arrestSummary</div>
+                        }
+                    </div>
+                }
+
+                @if (_arrestErrorDetails.Count > 0)
+                {
+                    <details class="mt-2">
+                        <summary class="small text-danger">@_arrestErrorDetails.Count error(s)</summary>
+                        <ul class="small mt-1">
+                            @foreach (var e in _arrestErrorDetails)
+                            {
+                                <li>@e</li>
+                            }
+                        </ul>
+                    </details>
+                }
             </div>
         </div>
     </div>
-}
-
-@if (_locResult is not null)
-{
-    <div class="alert @(_locErrors == 0 ? "alert-success" : "alert-warning") mt-2">
-        @_locResult
-    </div>
-}
-
-@if (_locErrorDetails.Count > 0)
-{
-    <details class="mt-2">
-        <summary class="small text-danger">@_locErrorDetails.Count error(s)</summary>
-        <ul class="small mt-1">
-            @foreach (var e in _locErrorDetails)
-            {
-                <li>@e</li>
-            }
-        </ul>
-    </details>
-}
+</div>
 
 @code {
     // ── Picklist counts ──────────────────────────────────────────────────────
@@ -583,6 +726,22 @@
     private string?      _locResult;
     private List<string> _locErrorDetails     = new();
 
+    // ── Arrest generation state ──────────────────────────────────────────────
+    private int _arrestCount = 25;
+    private string _arrestFromInput = DateTime.Now.AddDays(-30).ToString("yyyy-MM-ddTHH:mm");
+    private string _arrestToInput = DateTime.Now.ToString("yyyy-MM-ddTHH:mm");
+    private TestDataRecordLinkStrategy _arrestNameStrategy = TestDataRecordLinkStrategy.RecentlyCreatedOrCreateNew;
+    private TestDataRecordLinkStrategy _arrestLocationStrategy = TestDataRecordLinkStrategy.RecentlyCreatedOrCreateNew;
+    private int _arrestNameMaxUses = 3;
+    private int _arrestLocationMaxUses = 3;
+    private string? _arrestLocationKeyword;
+    private bool _generatingArrests = false;
+    private int _arrestGeneratedCount = 0;
+    private int _arrestErrors = 0;
+    private string? _arrestResult;
+    private string? _arrestSummary;
+    private List<string> _arrestErrorDetails = new();
+
     // ── Generate Locations ───────────────────────────────────────────────────
 
     private async Task GenerateLocationsAsync()
@@ -628,5 +787,124 @@
             _generatingLocations = false;
             StateHasChanged();
         }
+    }
+
+    private async Task GenerateArrestsAsync()
+    {
+        _generatingArrests = true;
+        _arrestGeneratedCount = 0;
+        _arrestErrors = 0;
+        _arrestResult = null;
+        _arrestSummary = null;
+        _arrestErrorDetails.Clear();
+
+        try
+        {
+            var count = Math.Clamp(_arrestCount, 1, 250);
+            _arrestCount = count;
+            _arrestNameMaxUses = Math.Clamp(_arrestNameMaxUses, 1, 250);
+            _arrestLocationMaxUses = Math.Clamp(_arrestLocationMaxUses, 1, 250);
+
+            if (!TryParseArrestWindow(out var arrestedFrom, out var arrestedTo, out var windowError))
+            {
+                _arrestResult = $"❌ {windowError}";
+                return;
+            }
+
+            string? apiKey = null;
+
+            if (ArrestLocationKeywordRequired)
+            {
+                if (string.IsNullOrWhiteSpace(_arrestLocationKeyword))
+                {
+                    _arrestResult = "❌ Enter a location search keyword before generating arrests that create new locations.";
+                    return;
+                }
+
+                apiKey = await GoogleMapsConfig.GetApiKeyAsync();
+                if (string.IsNullOrWhiteSpace(apiKey))
+                {
+                    _arrestResult = "❌ No Google Maps API key configured.";
+                    return;
+                }
+            }
+
+            var result = await Sender.Send(new GenerateTestArrestsCommand(
+                count,
+                arrestedFrom,
+                arrestedTo,
+                _arrestNameStrategy,
+                _arrestLocationStrategy,
+                _arrestNameMaxUses,
+                _arrestLocationMaxUses,
+                _arrestLocationKeyword,
+                apiKey));
+
+            _arrestGeneratedCount = result.Created + result.Failed;
+            _arrestErrors = result.Failed;
+            _arrestErrorDetails = result.Errors.ToList();
+            _arrestSummary = BuildArrestSummary(result);
+
+            _arrestResult = result.Failed == 0
+                ? $"✅ Successfully created {result.Created} arrest record(s)."
+                : $"⚠️ Created {result.Created} arrest record(s); {result.Failed} error(s).";
+
+            await LoadPicklistCountsAsync();
+        }
+        catch (Exception ex)
+        {
+            _arrestResult = $"❌ Error: {ex.Message}";
+        }
+        finally
+        {
+            _generatingArrests = false;
+            StateHasChanged();
+        }
+    }
+
+    private static string BuildArrestSummary(GenerateTestArrestsResult result)
+    {
+        var nameSummary = $"Names — created {result.NamesCreated}, reused existing {result.NamesReusedFromExisting}, reused current-run {result.NamesReusedFromCurrentRun}";
+        var locationSummary = $"Locations — created {result.LocationsCreated}, reused existing {result.LocationsReusedFromExisting}, reused current-run {result.LocationsReusedFromCurrentRun} across arrest and address links";
+        return $"{nameSummary}. {locationSummary}.";
+    }
+
+    private bool ArrestLocationKeywordRequired => _arrestLocationStrategy != TestDataRecordLinkStrategy.Existing;
+
+    private void OnArrestFromChanged(ChangeEventArgs args)
+        => _arrestFromInput = args.Value?.ToString() ?? string.Empty;
+
+    private void OnArrestToChanged(ChangeEventArgs args)
+        => _arrestToInput = args.Value?.ToString() ?? string.Empty;
+
+    private bool TryParseArrestWindow(out DateTime arrestedFrom, out DateTime arrestedTo, out string error)
+    {
+        if (!DateTime.TryParseExact(_arrestFromInput, "yyyy-MM-ddTHH:mm",
+                System.Globalization.CultureInfo.InvariantCulture,
+                System.Globalization.DateTimeStyles.AssumeLocal,
+                out arrestedFrom))
+        {
+            arrestedTo = default;
+            error = "Enter a valid 'Arrested From' date and time.";
+            return false;
+        }
+
+        if (!DateTime.TryParseExact(_arrestToInput, "yyyy-MM-ddTHH:mm",
+                System.Globalization.CultureInfo.InvariantCulture,
+                System.Globalization.DateTimeStyles.AssumeLocal,
+                out arrestedTo))
+        {
+            error = "Enter a valid 'Arrested To' date and time.";
+            return false;
+        }
+
+        if (arrestedTo < arrestedFrom)
+        {
+            error = "'Arrested To' must be on or after 'Arrested From'.";
+            return false;
+        }
+
+        error = string.Empty;
+        return true;
     }
 }

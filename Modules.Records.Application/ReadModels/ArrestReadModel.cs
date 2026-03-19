@@ -17,7 +17,7 @@ public sealed class ArrestReadModel
     public Guid   CreatedBy     { get; private set; }
     public Guid?  ModifiedBy    { get; private set; }
     public DateTime CreatedAtUtc { get; private set; }
-    public DateTime UpdatedAtUtc { get; private set; }
+    public DateTime UpdatedAtUtc { get; internal set; }
     public Guid? ArrestTypeId { get; private set; }
     public string ArrestNum { get; private set; } = string.Empty;
     public Guid? LocationId { get; private set; }

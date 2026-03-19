@@ -15,15 +15,18 @@ public sealed class CreateArrestHandler : IRequestHandler<CreateArrestCommand, l
     private readonly IApplicationDbContext _dbContext;
     private readonly ITenantProvider _tenantProvider;
     private readonly ArrestFactory _factory;
+    private readonly IModificationContext _modificationContext;
 
     public CreateArrestHandler(
         IApplicationDbContext dbContext,
         ITenantProvider tenantProvider,
-        ArrestFactory factory)
+        ArrestFactory factory,
+        IModificationContext modificationContext)
     {
         _dbContext = dbContext;
         _tenantProvider = tenantProvider;
         _factory = factory;
+        _modificationContext = modificationContext;
     }
 
     public async Task<long> Handle(CreateArrestCommand request, CancellationToken cancellationToken)
@@ -36,6 +39,16 @@ public sealed class CreateArrestHandler : IRequestHandler<CreateArrestCommand, l
             .AsNoTracking()
             .FirstOrDefaultAsync(n => n.Id == request.NameId && n.JurisdictionId == jurisdictionId, cancellationToken)
             ?? throw new InvalidOperationException("Linked name not found.");
+
+        if (request.LocationId.HasValue)
+        {
+            var locationExists = await _dbContext.Locations
+                .AsNoTracking()
+                .AnyAsync(l => l.Id == request.LocationId.Value && l.JurisdictionId == jurisdictionId, cancellationToken);
+
+            if (!locationExists)
+                throw new InvalidOperationException("Linked location not found.");
+        }
 
         Guid? primaryIncidentId = null;
         if (request.PrimaryIncidentId.HasValue)
@@ -61,6 +74,8 @@ public sealed class CreateArrestHandler : IRequestHandler<CreateArrestCommand, l
             request.ArrestedAt,
             arrestNum,
             request.PrimaryIncidentId);
+
+        arrest.SetLocation(request.LocationId, _modificationContext);
 
         _dbContext.Arrests.Add(arrest);
 
