@@ -53,6 +53,12 @@ public sealed class NameProjectionHandler :
             placeOfBirth:          name?.PlaceOfBirth,
             fbiNumber:             name?.FbiNumber,
             localNumber:           name?.LocalNumber,
+            primaryPhone:          name?.PrimaryPhone,
+            primaryPhoneExtension: name?.PrimaryPhoneExtension,
+            workPhone:             name?.WorkPhone,
+            workPhoneExtension:    name?.WorkPhoneExtension,
+            otherPhone:            name?.OtherPhone,
+            otherPhoneExtension:   name?.OtherPhoneExtension,
             socialSecurityNumber:  name?.SocialSecurityNumber,
             isCitizen:             name?.IsCitizen ?? false,
             deceasedDate:          name?.DeceasedDate,
@@ -93,7 +99,13 @@ public sealed class NameProjectionHandler :
             notification.LocalNumber,
             notification.SocialSecurityNumber,
             notification.IsCitizen,
-            notification.DeceasedDate);
+            notification.DeceasedDate,
+            notification.PrimaryPhone,
+            notification.PrimaryPhoneExtension,
+            notification.WorkPhone,
+            notification.WorkPhoneExtension,
+            notification.OtherPhone,
+            notification.OtherPhoneExtension);
 
         readModel.ApplyLocationChanged(name?.PrimaryLocationId, name?.SecondaryLocationId);
         readModel.ApplyModifiedAudit(name?.ModifiedBy, name?.ModifiedAt);

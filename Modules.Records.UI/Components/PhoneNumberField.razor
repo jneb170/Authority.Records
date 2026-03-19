@@ -1,0 +1,64 @@
+@using Microsoft.AspNetCore.Components
+
+<div>
+    <label class="@LabelClass">@Label</label>
+
+    @if (ModifyMode)
+    {
+        <div class="row g-2">
+            <div class="col-sm-8">
+                <input type="tel"
+                       class="@NumberInputClass"
+                       value="@Number"
+                       maxlength="25"
+                       placeholder="@NumberPlaceholder"
+                       @oninput="OnNumberInputAsync" />
+            </div>
+            <div class="col-sm-4">
+                <input type="text"
+                       class="@ExtensionInputClass"
+                       value="@Extension"
+                       maxlength="10"
+                       placeholder="@ExtensionPlaceholder"
+                       @oninput="OnExtensionInputAsync" />
+            </div>
+        </div>
+    }
+    else
+    {
+        <p class="@ReadOnlyValueClass">@DisplayValue</p>
+    }
+</div>
+
+@code {
+    [Parameter] public string Label { get; set; } = string.Empty;
+    [Parameter] public bool ModifyMode { get; set; }
+    [Parameter] public string LabelClass { get; set; } = "form-label";
+    [Parameter] public string NumberInputClass { get; set; } = "form-control";
+    [Parameter] public string ExtensionInputClass { get; set; } = "form-control";
+    [Parameter] public string ReadOnlyValueClass { get; set; } = "form-control-plaintext ps-0";
+    [Parameter] public string NumberPlaceholder { get; set; } = "(555) 555-5555";
+    [Parameter] public string ExtensionPlaceholder { get; set; } = "Ext";
+    [Parameter] public string? Number { get; set; }
+    [Parameter] public EventCallback<string?> NumberChanged { get; set; }
+    [Parameter] public string? Extension { get; set; }
+    [Parameter] public EventCallback<string?> ExtensionChanged { get; set; }
+
+    private string DisplayValue =>
+        string.IsNullOrWhiteSpace(Number)
+            ? "—"
+            : string.IsNullOrWhiteSpace(Extension)
+                ? Number!
+                : $"{Number} x{Extension}";
+
+    private async Task OnNumberInputAsync(ChangeEventArgs args)
+    {
+        var number = args.Value?.ToString();
+        await NumberChanged.InvokeAsync(number);
+        if (string.IsNullOrWhiteSpace(number) && !string.IsNullOrWhiteSpace(Extension))
+            await ExtensionChanged.InvokeAsync(null);
+    }
+
+    private Task OnExtensionInputAsync(ChangeEventArgs args) =>
+        ExtensionChanged.InvokeAsync(args.Value?.ToString());
+}

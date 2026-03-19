@@ -86,6 +86,38 @@
         </div>
     </div>
 
+    <div class="card record-form-card mb-3">
+        <div class="card-body">
+            <h6 class="card-title">Phone Numbers</h6>
+            <div class="row g-3">
+                <div class="col-lg-4">
+                    <PhoneNumberField Label="Primary Phone"
+                                      ModifyMode="true"
+                                      Number="@_vm.PrimaryPhone"
+                                      NumberChanged="@(value => _vm.PrimaryPhone = value)"
+                                      Extension="@_vm.PrimaryPhoneExtension"
+                                      ExtensionChanged="@(value => _vm.PrimaryPhoneExtension = value)" />
+                </div>
+                <div class="col-lg-4">
+                    <PhoneNumberField Label="@(_vm.IsPerson ? "Work Phone" : "Secondary Phone")"
+                                      ModifyMode="true"
+                                      Number="@_vm.WorkPhone"
+                                      NumberChanged="@(value => _vm.WorkPhone = value)"
+                                      Extension="@_vm.WorkPhoneExtension"
+                                      ExtensionChanged="@(value => _vm.WorkPhoneExtension = value)" />
+                </div>
+                <div class="col-lg-4">
+                    <PhoneNumberField Label="Other Phone"
+                                      ModifyMode="true"
+                                      Number="@_vm.OtherPhone"
+                                      NumberChanged="@(value => _vm.OtherPhone = value)"
+                                      Extension="@_vm.OtherPhoneExtension"
+                                      ExtensionChanged="@(value => _vm.OtherPhoneExtension = value)" />
+                </div>
+            </div>
+        </div>
+    </div>
+
     @if (_vm.IsPerson)
     {
         <div class="card record-form-card mb-3">
@@ -260,7 +292,13 @@
                 _vm.IsPerson ? _vm.LocalNumber : null,
                 _vm.IsPerson ? _vm.SocialSecurityNumber : null,
                 _vm.IsPerson && _vm.IsCitizen,
-                _vm.IsPerson ? _vm.DeceasedDate : null);
+                _vm.IsPerson ? _vm.DeceasedDate : null,
+                _vm.PrimaryPhone,
+                _vm.PrimaryPhoneExtension,
+                _vm.WorkPhone,
+                _vm.WorkPhoneExtension,
+                _vm.OtherPhone,
+                _vm.OtherPhoneExtension);
 
             Nav.NavigateTo($"/names/{recordNumber}?autoModify=true");
         }

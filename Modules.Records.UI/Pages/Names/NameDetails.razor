@@ -261,6 +261,50 @@ else if (_name is not null)
         </div>
     </div>
 
+    <div class="card record-content-card mb-4">
+        <div class="card-body">
+            <h6 class="card-title">Phone Numbers</h6>
+            <div class="row g-3">
+                <div class="col-lg-4">
+                    <PhoneNumberField Label="Primary Phone"
+                                      ModifyMode="_modifyMode"
+                                      LabelClass="@LabelClass"
+                                      NumberInputClass="form-control form-control-sm"
+                                      ExtensionInputClass="form-control form-control-sm"
+                                      ReadOnlyValueClass="form-control-plaintext form-control-sm ps-0 fw-semibold mb-0"
+                                      Number="@_editPrimaryPhone"
+                                      NumberChanged="@(value => _editPrimaryPhone = value)"
+                                      Extension="@_editPrimaryPhoneExtension"
+                                      ExtensionChanged="@(value => _editPrimaryPhoneExtension = value)" />
+                </div>
+                <div class="col-lg-4">
+                    <PhoneNumberField Label="@WorkPhoneLabel"
+                                      ModifyMode="_modifyMode"
+                                      LabelClass="@LabelClass"
+                                      NumberInputClass="form-control form-control-sm"
+                                      ExtensionInputClass="form-control form-control-sm"
+                                      ReadOnlyValueClass="form-control-plaintext form-control-sm ps-0 fw-semibold mb-0"
+                                      Number="@_editWorkPhone"
+                                      NumberChanged="@(value => _editWorkPhone = value)"
+                                      Extension="@_editWorkPhoneExtension"
+                                      ExtensionChanged="@(value => _editWorkPhoneExtension = value)" />
+                </div>
+                <div class="col-lg-4">
+                    <PhoneNumberField Label="Other Phone"
+                                      ModifyMode="_modifyMode"
+                                      LabelClass="@LabelClass"
+                                      NumberInputClass="form-control form-control-sm"
+                                      ExtensionInputClass="form-control form-control-sm"
+                                      ReadOnlyValueClass="form-control-plaintext form-control-sm ps-0 fw-semibold mb-0"
+                                      Number="@_editOtherPhone"
+                                      NumberChanged="@(value => _editOtherPhone = value)"
+                                      Extension="@_editOtherPhoneExtension"
+                                      ExtensionChanged="@(value => _editOtherPhoneExtension = value)" />
+                </div>
+            </div>
+        </div>
+    </div>
+
     @if (_editNameType == NameTypes.Person)
     {
         <!-- Physical Description -->
@@ -560,6 +604,12 @@ else if (_name is not null)
     private string? _editPlaceOfBirth;
     private string? _editFbiNumber;
     private string? _editLocalNumber;
+    private string? _editPrimaryPhone;
+    private string? _editPrimaryPhoneExtension;
+    private string? _editWorkPhone;
+    private string? _editWorkPhoneExtension;
+    private string? _editOtherPhone;
+    private string? _editOtherPhoneExtension;
     private string? _editSsn;
     private bool _editIsCitizen;
     private DateTime? _editDeceasedDate;
@@ -606,6 +656,8 @@ else if (_name is not null)
     private string LabelClass => _modifyMode
         ? "form-label mb-1"
         : "form-label mb-0 small text-muted d-block";
+
+    private string WorkPhoneLabel => _editNameType == NameTypes.Business ? "Secondary Phone" : "Work Phone";
 
     /// <summary>Masks SSN as ***-**-XXXX in view mode. Returns "—" when null.</summary>
     private string SsnDisplay
@@ -678,6 +730,12 @@ else if (_name is not null)
         _editPlaceOfBirth          = _name.PlaceOfBirth;
         _editFbiNumber             = _name.FbiNumber;
         _editLocalNumber           = _name.LocalNumber;
+        _editPrimaryPhone          = _name.PrimaryPhone;
+        _editPrimaryPhoneExtension = _name.PrimaryPhoneExtension;
+        _editWorkPhone             = _name.WorkPhone;
+        _editWorkPhoneExtension    = _name.WorkPhoneExtension;
+        _editOtherPhone            = _name.OtherPhone;
+        _editOtherPhoneExtension   = _name.OtherPhoneExtension;
         _editSsn                   = _name.SocialSecurityNumber;
         _editIsCitizen             = _name.IsCitizen;
         _editDeceasedDate          = _name.DeceasedDate;
@@ -691,7 +749,9 @@ else if (_name is not null)
             _editSexId, _editRaceId, _editDateOfBirth, _editDlNumber, _editDlStateId,
             _editHeightFeet, _editHeightInchesRemainder, _editWeightLbs,
             _editHairColorId, _editEyeColorId, _editSuffixId, _editPlaceOfBirth,
-            _editFbiNumber, _editLocalNumber, _editSsn, _editIsCitizen, _editDeceasedDate,
+            _editFbiNumber, _editLocalNumber,
+            _editPrimaryPhone, _editPrimaryPhoneExtension, _editWorkPhone, _editWorkPhoneExtension, _editOtherPhone, _editOtherPhoneExtension,
+            _editSsn, _editIsCitizen, _editDeceasedDate,
             _editPrimaryLocationId, _editSecondaryLocationId);
 
     private bool HasPendingChanges =>
@@ -875,7 +935,13 @@ else if (_name is not null)
                 _editNameType == NameTypes.Person && _editIsCitizen,
                 _editNameType == NameTypes.Person ? _editDeceasedDate : null,
                 _editPrimaryLocationId,
-                _editSecondaryLocationId);
+                _editSecondaryLocationId,
+                _editPrimaryPhone,
+                _editPrimaryPhoneExtension,
+                _editWorkPhone,
+                _editWorkPhoneExtension,
+                _editOtherPhone,
+                _editOtherPhoneExtension);
 
             await LoadAsync();
             _editSnapshot = ComputeEditSnapshot();

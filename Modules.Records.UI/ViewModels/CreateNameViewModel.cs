@@ -17,6 +17,12 @@ public sealed class CreateNameViewModel
     public string? PlaceOfBirth { get; set; }
     public string? DriversLicenseNumber { get; set; }
     public Guid? DriversLicenseStateId { get; set; }
+    public string? PrimaryPhone { get; set; }
+    public string? PrimaryPhoneExtension { get; set; }
+    public string? WorkPhone { get; set; }
+    public string? WorkPhoneExtension { get; set; }
+    public string? OtherPhone { get; set; }
+    public string? OtherPhoneExtension { get; set; }
     public int? HeightFeet { get; set; }
     public int? HeightInchesRemainder { get; set; }
     public int? WeightLbs { get; set; }
@@ -51,6 +57,12 @@ public sealed class CreateNameViewModel
         PlaceOfBirth = null;
         DriversLicenseNumber = null;
         DriversLicenseStateId = null;
+        PrimaryPhone = null;
+        PrimaryPhoneExtension = null;
+        WorkPhone = null;
+        WorkPhoneExtension = null;
+        OtherPhone = null;
+        OtherPhoneExtension = null;
         HeightFeet = null;
         HeightInchesRemainder = null;
         WeightLbs = null;

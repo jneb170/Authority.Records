@@ -91,9 +91,15 @@ public sealed class RebuildReadModelsHandler
                 placeOfBirth:          n.PlaceOfBirth,
                 fbiNumber:             n.FbiNumber,
                 localNumber:           n.LocalNumber,
+                primaryPhone:          n.PrimaryPhone,
+                primaryPhoneExtension: n.PrimaryPhoneExtension,
+                workPhone:             n.WorkPhone,
+                workPhoneExtension:    n.WorkPhoneExtension,
+                otherPhone:            n.OtherPhone,
+                otherPhoneExtension:   n.OtherPhoneExtension,
                 socialSecurityNumber:  n.SocialSecurityNumber,
                 isCitizen:             n.IsCitizen,
-                 deceasedDate:          n.DeceasedDate,
+                  deceasedDate:          n.DeceasedDate,
                  createdAtUtc:          n.CreatedAt,
                  createdBy:             n.CreatedBy);
             rm.ApplyLocationChanged(n.PrimaryLocationId, n.SecondaryLocationId);

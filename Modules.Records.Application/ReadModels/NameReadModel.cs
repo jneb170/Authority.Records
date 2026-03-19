@@ -25,6 +25,12 @@ public sealed class NameReadModel
     public string? PlaceOfBirth { get; private set; }
     public string? FbiNumber { get; private set; }
     public string? LocalNumber { get; private set; }
+    public string? PrimaryPhone { get; private set; }
+    public string? PrimaryPhoneExtension { get; private set; }
+    public string? WorkPhone { get; private set; }
+    public string? WorkPhoneExtension { get; private set; }
+    public string? OtherPhone { get; private set; }
+    public string? OtherPhoneExtension { get; private set; }
     public string? SocialSecurityNumber { get; private set; }
     public bool IsCitizen { get; private set; }
     public DateTime? DeceasedDate { get; private set; }
@@ -66,7 +72,13 @@ public sealed class NameReadModel
         bool isCitizen,
         DateTime? deceasedDate,
         DateTime createdAtUtc,
-        Guid createdBy)
+        Guid createdBy,
+        string? primaryPhone = null,
+        string? primaryPhoneExtension = null,
+        string? workPhone = null,
+        string? workPhoneExtension = null,
+        string? otherPhone = null,
+        string? otherPhoneExtension = null)
     {
         return new NameReadModel
         {
@@ -91,6 +103,12 @@ public sealed class NameReadModel
             PlaceOfBirth          = placeOfBirth,
             FbiNumber             = fbiNumber,
             LocalNumber           = localNumber,
+            PrimaryPhone          = primaryPhone,
+            PrimaryPhoneExtension = primaryPhoneExtension,
+            WorkPhone             = workPhone,
+            WorkPhoneExtension    = workPhoneExtension,
+            OtherPhone            = otherPhone,
+            OtherPhoneExtension   = otherPhoneExtension,
             SocialSecurityNumber  = socialSecurityNumber,
             IsCitizen             = isCitizen,
             DeceasedDate          = deceasedDate,
@@ -121,7 +139,13 @@ public sealed class NameReadModel
         string? localNumber,
         string? socialSecurityNumber,
         bool isCitizen,
-        DateTime? deceasedDate)
+        DateTime? deceasedDate,
+        string? primaryPhone = null,
+        string? primaryPhoneExtension = null,
+        string? workPhone = null,
+        string? workPhoneExtension = null,
+        string? otherPhone = null,
+        string? otherPhoneExtension = null)
     {
         NameType              = nameType;
         LastOrBusinessName    = lastOrBusinessName;
@@ -140,6 +164,12 @@ public sealed class NameReadModel
         PlaceOfBirth          = placeOfBirth;
         FbiNumber             = fbiNumber;
         LocalNumber           = localNumber;
+        PrimaryPhone          = primaryPhone;
+        PrimaryPhoneExtension = primaryPhoneExtension;
+        WorkPhone             = workPhone;
+        WorkPhoneExtension    = workPhoneExtension;
+        OtherPhone            = otherPhone;
+        OtherPhoneExtension   = otherPhoneExtension;
         SocialSecurityNumber  = socialSecurityNumber;
         IsCitizen             = isCitizen;
         DeceasedDate          = deceasedDate;
@@ -183,6 +213,8 @@ public sealed class NameReadModel
         FirstName, MiddleName, SexId, RaceId, DateOfBirth,
         DriversLicenseNumber, DriversLicenseStateId, HeightInches, WeightLbs,
         HairColorId, EyeColorId,
-        SuffixId, PlaceOfBirth, FbiNumber, LocalNumber, SocialSecurityNumber, IsCitizen, DeceasedDate,
+        SuffixId, PlaceOfBirth, FbiNumber, LocalNumber,
+        PrimaryPhone, PrimaryPhoneExtension, WorkPhone, WorkPhoneExtension, OtherPhone, OtherPhoneExtension,
+        SocialSecurityNumber, IsCitizen, DeceasedDate,
         PrimaryLocationId, SecondaryLocationId, PrimaryMugshotUrl);
 }

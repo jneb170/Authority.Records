@@ -1,11 +1,11 @@
 using FluentValidation;
-using Modules.Records.Application.Names.Commands.CreateName;
+using Modules.Records.Application.Names.Commands.UpdateNameDetails;
 
 namespace Modules.Records.Application.Names.Validators;
 
-public sealed class CreateNameCommandValidator : AbstractValidator<CreateNameCommand>
+public sealed class UpdateNameDetailsCommandValidator : AbstractValidator<UpdateNameDetailsCommand>
 {
-    public CreateNameCommandValidator()
+    public UpdateNameDetailsCommandValidator()
     {
         RuleFor(x => x.LastOrBusinessName)
             .NotEmpty().WithMessage("Last name (or business name) is required.")
