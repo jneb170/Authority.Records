@@ -44,6 +44,7 @@ public sealed class ArrestProjectionHandler :
             primaryIncidentId: notification.PrimaryIncidentId);
 
         readModel.ApplyLocationChanged(arrest?.LocationId);
+        readModel.UpdatedAtUtc = notification.OccurredOnUtc;
 
         _dbContext.ArrestReadModels.Add(readModel);
         await _dbContext.SaveChangesAsync(cancellationToken);

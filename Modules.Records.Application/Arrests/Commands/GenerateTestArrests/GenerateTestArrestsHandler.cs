@@ -5,6 +5,7 @@ using Modules.Records.Application.Arrests.Commands.CreateArrest;
 using Modules.Records.Application.Locations.Commands.CreateLocation;
 using Modules.Records.Application.Locations;
 using Modules.Records.Application.Names.Commands.CreateName;
+using Modules.Records.Application.TestData;
 using Modules.Records.Domain.Abstractions;
 using Modules.Records.Domain.Common;
 using Modules.Records.Domain.Entities;
@@ -57,19 +58,29 @@ public sealed class GenerateTestArrestsHandler : IRequestHandler<GenerateTestArr
             return CreateFailureResult(count, errors);
         }
 
-        var existingNameIds = await _dbContext.Names
-            .AsNoTracking()
-            .Where(n => n.JurisdictionId == jurisdictionId)
-            .Select(n => n.Id)
-            .ToListAsync(cancellationToken);
+        var existingNameIds = new List<Guid>();
+        if (request.NameStrategy == TestDataRecordLinkStrategy.Existing)
+        {
+            existingNameIds = await _dbContext.Names
+                .AsNoTracking()
+                .Where(n => n.JurisdictionId == jurisdictionId)
+                .Select(n => n.Id)
+                .ToListAsync(cancellationToken);
+        }
 
-        var existingLocationIds = await _dbContext.Locations
-            .AsNoTracking()
-            .Where(l => l.JurisdictionId == jurisdictionId)
-            .Select(l => l.Id)
-            .ToListAsync(cancellationToken);
+        var existingLocationIds = new List<Guid>();
+        if (request.LocationStrategy == TestDataRecordLinkStrategy.Existing)
+        {
+            existingLocationIds = await _dbContext.Locations
+                .AsNoTracking()
+                .Where(l => l.JurisdictionId == jurisdictionId)
+                .Select(l => l.Id)
+                .ToListAsync(cancellationToken);
+        }
 
         var stateIds = await LoadPicklistIdsAsync(PicklistTypes.State, jurisdictionId, cancellationToken);
+        var hairColorIds = await LoadPicklistIdsAsync(PicklistTypes.HairColor, jurisdictionId, cancellationToken);
+        var eyeColorIds = await LoadPicklistIdsAsync(PicklistTypes.EyeColor, jurisdictionId, cancellationToken);
         var directionDict = new Dictionary<string, Guid>(StringComparer.OrdinalIgnoreCase);
         var streetTypeDict = new Dictionary<string, Guid>(StringComparer.OrdinalIgnoreCase);
         var stateDict = new Dictionary<string, Guid>(StringComparer.OrdinalIgnoreCase);
@@ -145,6 +156,8 @@ public sealed class GenerateTestArrestsHandler : IRequestHandler<GenerateTestArr
                     nameUsageCounts,
                     request.NameMaxUses,
                     stateIds,
+                    hairColorIds,
+                    eyeColorIds,
                     jurisdictionId,
                     cancellationToken);
 
@@ -250,6 +263,8 @@ public sealed class GenerateTestArrestsHandler : IRequestHandler<GenerateTestArr
         Dictionary<Guid, int> usageCounts,
         int maxUses,
         IReadOnlyList<Guid> stateIds,
+        IReadOnlyList<Guid> hairColorIds,
+        IReadOnlyList<Guid> eyeColorIds,
         Guid jurisdictionId,
         CancellationToken cancellationToken)
     {
@@ -257,14 +272,14 @@ public sealed class GenerateTestArrestsHandler : IRequestHandler<GenerateTestArr
         {
             TestDataRecordLinkStrategy.Existing => new ResolvedRecord(PickAvailable(existingIds, usageCounts, maxUses, "Name"), false, false),
             TestDataRecordLinkStrategy.CreateNew => new ResolvedRecord(
-                await CreateNameAsync(currentRunIds, usageCounts, stateIds, jurisdictionId, cancellationToken),
+                await CreateNameAsync(currentRunIds, usageCounts, stateIds, hairColorIds, eyeColorIds, jurisdictionId, cancellationToken),
                 true,
                 false),
             TestDataRecordLinkStrategy.RecentlyCreatedOrCreateNew => await ResolveCurrentRunOrCreateAsync(
                 currentRunIds,
                 usageCounts,
                 maxUses,
-                () => CreateNameAsync(currentRunIds, usageCounts, stateIds, jurisdictionId, cancellationToken)),
+                () => CreateNameAsync(currentRunIds, usageCounts, stateIds, hairColorIds, eyeColorIds, jurisdictionId, cancellationToken)),
             _ => throw new InvalidOperationException($"Unsupported name strategy '{strategy}'.")
         };
     }
@@ -346,6 +361,8 @@ public sealed class GenerateTestArrestsHandler : IRequestHandler<GenerateTestArr
         ICollection<Guid> currentRunIds,
         Dictionary<Guid, int> usageCounts,
         IReadOnlyList<Guid> stateIds,
+        IReadOnlyList<Guid> hairColorIds,
+        IReadOnlyList<Guid> eyeColorIds,
         Guid jurisdictionId,
         CancellationToken cancellationToken)
     {
@@ -356,8 +373,8 @@ public sealed class GenerateTestArrestsHandler : IRequestHandler<GenerateTestArr
 
         var sexId = await LookupPicklistIdAsync(PicklistTypes.Sex, sexValue, jurisdictionId, cancellationToken);
         var raceId = await LookupPicklistIdAsync(PicklistTypes.Race, raceValue, jurisdictionId, cancellationToken);
-        var hairColorId = await PickRandomPicklistIdAsync(PicklistTypes.HairColor, jurisdictionId, cancellationToken);
-        var eyeColorId = await PickRandomPicklistIdAsync(PicklistTypes.EyeColor, jurisdictionId, cancellationToken);
+        var hairColorId = TestDataFakeNameGenerator.PickRandom(hairColorIds);
+        var eyeColorId = TestDataFakeNameGenerator.PickRandom(eyeColorIds);
 
         string? dlNumber = null;
         Guid? dlStateId = null;
@@ -461,12 +478,6 @@ public sealed class GenerateTestArrestsHandler : IRequestHandler<GenerateTestArr
             .Where(p => p.JurisdictionId == jurisdictionId && p.PicklistType == picklistType && p.Value == value && p.IsActive)
             .Select(p => (Guid?)p.Id)
             .FirstOrDefaultAsync(cancellationToken);
-    }
-
-    private async Task<Guid?> PickRandomPicklistIdAsync(string picklistType, Guid jurisdictionId, CancellationToken cancellationToken)
-    {
-        var ids = await LoadPicklistIdsAsync(picklistType, jurisdictionId, cancellationToken);
-        return TestDataFakeNameGenerator.PickRandom(ids);
     }
 
     private async Task EnsureNameLocationsAsync(

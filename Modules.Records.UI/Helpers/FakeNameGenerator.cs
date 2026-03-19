@@ -1,4 +1,4 @@
-using Modules.Records.Application.Arrests.Commands.GenerateTestArrests;
+using Modules.Records.Application.TestData;
 
 namespace Modules.Records.UI.Helpers;
 
