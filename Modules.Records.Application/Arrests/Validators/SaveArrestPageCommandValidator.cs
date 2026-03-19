@@ -25,6 +25,10 @@ public sealed class SaveArrestPageCommandValidator : AbstractValidator<SaveArres
             .Must(ids => ids is null || ids.All(id => id != Guid.Empty))
             .WithMessage("Incident remove operations must reference valid incidents.");
 
+        RuleFor(x => x.IncidentIdsToRemove)
+            .Must((cmd, ids) => ids is null || !cmd.PrimaryIncidentId.HasValue || !ids.Contains(cmd.PrimaryIncidentId.Value))
+            .WithMessage("The primary incident cannot be removed from the arrest's linked incidents.");
+
         RuleFor(x => x.ChargeIdsToAdd)
             .Must(ids => ids is null || ids.All(id => id != Guid.Empty))
             .WithMessage("Charge add operations must reference valid charges.");

@@ -97,4 +97,173 @@ public sealed class SaveArrestPageHandlerTests
         Assert.Single(chargeLinkIds);
         Assert.Contains(chargeToAdd.Id, chargeLinkIds);
     }
+
+    [Fact]
+    public async Task Handle_PrimaryIncidentNotInIdsToAdd_StillCreatesLink()
+    {
+        await using var db = RecordPageSaveTestDbContextFactory.Create();
+
+        var jurisdictionId = Guid.NewGuid();
+        var agencyId = Guid.NewGuid();
+        var userId = Guid.NewGuid();
+
+        var tenantProvider = new TestTenantProvider(jurisdictionId, agencyId, userId);
+        var modificationContext = new UserModificationContext(userId);
+        var handler = new SaveArrestPageHandler(db, tenantProvider, modificationContext);
+
+        var name = new Name(jurisdictionId, agencyId, NameTypes.Person, "Smith", "John", null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, false, null);
+        var arrest = new Arrest(jurisdictionId, agencyId, name.Id, DateTime.UtcNow.AddDays(-1), "AR-2", null);
+        var primaryIncident = new IncidentFactory().Create(new CreateIncidentRequest
+        {
+            JurisdictionId = jurisdictionId,
+            AgencyId = agencyId,
+            Details = new IncidentDetails
+            {
+                Description = "Primary incident",
+                IncidentNum = "INC-PRIMARY",
+                LocalNum = "LOC-PRIMARY"
+            }
+        });
+
+        db.Names.Add(name);
+        db.Arrests.Add(arrest);
+        db.Incidents.Add(primaryIncident);
+        await db.SaveChangesAsync(CancellationToken.None);
+        db.ResetSaveChangesCallCount();
+
+        // PrimaryIncidentId is set but NOT included in IncidentIdsToAdd
+        var command = new SaveArrestPageCommand(
+            arrest.Id,
+            name.Id,
+            DateTime.UtcNow.AddHours(-1),
+            null,
+            "AR-2",
+            PrimaryIncidentId: primaryIncident.Id,
+            IncidentIdsToAdd: null,
+            IncidentIdsToRemove: null);
+
+        await handler.Handle(command, CancellationToken.None);
+
+        var linkedIncidentIds = await db.IncidentArrestLinks
+            .Where(link => link.ArrestId == arrest.Id)
+            .Select(link => link.IncidentId)
+            .ToListAsync();
+
+        Assert.Single(linkedIncidentIds);
+        Assert.Contains(primaryIncident.Id, linkedIncidentIds);
+    }
+
+    [Fact]
+    public async Task Handle_PrimaryIncidentInIdsToRemove_RemainsLinked()
+    {
+        await using var db = RecordPageSaveTestDbContextFactory.Create();
+
+        var jurisdictionId = Guid.NewGuid();
+        var agencyId = Guid.NewGuid();
+        var userId = Guid.NewGuid();
+
+        var tenantProvider = new TestTenantProvider(jurisdictionId, agencyId, userId);
+        var modificationContext = new UserModificationContext(userId);
+        var handler = new SaveArrestPageHandler(db, tenantProvider, modificationContext);
+
+        var name = new Name(jurisdictionId, agencyId, NameTypes.Person, "Jones", "Alice", null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, false, null);
+        var arrest = new Arrest(jurisdictionId, agencyId, name.Id, DateTime.UtcNow.AddDays(-1), "AR-3", null);
+        var primaryIncident = new IncidentFactory().Create(new CreateIncidentRequest
+        {
+            JurisdictionId = jurisdictionId,
+            AgencyId = agencyId,
+            Details = new IncidentDetails
+            {
+                Description = "Primary incident",
+                IncidentNum = "INC-PRI",
+                LocalNum = "LOC-PRI"
+            }
+        });
+
+        db.Names.Add(name);
+        db.Arrests.Add(arrest);
+        db.Incidents.Add(primaryIncident);
+        db.IncidentArrestLinks.Add(new IncidentArrestLink(jurisdictionId, primaryIncident.Id, arrest.Id, userId));
+        await db.SaveChangesAsync(CancellationToken.None);
+        db.ResetSaveChangesCallCount();
+
+        // Client mistakenly includes the primary incident in the remove set
+        var command = new SaveArrestPageCommand(
+            arrest.Id,
+            name.Id,
+            DateTime.UtcNow.AddHours(-1),
+            null,
+            "AR-3",
+            PrimaryIncidentId: primaryIncident.Id,
+            IncidentIdsToAdd: null,
+            IncidentIdsToRemove: [primaryIncident.Id]);
+
+        await handler.Handle(command, CancellationToken.None);
+
+        var linkedIncidentIds = await db.IncidentArrestLinks
+            .Where(link => link.ArrestId == arrest.Id)
+            .Select(link => link.IncidentId)
+            .ToListAsync();
+
+        // The primary incident must remain linked
+        Assert.Contains(primaryIncident.Id, linkedIncidentIds);
+
+        var savedArrest = await db.Arrests.SingleAsync(a => a.Id == arrest.Id);
+        Assert.Equal(primaryIncident.Id, savedArrest.PrimaryIncidentId);
+    }
+
+    [Fact]
+    public async Task Handle_PrimaryIncidentAlsoInIdsToAdd_DoesNotCreateDuplicateLink()
+    {
+        await using var db = RecordPageSaveTestDbContextFactory.Create();
+
+        var jurisdictionId = Guid.NewGuid();
+        var agencyId = Guid.NewGuid();
+        var userId = Guid.NewGuid();
+
+        var tenantProvider = new TestTenantProvider(jurisdictionId, agencyId, userId);
+        var modificationContext = new UserModificationContext(userId);
+        var handler = new SaveArrestPageHandler(db, tenantProvider, modificationContext);
+
+        var name = new Name(jurisdictionId, agencyId, NameTypes.Person, "Brown", "Bob", null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, false, null);
+        var arrest = new Arrest(jurisdictionId, agencyId, name.Id, DateTime.UtcNow.AddDays(-1), "AR-4", null);
+        var primaryIncident = new IncidentFactory().Create(new CreateIncidentRequest
+        {
+            JurisdictionId = jurisdictionId,
+            AgencyId = agencyId,
+            Details = new IncidentDetails
+            {
+                Description = "Primary incident",
+                IncidentNum = "INC-DUP",
+                LocalNum = "LOC-DUP"
+            }
+        });
+
+        db.Names.Add(name);
+        db.Arrests.Add(arrest);
+        db.Incidents.Add(primaryIncident);
+        await db.SaveChangesAsync(CancellationToken.None);
+        db.ResetSaveChangesCallCount();
+
+        // PrimaryIncidentId is set AND also explicitly included in IncidentIdsToAdd
+        var command = new SaveArrestPageCommand(
+            arrest.Id,
+            name.Id,
+            DateTime.UtcNow.AddHours(-1),
+            null,
+            "AR-4",
+            PrimaryIncidentId: primaryIncident.Id,
+            IncidentIdsToAdd: [primaryIncident.Id]);
+
+        await handler.Handle(command, CancellationToken.None);
+
+        var linkedIncidentIds = await db.IncidentArrestLinks
+            .Where(link => link.ArrestId == arrest.Id)
+            .Select(link => link.IncidentId)
+            .ToListAsync();
+
+        // Exactly one link should exist — no duplicates
+        Assert.Single(linkedIncidentIds);
+        Assert.Contains(primaryIncident.Id, linkedIncidentIds);
+    }
 }

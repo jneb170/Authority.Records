@@ -32,6 +32,14 @@ public sealed class SaveArrestPageHandler : IRequestHandler<SaveArrestPageComman
         var chargeIdsToAdd = NormalizeAdds(request.ChargeIdsToAdd, request.ChargeIdsToRemove);
         var chargeIdsToRemove = NormalizeRemoves(request.ChargeIdsToAdd, request.ChargeIdsToRemove);
 
+        // Ensure the primary incident is always linked: force it into the add-set
+        // and prevent it from being removed, regardless of what the caller submitted.
+        if (request.PrimaryIncidentId.HasValue)
+        {
+            incidentIdsToAdd.Add(request.PrimaryIncidentId.Value);
+            incidentIdsToRemove.Remove(request.PrimaryIncidentId.Value);
+        }
+
         var arrest = await _dbContext.Arrests
             .FirstOrDefaultAsync(a => a.Id == request.ArrestId && a.JurisdictionId == jurisdictionId, cancellationToken)
             ?? throw new InvalidOperationException("Arrest not found.");
