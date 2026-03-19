@@ -64,7 +64,7 @@ public sealed class CreateArrestHandler : IRequestHandler<CreateArrestCommand, l
 
         _dbContext.Arrests.Add(arrest);
 
-        var snapshotLocations = await LoadSnapshotLocationsAsync(name, cancellationToken);
+        var snapshotLocations = await ArrestNameSnapshotBuilder.LoadSnapshotLocationsAsync(_dbContext, name, cancellationToken);
         _dbContext.ArrestNameSnapshots.Add(
             ArrestNameSnapshotBuilder.CreateFromName(
                 arrest,
@@ -101,29 +101,6 @@ public sealed class CreateArrestHandler : IRequestHandler<CreateArrestCommand, l
         await _dbContext.SaveChangesAsync(cancellationToken);
 
         return arrest.RecordNumber;
-    }
-
-    private async Task<(Location? PrimaryLocation, Location? SecondaryLocation)> LoadSnapshotLocationsAsync(
-        Name name,
-        CancellationToken cancellationToken)
-    {
-        var locationIds = new[] { name.PrimaryLocationId, name.SecondaryLocationId }
-            .Where(id => id.HasValue)
-            .Select(id => id!.Value)
-            .Distinct()
-            .ToList();
-
-        if (locationIds.Count == 0)
-            return (null, null);
-
-        var locations = await _dbContext.Locations
-            .AsNoTracking()
-            .Where(location => locationIds.Contains(location.Id))
-            .ToDictionaryAsync(location => location.Id, cancellationToken);
-
-        return (
-            name.PrimaryLocationId.HasValue ? locations.GetValueOrDefault(name.PrimaryLocationId.Value) : null,
-            name.SecondaryLocationId.HasValue ? locations.GetValueOrDefault(name.SecondaryLocationId.Value) : null);
     }
 
     private async Task<string> TryGenerateArrestNumAsync(CancellationToken cancellationToken)

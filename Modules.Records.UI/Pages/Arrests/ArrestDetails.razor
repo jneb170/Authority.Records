@@ -745,6 +745,7 @@ else if (_arrest is not null)
     private Guid? _editNameId;
     private string? _editNameDisplay;
     private long? _editNameRecordNumber;
+    private bool _hasExistingAtTimeOfNameSnapshot;
     private string _editAtTimeOfNameType = NameTypes.Person;
     private string _editAtTimeOfLastOrBusinessName = string.Empty;
     private string? _editAtTimeOfFirstName;
@@ -1365,7 +1366,7 @@ else if (_arrest is not null)
 
     private NameSnapshotInput? BuildAtTimeOfNameInput()
     {
-        if (!HasAtTimeOfNameData)
+        if (!HasAtTimeOfNameData && !_hasExistingAtTimeOfNameSnapshot)
             return null;
 
         return new NameSnapshotInput(
@@ -1491,6 +1492,7 @@ else if (_arrest is not null)
             return;
         }
 
+        _hasExistingAtTimeOfNameSnapshot = true;
         _editAtTimeOfNameType = snapshot.NameType;
         _editAtTimeOfLastOrBusinessName = snapshot.LastOrBusinessName;
         _editAtTimeOfFirstName = snapshot.FirstName;
@@ -1529,6 +1531,7 @@ else if (_arrest is not null)
 
     private void ClearAtTimeOfName()
     {
+        _hasExistingAtTimeOfNameSnapshot = false;
         _editAtTimeOfNameType = NameTypes.Person;
         _editAtTimeOfLastOrBusinessName = string.Empty;
         _editAtTimeOfFirstName = null;

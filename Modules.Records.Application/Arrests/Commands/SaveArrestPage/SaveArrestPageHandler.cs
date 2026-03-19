@@ -87,12 +87,12 @@ public sealed class SaveArrestPageHandler : IRequestHandler<SaveArrestPageComman
             }
             else
             {
-                ArrestNameSnapshotBuilder.UpdateFromInput(snapshot, name.Id, name.RecordNumber, request.AtTimeOfName);
+                ArrestNameSnapshotBuilder.UpdateFromInput(snapshot, name.Id, name.RecordNumber, request.AtTimeOfName, userId);
             }
         }
         else if (nameChanged || snapshot is null)
         {
-            var snapshotLocations = await LoadSnapshotLocationsAsync(name, cancellationToken);
+            var snapshotLocations = await ArrestNameSnapshotBuilder.LoadSnapshotLocationsAsync(_dbContext, name, cancellationToken);
             if (snapshot is null)
             {
                 _dbContext.ArrestNameSnapshots.Add(
@@ -105,41 +105,11 @@ public sealed class SaveArrestPageHandler : IRequestHandler<SaveArrestPageComman
             }
             else
             {
-                snapshot.RefreshFromSource(
-                    name.Id,
-                    name.RecordNumber,
-                    name.NameType,
-                    name.LastOrBusinessName,
-                    name.FirstName,
-                    name.MiddleName,
-                    name.SexId,
-                    name.RaceId,
-                    name.DateOfBirth,
-                    name.DriversLicenseNumber,
-                    name.DriversLicenseStateId,
-                    name.HeightInches,
-                    name.WeightLbs,
-                    name.HairColorId,
-                    name.EyeColorId,
-                    name.SuffixId,
-                    name.PlaceOfBirth,
-                    name.FbiNumber,
-                    name.LocalNumber,
-                    name.PrimaryPhone,
-                    name.PrimaryPhoneExtension,
-                    name.WorkPhone,
-                    name.WorkPhoneExtension,
-                    name.OtherPhone,
-                    name.OtherPhoneExtension,
-                    name.SocialSecurityNumber,
-                    name.IsCitizen,
-                    name.DeceasedDate,
-                    snapshotLocations.PrimaryLocation?.Id,
-                    snapshotLocations.PrimaryLocation?.RecordNumber,
-                    snapshotLocations.PrimaryLocation?.Address,
-                    snapshotLocations.SecondaryLocation?.Id,
-                    snapshotLocations.SecondaryLocation?.RecordNumber,
-                    snapshotLocations.SecondaryLocation?.Address,
+                ArrestNameSnapshotBuilder.RefreshFromName(
+                    snapshot,
+                    name,
+                    snapshotLocations.PrimaryLocation,
+                    snapshotLocations.SecondaryLocation,
                     userId);
             }
         }
@@ -219,29 +189,6 @@ public sealed class SaveArrestPageHandler : IRequestHandler<SaveArrestPageComman
         }
 
         await _dbContext.SaveChangesAsync(cancellationToken);
-    }
-
-    private async Task<(Location? PrimaryLocation, Location? SecondaryLocation)> LoadSnapshotLocationsAsync(
-        Name name,
-        CancellationToken cancellationToken)
-    {
-        var locationIds = new[] { name.PrimaryLocationId, name.SecondaryLocationId }
-            .Where(id => id.HasValue)
-            .Select(id => id!.Value)
-            .Distinct()
-            .ToList();
-
-        if (locationIds.Count == 0)
-            return (null, null);
-
-        var locations = await _dbContext.Locations
-            .AsNoTracking()
-            .Where(location => locationIds.Contains(location.Id))
-            .ToDictionaryAsync(location => location.Id, cancellationToken);
-
-        return (
-            name.PrimaryLocationId.HasValue ? locations.GetValueOrDefault(name.PrimaryLocationId.Value) : null,
-            name.SecondaryLocationId.HasValue ? locations.GetValueOrDefault(name.SecondaryLocationId.Value) : null);
     }
 
     private static HashSet<Guid> NormalizeAdds(

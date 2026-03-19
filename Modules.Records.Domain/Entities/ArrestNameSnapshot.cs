@@ -135,7 +135,7 @@ public sealed class ArrestNameSnapshot : AggregateRoot, IMultiTenant
             secondaryLocationId,
             secondaryLocationRecordNumber,
             secondaryLocationAddress);
-        snapshot.MarkCopied(copiedByUserId);
+        snapshot.MarkAsCopied(copiedByUserId);
         return snapshot;
     }
 
@@ -211,7 +211,7 @@ public sealed class ArrestNameSnapshot : AggregateRoot, IMultiTenant
             secondaryLocationId,
             secondaryLocationRecordNumber,
             secondaryLocationAddress);
-        MarkCopied(copiedByUserId);
+        MarkAsCopied(copiedByUserId);
     }
 
     public void UpdateDetails(
@@ -359,7 +359,7 @@ public sealed class ArrestNameSnapshot : AggregateRoot, IMultiTenant
         SecondaryLocationAddress = secondaryLocationAddress;
     }
 
-    private void MarkCopied(Guid copiedByUserId)
+    public void MarkAsCopied(Guid copiedByUserId)
     {
         LastCopiedByUserId = copiedByUserId;
         LastCopiedAtUtc = DateTime.UtcNow;

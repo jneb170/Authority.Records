@@ -2,6 +2,7 @@ using Microsoft.EntityFrameworkCore;
 using Modules.Records.Application.Arrests.Commands.CreateArrest;
 using Modules.Records.Application.Tests.Infrastructure;
 using Modules.Records.Domain.Common;
+using Modules.Records.Domain.Common.Implementations;
 using Modules.Records.Domain.Entities;
 using Modules.Records.Domain.Factories;
 using Modules.Records.Domain.ValueObjects;
