@@ -16,10 +16,11 @@ internal sealed class RecordPageSaveTestDbContext(DbContextOptions<RecordPageSav
     public DbSet<Incident> Incidents { get; set; } = null!;
     public IQueryable<Incident> AllIncidentsWithDeleted => Incidents;
     public DbSet<Arrest> Arrests { get; set; } = null!;
+    public DbSet<ArrestNameSnapshot> ArrestNameSnapshots { get; set; } = null!;
     public DbSet<Citation> Citations { get; set; } = null!;
     public DbSet<Charge> Charges { get; set; } = null!;
     public DbSet<Name> Names { get; set; } = null!;
-    public DbSet<Location> Locations => throw new NotImplementedException();
+    public DbSet<Location> Locations { get; set; } = null!;
     public DbSet<Mugshot> Mugshots => throw new NotImplementedException();
     public DbSet<MugshotLink> MugshotLinks => throw new NotImplementedException();
     public DbSet<IncidentArrestLink> IncidentArrestLinks { get; set; } = null!;
@@ -58,6 +59,7 @@ internal sealed class RecordPageSaveTestDbContext(DbContextOptions<RecordPageSav
     {
         ConfigureEntity<Incident>(modelBuilder);
         ConfigureEntity<Arrest>(modelBuilder);
+        ConfigureEntity<ArrestNameSnapshot>(modelBuilder);
         ConfigureEntity<Citation>(modelBuilder);
         ConfigureEntity<Charge>(modelBuilder);
         ConfigureEntity<Name>(modelBuilder);

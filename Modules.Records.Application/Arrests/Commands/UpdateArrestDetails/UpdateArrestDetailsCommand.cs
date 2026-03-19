@@ -1,3 +1,4 @@
+using Modules.Records.Application.DTOs;
 using MediatR;
 
 namespace Modules.Records.Application.Arrests.Commands.UpdateArrestDetails;
@@ -9,4 +10,5 @@ public sealed record UpdateArrestDetailsCommand(
     Guid?    ArrestTypeId,
     string   ArrestNum   = "",
     Guid?    LocationId  = null,
-    Guid?    PrimaryIncidentId = null) : IRequest;
+    Guid?    PrimaryIncidentId = null,
+    NameSnapshotInput? AtTimeOfName = null) : IRequest;

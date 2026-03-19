@@ -22,4 +22,5 @@ public sealed record ArrestDto(
     Guid? PrimaryIncidentId = null,
     long? PrimaryIncidentRecordNumber = null,
     string? PrimaryIncidentNum = null,
-    string? PrimaryMugshotUrl = null);
+    string? PrimaryMugshotUrl = null,
+    NameSnapshotDto? AtTimeOfName = null);
