@@ -728,8 +728,8 @@
 
     // ── Arrest generation state ──────────────────────────────────────────────
     private int _arrestCount = 25;
-    private string _arrestFromInput = DateTime.UtcNow.AddDays(-30).ToString("yyyy-MM-ddTHH:mm");
-    private string _arrestToInput = DateTime.UtcNow.ToString("yyyy-MM-ddTHH:mm");
+    private string _arrestFromInput = DateTime.Now.AddDays(-30).ToString("yyyy-MM-ddTHH:mm");
+    private string _arrestToInput = DateTime.Now.ToString("yyyy-MM-ddTHH:mm");
     private TestDataRecordLinkStrategy _arrestNameStrategy = TestDataRecordLinkStrategy.RecentlyCreatedOrCreateNew;
     private TestDataRecordLinkStrategy _arrestLocationStrategy = TestDataRecordLinkStrategy.RecentlyCreatedOrCreateNew;
     private int _arrestNameMaxUses = 3;
@@ -879,14 +879,20 @@
 
     private bool TryParseArrestWindow(out DateTime arrestedFrom, out DateTime arrestedTo, out string error)
     {
-        if (!DateTime.TryParse(_arrestFromInput, out arrestedFrom))
+        if (!DateTime.TryParseExact(_arrestFromInput, "yyyy-MM-ddTHH:mm",
+                System.Globalization.CultureInfo.InvariantCulture,
+                System.Globalization.DateTimeStyles.AssumeLocal,
+                out arrestedFrom))
         {
             arrestedTo = default;
             error = "Enter a valid 'Arrested From' date and time.";
             return false;
         }
 
-        if (!DateTime.TryParse(_arrestToInput, out arrestedTo))
+        if (!DateTime.TryParseExact(_arrestToInput, "yyyy-MM-ddTHH:mm",
+                System.Globalization.CultureInfo.InvariantCulture,
+                System.Globalization.DateTimeStyles.AssumeLocal,
+                out arrestedTo))
         {
             error = "Enter a valid 'Arrested To' date and time.";
             return false;

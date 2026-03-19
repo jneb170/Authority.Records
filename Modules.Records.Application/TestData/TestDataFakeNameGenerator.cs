@@ -1,4 +1,4 @@
-namespace Modules.Records.Application.Arrests.Commands.GenerateTestArrests;
+namespace Modules.Records.Application.TestData;
 
 public static class TestDataFakeNameGenerator
 {
