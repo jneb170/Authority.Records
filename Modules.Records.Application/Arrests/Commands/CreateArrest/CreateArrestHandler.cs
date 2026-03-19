@@ -38,16 +38,16 @@ public sealed class CreateArrestHandler : IRequestHandler<CreateArrestCommand, l
         if (!nameExists)
             throw new InvalidOperationException("Linked name not found.");
 
-        long? primaryIncidentRecordNumber = null;
+        Guid? primaryIncidentId = null;
         if (request.PrimaryIncidentId.HasValue)
         {
-            primaryIncidentRecordNumber = await _dbContext.IncidentReadModels
+            primaryIncidentId = await _dbContext.Incidents
                 .AsNoTracking()
                 .Where(i => i.Id == request.PrimaryIncidentId.Value && i.JurisdictionId == jurisdictionId)
-                .Select(i => (long?)i.RecordNumber)
+                .Select(i => (Guid?)i.Id)
                 .FirstOrDefaultAsync(cancellationToken);
 
-            if (!primaryIncidentRecordNumber.HasValue)
+            if (!primaryIncidentId.HasValue)
                 throw new InvalidOperationException("Primary incident not found.");
         }
 
@@ -64,33 +64,33 @@ public sealed class CreateArrestHandler : IRequestHandler<CreateArrestCommand, l
             request.PrimaryIncidentId);
 
         _dbContext.Arrests.Add(arrest);
-        await _dbContext.SaveChangesAsync(cancellationToken);
 
-        // Link to any specified incidents
         var incidentRecordNumbers = request.IncidentRecordNumbers
-            .Concat(primaryIncidentRecordNumber.HasValue ? [primaryIncidentRecordNumber.Value] : [])
             .Distinct()
             .ToList();
 
-        foreach (var recordNumber in incidentRecordNumbers)
+        var linkedIncidentIds = new HashSet<Guid>();
+
+        if (incidentRecordNumbers.Count > 0)
         {
-            var incident = await _dbContext.IncidentReadModels
+            var incidentIds = await _dbContext.Incidents
                 .AsNoTracking()
-                .FirstOrDefaultAsync(i => i.RecordNumber == recordNumber, cancellationToken);
+                .Where(i => i.JurisdictionId == jurisdictionId && incidentRecordNumbers.Contains(i.RecordNumber))
+                .Select(i => i.Id)
+                .ToListAsync(cancellationToken);
 
-            if (incident is null) continue;
-
-            var incidentEntity = await _dbContext.Incidents
-                .FirstOrDefaultAsync(i => i.Id == incident.Id, cancellationToken);
-
-            if (incidentEntity is null) continue;
-
-            var link = new IncidentArrestLink(jurisdictionId, incidentEntity.Id, arrest.Id, userId);
-            _dbContext.IncidentArrestLinks.Add(link);
+            linkedIncidentIds.UnionWith(incidentIds);
         }
 
-        if (incidentRecordNumbers.Any())
-            await _dbContext.SaveChangesAsync(cancellationToken);
+        if (primaryIncidentId.HasValue)
+            linkedIncidentIds.Add(primaryIncidentId.Value);
+
+        foreach (var incidentId in linkedIncidentIds)
+        {
+            _dbContext.IncidentArrestLinks.Add(new IncidentArrestLink(jurisdictionId, incidentId, arrest.Id, userId));
+        }
+
+        await _dbContext.SaveChangesAsync(cancellationToken);
 
         return arrest.RecordNumber;
     }

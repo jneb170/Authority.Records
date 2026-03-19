@@ -31,14 +31,6 @@ namespace Modules.Records.Domain.Entities
         /// <summary>Optional reference to a Master Location Index record for the arrest location.</summary>
         public Guid? LocationId { get; private set; }
 
-        private static ILifecyclePolicy<Arrest> _lifecyclePolicy;
-
-        // Inject lifecycle policy from composition root / factory
-        public static void SetLifecyclePolicy(ILifecyclePolicy<Arrest> policy)
-        {
-            _lifecyclePolicy = policy ?? throw new ArgumentNullException(nameof(policy));
-        }
-
         private static readonly ArrestAuthorizationPolicy _authorizationPolicy
             = new();
         protected override IAuthorizationPolicy<Arrest> AuthorizationPolicy
@@ -102,7 +94,15 @@ namespace Modules.Records.Domain.Entities
             ArrestNum    = arrestNum;
             PrimaryIncidentId = primaryIncidentId;
 
-            AddDomainEvent(new ArrestDetailsUpdatedDomainEvent(Id, NameId, ArrestedAt, ArrestTypeId, ArrestNum, PrimaryIncidentId));
+            AddDomainEvent(new ArrestDetailsUpdatedDomainEvent(
+                Id,
+                NameId,
+                ArrestedAt,
+                ArrestTypeId,
+                ArrestNum,
+                PrimaryIncidentId,
+                LocationId,
+                context.UserId));
         }
 
         /// <summary>Sets or clears the linked Master Location Index record for this arrest.</summary>

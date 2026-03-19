@@ -102,7 +102,7 @@ public sealed class Incident
         LocalNum    = details.LocalNum;
         OccurredOn  = occurredOn;
 
-        AddDomainEvent(new IncidentDetailsUpdatedDomainEvent(Id, Details, OccurredOn));
+        AddDomainEvent(new IncidentDetailsUpdatedDomainEvent(Id, Details, OccurredOn, LocationId, context.UserId));
     }
 
     /// <summary>Sets or clears the linked Master Location Index record for this incident.</summary>

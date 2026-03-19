@@ -5,4 +5,6 @@ public sealed record CitationDetailsUpdatedDomainEvent(
     string   Description,
     DateTime IssueDate,
     Guid?    CourtId,
-    string   CitationNum) : DomainEvent;
+    string   CitationNum,
+    Guid?    LocationId,
+    Guid?    ModifiedBy) : DomainEvent;

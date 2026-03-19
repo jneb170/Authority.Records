@@ -61,14 +61,10 @@ public sealed class IncidentProjectionHandler :
         if (readModel is null)
             return;
 
-        var incident = await _dbContext.Incidents
-            .AsNoTracking()
-            .FirstOrDefaultAsync(i => i.Id == notification.IncidentId, cancellationToken);
-
         readModel.ApplyDetailsChanged(notification.Details);
         readModel.ApplyOccurredOnChanged(notification.OccurredOn);
-        readModel.ApplyLocationChanged(incident?.LocationId);
-        readModel.ApplyModifiedAudit(incident?.ModifiedBy, incident?.ModifiedAt);
+        readModel.ApplyLocationChanged(notification.LocationId);
+        readModel.ApplyModifiedAudit(notification.ModifiedBy, notification.OccurredOnUtc);
         await _dbContext.SaveChangesAsync(cancellationToken);
     }
 

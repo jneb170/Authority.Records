@@ -25,6 +25,9 @@ namespace Shared.Infrastructure.Persistence.Configurations
                    .IsRequired(false);
 
             builder.Property(x => x.LocationId).IsRequired(false);
+
+            builder.Property(x => x.Status)
+                   .HasConversion<int>();
         }
     }
 }

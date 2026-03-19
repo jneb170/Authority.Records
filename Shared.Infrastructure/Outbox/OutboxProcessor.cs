@@ -102,6 +102,14 @@ public sealed class OutboxProcessor : BackgroundService
                 //await Task.Delay(TimeSpan.FromSeconds(4));
 
                 await dbContext.SaveChangesAsync(cancellationToken);
+
+                _logger.LogInformation(
+                    "Started processing outbox message {MessageId} ({Type}) for jurisdiction {JurisdictionId}. RetryCount: {RetryCount}, OccurredOnUtc: {OccurredOnUtc}",
+                    message.Id,
+                    message.Type,
+                    message.JurisdictionId,
+                    message.RetryCount,
+                    message.OccurredOnUtc);
             }
             catch (DbUpdateConcurrencyException)
             {
@@ -124,19 +132,47 @@ public sealed class OutboxProcessor : BackgroundService
                 await dispatcher.DispatchAsync(new[] { domainEvent }, cancellationToken);
 
                 message.MarkProcessed();
+
+                _logger.LogInformation(
+                    "Processed outbox message {MessageId} ({Type}) for jurisdiction {JurisdictionId} successfully.",
+                    message.Id,
+                    message.Type,
+                    message.JurisdictionId);
             }
             catch (Exception ex)
             {
                 message.MarkFailed(ex.ToString(), _maxRetries);
+
+                if (message.IsFailedPermanently)
+                {
+                    _logger.LogError(
+                        ex,
+                        "Outbox message {MessageId} ({Type}) permanently failed after {RetryCount} retries for jurisdiction {JurisdictionId}.",
+                        message.Id,
+                        message.Type,
+                        message.RetryCount,
+                        message.JurisdictionId);
+                }
+                else
+                {
+                    _logger.LogWarning(
+                        ex,
+                        "Outbox message {MessageId} ({Type}) failed attempt {RetryCount} for jurisdiction {JurisdictionId}. Next retry at {NextRetryOnUtc}.",
+                        message.Id,
+                        message.Type,
+                        message.RetryCount,
+                        message.JurisdictionId,
+                        message.NextRetryOnUtc);
+                }
             }
 
             if (message.IsFailedPermanently)
             {
                 _logger.LogError(
-                    "Outbox message {MessageId} ({Type}) permanently failed after {RetryCount} retries. Moving to dead letter queue.",
+                    "Outbox message {MessageId} ({Type}) is moving to the dead letter queue for jurisdiction {JurisdictionId}.",
                     message.Id,
                     message.Type,
-                    message.RetryCount);
+                    message.JurisdictionId);
 
                 await deadLetterWriter.DeadLetterAsync(message, dbContext, cancellationToken);
                 continue;

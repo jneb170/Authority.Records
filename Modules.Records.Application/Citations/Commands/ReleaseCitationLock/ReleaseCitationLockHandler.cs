@@ -9,13 +9,16 @@ public sealed class ReleaseCitationLockHandler : IRequestHandler<ReleaseCitation
 {
     private readonly IApplicationDbContext _dbContext;
     private readonly ITenantProvider _tenantProvider;
+    private readonly IModificationContext _modificationContext;
 
     public ReleaseCitationLockHandler(
         IApplicationDbContext dbContext,
-        ITenantProvider tenantProvider)
+        ITenantProvider tenantProvider,
+        IModificationContext modificationContext)
     {
         _dbContext = dbContext;
         _tenantProvider = tenantProvider;
+        _modificationContext = modificationContext;
     }
 
     public async Task Handle(ReleaseCitationLockCommand request, CancellationToken cancellationToken)
@@ -27,7 +30,7 @@ public sealed class ReleaseCitationLockHandler : IRequestHandler<ReleaseCitation
                 cancellationToken)
             ?? throw new InvalidOperationException("Citation not found.");
 
-        citation.ReleaseLock(_tenantProvider.GetUserId());
+        citation.ReleaseLock(_modificationContext);
 
         await _dbContext.SaveChangesAsync(cancellationToken);
     }

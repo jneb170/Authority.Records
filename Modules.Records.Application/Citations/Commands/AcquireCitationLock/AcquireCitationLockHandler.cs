@@ -9,13 +9,16 @@ public sealed class AcquireCitationLockHandler : IRequestHandler<AcquireCitation
 {
     private readonly IApplicationDbContext _dbContext;
     private readonly ITenantProvider _tenantProvider;
+    private readonly IModificationContext _modificationContext;
 
     public AcquireCitationLockHandler(
         IApplicationDbContext dbContext,
-        ITenantProvider tenantProvider)
+        ITenantProvider tenantProvider,
+        IModificationContext modificationContext)
     {
         _dbContext = dbContext;
         _tenantProvider = tenantProvider;
+        _modificationContext = modificationContext;
     }
 
     public async Task Handle(AcquireCitationLockCommand request, CancellationToken cancellationToken)
@@ -27,7 +30,7 @@ public sealed class AcquireCitationLockHandler : IRequestHandler<AcquireCitation
                 cancellationToken)
             ?? throw new InvalidOperationException("Citation not found.");
 
-        citation.AcquireLock(_tenantProvider.GetUserId(), TimeSpan.FromMinutes(10));
+        citation.AcquireLock(_modificationContext, TimeSpan.FromMinutes(10));
 
         await _dbContext.SaveChangesAsync(cancellationToken);
     }

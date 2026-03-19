@@ -6,4 +6,6 @@ public sealed record ArrestDetailsUpdatedDomainEvent(
     DateTime ArrestedAt,
     Guid?    ArrestTypeId,
     string   ArrestNum,
-    Guid?    PrimaryIncidentId) : DomainEvent;
+    Guid?    PrimaryIncidentId,
+    Guid?    LocationId,
+    Guid?    ModifiedBy) : DomainEvent;

@@ -600,9 +600,17 @@ else if (_citation is not null)
         _saveSuccessMessage = null;
         try
         {
-            await CitationService.UpdateDetailsAsync(_citationId, _editDescription, _editIssueDate, _editCourtId, _editCitationNum, _editLocationId);
-            await ApplyPendingIncidentLinkChangesAsync();
-            await ApplyPendingChargeChangesAsync();
+            await CitationService.SavePageAsync(
+                _citationId,
+                _editDescription,
+                _editIssueDate,
+                _editCourtId,
+                _editCitationNum,
+                _editLocationId,
+                _pendingIncidentLinkAdds.Keys.ToArray(),
+                _pendingIncidentLinkRemoves.ToArray(),
+                _pendingChargeAdds.Keys.ToArray(),
+                _pendingChargeRemoves.ToArray());
             await LoadAsync();
             _editSnapshot = ComputeEditSnapshot();
             ClearPendingChanges();
@@ -785,36 +793,6 @@ else if (_citation is not null)
                     .Select(p => MapIncidentLink(p.Incident, p.LinkedAtUtc)))
                 .OrderByDescending(link => link.LinkedAtUtc)
                 .ToList();
-
-    private async Task ApplyPendingChargeChangesAsync()
-    {
-        foreach (var chargeId in _pendingChargeRemoves.ToList())
-        {
-            await ChargeService.UnlinkFromCitationAsync(_citationId, chargeId);
-            _pendingChargeRemoves.Remove(chargeId);
-        }
-
-        foreach (var chargeId in _pendingChargeAdds.Keys.ToList())
-        {
-            await ChargeService.LinkToCitationAsync(_citationId, _pendingChargeAdds[chargeId].Charge.Id);
-            _pendingChargeAdds.Remove(chargeId);
-        }
-    }
-
-    private async Task ApplyPendingIncidentLinkChangesAsync()
-    {
-        foreach (var incidentId in _pendingIncidentLinkRemoves.ToList())
-        {
-            await CitationService.UnlinkFromIncidentAsync(_citationId, incidentId);
-            _pendingIncidentLinkRemoves.Remove(incidentId);
-        }
-
-        foreach (var incidentId in _pendingIncidentLinkAdds.Keys.ToList())
-        {
-            await CitationService.LinkToIncidentAsync(_citationId, _pendingIncidentLinkAdds[incidentId].Incident.Id);
-            _pendingIncidentLinkAdds.Remove(incidentId);
-        }
-    }
 
     private static RecordChargeDto MapCharge(ChargeDto charge, DateTime linkedAtUtc) =>
         new(

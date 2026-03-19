@@ -675,14 +675,19 @@ else if (_incident is not null)
         _saveSuccessMessage = null;
         try
         {
-            await IncidentService.UpdateDetailsAsync(_incidentId, 
-                new IncidentDetailsVo { 
+            await IncidentService.SavePageAsync(
+                _incidentId,
+                new IncidentDetailsVo
+                {
                     IncidentNum = _editIncidentNum,
                     LocalNum = _editLocalNum,
-                    Description = _editDescription, 
+                    Description = _editDescription,
                     CFSNum = _editCFSNum
-                }, _editLocationId, _editOccurredOn);
-            await ApplyPendingChargeChangesAsync();
+                },
+                _editLocationId,
+                _editOccurredOn,
+                _pendingChargeAdds.Keys.ToArray(),
+                _pendingChargeRemoves.ToArray());
             await LoadAsync();
             _editSnapshot = ComputeEditSnapshot();
             ClearPendingChanges();
@@ -711,21 +716,6 @@ else if (_incident is not null)
                     .Select(p => MapCharge(p.Charge, p.LinkedAtUtc)))
                 .OrderByDescending(c => c.LinkedAtUtc)
                 .ToList();
-
-    private async Task ApplyPendingChargeChangesAsync()
-    {
-        foreach (var chargeId in _pendingChargeRemoves.ToList())
-        {
-            await ChargeService.UnlinkFromIncidentAsync(_incidentId, chargeId);
-            _pendingChargeRemoves.Remove(chargeId);
-        }
-
-        foreach (var chargeId in _pendingChargeAdds.Keys.ToList())
-        {
-            await ChargeService.LinkToIncidentAsync(_incidentId, _pendingChargeAdds[chargeId].Charge.Id);
-            _pendingChargeAdds.Remove(chargeId);
-        }
-    }
 
     private static RecordChargeDto MapCharge(ChargeDto charge, DateTime linkedAtUtc) =>
         new(

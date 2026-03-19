@@ -22,6 +22,8 @@ public sealed class SearchChargesHandler : IRequestHandler<SearchChargesQuery, I
         var jurisdictionId = _tenantProvider.GetJurisdictionId();
         var agencyId = _tenantProvider.GetAgencyId();
 
+        // Charges are intentionally queried from the write model today.
+        // They currently behave as reference/catalog data rather than read-model-driven workflow records.
         var query = _dbContext.Charges
             .AsNoTracking()
             .Where(c => c.JurisdictionId == jurisdictionId && c.AgencyId == agencyId);
