@@ -82,18 +82,6 @@ internal static class AuditLogEntryFactory
             return new AuditLogMetadata("Information", recordType, "LockReleased", userId, $"{recordType} lock released.");
         }
 
-        if (domainEvent is IncidentLockAcquiredDomainEvent incidentAcquired)
-        {
-            var userId = incidentAcquired.UserId == Guid.Empty ? (Guid?)null : incidentAcquired.UserId;
-            return new AuditLogMetadata("Information", "Incident", "LockAcquired", userId, "Incident lock acquired.");
-        }
-
-        if (domainEvent is IncidentLockReleasedDomainEvent incidentReleased)
-        {
-            var userId = incidentReleased.UserId == Guid.Empty ? (Guid?)null : incidentReleased.UserId;
-            return new AuditLogMetadata("Information", "Incident", "LockReleased", userId, "Incident lock released.");
-        }
-
         if (type.IsGenericType && type.GetGenericTypeDefinition() == typeof(LifecycleStatusChangedDomainEvent<>))
         {
             var recordType = type.GenericTypeArguments[0].Name;
@@ -160,6 +148,7 @@ internal static class AuditLogEntryFactory
             ["DetailsUpdated"] = ("Updated", "updated", "Information"),
             ["Updated"] = ("Updated", "updated", "Information"),
             ["Created"] = ("Created", "created", "Information"),
+            ["Issued"] = ("Issued", "issued", "Information"),
             ["SoftDeleted"] = ("SoftDeleted", "soft deleted", "Warning"),
             ["Restored"] = ("Restored", "restored", "Information")
         };

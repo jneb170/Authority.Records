@@ -15,6 +15,17 @@ public interface ICitationService
     Task UnlinkFromIncidentAsync(Guid citationId, Guid incidentId);
     Task IssueAsync(Guid id);
     Task UpdateDetailsAsync(Guid id, string description, DateTime issueDate, Guid? courtId = null, string citationNum = "", Guid? locationId = null);
+    Task SavePageAsync(
+        Guid id,
+        string description,
+        DateTime issueDate,
+        Guid? courtId = null,
+        string citationNum = "",
+        Guid? locationId = null,
+        IReadOnlyCollection<Guid>? incidentIdsToAdd = null,
+        IReadOnlyCollection<Guid>? incidentIdsToRemove = null,
+        IReadOnlyCollection<Guid>? chargeIdsToAdd = null,
+        IReadOnlyCollection<Guid>? chargeIdsToRemove = null);
     Task AcquireLockAsync(Guid id);
     Task ReleaseLockAsync(Guid id);
     Task SoftDeleteAsync(Guid id);

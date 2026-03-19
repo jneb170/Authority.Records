@@ -231,7 +231,7 @@ public sealed class Name : LockableAggregateRoot<Name>, IMultiTenant
             HeightInches, WeightLbs, HairColorId, EyeColorId,
             SuffixId, PlaceOfBirth, FbiNumber, LocalNumber,
             PrimaryPhone, PrimaryPhoneExtension, WorkPhone, WorkPhoneExtension, OtherPhone, OtherPhoneExtension,
-            SocialSecurityNumber, IsCitizen, DeceasedDate));
+            SocialSecurityNumber, IsCitizen, DeceasedDate, PrimaryLocationId, SecondaryLocationId, context.UserId));
     }
 
     /// <summary>Sets or clears the primary and/or secondary address from the Master Location Index.</summary>

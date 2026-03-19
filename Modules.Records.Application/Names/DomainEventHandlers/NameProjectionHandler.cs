@@ -75,10 +75,6 @@ public sealed class NameProjectionHandler :
             .FirstOrDefaultAsync(n => n.Id == notification.NameId, cancellationToken);
         if (readModel is null) return;
 
-        var name = await _dbContext.Names
-            .AsNoTracking()
-            .FirstOrDefaultAsync(n => n.Id == notification.NameId, cancellationToken);
-
         readModel.ApplyDetailsChanged(
             notification.NameType,
             notification.LastOrBusinessName,
@@ -107,8 +103,8 @@ public sealed class NameProjectionHandler :
             notification.OtherPhone,
             notification.OtherPhoneExtension);
 
-        readModel.ApplyLocationChanged(name?.PrimaryLocationId, name?.SecondaryLocationId);
-        readModel.ApplyModifiedAudit(name?.ModifiedBy, name?.ModifiedAt);
+        readModel.ApplyLocationChanged(notification.PrimaryLocationId, notification.SecondaryLocationId);
+        readModel.ApplyModifiedAudit(notification.ModifiedBy, notification.OccurredOnUtc);
         await _dbContext.SaveChangesAsync(cancellationToken);
     }
 

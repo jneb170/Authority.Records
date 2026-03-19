@@ -40,24 +40,39 @@ Entity
 ```
 
 #### `Incident`
-- Top-level aggregate. Owns collections of `Arrest` and `Citation` child aggregates.
+- Core case aggregate for incident-specific workflow and lifecycle.
 - Lifecycle: `Draft → Open → Closed → Archived`
-- Modifications to children (AddArrest, AddCitation) are gated by `EnsureCanModify` — the caller must own the lock.
+- Participates in relationships with `Arrest` and `Citation` through explicit association records rather than in-memory child collections on the aggregate itself.
+- Cross-aggregate rules such as incident closure across linked arrests/citations are enforced through repositories, invariants, and domain/application services rather than `Incident` directly owning child entities.
 - Overrides `AcquireLock` for future extensibility.
 - Private EF Core constructor `private Incident() {}` prevents materialization from raising domain events.
 
 #### `Arrest`
-- Lockable child aggregate linked to an `Incident`.
+- Independent lockable aggregate that can be associated to one or more incidents through `IncidentArrestLink`.
 - Tracks: `SuspectName`, `ArrestedAt`, `IsFinalized`.
 - Lifecycle: `Draft → Open → Closed → Archived`
+- May also carry an optional `PrimaryIncidentId` reference for workflow convenience, but the main relationship model is still association-based.
 - Has a finalization step (`IsFinalized = true`) required before the incident can close (if jurisdiction rules require it).
 - Private EF Core constructor `private Arrest() {}` — **critical**: prevents spurious `ArrestCreatedDomainEvent` when EF Core materializes the entity from the database.
 
 #### `Citation`
-- Child aggregate linked to an `Incident`.
+- Independent aggregate that can be associated to incidents through `IncidentCitationLink`.
 - Tracks: `Description`, `IssueDate`, `IsIssued`.
-- Has its own locking mechanism (independent of `LockableAggregateRoot` — uses direct `LockedByUserId` field).
+- Lifecycle: `Draft → Open → Closed → Archived`
+- Uses the same `LockableAggregateRoot<T>` locking and lifecycle primitives as `Incident` and `Arrest`.
 - Private EF Core constructor `private Citation() {}`.
+
+#### `Charge`
+- Reference-data aggregate used by incidents, arrests, and citations through explicit link records.
+- Tracks charge catalog fields such as `OffenseName`, `UcrCode`, `ChargeLevel`, `IsCitationEligible`, and activation state.
+- Charges are intentionally queried directly from the write model today; there is no dedicated `ChargeReadModel`.
+- This is a deliberate trade-off because charges currently behave more like shared catalog/master data than workflow-heavy record aggregates.
+
+### Association Aggregates
+
+- `IncidentArrestLink` models the association between an `Incident` and an `Arrest`.
+- `IncidentCitationLink` models the association between an `Incident` and a `Citation`.
+- These links represent cross-aggregate relationships, not child ownership inside the `Incident` aggregate boundary.
 
 ### Primitive Base Classes (`Common/Primitives/`)
 
@@ -76,7 +91,9 @@ Events are plain records that implement `IDomainEvent`. Base class `DomainEvent`
 
 **Arrest events:** `ArrestCreatedDomainEvent`, `ArrestSoftDeletedDomainEvent`, `ArrestRestoredDomainEvent`
 
-**Citation events:** `CitationCreatedDomainEvent`, `CitationSoftDeletedDomainEvent`, `CitationRestoredDomainEvent`
+**Citation events:** `CitationCreatedDomainEvent`, `CitationIssuedDomainEvent`, `CitationSoftDeletedDomainEvent`, `CitationRestoredDomainEvent`
+
+**Charge events:** `ChargeCreatedDomainEvent`, `ChargeUpdatedDomainEvent`, `ChargeActivatedDomainEvent`, `ChargeDeactivatedDomainEvent`, `ChargeDeletedDomainEvent`
 
 **Generic events (any aggregate):**
 - `LifecycleStatusChangedDomainEvent<T>` — raised on any status transition
@@ -117,7 +134,7 @@ Invariants wrap specifications and provide structured `DomainInvariantResult` ob
 
 ### Domain Services (`Services/`)
 
-`IncidentCloseDomainService` — coordinates incident closure: runs invariants, delegates to `ILifecyclePolicy`, handles force-close logic.
+`IncidentCloseDomainService` — coordinates incident closure across linked aggregates: loads related arrests/citations through repositories, runs invariants, delegates to `ILifecyclePolicy`, and handles force-close logic.
 
 ### Factories (`Factories/`)
 
@@ -166,6 +183,8 @@ Each handler is **idempotent** — it checks for prior existence before insertin
 - `LockAcquiredDomainEvent<Arrest>` → sets `IsLocked = true`, `LockedByUserId`
 - `LockReleasedDomainEvent<Arrest>` → clears lock fields
 
+Charges are the intentional exception: application queries read directly from `Charges` rather than through a projected `ChargeReadModel`. Revisit that decision only if denormalized usage metrics, external synchronization hooks, or charge-query performance become a real need.
+
 ### Read Models (`ReadModels/`)
 
 Denormalized projections optimized for UI queries. They are **not** aggregate roots — they have no domain events and do not participate in the domain model.
@@ -174,7 +193,7 @@ Denormalized projections optimized for UI queries. They are **not** aggregate ro
 |---|---|
 | `IncidentReadModel` | Id, JurisdictionId, AgencyId, Description, Status, ArrestCount, CitationCount, IsLocked, LockedByUserId |
 | `ArrestReadModel` | Id, IncidentId, SuspectName, ArrestedAt, Status, IsLocked, LockedByUserId |
-| `CitationReadModel` | Id, IncidentId, Description, IssueDate, Status, IsLocked, LockedByUserId |
+| `CitationReadModel` | Id, IncidentId, Description, IssueDate, IsIssued, IsLocked, LockedByUserId |
 
 ### DTOs (`DTOs/`)
 
@@ -329,7 +348,7 @@ Overrides `HttpTenantProvider` for Blazor Server circuits. During SignalR intera
 Displays all incidents for the current user's jurisdiction. Reads from `IncidentReadModel` via `GetIncidentsByJurisdictionQuery`.
 
 #### `IncidentDetails.razor`
-Shows incident fields, status badge, lock badge, and child lists (arrests and citations). Supports:
+Shows incident fields, status badge, lock badge, and linked arrest/citation lists. Supports:
 - **Modify mode** — clicking "Modify" calls `AcquireIncidentLock`, starts a countdown timer (`LockTimeout = 10 min`), and enables editing actions
 - **Release** — calls `ReleaseIncidentLock`, stops the timer, exits modify mode
 - **Lock timer** — a `System.Threading.Timer` ticks every second; when it reaches zero it auto-releases the lock and navigates appropriately
@@ -342,7 +361,7 @@ Simple form. Uses a `_submitting` guard to prevent double-submit. On success, na
 Same modify-mode pattern as `IncidentDetails`. Includes lifecycle action buttons (Open, Finalize, Close, Archive) visible only in modify mode.
 
 #### `ArrestCreate.razor` / `CitationCreate.razor`
-Forms for adding children to an incident. Require the parent incident to be locked (modify mode) before submission.
+Forms for creating independent aggregates and associating them to incidents from incident-centric workflows. They currently require the parent incident workflow to be in modify mode before linking from that page flow.
 
 ### Components (`Components/`)
 
@@ -408,19 +427,16 @@ User clicks "Add Arrest"
           └─ ISender.Send(CreateArrestCommand)
               └─ [ValidationBehavior] validates command
               └─ CreateArrestHandler.Handle
-                  ├─ Load Incident from DB (EF Core, scoped to jurisdiction)
                   ├─ ArrestFactory.Create(...) — new Arrest(), raises ArrestCreatedDomainEvent
-                  ├─ incident.AddArrest(arrest, context) — validates lock ownership
                   ├─ _dbContext.Arrests.Add(arrest)
+                  ├─ _dbContext.SaveChangesAsync() — persists Arrest + outbox message
+                  ├─ Resolve requested incident associations
+                  ├─ Create `IncidentArrestLink` records
                   └─ _dbContext.SaveChangesAsync()
-                      ├─ Writes OutboxMessage(ArrestCreatedDomainEvent) to DB
-                      ├─ base.SaveChangesAsync() — commits Arrest + OutboxMessage atomically
-                      └─ _domainEventDispatcher.DispatchAsync(ArrestCreatedDomainEvent)
-                          └─ ArrestProjectionHandler.Handle(ArrestCreatedDomainEvent)
-                              ├─ Idempotency check: skip if ArrestReadModel already exists
-                              ├─ Creates ArrestReadModel row
-                              ├─ Increments IncidentReadModel.ArrestCount
-                              └─ Saves read models
+                      ├─ Writes OutboxMessage(ArrestCreatedDomainEvent / link events) to DB
+                      ├─ base.SaveChangesAsync() — commits changes atomically per save call
+                      └─ _domainEventDispatcher.DispatchAsync(...)
+                          └─ Projection handlers update arrest and incident read models
   └─ Nav.NavigateTo("/incidents/{id}") — shows updated incident with new arrest
   [5 seconds later] OutboxProcessor picks up OutboxMessage
       └─ ArrestProjectionHandler.Handle(ArrestCreatedDomainEvent) — idempotency check exits early

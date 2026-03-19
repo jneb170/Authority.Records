@@ -7,6 +7,7 @@ using Modules.Records.Application.Incidents.Commands.CreateIncident;
 using Modules.Records.Application.Incidents.Commands.OpenIncident;
 using Modules.Records.Application.Incidents.Commands.ReleaseIncidentLock;
 using Modules.Records.Application.Incidents.Commands.RestoreIncident;
+using Modules.Records.Application.Incidents.Commands.SaveIncidentPage;
 using Modules.Records.Application.Incidents.Commands.SoftDeleteIncident;
 using Modules.Records.Application.Incidents.Commands.UpdateIncidentDetails;
 using Modules.Records.Application.Incidents.Queries.GetIncidentById;
@@ -52,6 +53,15 @@ public sealed class IncidentService : IIncidentService
 
     public Task UpdateDetailsAsync(Guid id, IncidentDetails details, Guid? locationId = null, DateTime? occurredOn = null) =>
         _sender.Send(new UpdateIncidentDetailsCommand(id, details, locationId, occurredOn));
+
+    public Task SavePageAsync(
+        Guid id,
+        IncidentDetails details,
+        Guid? locationId = null,
+        DateTime? occurredOn = null,
+        IReadOnlyCollection<Guid>? chargeIdsToAdd = null,
+        IReadOnlyCollection<Guid>? chargeIdsToRemove = null) =>
+        _sender.Send(new SaveIncidentPageCommand(id, details, locationId, occurredOn, chargeIdsToAdd, chargeIdsToRemove));
 
     public Task AcquireLockAsync(Guid id) =>
         _sender.Send(new AcquireIncidentLockCommand(id));

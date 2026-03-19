@@ -1,10 +1,13 @@
 using Modules.Records.Domain.Abstractions;
+using Modules.Records.Domain.Common;
+using Modules.Records.Domain.Common.Implementations;
+using Modules.Records.Domain.Common.Policies;
 using Modules.Records.Domain.Common.Primitives;
 using Modules.Records.Domain.DomainEvents;
 
 namespace Modules.Records.Domain.Entities
 {
-    public sealed class Citation : AggregateRoot, IMultiTenant
+    public sealed class Citation : LockableAggregateRoot<Citation>, IMultiTenant
     {
         public Guid JurisdictionId { get; private set; }
         public Guid AgencyId { get; private set; }
@@ -25,20 +28,14 @@ namespace Modules.Records.Domain.Entities
         /// <summary>Optional reference to a Master Location Index record for the citation location.</summary>
         public Guid? LocationId { get; private set; }
 
-        private static ILifecyclePolicy<Citation> _lifecyclePolicy;
+        private static readonly CitationAuthorizationPolicy _authorizationPolicy = new();
+        protected override IAuthorizationPolicy<Citation> AuthorizationPolicy => _authorizationPolicy;
 
-        // Inject lifecycle policy from composition root / factory
-        public static void SetLifecyclePolicy(ILifecyclePolicy<Citation> policy)
-        {
-            _lifecyclePolicy = policy ?? throw new ArgumentNullException(nameof(policy));
-        }
+        private static readonly TimeoutLockExpirationStrategy<Citation> _lockExpirationStrategy = new();
+        protected override ILockExpirationStrategy<Citation> LockExpirationStrategy => _lockExpirationStrategy;
 
-        // --- Locking ---
-        public bool IsLocked => LockedByUserId.HasValue && LockedAtUtc.HasValue;
-        public Guid? LockedByUserId { get; private set; }
-        public DateTime? LockedAtUtc { get; private set; }
-
-        public byte[] RowVersion { get; private set; } = Array.Empty<byte>();
+        private static readonly SystemClock _clock = new();
+        protected override IClock Clock => _clock;
 
         public bool IsIssued { get; private set; }
 
@@ -52,25 +49,61 @@ namespace Modules.Records.Domain.Entities
             Description = description;
             IssueDate = issueDate;
             CitationNum = citationNum;
+            Status = RecordStatus.Draft;
 
             AddDomainEvent(new CitationCreatedDomainEvent(Id, JurisdictionId, Description, IssueDate, CitationNum));
         }
 
-        public void Issue() => IsIssued = true;
+        public void Open(
+            IModificationContext context,
+            ILifecyclePolicy<Citation> lifecyclePolicy)
+            => ChangeStatus(RecordStatus.Open, context, lifecyclePolicy);
+
+        public void Close(
+            IModificationContext context,
+            ILifecyclePolicy<Citation> lifecyclePolicy,
+            bool force = false)
+            => ChangeStatus(RecordStatus.Closed, context, lifecyclePolicy, force);
+
+        public void Archive(
+            IModificationContext context,
+            ILifecyclePolicy<Citation> lifecyclePolicy)
+            => ChangeStatus(RecordStatus.Archived, context, lifecyclePolicy);
+
+        public void Issue(IModificationContext context)
+        {
+            EnsureCanModify(context);
+
+            if (Status != RecordStatus.Draft)
+                EnsureUserOwnsLock(context.UserId);
+
+            IsIssued = true;
+            AddDomainEvent(new CitationIssuedDomainEvent(Id, context.UserId));
+        }
 
         public void UpdateDetails(string description, DateTime issueDate, Guid? courtId, string citationNum, IModificationContext context)
         {
+            EnsureCanModify(context);
+
+            if (Status != RecordStatus.Draft)
+                EnsureUserOwnsLock(context.UserId);
+
             Description = description;
             IssueDate   = issueDate;
             CourtId     = courtId;
             CitationNum = citationNum;
 
-            AddDomainEvent(new CitationDetailsUpdatedDomainEvent(Id, Description, IssueDate, CourtId, CitationNum));
+            AddDomainEvent(new CitationDetailsUpdatedDomainEvent(Id, Description, IssueDate, CourtId, CitationNum, LocationId, context.UserId));
         }
 
         /// <summary>Sets or clears the linked Master Location Index record for this citation.</summary>
         public void SetLocation(Guid? locationId, IModificationContext context)
         {
+            EnsureCanModify(context);
+
+            if (Status != RecordStatus.Draft)
+                EnsureUserOwnsLock(context.UserId);
+
             LocationId = locationId;
         }
 
@@ -87,33 +120,6 @@ namespace Modules.Records.Domain.Entities
         {
             base.Restore(userId);
             AddDomainEvent(new CitationRestoredDomainEvent(Id, userId));
-        }
-
-        // --- Locking Methods ---
-        public void AcquireLock(Guid userId, TimeSpan lockTimeout)
-        {
-            if (LockedByUserId.HasValue &&
-                LockedByUserId != userId &&
-                LockedAtUtc.HasValue &&
-                LockedAtUtc.Value.Add(lockTimeout) > DateTime.UtcNow)
-            {
-                throw new InvalidOperationException("Record is currently locked by another user.");
-            }
-
-            LockedByUserId = userId;
-            LockedAtUtc = DateTime.UtcNow;
-
-            // Raise domain event
-            AddDomainEvent(new IncidentLockAcquiredDomainEvent(Id, userId));
-        }
-
-        public void ReleaseLock(Guid userId)
-        {
-            if (LockedByUserId != userId)
-                throw new InvalidOperationException("Only the locking user can release the lock.");
-
-            LockedByUserId = null;
-            LockedAtUtc = null;
         }
     }
 }

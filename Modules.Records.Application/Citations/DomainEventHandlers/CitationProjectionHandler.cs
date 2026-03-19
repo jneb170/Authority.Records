@@ -10,6 +10,7 @@ namespace Modules.Records.Application.Citations.DomainEventHandlers;
 public sealed class CitationProjectionHandler :
     INotificationHandler<CitationCreatedDomainEvent>,
     INotificationHandler<CitationDetailsUpdatedDomainEvent>,
+    INotificationHandler<CitationIssuedDomainEvent>,
     INotificationHandler<LockAcquiredDomainEvent<Citation>>,
     INotificationHandler<LockReleasedDomainEvent<Citation>>
 {
@@ -54,13 +55,22 @@ public sealed class CitationProjectionHandler :
         if (readModel is null)
             return;
 
-        var citation = await _dbContext.Citations
-            .AsNoTracking()
+        readModel.ApplyDetailsChanged(notification.Description, notification.IssueDate, notification.CourtId, notification.CitationNum);
+        readModel.ApplyLocationChanged(notification.LocationId);
+        readModel.ApplyModifiedAudit(notification.ModifiedBy, notification.OccurredOnUtc);
+        await _dbContext.SaveChangesAsync(cancellationToken);
+    }
+
+    public async Task Handle(CitationIssuedDomainEvent notification, CancellationToken cancellationToken)
+    {
+        var readModel = await _dbContext.CitationReadModels
             .FirstOrDefaultAsync(c => c.Id == notification.CitationId, cancellationToken);
 
-        readModel.ApplyDetailsChanged(notification.Description, notification.IssueDate, notification.CourtId, notification.CitationNum);
-        readModel.ApplyLocationChanged(citation?.LocationId);
-        readModel.ApplyModifiedAudit(citation?.ModifiedBy, citation?.ModifiedAt);
+        if (readModel is null)
+            return;
+
+        readModel.ApplyIssued();
+        readModel.ApplyModifiedAudit(notification.IssuedByUserId, notification.OccurredOnUtc);
         await _dbContext.SaveChangesAsync(cancellationToken);
     }
 

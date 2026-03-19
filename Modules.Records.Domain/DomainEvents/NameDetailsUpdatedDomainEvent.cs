@@ -29,4 +29,7 @@ public sealed record NameDetailsUpdatedDomainEvent(
     string? OtherPhoneExtension,
     string? SocialSecurityNumber,
     bool IsCitizen,
-    DateTime? DeceasedDate) : DomainEvent;
+    DateTime? DeceasedDate,
+    Guid? PrimaryLocationId,
+    Guid? SecondaryLocationId,
+    Guid? ModifiedBy) : DomainEvent;

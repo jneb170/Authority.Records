@@ -30,8 +30,8 @@ public sealed class UpdateCitationDetailsHandler : IRequestHandler<UpdateCitatio
                 cancellationToken)
             ?? throw new InvalidOperationException("Citation not found.");
 
-        citation.UpdateDetails(request.Description, request.IssueDate, request.CourtId, request.CitationNum, _modificationContext);
         citation.SetLocation(request.LocationId, _modificationContext);
+        citation.UpdateDetails(request.Description, request.IssueDate, request.CourtId, request.CitationNum, _modificationContext);
 
         await _dbContext.SaveChangesAsync(cancellationToken);
     }

@@ -5,6 +5,7 @@ using Modules.Records.Application.Citations.Commands.IssueCitation;
 using Modules.Records.Application.Citations.Commands.LinkCitationToIncident;
 using Modules.Records.Application.Citations.Commands.ReleaseCitationLock;
 using Modules.Records.Application.Citations.Commands.RestoreCitation;
+using Modules.Records.Application.Citations.Commands.SaveCitationPage;
 using Modules.Records.Application.Citations.Commands.SoftDeleteCitation;
 using Modules.Records.Application.Citations.Commands.UnlinkCitationFromIncident;
 using Modules.Records.Application.Citations.Commands.UpdateCitationDetails;
@@ -65,6 +66,29 @@ public sealed class CitationService : ICitationService
 
     public Task UpdateDetailsAsync(Guid id, string description, DateTime issueDate, Guid? courtId = null, string citationNum = "", Guid? locationId = null) =>
         _sender.Send(new UpdateCitationDetailsCommand(id, description, issueDate, courtId, citationNum, locationId));
+
+    public Task SavePageAsync(
+        Guid id,
+        string description,
+        DateTime issueDate,
+        Guid? courtId = null,
+        string citationNum = "",
+        Guid? locationId = null,
+        IReadOnlyCollection<Guid>? incidentIdsToAdd = null,
+        IReadOnlyCollection<Guid>? incidentIdsToRemove = null,
+        IReadOnlyCollection<Guid>? chargeIdsToAdd = null,
+        IReadOnlyCollection<Guid>? chargeIdsToRemove = null) =>
+        _sender.Send(new SaveCitationPageCommand(
+            id,
+            description,
+            issueDate,
+            courtId,
+            citationNum,
+            locationId,
+            incidentIdsToAdd,
+            incidentIdsToRemove,
+            chargeIdsToAdd,
+            chargeIdsToRemove));
 
     public Task AcquireLockAsync(Guid id) =>
         _sender.Send(new AcquireCitationLockCommand(id));

@@ -49,8 +49,8 @@ public sealed class UpdateArrestDetailsHandler : IRequestHandler<UpdateArrestDet
                 throw new InvalidOperationException("Primary incident not found.");
         }
 
-        arrest.UpdateDetails(request.NameId, request.ArrestedAt, request.ArrestTypeId, request.ArrestNum, request.PrimaryIncidentId, _modificationContext);
         arrest.SetLocation(request.LocationId, _modificationContext);
+        arrest.UpdateDetails(request.NameId, request.ArrestedAt, request.ArrestTypeId, request.ArrestNum, request.PrimaryIncidentId, _modificationContext);
 
         await _dbContext.SaveChangesAsync(cancellationToken);
     }

@@ -1,4 +1,5 @@
 using Modules.Records.Domain.ValueObjects;
+using Modules.Records.Domain.Common.Implementations;
 using Modules.Records.Domain.DomainInvariants.IncidentClose;
 using Modules.Records.Domain.Entities;
 using Modules.Records.Domain.Factories;
@@ -27,7 +28,7 @@ public sealed class CitationsMustBeIssuedInvariantTests
     public void Check_AllCitations_Issued_ReturnsValid()
     {
         var citation = MakeCitation();
-        citation.Issue();
+        citation.Issue(new UserModificationContext(Guid.NewGuid()));
 
         var result = _sut.Check(ContextWith(citation));
 
@@ -50,7 +51,7 @@ public sealed class CitationsMustBeIssuedInvariantTests
     public void Check_MixedIssuance_ReturnsViolation()
     {
         var issued = MakeCitation();
-        issued.Issue();
+        issued.Issue(new UserModificationContext(Guid.NewGuid()));
         var unissued = MakeCitation();
 
         var result = _sut.Check(ContextWith(issued, unissued));

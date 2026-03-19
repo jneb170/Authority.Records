@@ -30,6 +30,7 @@ public sealed class UpdateNameDetailsHandler : IRequestHandler<UpdateNameDetails
                 cancellationToken)
             ?? throw new InvalidOperationException("Name record not found.");
 
+        name.SetLocations(request.PrimaryLocationId, request.SecondaryLocationId, _modificationContext);
         name.UpdateDetails(
             request.NameType,
             request.LastOrBusinessName,
@@ -58,7 +59,6 @@ public sealed class UpdateNameDetailsHandler : IRequestHandler<UpdateNameDetails
             request.WorkPhoneExtension,
             request.OtherPhone,
             request.OtherPhoneExtension);
-        name.SetLocations(request.PrimaryLocationId, request.SecondaryLocationId, _modificationContext);
 
         await _dbContext.SaveChangesAsync(cancellationToken);
     }

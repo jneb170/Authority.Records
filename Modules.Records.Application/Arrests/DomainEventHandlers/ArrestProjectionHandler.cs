@@ -55,13 +55,9 @@ public sealed class ArrestProjectionHandler :
         if (readModel is null)
             return;
 
-        var arrest = await _dbContext.Arrests
-            .AsNoTracking()
-            .FirstOrDefaultAsync(a => a.Id == notification.ArrestId, cancellationToken);
-
         readModel.ApplyDetailsChanged(notification.NameId, notification.ArrestedAt, notification.ArrestTypeId, notification.ArrestNum, notification.PrimaryIncidentId);
-        readModel.ApplyLocationChanged(arrest?.LocationId);
-        readModel.ApplyModifiedAudit(arrest?.ModifiedBy, arrest?.ModifiedAt);
+        readModel.ApplyLocationChanged(notification.LocationId);
+        readModel.ApplyModifiedAudit(notification.ModifiedBy, notification.OccurredOnUtc);
         await _dbContext.SaveChangesAsync(cancellationToken);
     }
 

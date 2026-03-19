@@ -1160,6 +1160,9 @@ namespace Shared.Infrastructure.Migrations
                         .IsRequired()
                         .HasColumnType("varbinary(max)");
 
+                    b.Property<int>("Status")
+                        .HasColumnType("int");
+
                     b.Property<long>("Version")
                         .HasColumnType("bigint");
 

@@ -8,6 +8,7 @@ using Modules.Records.Application.Arrests.Commands.LinkArrestToIncident;
 using Modules.Records.Application.Arrests.Commands.OpenArrest;
 using Modules.Records.Application.Arrests.Commands.ReleaseArrestLock;
 using Modules.Records.Application.Arrests.Commands.RestoreArrest;
+using Modules.Records.Application.Arrests.Commands.SaveArrestPage;
 using Modules.Records.Application.Arrests.Commands.SoftDeleteArrest;
 using Modules.Records.Application.Arrests.Commands.UnlinkArrestFromIncident;
 using Modules.Records.Application.Arrests.Commands.UpdateArrestDetails;
@@ -77,6 +78,31 @@ public sealed class ArrestService : IArrestService
 
     public Task UpdateDetailsAsync(Guid id, Guid nameId, DateTime arrestedAt, Guid? arrestTypeId = null, string arrestNum = "", Guid? locationId = null, Guid? primaryIncidentId = null) =>
         _sender.Send(new UpdateArrestDetailsCommand(id, nameId, arrestedAt, arrestTypeId, arrestNum, locationId, primaryIncidentId));
+
+    public Task SavePageAsync(
+        Guid id,
+        Guid nameId,
+        DateTime arrestedAt,
+        Guid? arrestTypeId = null,
+        string arrestNum = "",
+        Guid? locationId = null,
+        Guid? primaryIncidentId = null,
+        IReadOnlyCollection<Guid>? incidentIdsToAdd = null,
+        IReadOnlyCollection<Guid>? incidentIdsToRemove = null,
+        IReadOnlyCollection<Guid>? chargeIdsToAdd = null,
+        IReadOnlyCollection<Guid>? chargeIdsToRemove = null) =>
+        _sender.Send(new SaveArrestPageCommand(
+            id,
+            nameId,
+            arrestedAt,
+            arrestTypeId,
+            arrestNum,
+            locationId,
+            primaryIncidentId,
+            incidentIdsToAdd,
+            incidentIdsToRemove,
+            chargeIdsToAdd,
+            chargeIdsToRemove));
 
     public Task AcquireLockAsync(Guid id) =>
         _sender.Send(new AcquireArrestLockCommand(id));
