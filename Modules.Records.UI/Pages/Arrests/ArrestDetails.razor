@@ -426,9 +426,9 @@ else if (_arrest is not null)
     private string? _createdByName;
     private string? _modifiedByName;
     private string? _lockedByName;
-    private readonly Dictionary<Guid, ChargeDto> _pendingChargeAdds = [];
+    private readonly Dictionary<Guid, (ChargeDto Charge, DateTime LinkedAtUtc)> _pendingChargeAdds = [];
     private readonly HashSet<Guid> _pendingChargeRemoves = [];
-    private readonly Dictionary<Guid, IncidentDto> _pendingIncidentLinkAdds = [];
+    private readonly Dictionary<Guid, (IncidentDto Incident, DateTime LinkedAtUtc)> _pendingIncidentLinkAdds = [];
     private readonly HashSet<Guid> _pendingIncidentLinkRemoves = [];
     private readonly List<string> _createdForeignRecords = [];
 
@@ -711,6 +711,7 @@ else if (_arrest is not null)
         catch (Exception ex)
         {
             _actionError = ex.Message;
+            try { await LoadAsync(); } catch { _actionError += " (State may be out of sync — please refresh the page.)"; }
         }
     }
 
@@ -731,7 +732,7 @@ else if (_arrest is not null)
 
         var incident = _allIncidents?.FirstOrDefault(i => i.Id == _linkIncidentId);
         if (incident is not null)
-            _pendingIncidentLinkAdds[_linkIncidentId] = incident;
+            _pendingIncidentLinkAdds[_linkIncidentId] = (incident, DateTime.UtcNow);
 
         _linkIncidentId = Guid.Empty;
     }
@@ -755,7 +756,7 @@ else if (_arrest is not null)
         if ((_charges?.Any(c => c.ChargeId == charge.Id) ?? false) || _pendingChargeAdds.ContainsKey(charge.Id))
             return Task.CompletedTask;
 
-        _pendingChargeAdds[charge.Id] = charge;
+        _pendingChargeAdds[charge.Id] = (charge, DateTime.UtcNow);
         return Task.CompletedTask;
     }
 
@@ -958,8 +959,8 @@ else if (_arrest is not null)
             : _charges
                 .Where(c => !_pendingChargeRemoves.Contains(c.ChargeId))
                 .Concat(_pendingChargeAdds.Values
-                    .Where(c => _charges.All(existing => existing.ChargeId != c.Id))
-                    .Select(MapCharge))
+                    .Where(p => _charges.All(existing => existing.ChargeId != p.Charge.Id))
+                    .Select(p => MapCharge(p.Charge, p.LinkedAtUtc)))
                 .OrderByDescending(c => c.LinkedAtUtc)
                 .ToList();
 
@@ -969,30 +970,42 @@ else if (_arrest is not null)
             : _linkedIncidents
                 .Where(link => !_pendingIncidentLinkRemoves.Contains(link.IncidentId))
                 .Concat(_pendingIncidentLinkAdds.Values
-                    .Where(incident => _linkedIncidents.All(existing => existing.IncidentId != incident.Id))
-                    .Select(MapIncidentLink))
+                    .Where(p => _linkedIncidents.All(existing => existing.IncidentId != p.Incident.Id))
+                    .Select(p => MapIncidentLink(p.Incident, p.LinkedAtUtc)))
                 .OrderByDescending(link => link.LinkedAtUtc)
                 .ToList();
 
     private async Task ApplyPendingChargeChangesAsync()
     {
-        foreach (var chargeId in _pendingChargeRemoves)
+        foreach (var chargeId in _pendingChargeRemoves.ToList())
+        {
             await ChargeService.UnlinkFromArrestAsync(_arrestId, chargeId);
+            _pendingChargeRemoves.Remove(chargeId);
+        }
 
-        foreach (var charge in _pendingChargeAdds.Values)
-            await ChargeService.LinkToArrestAsync(_arrestId, charge.Id);
+        foreach (var chargeId in _pendingChargeAdds.Keys.ToList())
+        {
+            await ChargeService.LinkToArrestAsync(_arrestId, _pendingChargeAdds[chargeId].Charge.Id);
+            _pendingChargeAdds.Remove(chargeId);
+        }
     }
 
     private async Task ApplyPendingIncidentLinkChangesAsync()
     {
-        foreach (var incidentId in _pendingIncidentLinkRemoves)
+        foreach (var incidentId in _pendingIncidentLinkRemoves.ToList())
+        {
             await ArrestService.UnlinkFromIncidentAsync(_arrestId, incidentId);
+            _pendingIncidentLinkRemoves.Remove(incidentId);
+        }
 
-        foreach (var incident in _pendingIncidentLinkAdds.Values)
-            await ArrestService.LinkToIncidentAsync(_arrestId, incident.Id);
+        foreach (var incidentId in _pendingIncidentLinkAdds.Keys.ToList())
+        {
+            await ArrestService.LinkToIncidentAsync(_arrestId, _pendingIncidentLinkAdds[incidentId].Incident.Id);
+            _pendingIncidentLinkAdds.Remove(incidentId);
+        }
     }
 
-    private static RecordChargeDto MapCharge(ChargeDto charge) =>
+    private static RecordChargeDto MapCharge(ChargeDto charge, DateTime linkedAtUtc) =>
         new(
             charge.Id,
             charge.OffenseName,
@@ -1001,16 +1014,16 @@ else if (_arrest is not null)
             charge.StateClass,
             charge.IsCitationEligible,
             charge.IsActive,
-            DateTime.UtcNow);
+            linkedAtUtc);
 
-    private static IncidentArrestLinkDto MapIncidentLink(IncidentDto incident) =>
+    private static IncidentArrestLinkDto MapIncidentLink(IncidentDto incident, DateTime linkedAtUtc) =>
         new(
             Guid.Empty,
             incident.Id,
             incident.RecordNumber,
             FormatIncidentDisplay(incident),
             Guid.Empty,
-            DateTime.UtcNow);
+            linkedAtUtc);
 
     private string? GetReleaseWarningMessage() =>
         _createdForeignRecords.Count == 0 ? null : string.Join(" ", _createdForeignRecords);

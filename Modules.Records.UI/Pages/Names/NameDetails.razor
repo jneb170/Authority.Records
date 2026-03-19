@@ -498,8 +498,6 @@ else if (_name is not null)
                          OnCleared="OnSecondaryLocationCleared"
                          OnCancelled="() => _showSecondaryLocationModal = false" />
 
-    <MugshotGallery NameId="_name.Id" CanModify="_modifyMode" />
-
     <AuditInfoSection CreatedAt="@_name.CreatedAtUtc"
                       CreatedByName="@_createdByName"
                       ModifiedAt="@(_name.ModifiedBy.HasValue ? _name.UpdatedAtUtc : null)"
