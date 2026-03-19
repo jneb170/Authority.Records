@@ -320,6 +320,7 @@ public sealed class SaveArrestPageHandlerTests
             null,
             null,
             null,
+            null,
             false,
             null,
             null,
@@ -377,5 +378,7 @@ public sealed class SaveArrestPageHandlerTests
         Assert.Equal("New primary address", snapshot.PrimaryLocationAddress);
         Assert.Equal("New secondary address", snapshot.SecondaryLocationAddress);
         Assert.Equal(true, snapshot.IsCitizen);
+        Assert.Equal(userId, snapshot.LastCopiedByUserId);
+        Assert.NotNull(snapshot.LastCopiedAtUtc);
     }
 }

@@ -1,3 +1,5 @@
+using Microsoft.EntityFrameworkCore;
+using Modules.Records.Application.Abstractions;
 using Modules.Records.Application.DTOs;
 using Modules.Records.Domain.Entities;
 
@@ -55,8 +57,10 @@ internal static class ArrestNameSnapshotBuilder
         ArrestNameSnapshot snapshot,
         Guid? sourceNameId,
         long? sourceNameRecordNumber,
-        NameSnapshotInput input)
-        => snapshot.UpdateDetails(
+        NameSnapshotInput input,
+        Guid copiedByUserId)
+    {
+        snapshot.UpdateDetails(
             sourceNameId,
             sourceNameRecordNumber,
             input.NameType,
@@ -91,6 +95,75 @@ internal static class ArrestNameSnapshotBuilder
             input.SecondaryAddress?.LocationId,
             input.SecondaryAddress?.LocationRecordNumber,
             input.SecondaryAddress?.Address);
+        snapshot.MarkAsCopied(copiedByUserId);
+    }
+
+    public static void RefreshFromName(
+        ArrestNameSnapshot snapshot,
+        Name name,
+        Location? primaryLocation,
+        Location? secondaryLocation,
+        Guid copiedByUserId)
+        => snapshot.RefreshFromSource(
+            name.Id,
+            name.RecordNumber,
+            name.NameType,
+            name.LastOrBusinessName,
+            name.FirstName,
+            name.MiddleName,
+            name.SexId,
+            name.RaceId,
+            name.DateOfBirth,
+            name.DriversLicenseNumber,
+            name.DriversLicenseStateId,
+            name.HeightInches,
+            name.WeightLbs,
+            name.HairColorId,
+            name.EyeColorId,
+            name.SuffixId,
+            name.PlaceOfBirth,
+            name.FbiNumber,
+            name.LocalNumber,
+            name.PrimaryPhone,
+            name.PrimaryPhoneExtension,
+            name.WorkPhone,
+            name.WorkPhoneExtension,
+            name.OtherPhone,
+            name.OtherPhoneExtension,
+            name.SocialSecurityNumber,
+            name.IsCitizen,
+            name.DeceasedDate,
+            primaryLocation?.Id,
+            primaryLocation?.RecordNumber,
+            FormatLocationAddress(primaryLocation),
+            secondaryLocation?.Id,
+            secondaryLocation?.RecordNumber,
+            FormatLocationAddress(secondaryLocation),
+            copiedByUserId);
+
+    public static async Task<(Location? PrimaryLocation, Location? SecondaryLocation)> LoadSnapshotLocationsAsync(
+        IApplicationDbContext dbContext,
+        Name name,
+        CancellationToken cancellationToken)
+    {
+        var locationIds = new[] { name.PrimaryLocationId, name.SecondaryLocationId }
+            .Where(id => id.HasValue)
+            .Select(id => id!.Value)
+            .Distinct()
+            .ToList();
+
+        if (locationIds.Count == 0)
+            return (null, null);
+
+        var locations = await dbContext.Locations
+            .AsNoTracking()
+            .Where(location => locationIds.Contains(location.Id))
+            .ToDictionaryAsync(location => location.Id, cancellationToken);
+
+        return (
+            name.PrimaryLocationId.HasValue ? locations.GetValueOrDefault(name.PrimaryLocationId.Value) : null,
+            name.SecondaryLocationId.HasValue ? locations.GetValueOrDefault(name.SecondaryLocationId.Value) : null);
+    }
 
     public static ArrestNameSnapshot CreateFromInput(
         Arrest arrest,
