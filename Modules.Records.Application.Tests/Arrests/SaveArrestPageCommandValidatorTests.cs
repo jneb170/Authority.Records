@@ -42,4 +42,23 @@ public sealed class SaveArrestPageCommandValidatorTests
         Assert.False(result.IsValid);
         Assert.Contains(result.Errors, error => error.PropertyName == nameof(command.NameId));
     }
+
+    [Fact]
+    public void Validate_WithPrimaryIncidentInRemoveSet_IsInvalid()
+    {
+        var primaryId = Guid.NewGuid();
+        var command = new SaveArrestPageCommand(
+            ArrestId: Guid.NewGuid(),
+            NameId: Guid.NewGuid(),
+            ArrestedAt: DateTime.UtcNow.AddMinutes(-5),
+            ArrestTypeId: null,
+            ArrestNum: "AR-100",
+            PrimaryIncidentId: primaryId,
+            IncidentIdsToRemove: [primaryId]);
+
+        var result = _validator.Validate(command);
+
+        Assert.False(result.IsValid);
+        Assert.Contains(result.Errors, error => error.PropertyName == nameof(command.IncidentIdsToRemove));
+    }
 }
