@@ -137,6 +137,7 @@
     [Parameter] public Guid? CurrentNameId { get; set; }
     [Parameter] public bool AllowClear { get; set; } = true;
     [Parameter] public EventCallback<NameDto> OnSelected { get; set; }
+    [Parameter] public EventCallback<NameDto> OnCreated { get; set; }
     [Parameter] public EventCallback OnCleared { get; set; }
     [Parameter] public EventCallback OnCancelled { get; set; }
 
@@ -192,6 +193,7 @@
                 ?? throw new InvalidOperationException("Newly created name could not be loaded.");
 
             ResetAll();
+            await OnCreated.InvokeAsync(created);
             await OnSelected.InvokeAsync(created);
         }
         catch (Exception ex)

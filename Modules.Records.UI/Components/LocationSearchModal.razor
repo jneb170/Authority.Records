@@ -253,6 +253,7 @@
     [Parameter] public Guid? CurrentLocationId { get; set; }
     [Parameter] public bool AllowClear { get; set; } = true;
     [Parameter] public EventCallback<LocationDto> OnSelected { get; set; }
+    [Parameter] public EventCallback<LocationDto> OnCreated { get; set; }
     [Parameter] public EventCallback OnCleared { get; set; }
     [Parameter] public EventCallback OnCancelled { get; set; }
 
@@ -392,6 +393,7 @@
             if (_mapOpen)
                 await CloseMapAsync();
             Reset();
+            await OnCreated.InvokeAsync(dto);
             await OnSelected.InvokeAsync(dto);
         }
         catch (Exception ex)

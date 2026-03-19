@@ -74,7 +74,10 @@ else if (_location is not null)
         {
             <div class="alert alert-warning d-flex align-items-center gap-3 py-2 mb-2 record-mode-banner">
                 <span><i class="bi bi-pencil-fill me-1"></i><strong>Modify mode</strong> — lock expires in @_lockSecondsRemaining s</span>
-                <button class="btn btn-sm btn-outline-dark ms-auto" @onclick="RequestReleaseAsync"><i class="bi bi-unlock-fill me-1"></i>Release</button>
+                <div class="record-mode-actions">
+                    <button class="btn btn-sm btn-primary" @onclick="SaveRecordAsync"><i class="bi bi-floppy-fill me-1"></i>Save</button>
+                    <button class="btn btn-sm btn-outline-dark" @onclick="RequestReleaseAsync"><i class="bi bi-unlock-fill me-1"></i>Release</button>
+                </div>
             </div>
         }
         else if (_location.IsLocked && _location.LockedByUserId != _currentUserId)
@@ -292,13 +295,6 @@ else if (_location is not null)
         </div>
     </div>
 
-    @if (_modifyMode)
-    {
-        <div class="record-save-row mb-4">
-            <button class="btn btn-sm btn-primary" @onclick="SaveDetailsAsync">Save Details</button>
-        </div>
-    }
-
     @* Google Maps Card *@
     @if (_mapsAvailable)
     {
@@ -342,6 +338,15 @@ else if (_location is not null)
                       CreatedByName="@_createdByName"
                       ModifiedAt="@(_location.ModifiedBy.HasValue ? _location.UpdatedAtUtc : null)"
                       ModifiedByName="@_modifiedByName" />
+
+    @if (_modifyMode)
+    {
+        <div class="record-save-row mb-4">
+            <button class="btn btn-sm btn-primary" @onclick="SaveRecordAsync">
+                <i class="bi bi-floppy-fill me-1"></i>Save
+            </button>
+        </div>
+    }
 }
 
 @code {
@@ -579,7 +584,7 @@ else if (_location is not null)
         => InvokeAsync(async () => { if (_modifyMode) { await RequestReleaseAsync(); StateHasChanged(); } });
 
     private void HandleShortcutSave()
-        => InvokeAsync(async () => { if (_modifyMode) { await SaveDetailsAsync(); StateHasChanged(); } });
+        => InvokeAsync(async () => { if (_modifyMode) { await SaveRecordAsync(); StateHasChanged(); } });
 
     private void RestoreModifyModeIfOwner()
     {
@@ -659,7 +664,7 @@ else if (_location is not null)
         _showReleaseConfirm = false;
         var navigateToNew = _pendingNewRecord;
         _pendingNewRecord = false;
-        await SaveDetailsAsync();
+        await SaveRecordAsync();
         if (_actionError is null)
         {
             await ExitModifyModeAsync();
@@ -754,7 +759,7 @@ else if (_location is not null)
         await LoadAsync();
     }
 
-    private async Task SaveDetailsAsync()
+    private async Task SaveRecordAsync()
     {
         _actionError = null;
         _saveSuccessMessage = null;
@@ -779,7 +784,7 @@ else if (_location is not null)
 
             await LoadAsync();
             _editSnapshot = ComputeEditSnapshot();
-            _saveSuccessMessage = "Details saved successfully.";
+            _saveSuccessMessage = "Record saved successfully.";
             _ = Task.Delay(3000).ContinueWith(_ => InvokeAsync(() =>
             {
                 _saveSuccessMessage = null;

@@ -83,7 +83,10 @@ else if (_arrest is not null)
         {
             <div class="alert alert-warning d-flex align-items-center gap-3 py-2 mb-2 record-mode-banner">
                 <span><i class="bi bi-pencil-fill me-1"></i><strong>Modify mode</strong> — lock expires in @_lockSecondsRemaining s</span>
-                <button class="btn btn-sm btn-outline-dark ms-auto" @onclick="RequestReleaseAsync"><i class="bi bi-unlock-fill me-1"></i>Release</button>
+                <div class="record-mode-actions">
+                    <button class="btn btn-sm btn-primary" @onclick="SaveRecordAsync"><i class="bi bi-floppy-fill me-1"></i>Save</button>
+                    <button class="btn btn-sm btn-outline-dark" @onclick="RequestReleaseAsync"><i class="bi bi-unlock-fill me-1"></i>Release</button>
+                </div>
             </div>
         }
         else if (_arrest.IsLocked && _arrest.LockedByUserId != _currentUserId)
@@ -129,6 +132,7 @@ else if (_arrest is not null)
                           SaveLabel="@(_pendingNewRecord ? "Save & New" : "Save & Release")"
                           DiscardLabel="@(_pendingNewRecord ? "Discard & New" : "Discard")"
                           ActionDescription="@(_pendingNewRecord ? "creating a new record" : "releasing the record")"
+                          WarningMessage="@GetReleaseWarningMessage()"
                           OnSaveAndRelease="SaveAndReleaseAsync"
                           OnDiscard="DiscardAndReleaseAsync"
                           OnCancel="CancelRelease" />
@@ -252,37 +256,34 @@ else if (_arrest is not null)
                     <LocationMiniMap LocationId="_editLocationId" />
                 </div>
             </div>
-            @if (_modifyMode)
-            {
-                <div class="record-save-row">
-                    <button class="btn btn-sm btn-primary" @onclick="SaveDetailsAsync">Save Details</button>
-                </div>
-            }
         </div>
     </div>
 
     <LocationSearchModal Visible="_showLocationModal"
                          CurrentLocationId="_editLocationId"
                          OnSelected="OnLocationSelected"
+                         OnCreated="OnLocationCreatedAsync"
                          OnCleared="OnLocationCleared"
                          OnCancelled="() => _showLocationModal = false" />
 
     <NameSearchModal Visible="_showNameModal"
                      CurrentNameId="_editNameId"
                      OnSelected="OnNameSelected"
+                     OnCreated="OnNameCreatedAsync"
                      OnCleared="OnNameCleared"
                      OnCancelled="() => _showNameModal = false" />
 
     <IncidentSearchModal Visible="_showPrimaryIncidentModal"
                          CurrentIncidentId="_editPrimaryIncidentId"
                          OnSelected="OnPrimaryIncidentSelected"
+                         OnCreated="OnIncidentCreatedAsync"
                          OnCleared="OnPrimaryIncidentCleared"
                          OnCancelled="() => _showPrimaryIncidentModal = false" />
 
     <RecordChargesSection Title="Charges"
                           EmptyTitle="No charges linked."
                           EmptyHint="Add one or more charges in modify mode for this arrest."
-                          Charges="_charges"
+                          Charges="VisibleCharges"
                           ModifyMode="_modifyMode"
                           OnChargeSelected="LinkChargeAsync"
                           OnChargeRemoved="UnlinkChargeAsync" />
@@ -293,11 +294,11 @@ else if (_arrest is not null)
             <h4 class="record-related-title">Linked Incidents</h4>
         </div>
         <div class="record-related-body">
-        @if (_linkedIncidents is null)
+        @if (VisibleLinkedIncidents is null)
         {
             <LoadingSpinner Message="Loading linked incidents..." />
         }
-        else if (!_linkedIncidents.Any())
+        else if (!VisibleLinkedIncidents.Any())
         {
             <div class="record-related-empty-state">
                 <div class="empty-state">
@@ -314,7 +315,7 @@ else if (_arrest is not null)
                     <tr><th>#</th><th>Incident</th><th>Linked At</th><th></th></tr>
                 </thead>
                 <tbody>
-                    @foreach (var link in _linkedIncidents)
+                    @foreach (var link in VisibleLinkedIncidents)
                     {
                         <tr>
                             <td>@link.IncidentRecordNumber</td>
@@ -354,6 +355,14 @@ else if (_arrest is not null)
 
     <MugshotGallery ArrestId="_arrest.Id" CanModify="_modifyMode" />
 
+    @if (_modifyMode)
+    {
+        <div class="record-save-row mb-4">
+            <button class="btn btn-sm btn-primary" @onclick="SaveRecordAsync">
+                <i class="bi bi-floppy-fill me-1"></i>Save
+            </button>
+        </div>
+    }
     <AuditInfoSection CreatedAt="@_arrest.CreatedAtUtc"
                       CreatedByName="@_createdByName"
                       ModifiedAt="@(_arrest.ModifiedBy.HasValue ? _arrest.UpdatedAtUtc : null)"
@@ -417,6 +426,11 @@ else if (_arrest is not null)
     private string? _createdByName;
     private string? _modifiedByName;
     private string? _lockedByName;
+    private readonly Dictionary<Guid, (ChargeDto Charge, DateTime LinkedAtUtc)> _pendingChargeAdds = [];
+    private readonly HashSet<Guid> _pendingChargeRemoves = [];
+    private readonly Dictionary<Guid, (IncidentDto Incident, DateTime LinkedAtUtc)> _pendingIncidentLinkAdds = [];
+    private readonly HashSet<Guid> _pendingIncidentLinkRemoves = [];
+    private readonly List<string> _createdForeignRecords = [];
 
     [SupplyParameterFromQuery(Name = "autoModify")]
     public bool AutoModify { get; set; }
@@ -447,7 +461,7 @@ else if (_arrest is not null)
         => InvokeAsync(async () => { if (_modifyMode) { await RequestReleaseAsync(); StateHasChanged(); } });
 
     private void HandleShortcutSave()
-        => InvokeAsync(async () => { if (_modifyMode) { await SaveDetailsAsync(); StateHasChanged(); } });
+        => InvokeAsync(async () => { if (_modifyMode) { await SaveRecordAsync(); StateHasChanged(); } });
 
     private void RestoreModifyModeIfOwner()
     {
@@ -580,6 +594,7 @@ else if (_arrest is not null)
     {
         StopLockTimer();
         _modifyMode = false;
+        ClearPendingChanges();
         try { await ArrestService.ReleaseLockAsync(_arrestId); } catch { /* best-effort */ }
         await LoadAsync();
     }
@@ -587,7 +602,14 @@ else if (_arrest is not null)
     private string ComputeEditSnapshot() =>
         string.Join("§", _editNameId, _editArrestedAt, _editArrestNum, _editArrestTypeId, _editPrimaryIncidentId, _editLocationId);
 
-    private bool HasPendingChanges => _modifyMode && _editSnapshot != ComputeEditSnapshot();
+    private bool HasPendingChanges =>
+        _modifyMode &&
+        (_editSnapshot != ComputeEditSnapshot()
+         || _pendingChargeAdds.Count > 0
+         || _pendingChargeRemoves.Count > 0
+         || _pendingIncidentLinkAdds.Count > 0
+         || _pendingIncidentLinkRemoves.Count > 0
+         || _createdForeignRecords.Count > 0);
 
     private async Task RequestReleaseAsync()
     {
@@ -629,7 +651,7 @@ else if (_arrest is not null)
         _showReleaseConfirm = false;
         var navigateToNew = _pendingNewRecord;
         _pendingNewRecord = false;
-        await SaveDetailsAsync();
+        await SaveRecordAsync();
         if (_actionError is null)
         {
             await ExitModifyModeAsync();
@@ -662,7 +684,7 @@ else if (_arrest is not null)
         }
     }
 
-    private async Task SaveDetailsAsync()
+    private async Task SaveRecordAsync()
     {
         _actionError = null;
         _saveSuccessMessage = null;
@@ -674,9 +696,12 @@ else if (_arrest is not null)
         try
         {
             await ArrestService.UpdateDetailsAsync(_arrestId, _editNameId.Value, _editArrestedAt, _editArrestTypeId, _editArrestNum, _editLocationId, _editPrimaryIncidentId);
+            await ApplyPendingIncidentLinkChangesAsync();
+            await ApplyPendingChargeChangesAsync();
             await LoadAsync();
             _editSnapshot = ComputeEditSnapshot();
-            _saveSuccessMessage = "Details saved successfully.";
+            ClearPendingChanges();
+            _saveSuccessMessage = "Record saved successfully.";
             _ = Task.Delay(3000).ContinueWith(_ => InvokeAsync(() =>
             {
                 _saveSuccessMessage = null;
@@ -686,20 +711,65 @@ else if (_arrest is not null)
         catch (Exception ex)
         {
             _actionError = ex.Message;
+            try { await LoadAsync(); } catch { _actionError += " (State may be out of sync — please refresh the page.)"; }
         }
     }
 
     private async Task LinkToIncidentAsync()
     {
         if (_linkIncidentId == Guid.Empty) return;
-        await RunActionAsync(() => ArrestService.LinkToIncidentAsync(_arrestId, _linkIncidentId));
+        if (_pendingIncidentLinkRemoves.Remove(_linkIncidentId))
+        {
+            _linkIncidentId = Guid.Empty;
+            return;
+        }
+
+        if ((_linkedIncidents?.Any(link => link.IncidentId == _linkIncidentId) ?? false) || _pendingIncidentLinkAdds.ContainsKey(_linkIncidentId))
+        {
+            _linkIncidentId = Guid.Empty;
+            return;
+        }
+
+        var incident = _allIncidents?.FirstOrDefault(i => i.Id == _linkIncidentId);
+        if (incident is not null)
+            _pendingIncidentLinkAdds[_linkIncidentId] = (incident, DateTime.UtcNow);
+
         _linkIncidentId = Guid.Empty;
     }
 
-    private Task UnlinkFromIncidentAsync(Guid incidentId) =>
-        RunActionAsync(() => ArrestService.UnlinkFromIncidentAsync(_arrestId, incidentId));
-    private Task LinkChargeAsync(Guid chargeId) => RunActionAsync(() => ChargeService.LinkToArrestAsync(_arrestId, chargeId));
-    private Task UnlinkChargeAsync(Guid chargeId) => RunActionAsync(() => ChargeService.UnlinkFromArrestAsync(_arrestId, chargeId));
+    private Task UnlinkFromIncidentAsync(Guid incidentId)
+    {
+        if (_pendingIncidentLinkAdds.Remove(incidentId))
+            return Task.CompletedTask;
+
+        if (_linkedIncidents?.Any(link => link.IncidentId == incidentId) == true)
+            _pendingIncidentLinkRemoves.Add(incidentId);
+
+        return Task.CompletedTask;
+    }
+
+    private Task LinkChargeAsync(ChargeDto charge)
+    {
+        if (_pendingChargeRemoves.Remove(charge.Id))
+            return Task.CompletedTask;
+
+        if ((_charges?.Any(c => c.ChargeId == charge.Id) ?? false) || _pendingChargeAdds.ContainsKey(charge.Id))
+            return Task.CompletedTask;
+
+        _pendingChargeAdds[charge.Id] = (charge, DateTime.UtcNow);
+        return Task.CompletedTask;
+    }
+
+    private Task UnlinkChargeAsync(Guid chargeId)
+    {
+        if (_pendingChargeAdds.Remove(chargeId))
+            return Task.CompletedTask;
+
+        if (_charges?.Any(c => c.ChargeId == chargeId) == true)
+            _pendingChargeRemoves.Add(chargeId);
+
+        return Task.CompletedTask;
+    }
 
     private Task OnNameSelected(NameDto name)
     {
@@ -707,6 +777,12 @@ else if (_arrest is not null)
         _editNameDisplay = FormatNameDisplay(name);
         _editNameRecordNumber = name.RecordNumber;
         _showNameModal = false;
+        return Task.CompletedTask;
+    }
+
+    private Task OnNameCreatedAsync(NameDto name)
+    {
+        TrackCreatedForeignRecord($"Name #{name.RecordNumber} was created. If you discard this page, it will remain in the system but will not be linked to this arrest.");
         return Task.CompletedTask;
     }
 
@@ -730,6 +806,12 @@ else if (_arrest is not null)
         _editPrimaryIncidentDisplay = FormatIncidentDisplay(incident);
         _editPrimaryIncidentRecordNumber = incident.RecordNumber;
         _showPrimaryIncidentModal = false;
+        return Task.CompletedTask;
+    }
+
+    private Task OnIncidentCreatedAsync(IncidentDto incident)
+    {
+        TrackCreatedForeignRecord($"Incident #{incident.RecordNumber} was created. If you discard this page, it will remain in the system but will not be linked to this arrest.");
         return Task.CompletedTask;
     }
 
@@ -813,6 +895,12 @@ else if (_arrest is not null)
         _showLocationModal        = false;
     }
 
+    private Task OnLocationCreatedAsync(LocationDto loc)
+    {
+        TrackCreatedForeignRecord($"Location #{loc.RecordNumber} was created. If you discard this page, it will remain in the system but will not be linked to this arrest.");
+        return Task.CompletedTask;
+    }
+
     private void OnLocationCleared()
     {
         _editLocationId           = null;
@@ -863,6 +951,96 @@ else if (_arrest is not null)
             return incident.Details.IncidentNum;
 
         return $"Incident #{incident.RecordNumber}";
+    }
+
+    private IReadOnlyList<RecordChargeDto>? VisibleCharges =>
+        _charges is null
+            ? null
+            : _charges
+                .Where(c => !_pendingChargeRemoves.Contains(c.ChargeId))
+                .Concat(_pendingChargeAdds.Values
+                    .Where(p => _charges.All(existing => existing.ChargeId != p.Charge.Id))
+                    .Select(p => MapCharge(p.Charge, p.LinkedAtUtc)))
+                .OrderByDescending(c => c.LinkedAtUtc)
+                .ToList();
+
+    private IReadOnlyList<IncidentArrestLinkDto>? VisibleLinkedIncidents =>
+        _linkedIncidents is null
+            ? null
+            : _linkedIncidents
+                .Where(link => !_pendingIncidentLinkRemoves.Contains(link.IncidentId))
+                .Concat(_pendingIncidentLinkAdds.Values
+                    .Where(p => _linkedIncidents.All(existing => existing.IncidentId != p.Incident.Id))
+                    .Select(p => MapIncidentLink(p.Incident, p.LinkedAtUtc)))
+                .OrderByDescending(link => link.LinkedAtUtc)
+                .ToList();
+
+    private async Task ApplyPendingChargeChangesAsync()
+    {
+        foreach (var chargeId in _pendingChargeRemoves.ToList())
+        {
+            await ChargeService.UnlinkFromArrestAsync(_arrestId, chargeId);
+            _pendingChargeRemoves.Remove(chargeId);
+        }
+
+        foreach (var chargeId in _pendingChargeAdds.Keys.ToList())
+        {
+            await ChargeService.LinkToArrestAsync(_arrestId, _pendingChargeAdds[chargeId].Charge.Id);
+            _pendingChargeAdds.Remove(chargeId);
+        }
+    }
+
+    private async Task ApplyPendingIncidentLinkChangesAsync()
+    {
+        foreach (var incidentId in _pendingIncidentLinkRemoves.ToList())
+        {
+            await ArrestService.UnlinkFromIncidentAsync(_arrestId, incidentId);
+            _pendingIncidentLinkRemoves.Remove(incidentId);
+        }
+
+        foreach (var incidentId in _pendingIncidentLinkAdds.Keys.ToList())
+        {
+            await ArrestService.LinkToIncidentAsync(_arrestId, _pendingIncidentLinkAdds[incidentId].Incident.Id);
+            _pendingIncidentLinkAdds.Remove(incidentId);
+        }
+    }
+
+    private static RecordChargeDto MapCharge(ChargeDto charge, DateTime linkedAtUtc) =>
+        new(
+            charge.Id,
+            charge.OffenseName,
+            charge.UcrCode,
+            charge.ChargeLevel,
+            charge.StateClass,
+            charge.IsCitationEligible,
+            charge.IsActive,
+            linkedAtUtc);
+
+    private static IncidentArrestLinkDto MapIncidentLink(IncidentDto incident, DateTime linkedAtUtc) =>
+        new(
+            Guid.Empty,
+            incident.Id,
+            incident.RecordNumber,
+            FormatIncidentDisplay(incident),
+            Guid.Empty,
+            linkedAtUtc);
+
+    private string? GetReleaseWarningMessage() =>
+        _createdForeignRecords.Count == 0 ? null : string.Join(" ", _createdForeignRecords);
+
+    private void TrackCreatedForeignRecord(string message)
+    {
+        if (!_createdForeignRecords.Contains(message, StringComparer.Ordinal))
+            _createdForeignRecords.Add(message);
+    }
+
+    private void ClearPendingChanges()
+    {
+        _pendingChargeAdds.Clear();
+        _pendingChargeRemoves.Clear();
+        _pendingIncidentLinkAdds.Clear();
+        _pendingIncidentLinkRemoves.Clear();
+        _createdForeignRecords.Clear();
     }
 
     public ValueTask DisposeAsync()

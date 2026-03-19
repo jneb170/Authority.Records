@@ -16,6 +16,10 @@
                 </div>
                 <div class="modal-body ar-modal-body">
                     <p class="mb-0">You have unsaved changes. Would you like to save before @ActionDescription?</p>
+                    @if (!string.IsNullOrWhiteSpace(WarningMessage))
+                    {
+                        <div class="alert alert-warning py-2 mt-3 mb-0">@WarningMessage</div>
+                    }
                 </div>
                 <div class="modal-footer ar-modal-footer gap-2">
                     <button class="btn btn-secondary btn-sm" @onclick="Cancel">Cancel</button>
@@ -32,6 +36,7 @@
     [Parameter] public string SaveLabel { get; set; } = "Save & Release";
     [Parameter] public string DiscardLabel { get; set; } = "Discard";
     [Parameter] public string ActionDescription { get; set; } = "releasing the record";
+    [Parameter] public string? WarningMessage { get; set; }
     [Parameter] public EventCallback OnSaveAndRelease { get; set; }
     [Parameter] public EventCallback OnDiscard { get; set; }
     [Parameter] public EventCallback OnCancel { get; set; }

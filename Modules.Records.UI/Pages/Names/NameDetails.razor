@@ -99,7 +99,10 @@ else if (_name is not null)
         {
             <div class="alert alert-warning d-flex align-items-center gap-3 py-2 mb-2 record-mode-banner">
                 <span><i class="bi bi-pencil-fill me-1"></i><strong>Modify mode</strong> — lock expires in @_lockSecondsRemaining s</span>
-                <button class="btn btn-sm btn-outline-dark ms-auto" @onclick="RequestReleaseAsync"><i class="bi bi-unlock-fill me-1"></i>Release</button>
+                <div class="record-mode-actions">
+                    <button class="btn btn-sm btn-primary" @onclick="SaveRecordAsync"><i class="bi bi-floppy-fill me-1"></i>Save</button>
+                    <button class="btn btn-sm btn-outline-dark" @onclick="RequestReleaseAsync"><i class="bi bi-unlock-fill me-1"></i>Release</button>
+                </div>
             </div>
         }
         else if (_name.IsLocked && _name.LockedByUserId != _currentUserId)
@@ -132,6 +135,7 @@ else if (_name is not null)
                           SaveLabel="@(_pendingNewRecord ? "Save & New" : "Save & Release")"
                           DiscardLabel="@(_pendingNewRecord ? "Discard & New" : "Discard")"
                           ActionDescription="@(_pendingNewRecord ? "creating a new record" : "releasing the record")"
+                          WarningMessage="@GetReleaseWarningMessage()"
                           OnSaveAndRelease="SaveAndReleaseAsync"
                           OnDiscard="DiscardAndReleaseAsync"
                           OnCancel="CancelRelease" />
@@ -429,13 +433,6 @@ else if (_name is not null)
         </div>
     }
 
-    @if (_modifyMode)
-    {
-        <div class="record-save-row mb-4">
-            <button class="btn btn-sm btn-primary" @onclick="SaveDetailsAsync">Save Details</button>
-        </div>
-    }
-
     <!-- Address Links -->
     <div class="card record-content-card mb-4">
         <div class="card-body">
@@ -490,21 +487,32 @@ else if (_name is not null)
     <LocationSearchModal Visible="_showPrimaryLocationModal"
                          CurrentLocationId="_editPrimaryLocationId"
                          OnSelected="OnPrimaryLocationSelected"
+                         OnCreated="OnPrimaryLocationCreatedAsync"
                          OnCleared="OnPrimaryLocationCleared"
                          OnCancelled="() => _showPrimaryLocationModal = false" />
 
     <LocationSearchModal Visible="_showSecondaryLocationModal"
                          CurrentLocationId="_editSecondaryLocationId"
                          OnSelected="OnSecondaryLocationSelected"
+                         OnCreated="OnSecondaryLocationCreatedAsync"
                          OnCleared="OnSecondaryLocationCleared"
                          OnCancelled="() => _showSecondaryLocationModal = false" />
-
-    <MugshotGallery NameId="_name.Id" CanModify="_modifyMode" />
 
     <AuditInfoSection CreatedAt="@_name.CreatedAtUtc"
                       CreatedByName="@_createdByName"
                       ModifiedAt="@(_name.ModifiedBy.HasValue ? _name.UpdatedAtUtc : null)"
                       ModifiedByName="@_modifiedByName" />
+
+    <MugshotGallery NameId="_name.Id" CanModify="_modifyMode" />
+
+    @if (_modifyMode)
+    {
+        <div class="record-save-row mb-4">
+            <button class="btn btn-sm btn-primary" @onclick="SaveRecordAsync">
+                <i class="bi bi-floppy-fill me-1"></i>Save
+            </button>
+        </div>
+    }
 }
 
 @code {
@@ -576,6 +584,7 @@ else if (_name is not null)
     private string? _createdByName;
     private string? _modifiedByName;
     private string? _lockedByName;
+    private readonly List<string> _createdForeignRecords = [];
 
     private int? EditHeightInches =>
         (_editHeightFeet.HasValue || _editHeightInchesRemainder.HasValue)
@@ -636,7 +645,7 @@ else if (_name is not null)
         => InvokeAsync(async () => { if (_modifyMode) { await RequestReleaseAsync(); StateHasChanged(); } });
 
     private void HandleShortcutSave()
-        => InvokeAsync(async () => { if (_modifyMode) { await SaveDetailsAsync(); StateHasChanged(); } });
+        => InvokeAsync(async () => { if (_modifyMode) { await SaveRecordAsync(); StateHasChanged(); } });
 
     private void RestoreModifyModeIfOwner()
     {
@@ -685,7 +694,8 @@ else if (_name is not null)
             _editFbiNumber, _editLocalNumber, _editSsn, _editIsCitizen, _editDeceasedDate,
             _editPrimaryLocationId, _editSecondaryLocationId);
 
-    private bool HasPendingChanges => _modifyMode && _editSnapshot != ComputeEditSnapshot();
+    private bool HasPendingChanges =>
+        _modifyMode && (_editSnapshot != ComputeEditSnapshot() || _createdForeignRecords.Count > 0);
 
     private async Task RequestReleaseAsync()
     {
@@ -733,7 +743,7 @@ else if (_name is not null)
         _showReleaseConfirm = false;
         var navigateToNew = _pendingNewRecord;
         _pendingNewRecord = false;
-        await SaveDetailsAsync();
+        await SaveRecordAsync();
         if (_actionError is null)
         {
             await ExitModifyModeAsync();
@@ -833,11 +843,12 @@ else if (_name is not null)
         StopLockTimer();
         _modifyMode = false;
         _showSwitchTypeConfirm = false;
+        _createdForeignRecords.Clear();
         try { await NameService.ReleaseLockAsync(_nameId); } catch { /* best-effort */ }
         await LoadAsync();
     }
 
-    private async Task SaveDetailsAsync()
+    private async Task SaveRecordAsync()
     {
         _actionError = null;
         _saveSuccessMessage = null;
@@ -868,7 +879,8 @@ else if (_name is not null)
 
             await LoadAsync();
             _editSnapshot = ComputeEditSnapshot();
-            _saveSuccessMessage = "Details saved successfully.";
+            _createdForeignRecords.Clear();
+            _saveSuccessMessage = "Record saved successfully.";
             _ = Task.Delay(3000).ContinueWith(_ => InvokeAsync(() =>
             {
                 _saveSuccessMessage = null;
@@ -923,6 +935,12 @@ else if (_name is not null)
         _showPrimaryLocationModal        = false;
     }
 
+    private Task OnPrimaryLocationCreatedAsync(LocationDto loc)
+    {
+        TrackCreatedForeignRecord($"Location #{loc.RecordNumber} was created. If you discard this page, it will remain in the system but will not be linked to this name record.");
+        return Task.CompletedTask;
+    }
+
     private void OnPrimaryLocationCleared()
     {
         _editPrimaryLocationId           = null;
@@ -946,6 +964,12 @@ else if (_name is not null)
         _showSecondaryLocationModal        = false;
     }
 
+    private Task OnSecondaryLocationCreatedAsync(LocationDto loc)
+    {
+        TrackCreatedForeignRecord($"Location #{loc.RecordNumber} was created. If you discard this page, it will remain in the system but will not be linked to this name record.");
+        return Task.CompletedTask;
+    }
+
     private void OnSecondaryLocationCleared()
     {
         _editSecondaryLocationId           = null;
@@ -959,6 +983,15 @@ else if (_name is not null)
         _editSecondaryLocationId           = null;
         _editSecondaryLocationDisplay      = null;
         _editSecondaryLocationRecordNumber = null;
+    }
+
+    private string? GetReleaseWarningMessage() =>
+        _createdForeignRecords.Count == 0 ? null : string.Join(" ", _createdForeignRecords);
+
+    private void TrackCreatedForeignRecord(string message)
+    {
+        if (!_createdForeignRecords.Contains(message, StringComparer.Ordinal))
+            _createdForeignRecords.Add(message);
     }
 
     private static string FormatLocationDisplay(LocationDto loc)
