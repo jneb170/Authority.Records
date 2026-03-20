@@ -1,6 +1,7 @@
 using MediatR;
 using Microsoft.EntityFrameworkCore;
 using Modules.Records.Application.Abstractions;
+using Modules.Records.Application.Citations;
 using Modules.Records.Domain.Abstractions;
 using Modules.Records.Domain.Entities;
 
@@ -36,13 +37,86 @@ public sealed class SaveCitationPageHandler : IRequestHandler<SaveCitationPageCo
             .FirstOrDefaultAsync(c => c.Id == request.CitationId && c.JurisdictionId == jurisdictionId, cancellationToken)
             ?? throw new InvalidOperationException("Citation not found.");
 
+        Name? name = null;
+        if (request.DefendantNameId.HasValue)
+        {
+            name = await _dbContext.Names
+                .AsNoTracking()
+                .FirstOrDefaultAsync(n => n.Id == request.DefendantNameId.Value && n.JurisdictionId == jurisdictionId, cancellationToken)
+                ?? throw new InvalidOperationException("Linked name not found.");
+        }
+
         citation.SetLocation(request.LocationId, _modificationContext);
+        var nameChanged = citation.DefendantNameId != request.DefendantNameId;
         citation.UpdateDetails(
             request.Description,
             request.IssueDate,
             request.CourtId,
             request.CitationNum,
+            request.DefendantNameId,
             _modificationContext);
+
+        var snapshot = await _dbContext.CitationNameSnapshots
+            .FirstOrDefaultAsync(s => s.CitationId == citation.Id && s.JurisdictionId == jurisdictionId, cancellationToken);
+
+        if (request.AtTimeOfName is not null)
+        {
+            if (snapshot is null)
+            {
+                _dbContext.CitationNameSnapshots.Add(
+                    CitationNameSnapshotBuilder.CreateFromInput(
+                        citation,
+                        name?.Id,
+                        name?.RecordNumber,
+                        request.AtTimeOfName,
+                        userId));
+            }
+            else
+            {
+                CitationNameSnapshotBuilder.UpdateFromInput(snapshot, name?.Id, name?.RecordNumber, request.AtTimeOfName, userId);
+            }
+        }
+        else if (name is not null && (nameChanged || snapshot is null))
+        {
+            var snapshotLocations = await CitationNameSnapshotBuilder.LoadSnapshotLocationsAsync(_dbContext, name, cancellationToken);
+            if (snapshot is null)
+            {
+                _dbContext.CitationNameSnapshots.Add(
+                    CitationNameSnapshotBuilder.CreateFromName(
+                        citation,
+                        name,
+                        snapshotLocations.PrimaryLocation,
+                        snapshotLocations.SecondaryLocation,
+                        userId));
+            }
+            else
+            {
+                CitationNameSnapshotBuilder.RefreshFromName(
+                    snapshot,
+                    name,
+                    snapshotLocations.PrimaryLocation,
+                    snapshotLocations.SecondaryLocation,
+                    userId);
+            }
+        }
+
+        await CitationSupplementalDataWriter.ApplyOfficerProfileAsync(
+            _dbContext,
+            citation,
+            request.OfficerProfile,
+            cancellationToken);
+
+        await CitationSupplementalDataWriter.ApplyTexasDetailsAsync(
+            _dbContext,
+            citation,
+            request.TexasDetails,
+            cancellationToken);
+
+        await CitationSupplementalDataWriter.ApplyVehicleAsync(
+            _dbContext,
+            citation,
+            request.Vehicle,
+            cancellationToken);
 
         if (incidentIdsToRemove.Count > 0)
         {

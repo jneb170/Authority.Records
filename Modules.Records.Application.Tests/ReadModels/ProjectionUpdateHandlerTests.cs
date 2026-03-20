@@ -157,7 +157,7 @@ public sealed class ProjectionUpdateHandlerTests
 
         var handler = new CitationProjectionHandler(db);
         await handler.Handle(
-            new CitationDetailsUpdatedDomainEvent(citationId, "Updated citation", now, Guid.NewGuid(), "CT-302", locationId, modifiedBy)
+            new CitationDetailsUpdatedDomainEvent(citationId, "Updated citation", now, Guid.NewGuid(), "CT-302", Guid.NewGuid(), locationId, modifiedBy)
             {
                 OccurredOnUtc = now
             },
@@ -305,6 +305,10 @@ internal sealed class ProjectionUpdateTestDbContext(DbContextOptions<ProjectionU
     public IQueryable<Incident> AllIncidentsWithDeleted => throw new NotImplementedException();
     public DbSet<ArrestNameSnapshot> ArrestNameSnapshots => throw new NotImplementedException();
     public DbSet<Citation> Citations => throw new NotImplementedException();
+    public DbSet<CitationNameSnapshot> CitationNameSnapshots => throw new NotImplementedException();
+    public DbSet<CitationOfficerProfile> CitationOfficerProfiles => throw new NotImplementedException();
+    public DbSet<CitationTexasDetails> CitationTexasDetails => throw new NotImplementedException();
+    public DbSet<CitationVehicle> CitationVehicles => throw new NotImplementedException();
     public DbSet<Charge> Charges => throw new NotImplementedException();
     public DbSet<Name> Names => throw new NotImplementedException();
     public DbSet<Location> Locations => throw new NotImplementedException();

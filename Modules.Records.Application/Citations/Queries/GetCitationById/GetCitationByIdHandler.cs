@@ -23,6 +23,6 @@ public sealed class GetCitationByIdHandler : IRequestHandler<GetCitationByIdQuer
         if (rm is null)
             return null;
 
-        return rm.ToDto();
+        return (await CitationDtoMapper.ToDtosAsync([rm], _dbContext, cancellationToken)).Single();
     }
 }

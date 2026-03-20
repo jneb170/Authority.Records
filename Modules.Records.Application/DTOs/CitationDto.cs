@@ -5,6 +5,9 @@ public sealed record CitationDto(
     long RecordNumber,
     Guid JurisdictionId,
     Guid AgencyId,
+    Guid? DefendantNameId,
+    string? DefendantName,
+    long? DefendantNameRecordNumber,
     string Description,
     DateTime IssueDate,
     bool IsIssued,
@@ -16,4 +19,8 @@ public sealed record CitationDto(
     DateTime UpdatedAtUtc,
     Guid? CourtId = null,
     string CitationNum = "",
-    Guid? LocationId = null);
+    Guid? LocationId = null,
+    NameSnapshotDto? AtTimeOfName = null,
+    CitationOfficerProfileDto? OfficerProfile = null,
+    CitationVehicleDto? Vehicle = null,
+    CitationTexasDetailsDto? TexasDetails = null);

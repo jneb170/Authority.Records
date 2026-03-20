@@ -30,6 +30,6 @@ public sealed class GetCitationsByIncidentHandler
             .Where(c => citationIds.Contains(c.Id))
             .ToListAsync(cancellationToken);
 
-        return results.Select(rm => rm.ToDto()).ToList();
+        return await CitationDtoMapper.ToDtosAsync(results, _dbContext, cancellationToken);
     }
 }

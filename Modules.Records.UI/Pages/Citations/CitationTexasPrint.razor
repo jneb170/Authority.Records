@@ -1,0 +1,327 @@
+@page "/citations/{RecordNumber:long}/texas-print"
+@layout PrintLayout
+@attribute [Authorize(Roles = "Admin,Supervisor,Dispatcher,Officer")]
+@inject ICitationService CitationService
+@inject IPicklistService PicklistService
+@inject ILocationService LocationService
+@inject IJSRuntime JS
+@implements IAsyncDisposable
+@using Microsoft.AspNetCore.Authorization
+@using Microsoft.JSInterop
+@using Modules.Records.Application.DTOs
+@using Modules.Records.Domain.Common
+@using Modules.Records.UI.Services
+@using Modules.Records.UI.Shared
+
+<PageTitle>Texas Citation Print</PageTitle>
+
+@if (!_loading && _error is null && _citation is not null)
+{
+    <div class="screen-actions">
+        <button class="btn-print" @onclick="TriggerPrintAsync">🖨 Print / Save as PDF</button>
+        <button @onclick="CloseWindow">✕ Close</button>
+    </div>
+}
+
+@if (_loading)
+{
+    <p style="padding: 2rem;">Loading…</p>
+}
+else if (_error is not null)
+{
+    <p style="padding: 2rem; color: red;">@_error</p>
+}
+else if (_citation is not null)
+{
+    <div class="citation-report">
+        <div class="report-header">
+            <div>
+                <div class="report-title">Texas Uniform Traffic Citation Mapping</div>
+                <div class="report-subtitle">Authority Records printable citation view</div>
+            </div>
+            <div class="report-meta">
+                <div><strong>Citation #</strong> @Display(_citation.CitationNum, _citation.RecordNumber.ToString())</div>
+                <div><strong>Docket #</strong> @Display(_citation.TexasDetails?.DocketNumber)</div>
+                <div><strong>Page #</strong> @Display(_citation.TexasDetails?.PageNumber)</div>
+                <div><strong>Issued</strong> @_citation.IssueDate.ToLocalTime().ToString("MM/dd/yyyy h:mm tt")</div>
+            </div>
+        </div>
+
+        <div class="section">
+            <div class="section-title">Defendant</div>
+            <div class="field-grid">
+                <div><span class="label">Name</span><span class="value">@DisplayFullName()</span></div>
+                <div><span class="label">DOB</span><span class="value">@DateDisplay(_citation.AtTimeOfName?.DateOfBirth)</span></div>
+                <div><span class="label">Sex</span><span class="value">@Display(_sexLabel)</span></div>
+                <div><span class="label">Race</span><span class="value">@Display(_raceLabel)</span></div>
+                <div><span class="label">DL #</span><span class="value">@Display(_citation.AtTimeOfName?.DriversLicenseNumber)</span></div>
+                <div><span class="label">DL State</span><span class="value">@Display(_dlStateLabel)</span></div>
+                <div><span class="label">Height / Weight</span><span class="value">@DisplayHeightWeight()</span></div>
+                <div><span class="label">Address</span><span class="value">@Display(_citation.AtTimeOfName?.PrimaryAddress?.Address)</span></div>
+            </div>
+        </div>
+
+        <div class="section">
+            <div class="section-title">Officer / Complainant</div>
+            <div class="field-grid">
+                <div><span class="label">Officer</span><span class="value">@Display(_citation.OfficerProfile?.OfficerName)</span></div>
+                <div><span class="label">Title</span><span class="value">@Display(_citation.OfficerProfile?.Title)</span></div>
+                <div><span class="label">Badge / ID</span><span class="value">@Display(_citation.OfficerProfile?.BadgeOrIdentifier)</span></div>
+                <div><span class="label">Unit</span><span class="value">@Display(_citation.OfficerProfile?.UnitNumber)</span></div>
+                <div><span class="label">Complainant Signature</span><span class="value">@Display(_citation.TexasDetails?.ComplainantSignatureText)</span></div>
+                <div><span class="label">Affidavit Signed</span><span class="value">@DateDisplay(_citation.TexasDetails?.AffidavitSignedDate)</span></div>
+            </div>
+        </div>
+
+        <div class="section">
+            <div class="section-title">Vehicle</div>
+            <div class="field-grid">
+                <div><span class="label">Plate</span><span class="value">@Display(_citation.Vehicle?.PlateNumber)</span></div>
+                <div><span class="label">Plate State</span><span class="value">@Display(_vehiclePlateStateLabel)</span></div>
+                <div><span class="label">Plate Year</span><span class="value">@NumberDisplay(_citation.Vehicle?.PlateYear)</span></div>
+                <div><span class="label">Model Year</span><span class="value">@NumberDisplay(_citation.Vehicle?.ModelYear)</span></div>
+                <div><span class="label">Make</span><span class="value">@Display(_citation.Vehicle?.Make)</span></div>
+                <div><span class="label">Style</span><span class="value">@Display(_citation.Vehicle?.Style)</span></div>
+                <div><span class="label">Color</span><span class="value">@Display(_citation.Vehicle?.Color)</span></div>
+                <div><span class="label">Commercial / HazMat</span><span class="value">@BoolDisplay(_citation.Vehicle?.IsCommercial) / @BoolDisplay(_citation.Vehicle?.CarriesHazardousMaterial)</span></div>
+            </div>
+        </div>
+
+        <div class="section">
+            <div class="section-title">Violation</div>
+            <div class="field-grid">
+                <div><span class="label">Source</span><span class="value">@Display(_violationSourceLabel)</span></div>
+                <div><span class="label">Section</span><span class="value">@Display(_citation.TexasDetails?.ViolationSection)</span></div>
+                <div><span class="label">Group</span><span class="value">@Display(_violationGroupLabel)</span></div>
+                <div><span class="label">Primary Description</span><span class="value">@Display(_citation.TexasDetails?.PrimaryViolationDescription)</span></div>
+                <div><span class="label">Speed / Zone</span><span class="value">@SpeedDisplay()</span></div>
+                <div><span class="label">Speed Band</span><span class="value">@Display(_speedBandLabel)</span></div>
+                <div class="wide"><span class="label">Other Violations</span><span class="value">@Display(_citation.TexasDetails?.NarrativeOtherViolations)</span></div>
+                <div class="wide"><span class="label">Occurred At</span><span class="value">@Display(_citation.TexasDetails?.OccurredAtText, _citation.LocationId.HasValue ? _citationLocationDisplay : null)</span></div>
+            </div>
+        </div>
+
+        <div class="section">
+            <div class="section-title">Court / Bond / Signature</div>
+            <div class="field-grid">
+                <div><span class="label">Court</span><span class="value">@Display(_courtLabel)</span></div>
+                <div><span class="label">Appearance</span><span class="value">@DateTimeDisplay(_citation.TexasDetails?.CourtAppearanceDateTime)</span></div>
+                <div><span class="label">Appearance Location</span><span class="value">@Display(_appearanceLocationDisplay)</span></div>
+                <div><span class="label">Receipt #</span><span class="value">@Display(_citation.TexasDetails?.ReceiptNumber)</span></div>
+                <div class="wide"><span class="label">Bond Notes</span><span class="value">@Display(_citation.TexasDetails?.AcceptedBondNotes)</span></div>
+                <div><span class="label">Defendant Signature</span><span class="value">@Display(_citation.TexasDetails?.DefendantSignatureText)</span></div>
+            </div>
+        </div>
+
+        <div class="report-footer">
+            Generated @DateTime.Now.ToString("MM/dd/yyyy h:mm tt") — Authority Records Management System
+        </div>
+    </div>
+}
+
+<style>
+    body { font-family: "Segoe UI", Arial, sans-serif; font-size: 11pt; color: #000; background: #fff; }
+    .citation-report { max-width: 900px; margin: 0 auto; padding: 1.5rem 2rem; }
+    .report-header { display: flex; justify-content: space-between; gap: 2rem; border-bottom: 2px solid #000; padding-bottom: .75rem; margin-bottom: 1rem; }
+    .report-title { font-size: 20pt; font-weight: 700; }
+    .report-subtitle { font-size: 10pt; color: #444; margin-top: .2rem; }
+    .report-meta { text-align: right; font-size: 10pt; line-height: 1.5; }
+    .section { border: 1px solid #111; margin-bottom: 1rem; }
+    .section-title { background: #f2f2f2; border-bottom: 1px solid #111; font-weight: 700; padding: .45rem .6rem; }
+    .field-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .75rem 1rem; padding: .75rem; }
+    .field-grid > div { display: flex; flex-direction: column; min-height: 2.5rem; }
+    .field-grid > div.wide { grid-column: 1 / -1; }
+    .label { font-size: 9pt; font-weight: 700; text-transform: uppercase; color: #444; }
+    .value { border-bottom: 1px solid #888; padding: .2rem 0 .15rem; min-height: 1.35rem; }
+    .report-footer { margin-top: 1rem; font-size: 9pt; text-align: center; color: #444; }
+    .screen-actions { display: flex; gap: .5rem; justify-content: center; margin: 1rem 0; }
+    .btn-print, .screen-actions button { border: 1px solid #333; background: #fff; padding: .5rem .8rem; cursor: pointer; }
+    @@media print {
+        .screen-actions { display: none !important; }
+        .citation-report { max-width: none; padding: 0; }
+        .section { break-inside: avoid; }
+    }
+</style>
+
+@code {
+    [Parameter] public long RecordNumber { get; set; }
+
+    private CitationDto? _citation;
+    private bool _loading = true;
+    private string? _error;
+    private string? _courtLabel;
+    private string? _sexLabel;
+    private string? _raceLabel;
+    private string? _dlStateLabel;
+    private string? _vehiclePlateStateLabel;
+    private string? _violationSourceLabel;
+    private string? _violationGroupLabel;
+    private string? _speedBandLabel;
+    private string? _citationLocationDisplay;
+    private string? _appearanceLocationDisplay;
+    private IJSObjectReference? _printModule;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadAsync();
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender && _citation is not null && _error is null)
+        {
+            try
+            {
+                _printModule = await JS.InvokeAsync<IJSObjectReference>("import", "/js/print.js");
+                await _printModule.InvokeVoidAsync("triggerPrint");
+            }
+            catch
+            {
+            }
+        }
+    }
+
+    private async Task LoadAsync()
+    {
+        _loading = true;
+        _error = null;
+
+        try
+        {
+            _citation = await CitationService.GetByRecordNumberAsync(RecordNumber);
+            if (_citation is null)
+            {
+                _error = "Citation not found.";
+                return;
+            }
+
+            var picklistIds = new[]
+            {
+                _citation.CourtId,
+                _citation.AtTimeOfName?.SexId,
+                _citation.AtTimeOfName?.RaceId,
+                _citation.AtTimeOfName?.DriversLicenseStateId,
+                _citation.Vehicle?.PlateStateId,
+                _citation.TexasDetails?.ViolationSourceTypeId,
+                _citation.TexasDetails?.ViolationGroupId,
+                _citation.TexasDetails?.SpeedBandId
+            }
+            .Where(id => id.HasValue)
+            .Select(id => id!.Value)
+            .Distinct()
+            .ToArray();
+
+            var labels = picklistIds.Length == 0
+                ? new Dictionary<Guid, string>()
+                : await PicklistService.GetItemsByIdsAsync(picklistIds);
+
+            _courtLabel = _citation.CourtId.HasValue ? labels.GetValueOrDefault(_citation.CourtId.Value) : null;
+            _sexLabel = _citation.AtTimeOfName?.SexId is Guid sexId ? labels.GetValueOrDefault(sexId) : null;
+            _raceLabel = _citation.AtTimeOfName?.RaceId is Guid raceId ? labels.GetValueOrDefault(raceId) : null;
+            _dlStateLabel = _citation.AtTimeOfName?.DriversLicenseStateId is Guid dlStateId ? labels.GetValueOrDefault(dlStateId) : null;
+            _vehiclePlateStateLabel = _citation.Vehicle?.PlateStateId is Guid vehicleStateId ? labels.GetValueOrDefault(vehicleStateId) : null;
+            _violationSourceLabel = _citation.TexasDetails?.ViolationSourceTypeId is Guid sourceId ? labels.GetValueOrDefault(sourceId) : null;
+            _violationGroupLabel = _citation.TexasDetails?.ViolationGroupId is Guid groupId ? labels.GetValueOrDefault(groupId) : null;
+            _speedBandLabel = _citation.TexasDetails?.SpeedBandId is Guid speedBandId ? labels.GetValueOrDefault(speedBandId) : null;
+
+            _citationLocationDisplay = await ResolveLocationDisplayAsync(_citation.LocationId);
+            _appearanceLocationDisplay = await ResolveLocationDisplayAsync(_citation.TexasDetails?.CourtAppearanceLocationId);
+        }
+        catch (Exception ex)
+        {
+            _error = ex.Message;
+        }
+        finally
+        {
+            _loading = false;
+        }
+    }
+
+    private async Task<string?> ResolveLocationDisplayAsync(Guid? locationId)
+    {
+        if (!locationId.HasValue)
+            return null;
+
+        var location = await LocationService.GetByIdAsync(locationId.Value);
+        return location is null ? null : FormatLocation(location);
+    }
+
+    private async Task TriggerPrintAsync()
+    {
+        try
+        {
+            _printModule ??= await JS.InvokeAsync<IJSObjectReference>("import", "/js/print.js");
+            await _printModule.InvokeVoidAsync("triggerPrint");
+        }
+        catch
+        {
+        }
+    }
+
+    private static string Display(string? primary, string? fallback = null)
+        => string.IsNullOrWhiteSpace(primary) ? (string.IsNullOrWhiteSpace(fallback) ? "—" : fallback) : primary;
+
+    private static string NumberDisplay(int? value)
+        => value.HasValue ? value.Value.ToString() : "—";
+
+    private static string DateDisplay(DateTime? value)
+        => value.HasValue ? value.Value.ToLocalTime().ToString("MM/dd/yyyy") : "—";
+
+    private static string DateTimeDisplay(DateTime? value)
+        => value.HasValue ? value.Value.ToLocalTime().ToString("MM/dd/yyyy h:mm tt") : "—";
+
+    private static string BoolDisplay(bool? value)
+        => value.HasValue ? (value.Value ? "Yes" : "No") : "—";
+
+    private string DisplayFullName()
+    {
+        var snapshot = _citation?.AtTimeOfName;
+        if (snapshot is null)
+            return Display(_citation?.DefendantName);
+
+        return snapshot.NameType == NameTypes.Business || string.IsNullOrWhiteSpace(snapshot.FirstName)
+            ? Display(snapshot.LastOrBusinessName)
+            : $"{snapshot.LastOrBusinessName}, {snapshot.FirstName}";
+    }
+
+    private string DisplayHeightWeight()
+    {
+        var snapshot = _citation?.AtTimeOfName;
+        if (snapshot is null)
+            return "—";
+
+        var parts = new List<string>();
+        if (snapshot.HeightInches.HasValue)
+            parts.Add($"{snapshot.HeightInches.Value} in");
+        if (snapshot.WeightLbs.HasValue)
+            parts.Add($"{snapshot.WeightLbs.Value} lbs");
+        return parts.Count == 0 ? "—" : string.Join(" / ", parts);
+    }
+
+    private string SpeedDisplay()
+    {
+        var details = _citation?.TexasDetails;
+        if (details is null || (!details.SpeedMph.HasValue && !details.ZoneMph.HasValue))
+            return "—";
+
+        return $"{NumberDisplay(details.SpeedMph)} / {NumberDisplay(details.ZoneMph)}";
+    }
+
+    private static string FormatLocation(LocationDto location)
+    {
+        var parts = new List<string>();
+        if (!string.IsNullOrWhiteSpace(location.StreetNumber)) parts.Add(location.StreetNumber);
+        if (!string.IsNullOrWhiteSpace(location.StreetAddress)) parts.Add(location.StreetAddress);
+        if (!string.IsNullOrWhiteSpace(location.City)) parts.Add(location.City);
+        return parts.Count == 0 ? location.Address ?? "—" : string.Join(", ", parts);
+    }
+
+    private void CloseWindow()
+        => JS.InvokeVoidAsync("window.close");
+
+    public async ValueTask DisposeAsync()
+    {
+        if (_printModule is not null)
+            await _printModule.DisposeAsync();
+    }
+}

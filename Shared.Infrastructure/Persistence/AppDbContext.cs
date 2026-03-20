@@ -50,6 +50,10 @@ public class AppDbContext : DbContext, IApplicationDbContext
     public DbSet<Arrest> Arrests => Set<Arrest>();
     public DbSet<ArrestNameSnapshot> ArrestNameSnapshots => Set<ArrestNameSnapshot>();
     public DbSet<Citation> Citations => Set<Citation>();
+    public DbSet<CitationNameSnapshot> CitationNameSnapshots => Set<CitationNameSnapshot>();
+    public DbSet<CitationOfficerProfile> CitationOfficerProfiles => Set<CitationOfficerProfile>();
+    public DbSet<CitationTexasDetails> CitationTexasDetails => Set<CitationTexasDetails>();
+    public DbSet<CitationVehicle> CitationVehicles => Set<CitationVehicle>();
     public DbSet<Charge> Charges => Set<Charge>();
     public DbSet<Name> Names => Set<Name>();
     public DbSet<Location> Locations => Set<Location>();

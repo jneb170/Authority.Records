@@ -42,7 +42,7 @@ public sealed class ReadModelRebuildTests : IDisposable
             context.Citations.Add(citation);
             await context.SaveChangesAsync();
 
-            citation.UpdateDetails("Updated citation", expectedIssueDate, courtId: null, citationNum: "CT-200", modificationContext);
+            citation.UpdateDetails("Updated citation", expectedIssueDate, courtId: null, citationNum: "CT-200", defendantNameId: null, modificationContext);
             citation.SetLocation(expectedLocationId, modificationContext);
             await context.SaveChangesAsync();
 

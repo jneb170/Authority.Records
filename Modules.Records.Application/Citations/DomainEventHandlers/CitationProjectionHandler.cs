@@ -55,7 +55,7 @@ public sealed class CitationProjectionHandler :
         if (readModel is null)
             return;
 
-        readModel.ApplyDetailsChanged(notification.Description, notification.IssueDate, notification.CourtId, notification.CitationNum);
+        readModel.ApplyDetailsChanged(notification.Description, notification.IssueDate, notification.CourtId, notification.CitationNum, notification.DefendantNameId);
         readModel.ApplyLocationChanged(notification.LocationId);
         readModel.ApplyModifiedAudit(notification.ModifiedBy, notification.OccurredOnUtc);
         await _dbContext.SaveChangesAsync(cancellationToken);
