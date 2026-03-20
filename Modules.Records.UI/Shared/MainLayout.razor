@@ -107,8 +107,8 @@
         !AgencyContext.HasAvailableAgencies ||
         AgencyContext.AvailableAgencies.Count <= 1;
     private string AgencySelectorNote =>
-        AgencyContext.IsSelectionLocked ? "Locked while editing" :
         !AgencyContext.HasAvailableAgencies ? "No agencies assigned" :
+        AgencyContext.IsSelectionLocked ? "Locked while editing" :
         AgencyContext.AvailableAgencies.Count == 1 ? "Single assigned agency" :
         "Applies to this session";
     private string? AgencyBannerMessage =>

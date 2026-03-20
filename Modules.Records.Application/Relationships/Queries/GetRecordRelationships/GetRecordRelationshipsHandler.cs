@@ -243,6 +243,7 @@ public sealed class GetRecordRelationshipsHandler(
     {
         var name = await dbContext.NameReadModels
             .AsNoTracking()
+            .WhereAgencyScoped(activeAgencyId)
             .FirstOrDefaultAsync(
                 x => x.JurisdictionId == jurisdictionId && x.RecordNumber == recordNumber,
                 cancellationToken);

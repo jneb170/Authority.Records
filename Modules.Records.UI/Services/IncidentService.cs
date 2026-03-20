@@ -40,7 +40,7 @@ public sealed class IncidentService : IIncidentService
         _sender.Send(new GetIncidentByRecordNumberQuery(recordNumber));
 
     public Task<long> CreateAsync(IncidentDetails details) =>
-        _sender.Send(new CreateIncidentCommand(_tenantProvider.GetAgencyId(), details));
+        _sender.Send(new CreateIncidentCommand(details));
 
     public Task OpenAsync(Guid id) =>
         _sender.Send(new OpenIncidentCommand(id));
