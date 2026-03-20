@@ -66,7 +66,7 @@ public sealed class ReadModelAuditTimestampTests
             Guid.NewGuid(),
             "CT-30018");
 
-        model.ApplyDetailsChanged("Updated citation", createdAt, null, "CT-30018");
+        model.ApplyDetailsChanged("Updated citation", createdAt, null, "CT-30018", Guid.NewGuid());
         model.ApplyLocationChanged(Guid.NewGuid());
         model.ApplyIssued();
         model.ApplyModifiedAudit(null, null, createdAt);

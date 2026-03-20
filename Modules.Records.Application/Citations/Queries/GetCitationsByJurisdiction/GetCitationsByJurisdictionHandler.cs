@@ -29,6 +29,6 @@ public sealed class GetCitationsByJurisdictionHandler
             .OrderByDescending(c => c.IssueDate)
             .ToListAsync(cancellationToken);
 
-        return results.Select(rm => rm.ToDto()).ToList();
+        return await CitationDtoMapper.ToDtosAsync(results, _dbContext, cancellationToken);
     }
 }

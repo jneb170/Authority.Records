@@ -20,6 +20,9 @@ public sealed class GetCitationByRecordNumberHandler : IRequestHandler<GetCitati
             .AsNoTracking()
             .FirstOrDefaultAsync(c => c.RecordNumber == request.RecordNumber, cancellationToken);
 
-        return rm?.ToDto();
+        if (rm is null)
+            return null;
+
+        return (await CitationDtoMapper.ToDtosAsync([rm], _dbContext, cancellationToken)).Single();
     }
 }

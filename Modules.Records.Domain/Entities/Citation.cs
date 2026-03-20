@@ -25,6 +25,9 @@ namespace Modules.Records.Domain.Entities
         /// <summary>Optional reference to the agency-configured Court picklist item.</summary>
         public Guid? CourtId { get; private set; }
 
+        /// <summary>Optional reference to the defendant's Master Name Index record.</summary>
+        public Guid? DefendantNameId { get; private set; }
+
         /// <summary>Optional reference to a Master Location Index record for the citation location.</summary>
         public Guid? LocationId { get; private set; }
 
@@ -81,7 +84,13 @@ namespace Modules.Records.Domain.Entities
             AddDomainEvent(new CitationIssuedDomainEvent(Id, context.UserId));
         }
 
-        public void UpdateDetails(string description, DateTime issueDate, Guid? courtId, string citationNum, IModificationContext context)
+        public void UpdateDetails(
+            string description,
+            DateTime issueDate,
+            Guid? courtId,
+            string citationNum,
+            Guid? defendantNameId,
+            IModificationContext context)
         {
             EnsureCanModify(context);
 
@@ -92,8 +101,9 @@ namespace Modules.Records.Domain.Entities
             IssueDate   = issueDate;
             CourtId     = courtId;
             CitationNum = citationNum;
+            DefendantNameId = defendantNameId;
 
-            AddDomainEvent(new CitationDetailsUpdatedDomainEvent(Id, Description, IssueDate, CourtId, CitationNum, LocationId, context.UserId));
+            AddDomainEvent(new CitationDetailsUpdatedDomainEvent(Id, Description, IssueDate, CourtId, CitationNum, DefendantNameId, LocationId, context.UserId));
         }
 
         /// <summary>Sets or clears the linked Master Location Index record for this citation.</summary>

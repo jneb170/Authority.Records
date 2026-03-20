@@ -13,6 +13,10 @@ public interface IApplicationDbContext
     DbSet<Arrest> Arrests { get; }
     DbSet<ArrestNameSnapshot> ArrestNameSnapshots { get; }
     DbSet<Citation> Citations { get; }
+    DbSet<CitationNameSnapshot> CitationNameSnapshots { get; }
+    DbSet<CitationOfficerProfile> CitationOfficerProfiles { get; }
+    DbSet<CitationTexasDetails> CitationTexasDetails { get; }
+    DbSet<CitationVehicle> CitationVehicles { get; }
     DbSet<Charge> Charges { get; }
     DbSet<Name> Names { get; }
     DbSet<Location> Locations { get; }

@@ -8,6 +8,7 @@ public sealed class CitationReadModel
     public long RecordNumber { get; private set; }
     public Guid JurisdictionId { get; private set; }
     public Guid AgencyId { get; private set; }
+    public Guid? DefendantNameId { get; private set; }
     public string Description { get; private set; } = string.Empty;
     public DateTime IssueDate { get; private set; }
     public bool IsIssued { get; private set; }
@@ -60,17 +61,25 @@ public sealed class CitationReadModel
     }
     public void ApplyLocationChanged(Guid? locationId) { LocationId = locationId; UpdatedAtUtc = DateTime.UtcNow; }
 
-    public CitationDto ToDto() => new(
+    public CitationDto ToDto(
+        string? defendantName = null,
+        long? defendantNameRecordNumber = null,
+        NameSnapshotDto? atTimeOfName = null,
+        CitationOfficerProfileDto? officerProfile = null,
+        CitationVehicleDto? vehicle = null,
+        CitationTexasDetailsDto? texasDetails = null) => new(
         Id, RecordNumber, JurisdictionId, AgencyId,
+        DefendantNameId, defendantName, defendantNameRecordNumber,
         Description, IssueDate, IsIssued, IsLocked, LockedByUserId,
-        CreatedBy, ModifiedBy, CreatedAtUtc, UpdatedAtUtc, CourtId, CitationNum, LocationId);
+        CreatedBy, ModifiedBy, CreatedAtUtc, UpdatedAtUtc, CourtId, CitationNum, LocationId, atTimeOfName, officerProfile, vehicle, texasDetails);
 
-    public void ApplyDetailsChanged(string description, DateTime issueDate, Guid? courtId, string citationNum)
+    public void ApplyDetailsChanged(string description, DateTime issueDate, Guid? courtId, string citationNum, Guid? defendantNameId)
     {
         Description  = description;
         IssueDate    = issueDate;
         CourtId      = courtId;
         CitationNum  = citationNum;
+        DefendantNameId = defendantNameId;
         UpdatedAtUtc = DateTime.UtcNow;
     }
 

@@ -3,17 +3,20 @@ using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Shared.Infrastructure.Persistence;
 
 #nullable disable
 
-namespace Shared.Infrastructure.Migrations
+namespace Shared.Infrastructure.Persistence.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    partial class AppDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260320142122_AddCitationDefendantNameSnapshot")]
+    partial class AddCitationDefendantNameSnapshot
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -1579,193 +1582,6 @@ namespace Shared.Infrastructure.Migrations
                     b.ToTable("CitationNameSnapshots");
                 });
 
-            modelBuilder.Entity("Modules.Records.Domain.Entities.CitationOfficerProfile", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("uniqueidentifier");
-
-                    b.Property<Guid>("AgencyId")
-                        .HasColumnType("uniqueidentifier");
-
-                    b.Property<string>("BadgeOrIdentifier")
-                        .HasMaxLength(50)
-                        .HasColumnType("nvarchar(50)");
-
-                    b.Property<Guid>("CitationId")
-                        .HasColumnType("uniqueidentifier");
-
-                    b.Property<Guid>("JurisdictionId")
-                        .HasColumnType("uniqueidentifier");
-
-                    b.Property<string>("OfficerName")
-                        .IsRequired()
-                        .HasMaxLength(250)
-                        .HasColumnType("nvarchar(250)");
-
-                    b.Property<Guid?>("SourceNameId")
-                        .HasColumnType("uniqueidentifier");
-
-                    b.Property<long?>("SourceNameRecordNumber")
-                        .HasColumnType("bigint");
-
-                    b.Property<string>("Title")
-                        .HasMaxLength(100)
-                        .HasColumnType("nvarchar(100)");
-
-                    b.Property<string>("UnitNumber")
-                        .HasMaxLength(50)
-                        .HasColumnType("nvarchar(50)");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("CitationId")
-                        .IsUnique();
-
-                    b.ToTable("CitationOfficerProfiles");
-                });
-
-            modelBuilder.Entity("Modules.Records.Domain.Entities.CitationTexasDetails", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("uniqueidentifier");
-
-                    b.Property<string>("AcceptedBondNotes")
-                        .HasMaxLength(500)
-                        .HasColumnType("nvarchar(500)");
-
-                    b.Property<DateTime?>("AffidavitSignedDate")
-                        .HasColumnType("datetime2");
-
-                    b.Property<Guid>("AgencyId")
-                        .HasColumnType("uniqueidentifier");
-
-                    b.Property<Guid>("CitationId")
-                        .HasColumnType("uniqueidentifier");
-
-                    b.Property<string>("ComplainantSignatureText")
-                        .HasMaxLength(150)
-                        .HasColumnType("nvarchar(150)");
-
-                    b.Property<DateTime?>("CourtAppearanceDateTime")
-                        .HasColumnType("datetime2");
-
-                    b.Property<Guid?>("CourtAppearanceLocationId")
-                        .HasColumnType("uniqueidentifier");
-
-                    b.Property<string>("DefendantSignatureText")
-                        .HasMaxLength(150)
-                        .HasColumnType("nvarchar(150)");
-
-                    b.Property<string>("DocketNumber")
-                        .HasMaxLength(50)
-                        .HasColumnType("nvarchar(50)");
-
-                    b.Property<Guid>("JurisdictionId")
-                        .HasColumnType("uniqueidentifier");
-
-                    b.Property<string>("NarrativeOtherViolations")
-                        .HasMaxLength(1000)
-                        .HasColumnType("nvarchar(1000)");
-
-                    b.Property<string>("OccurredAtText")
-                        .HasMaxLength(250)
-                        .HasColumnType("nvarchar(250)");
-
-                    b.Property<string>("PageNumber")
-                        .HasMaxLength(25)
-                        .HasColumnType("nvarchar(25)");
-
-                    b.Property<string>("PrimaryViolationDescription")
-                        .HasMaxLength(250)
-                        .HasColumnType("nvarchar(250)");
-
-                    b.Property<string>("ReceiptNumber")
-                        .HasMaxLength(50)
-                        .HasColumnType("nvarchar(50)");
-
-                    b.Property<Guid?>("SpeedBandId")
-                        .HasColumnType("uniqueidentifier");
-
-                    b.Property<int?>("SpeedMph")
-                        .HasColumnType("int");
-
-                    b.Property<Guid?>("ViolationGroupId")
-                        .HasColumnType("uniqueidentifier");
-
-                    b.Property<string>("ViolationSection")
-                        .HasMaxLength(50)
-                        .HasColumnType("nvarchar(50)");
-
-                    b.Property<Guid?>("ViolationSourceTypeId")
-                        .HasColumnType("uniqueidentifier");
-
-                    b.Property<int?>("ZoneMph")
-                        .HasColumnType("int");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("CitationId")
-                        .IsUnique();
-
-                    b.ToTable("CitationTexasDetails");
-                });
-
-            modelBuilder.Entity("Modules.Records.Domain.Entities.CitationVehicle", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("uniqueidentifier");
-
-                    b.Property<Guid>("AgencyId")
-                        .HasColumnType("uniqueidentifier");
-
-                    b.Property<bool>("CarriesHazardousMaterial")
-                        .HasColumnType("bit");
-
-                    b.Property<Guid>("CitationId")
-                        .HasColumnType("uniqueidentifier");
-
-                    b.Property<string>("Color")
-                        .HasMaxLength(50)
-                        .HasColumnType("nvarchar(50)");
-
-                    b.Property<bool>("IsCommercial")
-                        .HasColumnType("bit");
-
-                    b.Property<Guid>("JurisdictionId")
-                        .HasColumnType("uniqueidentifier");
-
-                    b.Property<string>("Make")
-                        .HasMaxLength(50)
-                        .HasColumnType("nvarchar(50)");
-
-                    b.Property<int?>("ModelYear")
-                        .HasColumnType("int");
-
-                    b.Property<string>("PlateNumber")
-                        .HasMaxLength(20)
-                        .HasColumnType("nvarchar(20)");
-
-                    b.Property<Guid?>("PlateStateId")
-                        .HasColumnType("uniqueidentifier");
-
-                    b.Property<int?>("PlateYear")
-                        .HasColumnType("int");
-
-                    b.Property<string>("Style")
-                        .HasMaxLength(50)
-                        .HasColumnType("nvarchar(50)");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("CitationId")
-                        .IsUnique();
-
-                    b.ToTable("CitationVehicles");
-                });
-
             modelBuilder.Entity("Modules.Records.Domain.Entities.Incident", b =>
                 {
                     b.Property<Guid>("Id")
@@ -2684,33 +2500,6 @@ namespace Shared.Infrastructure.Migrations
                     b.HasOne("Modules.Records.Domain.Entities.Citation", null)
                         .WithOne()
                         .HasForeignKey("Modules.Records.Domain.Entities.CitationNameSnapshot", "CitationId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-                });
-
-            modelBuilder.Entity("Modules.Records.Domain.Entities.CitationOfficerProfile", b =>
-                {
-                    b.HasOne("Modules.Records.Domain.Entities.Citation", null)
-                        .WithOne()
-                        .HasForeignKey("Modules.Records.Domain.Entities.CitationOfficerProfile", "CitationId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-                });
-
-            modelBuilder.Entity("Modules.Records.Domain.Entities.CitationTexasDetails", b =>
-                {
-                    b.HasOne("Modules.Records.Domain.Entities.Citation", null)
-                        .WithOne()
-                        .HasForeignKey("Modules.Records.Domain.Entities.CitationTexasDetails", "CitationId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-                });
-
-            modelBuilder.Entity("Modules.Records.Domain.Entities.CitationVehicle", b =>
-                {
-                    b.HasOne("Modules.Records.Domain.Entities.Citation", null)
-                        .WithOne()
-                        .HasForeignKey("Modules.Records.Domain.Entities.CitationVehicle", "CitationId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
                 });

@@ -64,27 +64,37 @@ public sealed class CitationService : ICitationService
     public Task IssueAsync(Guid id) =>
         _sender.Send(new IssueCitationCommand(id));
 
-    public Task UpdateDetailsAsync(Guid id, string description, DateTime issueDate, Guid? courtId = null, string citationNum = "", Guid? locationId = null) =>
-        _sender.Send(new UpdateCitationDetailsCommand(id, description, issueDate, courtId, citationNum, locationId));
+    public Task UpdateDetailsAsync(Guid id, Guid? defendantNameId, string description, DateTime issueDate, Guid? courtId = null, string citationNum = "", Guid? locationId = null, NameSnapshotInput? atTimeOfName = null, CitationOfficerProfileInput? officerProfile = null, CitationTexasDetailsInput? texasDetails = null, CitationVehicleInput? vehicle = null) =>
+        _sender.Send(new UpdateCitationDetailsCommand(id, defendantNameId, description, issueDate, courtId, citationNum, locationId, atTimeOfName, officerProfile, texasDetails, vehicle));
 
     public Task SavePageAsync(
         Guid id,
+        Guid? defendantNameId,
         string description,
         DateTime issueDate,
         Guid? courtId = null,
         string citationNum = "",
         Guid? locationId = null,
+        NameSnapshotInput? atTimeOfName = null,
+        CitationOfficerProfileInput? officerProfile = null,
+        CitationTexasDetailsInput? texasDetails = null,
+        CitationVehicleInput? vehicle = null,
         IReadOnlyCollection<Guid>? incidentIdsToAdd = null,
         IReadOnlyCollection<Guid>? incidentIdsToRemove = null,
         IReadOnlyCollection<Guid>? chargeIdsToAdd = null,
         IReadOnlyCollection<Guid>? chargeIdsToRemove = null) =>
         _sender.Send(new SaveCitationPageCommand(
             id,
+            defendantNameId,
             description,
             issueDate,
             courtId,
             citationNum,
             locationId,
+            atTimeOfName,
+            officerProfile,
+            texasDetails,
+            vehicle,
             incidentIdsToAdd,
             incidentIdsToRemove,
             chargeIdsToAdd,
