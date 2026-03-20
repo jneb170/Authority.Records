@@ -5,10 +5,12 @@
 @inject IChargeService ChargeService
 @inject IIncidentService IncidentService
 @inject IAgencyConfigurationService ConfigService
+@inject IActiveAgencyContext ActiveAgencyContext
 @inject IKeyboardShortcutService ShortcutService
 @inject NavigationManager Nav
 @using Modules.Records.Application.DTOs
 @using Modules.Records.Domain.Common
+@using Modules.Records.UI.Services
 
 <PageTitle>New Arrest</PageTitle>
 
@@ -22,6 +24,10 @@
 @if (_vm.ErrorMessage is not null)
 {
     <div class="alert alert-danger">@_vm.ErrorMessage</div>
+}
+@if (AgencyBlockingMessage is not null)
+{
+    <div class="alert alert-warning">@AgencyBlockingMessage</div>
 }
 
 <div class="record-form-shell">
@@ -59,7 +65,7 @@
                 <label class="form-label">Arrest Number <span class="text-muted">(auto-generated if blank)</span></label>
                 <div class="input-group">
                     <InputText class="form-control" @bind-Value="_vm.ArrestNum" placeholder="e.g. AR-2026-000001" />
-                    <button type="button" class="btn btn-outline-secondary" @onclick="GenerateArrestNumAsync" disabled="@_generatingNum">
+                    <button type="button" class="btn btn-outline-secondary" @onclick="GenerateArrestNumAsync" disabled="@(_generatingNum || !CanCreateAgencyOwnedRecord)">
                         @(_generatingNum ? "…" : "🔁 Generate")
                     </button>
                 </div>
@@ -123,7 +129,7 @@
         </div>
     </div>
     <div class="record-form-actions">
-        <button type="submit" class="btn btn-primary" disabled="@_submitting">
+        <button type="submit" class="btn btn-primary" disabled="@(_submitting || !CanCreateAgencyOwnedRecord)">
             @(_submitting ? "Creating…" : "Create Arrest")
         </button>
         @if (IncidentRecordNumber.HasValue)
@@ -175,6 +181,7 @@
     private IReadOnlyList<IncidentDto>? _incidents = new List<IncidentDto>();
     private readonly List<long> _selectedIncidentRecordNumbers = new();
     private readonly List<ChargeDto> _selectedCharges = [];
+    private IDisposable? _agencySelectionLock;
     private Guid? _selectedNameId;
     private string? _selectedNameDisplay;
     private long? _selectedNameRecordNumber;
@@ -191,6 +198,11 @@
 
     private string CancelUrl =>
         IncidentRecordNumber.HasValue ? $"/incidents/{IncidentRecordNumber}" : "/arrests";
+    private bool CanCreateAgencyOwnedRecord => ActiveAgencyContext.HasSelectedAgency;
+    private string? AgencyBlockingMessage =>
+        CanCreateAgencyOwnedRecord
+            ? null
+            : "No active agency is available. Record creation is disabled until an administrator assigns you a default agency and agency access.";
 
     protected override Task OnInitializedAsync()
     {
@@ -204,6 +216,8 @@
 
     protected override async Task OnParametersSetAsync()
     {
+        _agencySelectionLock ??= ActiveAgencyContext.AcquireSelectionLock();
+        await ActiveAgencyContext.EnsureLoadedAsync();
         _incidents = await IncidentService.GetByJurisdictionAsync();
 
         // Pre-select if coming from an incident page
@@ -294,11 +308,16 @@
     {
         ShortcutService.OnRelease -= HandleShortcutRelease;
         ShortcutService.OnSave    -= HandleShortcutSave;
+        _agencySelectionLock?.Dispose();
+        _agencySelectionLock = null;
         return ValueTask.CompletedTask;
     }
 
     private async Task GenerateArrestNumAsync()
     {
+        if (!CanCreateAgencyOwnedRecord)
+            return;
+
         _generatingNum = true;
         try { _vm.ArrestNum = await ConfigService.GenerateArrestNumAsync(); }
         catch (Exception ex) { _vm.ErrorMessage = ex.Message; }
@@ -312,6 +331,9 @@
 
         try
         {
+            if (!CanCreateAgencyOwnedRecord)
+                throw new InvalidOperationException("Select an active agency before creating an arrest.");
+
             if (!_selectedNameId.HasValue)
                 throw new InvalidOperationException("Select a suspect name before creating the arrest.");
 

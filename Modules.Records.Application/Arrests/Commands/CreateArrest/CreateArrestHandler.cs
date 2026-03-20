@@ -2,6 +2,7 @@ using MediatR;
 using Microsoft.EntityFrameworkCore;
 using Modules.Records.Application.Abstractions;
 using Modules.Records.Application.Arrests;
+using Modules.Records.Application.Common.Extensions;
 using Modules.Records.Domain.Abstractions;
 using Modules.Records.Domain.Common;
 using Modules.Records.Domain.Common.Implementations;
@@ -35,6 +36,9 @@ public sealed class CreateArrestHandler : IRequestHandler<CreateArrestCommand, l
         var agencyId = _tenantProvider.GetAgencyId();
         var userId = _tenantProvider.GetUserId();
 
+        if (agencyId == Guid.Empty)
+            throw new InvalidOperationException("Select an active agency before creating an arrest.");
+
         var name = await _dbContext.Names
             .AsNoTracking()
             .FirstOrDefaultAsync(n => n.Id == request.NameId && n.JurisdictionId == jurisdictionId, cancellationToken)
@@ -55,6 +59,7 @@ public sealed class CreateArrestHandler : IRequestHandler<CreateArrestCommand, l
         {
             primaryIncidentId = await _dbContext.Incidents
                 .AsNoTracking()
+                .WhereAgencyScoped(agencyId)
                 .Where(i => i.Id == request.PrimaryIncidentId.Value && i.JurisdictionId == jurisdictionId)
                 .Select(i => (Guid?)i.Id)
                 .FirstOrDefaultAsync(cancellationToken);
@@ -98,6 +103,7 @@ public sealed class CreateArrestHandler : IRequestHandler<CreateArrestCommand, l
         {
             var incidentIds = await _dbContext.Incidents
                 .AsNoTracking()
+                .WhereAgencyScoped(agencyId)
                 .Where(i => i.JurisdictionId == jurisdictionId && incidentRecordNumbers.Contains(i.RecordNumber))
                 .Select(i => i.Id)
                 .ToListAsync(cancellationToken);

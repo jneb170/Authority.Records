@@ -28,6 +28,7 @@ builder.Services.AddScoped<ITenantProvider, BlazorTenantProvider>();
 builder.Services.AddScoped<IIncidentService, IncidentService>();
 builder.Services.AddScoped<IArrestService, ArrestService>();
 builder.Services.AddScoped<ICitationService, CitationService>();
+builder.Services.AddScoped<IActiveAgencyContext, ActiveAgencyContext>();
 builder.Services.AddScoped<IAgencyConfigurationService, AgencyConfigurationService>();
 builder.Services.AddScoped<IPicklistService, PicklistService>();
 builder.Services.AddScoped<IChargeService, ChargeService>();

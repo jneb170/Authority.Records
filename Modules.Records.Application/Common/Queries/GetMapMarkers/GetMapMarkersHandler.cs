@@ -1,6 +1,8 @@
 using MediatR;
 using Microsoft.EntityFrameworkCore;
 using Modules.Records.Application.Abstractions;
+using Modules.Records.Application.Common.Extensions;
+using Modules.Records.Domain.Abstractions;
 
 namespace Modules.Records.Application.Common.Queries.GetMapMarkers;
 
@@ -8,10 +10,12 @@ public sealed class GetMapMarkersHandler
     : IRequestHandler<GetMapMarkersQuery, IReadOnlyList<MapMarkerDto>>
 {
     private readonly IApplicationDbContext _dbContext;
+    private readonly ITenantProvider _tenantProvider;
 
-    public GetMapMarkersHandler(IApplicationDbContext dbContext)
+    public GetMapMarkersHandler(IApplicationDbContext dbContext, ITenantProvider tenantProvider)
     {
         _dbContext = dbContext;
+        _tenantProvider = tenantProvider;
     }
 
     public async Task<IReadOnlyList<MapMarkerDto>> Handle(
@@ -20,6 +24,7 @@ public sealed class GetMapMarkersHandler
     {
         var jurisdictionId = request.JurisdictionId;
         var since          = request.Since;
+        var agencyId       = _tenantProvider.GetAgencyId();
 
         // Load location coordinates indexed by LocationId for fast lookup
         var locationCoords = await _dbContext.LocationReadModels
@@ -34,6 +39,7 @@ public sealed class GetMapMarkersHandler
         // Incidents — filter by OccurredOn; fall back to CreatedAtUtc when OccurredOn is null
         var incidents = await _dbContext.IncidentReadModels
             .AsNoTracking()
+            .WhereAgencyScoped(agencyId)
             .Where(r => r.JurisdictionId == jurisdictionId
                      && !r.IsDeleted
                      && r.LocationId != null
@@ -58,6 +64,7 @@ public sealed class GetMapMarkersHandler
         // Arrests — filter by ArrestedAt; fall back to CreatedAtUtc when since is null
         var arrests = await _dbContext.ArrestReadModels
             .AsNoTracking()
+            .WhereAgencyScoped(agencyId)
             .Where(r => r.JurisdictionId == jurisdictionId
                      && r.LocationId != null
                      && (since == null || r.ArrestedAt >= since))
@@ -79,6 +86,7 @@ public sealed class GetMapMarkersHandler
         // Citations — filter by IssueDate
         var citations = await _dbContext.CitationReadModels
             .AsNoTracking()
+            .WhereAgencyScoped(agencyId)
             .Where(r => r.JurisdictionId == jurisdictionId
                      && r.LocationId != null
                      && (since == null || r.IssueDate >= since))

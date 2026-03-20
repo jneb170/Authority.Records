@@ -22,6 +22,8 @@ public sealed class GenerateIncidentNumHandler : IRequestHandler<GenerateInciden
     {
         var jurisdictionId = _tenantProvider.GetJurisdictionId();
         var agencyId = _tenantProvider.GetAgencyId();
+        if (agencyId == Guid.Empty)
+            throw new InvalidOperationException("Select an active agency before generating an incident number.");
         var now = DateTime.UtcNow;
         var year = now.Year;
 

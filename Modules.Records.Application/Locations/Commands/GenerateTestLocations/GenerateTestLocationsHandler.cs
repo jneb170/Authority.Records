@@ -31,11 +31,12 @@ public sealed class GenerateTestLocationsHandler
         CancellationToken            cancellationToken)
     {
         var jurisdictionId = _tenantProvider.GetJurisdictionId();
+        var agencyId = _tenantProvider.GetAgencyId();
 
-        var directionDict = await LocationSeedPlaceCommandFactory.LoadPicklistAsync(_dbContext, PicklistTypes.Direction, jurisdictionId, cancellationToken);
-        var streetTypeDict = await LocationSeedPlaceCommandFactory.LoadPicklistAsync(_dbContext, PicklistTypes.StreetType, jurisdictionId, cancellationToken);
-        var stateDict = await LocationSeedPlaceCommandFactory.LoadPicklistAsync(_dbContext, PicklistTypes.State, jurisdictionId, cancellationToken);
-        var countryDict = await LocationSeedPlaceCommandFactory.LoadPicklistAsync(_dbContext, PicklistTypes.Country, jurisdictionId, cancellationToken);
+        var directionDict = await LocationSeedPlaceCommandFactory.LoadPicklistAsync(_dbContext, PicklistTypes.Direction, jurisdictionId, agencyId, cancellationToken);
+        var streetTypeDict = await LocationSeedPlaceCommandFactory.LoadPicklistAsync(_dbContext, PicklistTypes.StreetType, jurisdictionId, agencyId, cancellationToken);
+        var stateDict = await LocationSeedPlaceCommandFactory.LoadPicklistAsync(_dbContext, PicklistTypes.State, jurisdictionId, agencyId, cancellationToken);
+        var countryDict = await LocationSeedPlaceCommandFactory.LoadPicklistAsync(_dbContext, PicklistTypes.Country, jurisdictionId, agencyId, cancellationToken);
 
         var places = await _placesClient.SearchAsync(
             request.Keyword,

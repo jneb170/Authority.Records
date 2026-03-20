@@ -1,6 +1,7 @@
 using MediatR;
 using Microsoft.EntityFrameworkCore;
 using Modules.Records.Application.Abstractions;
+using Modules.Records.Application.Common.Extensions;
 using Modules.Records.Application.DTOs;
 using Modules.Records.Domain.Abstractions;
 
@@ -25,6 +26,7 @@ public sealed class GetArrestsByJurisdictionHandler
         var jurisdictionId = _tenantProvider.GetJurisdictionId();
         var results = await _dbContext.ArrestReadModels
             .AsNoTracking()
+            .WhereAgencyScoped(_tenantProvider.GetAgencyId())
             .Where(a => a.JurisdictionId == jurisdictionId)
             .OrderByDescending(a => a.ArrestedAt)
             .ToListAsync(cancellationToken);

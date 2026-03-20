@@ -1,6 +1,7 @@
 using MediatR;
 using Microsoft.EntityFrameworkCore;
 using Modules.Records.Application.Abstractions;
+using Modules.Records.Application.Common.Extensions;
 using Modules.Records.Application.ReadModels;
 using Modules.Records.Domain.Abstractions;
 using Modules.Records.Domain.Common;
@@ -17,25 +18,28 @@ public sealed class GetRecordRelationshipsHandler(
         CancellationToken cancellationToken)
     {
         var jurisdictionId = tenantProvider.GetJurisdictionId();
+        var activeAgencyId = tenantProvider.GetAgencyId();
 
         return request.RecordType switch
         {
-            RecordRelationshipRecordTypes.Incident => LoadIncidentAsync(jurisdictionId, request.RecordNumber, cancellationToken),
-            RecordRelationshipRecordTypes.Arrest => LoadArrestAsync(jurisdictionId, request.RecordNumber, cancellationToken),
-            RecordRelationshipRecordTypes.Citation => LoadCitationAsync(jurisdictionId, request.RecordNumber, cancellationToken),
-            RecordRelationshipRecordTypes.Name => LoadNameAsync(jurisdictionId, request.RecordNumber, cancellationToken),
-            RecordRelationshipRecordTypes.Location => LoadLocationAsync(jurisdictionId, request.RecordNumber, cancellationToken),
+            RecordRelationshipRecordTypes.Incident => LoadIncidentAsync(jurisdictionId, activeAgencyId, request.RecordNumber, cancellationToken),
+            RecordRelationshipRecordTypes.Arrest => LoadArrestAsync(jurisdictionId, activeAgencyId, request.RecordNumber, cancellationToken),
+            RecordRelationshipRecordTypes.Citation => LoadCitationAsync(jurisdictionId, activeAgencyId, request.RecordNumber, cancellationToken),
+            RecordRelationshipRecordTypes.Name => LoadNameAsync(jurisdictionId, activeAgencyId, request.RecordNumber, cancellationToken),
+            RecordRelationshipRecordTypes.Location => LoadLocationAsync(jurisdictionId, activeAgencyId, request.RecordNumber, cancellationToken),
             _ => throw new ArgumentOutOfRangeException(nameof(request.RecordType), request.RecordType, "Unsupported record type.")
         };
     }
 
     private async Task<RecordRelationshipsDto?> LoadIncidentAsync(
         Guid jurisdictionId,
+        Guid activeAgencyId,
         long recordNumber,
         CancellationToken cancellationToken)
     {
         var incident = await dbContext.IncidentReadModels
             .AsNoTracking()
+            .WhereAgencyScoped(activeAgencyId)
             .FirstOrDefaultAsync(
                 x => x.JurisdictionId == jurisdictionId && x.RecordNumber == recordNumber,
                 cancellationToken);
@@ -62,7 +66,7 @@ public sealed class GetRecordRelationshipsHandler(
             .AsNoTracking()
             .Where(x => x.JurisdictionId == jurisdictionId && x.IncidentId == incident.Id)
             .Join(
-                dbContext.ArrestReadModels.AsNoTracking(),
+                dbContext.ArrestReadModels.AsNoTracking().WhereAgencyScoped(activeAgencyId),
                 link => link.ArrestId,
                 arrest => arrest.Id,
                 (_, arrest) => arrest)
@@ -82,7 +86,7 @@ public sealed class GetRecordRelationshipsHandler(
             .AsNoTracking()
             .Where(x => x.JurisdictionId == jurisdictionId && x.IncidentId == incident.Id)
             .Join(
-                dbContext.CitationReadModels.AsNoTracking(),
+                dbContext.CitationReadModels.AsNoTracking().WhereAgencyScoped(activeAgencyId),
                 link => link.CitationId,
                 citation => citation.Id,
                 (_, citation) => citation)
@@ -100,11 +104,13 @@ public sealed class GetRecordRelationshipsHandler(
 
     private async Task<RecordRelationshipsDto?> LoadArrestAsync(
         Guid jurisdictionId,
+        Guid activeAgencyId,
         long recordNumber,
         CancellationToken cancellationToken)
     {
         var arrest = await dbContext.ArrestReadModels
             .AsNoTracking()
+            .WhereAgencyScoped(activeAgencyId)
             .FirstOrDefaultAsync(
                 x => x.JurisdictionId == jurisdictionId && x.RecordNumber == recordNumber,
                 cancellationToken);
@@ -118,6 +124,7 @@ public sealed class GetRecordRelationshipsHandler(
         {
             var primaryIncident = await dbContext.IncidentReadModels
                 .AsNoTracking()
+                .WhereAgencyScoped(activeAgencyId)
                 .FirstOrDefaultAsync(
                     x => x.JurisdictionId == jurisdictionId && x.Id == arrest.PrimaryIncidentId.Value,
                     cancellationToken);
@@ -131,7 +138,7 @@ public sealed class GetRecordRelationshipsHandler(
             .AsNoTracking()
             .Where(x => x.JurisdictionId == jurisdictionId && x.ArrestId == arrest.Id)
             .Join(
-                dbContext.IncidentReadModels.AsNoTracking(),
+                dbContext.IncidentReadModels.AsNoTracking().WhereAgencyScoped(activeAgencyId),
                 link => link.IncidentId,
                 incident => incident.Id,
                 (_, incident) => incident)
@@ -179,11 +186,13 @@ public sealed class GetRecordRelationshipsHandler(
 
     private async Task<RecordRelationshipsDto?> LoadCitationAsync(
         Guid jurisdictionId,
+        Guid activeAgencyId,
         long recordNumber,
         CancellationToken cancellationToken)
     {
         var citation = await dbContext.CitationReadModels
             .AsNoTracking()
+            .WhereAgencyScoped(activeAgencyId)
             .FirstOrDefaultAsync(
                 x => x.JurisdictionId == jurisdictionId && x.RecordNumber == recordNumber,
                 cancellationToken);
@@ -197,7 +206,7 @@ public sealed class GetRecordRelationshipsHandler(
             .AsNoTracking()
             .Where(x => x.JurisdictionId == jurisdictionId && x.CitationId == citation.Id)
             .Join(
-                dbContext.IncidentReadModels.AsNoTracking(),
+                dbContext.IncidentReadModels.AsNoTracking().WhereAgencyScoped(activeAgencyId),
                 link => link.IncidentId,
                 incident => incident.Id,
                 (_, incident) => incident)
@@ -228,6 +237,7 @@ public sealed class GetRecordRelationshipsHandler(
 
     private async Task<RecordRelationshipsDto?> LoadNameAsync(
         Guid jurisdictionId,
+        Guid activeAgencyId,
         long recordNumber,
         CancellationToken cancellationToken)
     {
@@ -244,6 +254,7 @@ public sealed class GetRecordRelationshipsHandler(
 
         var arrests = await dbContext.ArrestReadModels
             .AsNoTracking()
+            .WhereAgencyScoped(activeAgencyId)
             .Where(x => x.JurisdictionId == jurisdictionId && x.NameId == name.Id)
             .OrderBy(x => x.RecordNumber)
             .ToListAsync(cancellationToken);
@@ -285,6 +296,7 @@ public sealed class GetRecordRelationshipsHandler(
 
     private async Task<RecordRelationshipsDto?> LoadLocationAsync(
         Guid jurisdictionId,
+        Guid activeAgencyId,
         long recordNumber,
         CancellationToken cancellationToken)
     {
@@ -301,6 +313,7 @@ public sealed class GetRecordRelationshipsHandler(
 
         var incidents = await dbContext.IncidentReadModels
             .AsNoTracking()
+            .WhereAgencyScoped(activeAgencyId)
             .Where(x => x.JurisdictionId == jurisdictionId && x.LocationId == location.Id)
             .OrderBy(x => x.RecordNumber)
             .ToListAsync(cancellationToken);
@@ -311,6 +324,7 @@ public sealed class GetRecordRelationshipsHandler(
 
         var arrests = await dbContext.ArrestReadModels
             .AsNoTracking()
+            .WhereAgencyScoped(activeAgencyId)
             .Where(x => x.JurisdictionId == jurisdictionId && x.LocationId == location.Id)
             .OrderBy(x => x.RecordNumber)
             .ToListAsync(cancellationToken);
@@ -326,6 +340,7 @@ public sealed class GetRecordRelationshipsHandler(
 
         var citations = await dbContext.CitationReadModels
             .AsNoTracking()
+            .WhereAgencyScoped(activeAgencyId)
             .Where(x => x.JurisdictionId == jurisdictionId && x.LocationId == location.Id)
             .OrderBy(x => x.RecordNumber)
             .ToListAsync(cancellationToken);

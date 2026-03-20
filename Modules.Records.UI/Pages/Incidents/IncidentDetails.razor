@@ -9,6 +9,7 @@
 @inject IChargeService ChargeService
 @inject ILocationService LocationService
 @inject ITenantProvider TenantProvider
+@inject IActiveAgencyContext ActiveAgencyContext
 @inject IUserLookupService UserLookupService
 @inject NavigationManager Nav
 @inject IKeyboardShortcutService ShortcutService
@@ -385,12 +386,14 @@ else if (_incident is not null)
     private readonly Dictionary<Guid, (ChargeDto Charge, DateTime LinkedAtUtc)> _pendingChargeAdds = [];
     private readonly HashSet<Guid> _pendingChargeRemoves = [];
     private readonly List<string> _createdForeignRecords = [];
+    private IDisposable? _agencySelectionLock;
 
     [SupplyParameterFromQuery(Name = "autoModify")]
     public bool AutoModify { get; set; }
 
     protected override async Task OnInitializedAsync()
     {
+        await ActiveAgencyContext.EnsureLoadedAsync();
         _currentUserId = TenantProvider.GetUserId();
         await LoadAsync();
 
@@ -421,6 +424,7 @@ else if (_incident is not null)
     {
         if (_incident is not null && _incident.IsLocked && _incident.LockedByUserId == _currentUserId)
         {
+            EnsureAgencySelectionLock();
             _modifyMode = true;
             _editIncidentNum = _incident.Details.IncidentNum;
             _editLocalNum = _incident.Details.LocalNum;
@@ -514,6 +518,7 @@ else if (_incident is not null)
         try
         {
             await IncidentService.AcquireLockAsync(_incidentId);
+            EnsureAgencySelectionLock();
             _modifyMode = true;
             _editIncidentNum = _incident?.Details.IncidentNum ?? string.Empty;
             _editDescription = _incident?.Details.Description ?? string.Empty;
@@ -535,9 +540,19 @@ else if (_incident is not null)
     {
         StopLockTimer();
         _modifyMode = false;
+        ReleaseAgencySelectionLock();
         ClearPendingChanges();
         try { await IncidentService.ReleaseLockAsync(_incidentId); } catch { /* best-effort */ }
         await LoadAsync();
+    }
+
+    private void EnsureAgencySelectionLock()
+        => _agencySelectionLock ??= ActiveAgencyContext.AcquireSelectionLock();
+
+    private void ReleaseAgencySelectionLock()
+    {
+        _agencySelectionLock?.Dispose();
+        _agencySelectionLock = null;
     }
 
     private string ComputeEditSnapshot() =>
@@ -816,6 +831,7 @@ else if (_incident is not null)
         // requires the lock. The lock is released explicitly via "Release Record" or
         // automatically when the 10-minute timeout elapses.
         StopLockTimer();
+        ReleaseAgencySelectionLock();
         return ValueTask.CompletedTask;
     }
 }

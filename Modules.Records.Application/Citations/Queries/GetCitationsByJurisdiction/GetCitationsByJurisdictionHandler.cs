@@ -1,6 +1,7 @@
 using MediatR;
 using Microsoft.EntityFrameworkCore;
 using Modules.Records.Application.Abstractions;
+using Modules.Records.Application.Common.Extensions;
 using Modules.Records.Application.DTOs;
 using Modules.Records.Domain.Abstractions;
 
@@ -25,6 +26,7 @@ public sealed class GetCitationsByJurisdictionHandler
         var jurisdictionId = _tenantProvider.GetJurisdictionId();
         var results = await _dbContext.CitationReadModels
             .AsNoTracking()
+            .WhereAgencyScoped(_tenantProvider.GetAgencyId())
             .Where(c => c.JurisdictionId == jurisdictionId)
             .OrderByDescending(c => c.IssueDate)
             .ToListAsync(cancellationToken);

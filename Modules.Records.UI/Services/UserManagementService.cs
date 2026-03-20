@@ -7,37 +7,62 @@ namespace Modules.Records.UI.Services;
 
 public sealed class UserManagementService(
     UserManager<ApplicationUser> userManager,
-    RoleManager<IdentityRole> roleManager,
-    AuthDbContext authDb) : IUserManagementService
+    AuthDbContext authDb,
+    IServiceScopeFactory serviceScopeFactory) : IUserManagementService
 {
     public async Task<List<UserDto>> GetAllAsync()
     {
-        var users = await userManager.Users
+        using var scope = serviceScopeFactory.CreateScope();
+        var readDb = scope.ServiceProvider.GetRequiredService<AuthDbContext>();
+
+        var users = await readDb.Users
+            .AsNoTracking()
             .OrderBy(u => u.LastName).ThenBy(u => u.FirstName)
             .ToListAsync();
 
-        return await BuildUserDtosAsync(users);
+        return await BuildUserDtosAsync(readDb, users);
     }
 
     public async Task<List<UserDto>> GetByJurisdictionAsync(Guid jurisdictionId)
     {
-        var users = await userManager.Users
+        using var scope = serviceScopeFactory.CreateScope();
+        var readDb = scope.ServiceProvider.GetRequiredService<AuthDbContext>();
+
+        var users = await readDb.Users
+            .AsNoTracking()
             .Where(u => u.JurisdictionId == jurisdictionId)
             .OrderBy(u => u.LastName).ThenBy(u => u.FirstName)
             .ToListAsync();
 
-        return await BuildUserDtosAsync(users);
+        return await BuildUserDtosAsync(readDb, users);
     }
 
     public async Task<UserDto?> GetByIdAsync(string userId)
     {
-        var u = await userManager.FindByIdAsync(userId);
+        using var scope = serviceScopeFactory.CreateScope();
+        var readDb = scope.ServiceProvider.GetRequiredService<AuthDbContext>();
+
+        var u = await readDb.Users
+            .AsNoTracking()
+            .SingleOrDefaultAsync(u => u.Id == userId);
+
         if (u is null) return null;
-        var roles = (await userManager.GetRolesAsync(u)).ToList();
-        var agencyIds = await authDb.UserAgencies
+
+        var roles = await readDb.UserRoles
+            .Where(ur => ur.UserId == userId)
+            .Join(
+                readDb.Roles,
+                userRole => userRole.RoleId,
+                role => role.Id,
+                (userRole, role) => role.Name ?? string.Empty)
+            .Where(roleName => roleName.Length > 0)
+            .ToListAsync();
+
+        var agencyIds = await readDb.UserAgencies
             .Where(ua => ua.UserId == u.Id)
             .Select(ua => ua.AgencyId)
             .ToListAsync();
+
         return ToDto(u, roles, agencyIds);
     }
 
@@ -150,7 +175,10 @@ public sealed class UserManagementService(
     public async Task<List<string>> GetAvailableRolesAsync()
     {
         var excluded = new[] { "Super" };
-        return await roleManager.Roles
+        using var scope = serviceScopeFactory.CreateScope();
+        var readDb = scope.ServiceProvider.GetRequiredService<AuthDbContext>();
+
+        return await readDb.Roles
             .Where(r => !excluded.Contains(r.Name))
             .Select(r => r.Name!)
             .OrderBy(r => r)
@@ -159,13 +187,26 @@ public sealed class UserManagementService(
 
     public async Task<List<Agency>> GetAgenciesForUserAsync(string userId)
     {
-        var agencyIds = await authDb.UserAgencies
+        using var scope = serviceScopeFactory.CreateScope();
+        var readDb = scope.ServiceProvider.GetRequiredService<AuthDbContext>();
+
+        var user = await readDb.Users
+            .AsNoTracking()
+            .SingleOrDefaultAsync(u => u.Id == userId);
+
+        if (user is null)
+            return [];
+
+        var agencyIds = await readDb.UserAgencies
             .Where(ua => ua.UserId == userId)
             .Select(ua => ua.AgencyId)
             .ToListAsync();
 
-        return await authDb.Agencies
-            .Where(a => agencyIds.Contains(a.Id))
+        if (user.AgencyId != Guid.Empty && !agencyIds.Contains(user.AgencyId))
+            agencyIds.Add(user.AgencyId);
+
+        return await readDb.Agencies
+            .Where(a => a.JurisdictionId == user.JurisdictionId && agencyIds.Contains(a.Id))
             .OrderBy(a => a.Name)
             .ToListAsync();
     }
@@ -174,14 +215,14 @@ public sealed class UserManagementService(
         => new(u.Id, u.Email ?? string.Empty, u.FirstName, u.LastName, u.FullName,
                u.IsActive, u.JurisdictionId, u.AgencyId, roles, agencyIds);
 
-    private async Task<List<UserDto>> BuildUserDtosAsync(List<ApplicationUser> users)
+    private static async Task<List<UserDto>> BuildUserDtosAsync(AuthDbContext readDb, List<ApplicationUser> users)
     {
         if (users.Count == 0) return [];
 
         var userIds = users.Select(u => u.Id).ToList();
 
-        var roleNames = await authDb.Roles.ToDictionaryAsync(r => r.Id, r => r.Name ?? string.Empty);
-        var userRoleEntries = await authDb.UserRoles
+        var roleNames = await readDb.Roles.ToDictionaryAsync(r => r.Id, r => r.Name ?? string.Empty);
+        var userRoleEntries = await readDb.UserRoles
             .Where(ur => userIds.Contains(ur.UserId))
             .ToListAsync();
         var rolesByUserId = userRoleEntries
@@ -192,7 +233,7 @@ public sealed class UserManagementService(
                       .Where(n => n.Length > 0)
                       .ToList());
 
-        var agencyAssignments = await authDb.UserAgencies
+        var agencyAssignments = await readDb.UserAgencies
             .Where(ua => userIds.Contains(ua.UserId))
             .ToListAsync();
         var agenciesByUserId = agencyAssignments
