@@ -17,6 +17,7 @@ public sealed class GetRecordRelationshipsHandlerTests
     {
         await using var db = RelationshipTestDbContext.Create();
         var jurisdictionId = Guid.NewGuid();
+        var agencyId = Guid.NewGuid();
         var locationId = Guid.NewGuid();
         var incidentId = Guid.NewGuid();
         var arrestId = Guid.NewGuid();
@@ -24,15 +25,15 @@ public sealed class GetRecordRelationshipsHandlerTests
         var nameId = Guid.NewGuid();
 
         db.LocationReadModels.Add(CreateLocation(locationId, 6001, jurisdictionId, "Central Precinct"));
-        db.IncidentReadModels.Add(CreateIncident(incidentId, 1001, jurisdictionId, locationId, "INC-1001", "Burglary"));
+        db.IncidentReadModels.Add(CreateIncident(incidentId, 1001, jurisdictionId, agencyId, locationId, "INC-1001", "Burglary"));
         db.NameReadModels.Add(CreateName(nameId, 3001, jurisdictionId, "Mills", "Casey"));
-        db.ArrestReadModels.Add(CreateArrest(arrestId, 2001, jurisdictionId, nameId, "AR-2001"));
-        db.CitationReadModels.Add(CreateCitation(citationId, 4001, jurisdictionId, "Noise violation", "CT-4001"));
+        db.ArrestReadModels.Add(CreateArrest(arrestId, 2001, jurisdictionId, agencyId, nameId, "AR-2001"));
+        db.CitationReadModels.Add(CreateCitation(citationId, 4001, jurisdictionId, agencyId, "Noise violation", "CT-4001"));
         db.IncidentArrestLinkReadModels.Add(IncidentArrestLinkReadModel.Create(Guid.NewGuid(), jurisdictionId, incidentId, 1001, "INC-1001", arrestId, DateTime.UtcNow));
         db.IncidentCitationLinkReadModels.Add(IncidentCitationLinkReadModel.Create(Guid.NewGuid(), jurisdictionId, incidentId, 1001, "INC-1001", citationId, DateTime.UtcNow));
         await db.SaveChangesAsync(CancellationToken.None);
 
-        var handler = new GetRecordRelationshipsHandler(db, new FakeTenantProvider(jurisdictionId));
+        var handler = new GetRecordRelationshipsHandler(db, new FakeTenantProvider(jurisdictionId, agencyId));
 
         var result = await handler.Handle(
             new GetRecordRelationshipsQuery(RecordRelationshipRecordTypes.Incident, 1001),
@@ -50,6 +51,7 @@ public sealed class GetRecordRelationshipsHandlerTests
     {
         await using var db = RelationshipTestDbContext.Create();
         var jurisdictionId = Guid.NewGuid();
+        var agencyId = Guid.NewGuid();
         var primaryIncidentId = Guid.NewGuid();
         var linkedIncidentId = Guid.NewGuid();
         var arrestId = Guid.NewGuid();
@@ -57,14 +59,14 @@ public sealed class GetRecordRelationshipsHandlerTests
         var locationId = Guid.NewGuid();
 
         db.LocationReadModels.Add(CreateLocation(locationId, 6001, jurisdictionId, "Station"));
-        db.IncidentReadModels.Add(CreateIncident(primaryIncidentId, 1001, jurisdictionId, null, "INC-1001", "Robbery"));
-        db.IncidentReadModels.Add(CreateIncident(linkedIncidentId, 1002, jurisdictionId, null, "INC-1002", "Trespassing"));
+        db.IncidentReadModels.Add(CreateIncident(primaryIncidentId, 1001, jurisdictionId, agencyId, null, "INC-1001", "Robbery"));
+        db.IncidentReadModels.Add(CreateIncident(linkedIncidentId, 1002, jurisdictionId, agencyId, null, "INC-1002", "Trespassing"));
         db.NameReadModels.Add(CreateName(nameId, 3001, jurisdictionId, "Smith", "John"));
-        db.ArrestReadModels.Add(CreateArrest(arrestId, 2001, jurisdictionId, nameId, "AR-2001", primaryIncidentId, locationId));
+        db.ArrestReadModels.Add(CreateArrest(arrestId, 2001, jurisdictionId, agencyId, nameId, "AR-2001", primaryIncidentId, locationId));
         db.IncidentArrestLinkReadModels.Add(IncidentArrestLinkReadModel.Create(Guid.NewGuid(), jurisdictionId, linkedIncidentId, 1002, "INC-1002", arrestId, DateTime.UtcNow));
         await db.SaveChangesAsync(CancellationToken.None);
 
-        var handler = new GetRecordRelationshipsHandler(db, new FakeTenantProvider(jurisdictionId));
+        var handler = new GetRecordRelationshipsHandler(db, new FakeTenantProvider(jurisdictionId, agencyId));
 
         var result = await handler.Handle(
             new GetRecordRelationshipsQuery(RecordRelationshipRecordTypes.Arrest, 2001),
@@ -83,17 +85,18 @@ public sealed class GetRecordRelationshipsHandlerTests
     {
         await using var db = RelationshipTestDbContext.Create();
         var jurisdictionId = Guid.NewGuid();
+        var agencyId = Guid.NewGuid();
         var citationId = Guid.NewGuid();
         var incidentId = Guid.NewGuid();
         var locationId = Guid.NewGuid();
 
         db.LocationReadModels.Add(CreateLocation(locationId, 6001, jurisdictionId, "Intersection"));
-        db.IncidentReadModels.Add(CreateIncident(incidentId, 1001, jurisdictionId, null, "INC-1001", "Traffic stop"));
-        db.CitationReadModels.Add(CreateCitation(citationId, 4001, jurisdictionId, "Speeding", "CT-4001", locationId));
+        db.IncidentReadModels.Add(CreateIncident(incidentId, 1001, jurisdictionId, agencyId, null, "INC-1001", "Traffic stop"));
+        db.CitationReadModels.Add(CreateCitation(citationId, 4001, jurisdictionId, agencyId, "Speeding", "CT-4001", locationId));
         db.IncidentCitationLinkReadModels.Add(IncidentCitationLinkReadModel.Create(Guid.NewGuid(), jurisdictionId, incidentId, 1001, "INC-1001", citationId, DateTime.UtcNow));
         await db.SaveChangesAsync(CancellationToken.None);
 
-        var handler = new GetRecordRelationshipsHandler(db, new FakeTenantProvider(jurisdictionId));
+        var handler = new GetRecordRelationshipsHandler(db, new FakeTenantProvider(jurisdictionId, agencyId));
 
         var result = await handler.Handle(
             new GetRecordRelationshipsQuery(RecordRelationshipRecordTypes.Citation, 4001),
@@ -110,8 +113,9 @@ public sealed class GetRecordRelationshipsHandlerTests
     {
         await using var db = RelationshipTestDbContext.Create();
         var jurisdictionId = Guid.NewGuid();
+        var agencyId = Guid.NewGuid();
 
-        var handler = new GetRecordRelationshipsHandler(db, new FakeTenantProvider(jurisdictionId));
+        var handler = new GetRecordRelationshipsHandler(db, new FakeTenantProvider(jurisdictionId, agencyId));
 
         await Assert.ThrowsAsync<ArgumentOutOfRangeException>(() =>
             handler.Handle(
@@ -124,6 +128,7 @@ public sealed class GetRecordRelationshipsHandlerTests
     {
         await using var db = RelationshipTestDbContext.Create();
         var jurisdictionId = Guid.NewGuid();
+        var agencyId = Guid.NewGuid();
         var nameId = Guid.NewGuid();
         var primaryLocationId = Guid.NewGuid();
         var secondaryLocationId = Guid.NewGuid();
@@ -133,10 +138,10 @@ public sealed class GetRecordRelationshipsHandlerTests
             CreateLocation(secondaryLocationId, 7002, jurisdictionId, "Secondary Address"));
 
         db.NameReadModels.Add(CreateName(nameId, 3001, jurisdictionId, "Jordan", "Alex", primaryLocationId, secondaryLocationId));
-        db.ArrestReadModels.Add(CreateArrest(Guid.NewGuid(), 2001, jurisdictionId, nameId, "AR-2001"));
+        db.ArrestReadModels.Add(CreateArrest(Guid.NewGuid(), 2001, jurisdictionId, agencyId, nameId, "AR-2001"));
         await db.SaveChangesAsync(CancellationToken.None);
 
-        var handler = new GetRecordRelationshipsHandler(db, new FakeTenantProvider(jurisdictionId));
+        var handler = new GetRecordRelationshipsHandler(db, new FakeTenantProvider(jurisdictionId, agencyId));
 
         var result = await handler.Handle(
             new GetRecordRelationshipsQuery(RecordRelationshipRecordTypes.Name, 3001),
@@ -153,6 +158,7 @@ public sealed class GetRecordRelationshipsHandlerTests
     {
         await using var db = RelationshipTestDbContext.Create();
         var tenantJurisdictionId = Guid.NewGuid();
+        var tenantAgencyId = Guid.NewGuid();
         var otherJurisdictionId = Guid.NewGuid();
         var locationId = Guid.NewGuid();
 
@@ -161,15 +167,15 @@ public sealed class GetRecordRelationshipsHandlerTests
             CreateLocation(Guid.NewGuid(), 8001, otherJurisdictionId, "Other Location"));
 
         db.IncidentReadModels.AddRange(
-            CreateIncident(Guid.NewGuid(), 1101, tenantJurisdictionId, locationId, "INC-1101", "Tenant incident"),
-            CreateIncident(Guid.NewGuid(), 9901, otherJurisdictionId, locationId, "INC-9901", "Other incident"));
+            CreateIncident(Guid.NewGuid(), 1101, tenantJurisdictionId, tenantAgencyId, locationId, "INC-1101", "Tenant incident"),
+            CreateIncident(Guid.NewGuid(), 9901, otherJurisdictionId, Guid.NewGuid(), locationId, "INC-9901", "Other incident"));
 
         db.NameReadModels.AddRange(
             CreateName(Guid.NewGuid(), 3101, tenantJurisdictionId, "Tenant", "Taylor", primaryLocationId: locationId),
             CreateName(Guid.NewGuid(), 3901, otherJurisdictionId, "Other", "Olivia", primaryLocationId: locationId));
         await db.SaveChangesAsync(CancellationToken.None);
 
-        var handler = new GetRecordRelationshipsHandler(db, new FakeTenantProvider(tenantJurisdictionId));
+        var handler = new GetRecordRelationshipsHandler(db, new FakeTenantProvider(tenantJurisdictionId, tenantAgencyId));
 
         var result = await handler.Handle(
             new GetRecordRelationshipsQuery(RecordRelationshipRecordTypes.Location, 8001),
@@ -185,6 +191,7 @@ public sealed class GetRecordRelationshipsHandlerTests
         Guid id,
         long recordNumber,
         Guid jurisdictionId,
+        Guid agencyId,
         Guid? locationId,
         string incidentNum,
         string description)
@@ -193,7 +200,7 @@ public sealed class GetRecordRelationshipsHandlerTests
             id,
             recordNumber,
             jurisdictionId,
-            Guid.NewGuid(),
+            agencyId,
             new IncidentDetails
             {
                 IncidentNum = incidentNum,
@@ -217,6 +224,7 @@ public sealed class GetRecordRelationshipsHandlerTests
         Guid id,
         long recordNumber,
         Guid jurisdictionId,
+        Guid agencyId,
         Guid? nameId,
         string arrestNumber,
         Guid? primaryIncidentId = null,
@@ -226,7 +234,7 @@ public sealed class GetRecordRelationshipsHandlerTests
             id,
             recordNumber,
             jurisdictionId,
-            Guid.NewGuid(),
+            agencyId,
             nameId,
             DateTime.UtcNow,
             DateTime.UtcNow,
@@ -246,6 +254,7 @@ public sealed class GetRecordRelationshipsHandlerTests
         Guid id,
         long recordNumber,
         Guid jurisdictionId,
+        Guid agencyId,
         string description,
         string citationNumber,
         Guid? locationId = null)
@@ -254,7 +263,7 @@ public sealed class GetRecordRelationshipsHandlerTests
             id,
             recordNumber,
             jurisdictionId,
-            Guid.NewGuid(),
+            agencyId,
             description,
             DateTime.UtcNow,
             DateTime.UtcNow,
@@ -399,10 +408,10 @@ public sealed class GetRecordRelationshipsHandlerTests
         }
     }
 
-    private sealed class FakeTenantProvider(Guid jurisdictionId) : ITenantProvider
+    private sealed class FakeTenantProvider(Guid jurisdictionId, Guid agencyId) : ITenantProvider
     {
         public Guid GetJurisdictionId() => jurisdictionId;
-        public Guid GetAgencyId() => Guid.NewGuid();
+        public Guid GetAgencyId() => agencyId;
         public Guid GetUserId() => Guid.NewGuid();
         public void SetJurisdictionId(Guid jurisdictionId) => throw new NotSupportedException();
     }

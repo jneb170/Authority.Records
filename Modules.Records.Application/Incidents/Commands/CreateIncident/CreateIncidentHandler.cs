@@ -27,6 +27,10 @@ public sealed class CreateIncidentHandler : IRequestHandler<CreateIncidentComman
 
     public async Task<long> Handle(CreateIncidentCommand request, CancellationToken cancellationToken)
     {
+        var agencyId = _tenantProvider.GetAgencyId();
+        if (agencyId == Guid.Empty)
+            throw new InvalidOperationException("Select an active agency before creating an incident.");
+
         var details = request.Details;
 
         // Auto-generate IncidentNum if the user left it blank (uses agency config or system default)
@@ -39,7 +43,7 @@ public sealed class CreateIncidentHandler : IRequestHandler<CreateIncidentComman
         var incident = _factory.Create(new CreateIncidentRequest
         {
             JurisdictionId = _tenantProvider.GetJurisdictionId(),
-            AgencyId       = request.AgencyId,
+            AgencyId       = agencyId,
             Details        = details,
         });
 

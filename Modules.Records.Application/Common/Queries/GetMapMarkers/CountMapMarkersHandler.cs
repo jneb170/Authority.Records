@@ -1,6 +1,8 @@
 using MediatR;
 using Microsoft.EntityFrameworkCore;
 using Modules.Records.Application.Abstractions;
+using Modules.Records.Application.Common.Extensions;
+using Modules.Records.Domain.Abstractions;
 
 namespace Modules.Records.Application.Common.Queries.GetMapMarkers;
 
@@ -8,10 +10,12 @@ public sealed class CountMapMarkersHandler
     : IRequestHandler<CountMapMarkersQuery, int>
 {
     private readonly IApplicationDbContext _dbContext;
+    private readonly ITenantProvider _tenantProvider;
 
-    public CountMapMarkersHandler(IApplicationDbContext dbContext)
+    public CountMapMarkersHandler(IApplicationDbContext dbContext, ITenantProvider tenantProvider)
     {
         _dbContext = dbContext;
+        _tenantProvider = tenantProvider;
     }
 
     public async Task<int> Handle(
@@ -20,6 +24,7 @@ public sealed class CountMapMarkersHandler
     {
         var jurisdictionId = request.JurisdictionId;
         var since          = request.Since;
+        var agencyId       = _tenantProvider.GetAgencyId();
 
         // Collect location IDs that have parseable coordinates for the jurisdiction.
         // This mirrors the approach in GetMapMarkersHandler so both queries agree on
@@ -36,6 +41,7 @@ public sealed class CountMapMarkersHandler
 
         var incidentCount = await _dbContext.IncidentReadModels
             .AsNoTracking()
+            .WhereAgencyScoped(agencyId)
             .Where(r => r.JurisdictionId == jurisdictionId
                      && !r.IsDeleted
                      && r.LocationId != null
@@ -46,6 +52,7 @@ public sealed class CountMapMarkersHandler
 
         var arrestCount = await _dbContext.ArrestReadModels
             .AsNoTracking()
+            .WhereAgencyScoped(agencyId)
             .Where(r => r.JurisdictionId == jurisdictionId
                      && r.LocationId != null
                      && validLocationIds.Contains(r.LocationId.Value)
@@ -54,6 +61,7 @@ public sealed class CountMapMarkersHandler
 
         var citationCount = await _dbContext.CitationReadModels
             .AsNoTracking()
+            .WhereAgencyScoped(agencyId)
             .Where(r => r.JurisdictionId == jurisdictionId
                      && r.LocationId != null
                      && validLocationIds.Contains(r.LocationId.Value)

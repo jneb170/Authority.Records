@@ -1,6 +1,7 @@
 using MediatR;
 using Microsoft.EntityFrameworkCore;
 using Modules.Records.Application.Abstractions;
+using Modules.Records.Application.Common.Extensions;
 using Modules.Records.Domain.Abstractions;
 using Modules.Records.Domain.Common;
 using Modules.Records.Domain.Common.Implementations;
@@ -27,6 +28,9 @@ public sealed class CreateCitationHandler : IRequestHandler<CreateCitationComman
         var agencyId = _tenantProvider.GetAgencyId();
         var userId = _tenantProvider.GetUserId();
 
+        if (agencyId == Guid.Empty)
+            throw new InvalidOperationException("Select an active agency before creating a citation.");
+
         var citationNum = string.IsNullOrWhiteSpace(request.CitationNum)
             ? await TryGenerateCitationNumAsync(cancellationToken)
             : request.CitationNum;
@@ -48,6 +52,7 @@ public sealed class CreateCitationHandler : IRequestHandler<CreateCitationComman
         {
             var incidentIds = await _dbContext.Incidents
                 .AsNoTracking()
+                .WhereAgencyScoped(agencyId)
                 .Where(i => i.JurisdictionId == jurisdictionId && incidentRecordNumbers.Contains(i.RecordNumber))
                 .Select(i => i.Id)
                 .ToListAsync(cancellationToken);

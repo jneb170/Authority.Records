@@ -179,6 +179,82 @@ public sealed class GenerateTestArrestsHandlerTests
         Assert.Equal(3, await db.Arrests.CountAsync());
     }
 
+    [Fact]
+    public async Task Handle_IgnoresDuplicatePicklistValuesFromOtherAgencies()
+    {
+        await using var db = RecordPageSaveTestDbContextFactory.Create();
+
+        var jurisdictionId = Guid.NewGuid();
+        var agencyId = Guid.NewGuid();
+        var otherAgencyId = Guid.NewGuid();
+        var userId = Guid.NewGuid();
+
+        SeedPicklistItem(db, jurisdictionId, agencyId, PicklistTypes.Direction, "SE", "SE", 1);
+        SeedPicklistItem(db, jurisdictionId, otherAgencyId, PicklistTypes.Direction, "SE", "SE", 1);
+        SeedPicklistItem(db, jurisdictionId, agencyId, PicklistTypes.StreetType, "Ave", "Ave", 1);
+        SeedPicklistItem(db, jurisdictionId, otherAgencyId, PicklistTypes.StreetType, "Ave", "Ave", 1);
+        SeedPicklistItem(db, jurisdictionId, agencyId, PicklistTypes.State, "TX", "Texas", 1);
+        SeedPicklistItem(db, jurisdictionId, otherAgencyId, PicklistTypes.State, "TX", "Texas", 1);
+        SeedPicklistItem(db, jurisdictionId, agencyId, PicklistTypes.Country, "US", "United States", 1);
+        SeedPicklistItem(db, jurisdictionId, otherAgencyId, PicklistTypes.Country, "US", "United States", 1);
+        await db.SaveChangesAsync(CancellationToken.None);
+
+        var tenantProvider = new TestTenantProvider(jurisdictionId, agencyId, userId);
+        var handler = new GenerateTestArrestsHandler(
+            db,
+            tenantProvider,
+            new TestSender(db, tenantProvider),
+            new FakePlacesClient(
+                new GooglePlaceResult(
+                    PlaceName: "Southeast Precinct",
+                    FormattedAddress: "200 SE Oak Ave, Springfield, TX 75002, USA",
+                    StreetNumber: "200",
+                    StreetAddress: "SE Oak Ave",
+                    AptSuite: null,
+                    City: "Springfield",
+                    Zip: "75002",
+                    StateAbbreviation: "TX",
+                    CountryCode: "US",
+                    Lat: 32.0,
+                    Lng: -96.0)),
+            new UserModificationContext(userId));
+
+        var result = await handler.Handle(
+            new GenerateTestArrestsCommand(
+                Count: 1,
+                ArrestedFrom: new DateTime(2026, 2, 1, 0, 0, 0, DateTimeKind.Utc),
+                ArrestedTo: new DateTime(2026, 2, 2, 0, 0, 0, DateTimeKind.Utc),
+                NameStrategy: TestDataRecordLinkStrategy.RecentlyCreatedOrCreateNew,
+                LocationStrategy: TestDataRecordLinkStrategy.CreateNew,
+                NameMaxUses: 1,
+                LocationMaxUses: 1,
+                LocationKeyword: "police stations near Dallas TX",
+                LocationApiKey: "test-api-key"),
+            CancellationToken.None);
+
+        Assert.Equal(1, result.Created);
+        Assert.Equal(0, result.Failed);
+    }
+
+    private static void SeedPicklistItem(
+        RecordPageSaveTestDbContext db,
+        Guid jurisdictionId,
+        Guid agencyId,
+        string picklistType,
+        string value,
+        string label,
+        int sortOrder)
+    {
+        db.PicklistItems.Add(new PicklistItem(
+            jurisdictionId,
+            agencyId,
+            picklistType,
+            value,
+            label,
+            sortOrder,
+            isSystemDefault: true));
+    }
+
     private sealed class TestSender : ISender
     {
         private readonly RecordPageSaveTestDbContext _dbContext;

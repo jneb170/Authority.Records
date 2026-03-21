@@ -5,8 +5,10 @@
 @inject IChargeService ChargeService
 @inject IIncidentService IncidentService
 @inject IAgencyConfigurationService ConfigService
+@inject IActiveAgencyContext ActiveAgencyContext
 @inject IKeyboardShortcutService ShortcutService
 @inject NavigationManager Nav
+@using Modules.Records.UI.Services
 
 <PageTitle>New Citation</PageTitle>
 
@@ -20,6 +22,10 @@
 @if (_vm.ErrorMessage is not null)
 {
     <div class="alert alert-danger">@_vm.ErrorMessage</div>
+}
+@if (AgencyBlockingMessage is not null)
+{
+    <div class="alert alert-warning">@AgencyBlockingMessage</div>
 }
 
 <div class="record-form-shell">
@@ -47,7 +53,7 @@
                     <label class="form-label">Citation Number <span class="text-muted">(auto-generated if blank)</span></label>
                     <div class="input-group">
                         <InputText class="form-control" @bind-Value="_vm.CitationNum" placeholder="e.g. CT-2026-000001" />
-                        <button type="button" class="btn btn-outline-secondary" @onclick="GenerateCitationNumAsync" disabled="@_generatingNum">
+                        <button type="button" class="btn btn-outline-secondary" @onclick="GenerateCitationNumAsync" disabled="@(_generatingNum || !CanCreateAgencyOwnedRecord)">
                             @(_generatingNum ? "…" : "🔁 Generate")
                         </button>
                     </div>
@@ -99,7 +105,7 @@
         </div>
     </div>
     <div class="record-form-actions">
-        <button type="submit" class="btn btn-primary" disabled="@_submitting">
+        <button type="submit" class="btn btn-primary" disabled="@(_submitting || !CanCreateAgencyOwnedRecord)">
             @(_submitting ? "Creating…" : "Create Citation")
         </button>
         @if (IncidentRecordNumber.HasValue)
@@ -138,12 +144,18 @@
     private IReadOnlyList<IncidentDto>? _incidents;
     private readonly List<long> _selectedIncidentRecordNumbers = new();
     private readonly List<ChargeDto> _selectedCharges = [];
+    private IDisposable? _agencySelectionLock;
 
     private bool HasEnteredData =>
         !string.IsNullOrEmpty(_vm.Description) ||
         !string.IsNullOrEmpty(_vm.CitationNum) ||
         _selectedIncidentRecordNumbers.Count > 0 ||
         _selectedCharges.Count > 0;
+    private bool CanCreateAgencyOwnedRecord => ActiveAgencyContext.HasSelectedAgency;
+    private string? AgencyBlockingMessage =>
+        CanCreateAgencyOwnedRecord
+            ? null
+            : "No active agency is available. Record creation is disabled until an administrator assigns you a default agency and agency access.";
 
     private string CancelUrl =>
         IncidentRecordNumber.HasValue ? $"/incidents/{IncidentRecordNumber}" : "/citations";
@@ -181,11 +193,15 @@
     {
         ShortcutService.OnRelease -= HandleShortcutRelease;
         ShortcutService.OnSave    -= HandleShortcutSave;
+        _agencySelectionLock?.Dispose();
+        _agencySelectionLock = null;
         return ValueTask.CompletedTask;
     }
 
     protected override async Task OnParametersSetAsync()
     {
+        _agencySelectionLock ??= ActiveAgencyContext.AcquireSelectionLock();
+        await ActiveAgencyContext.EnsureLoadedAsync();
         _incidents = await IncidentService.GetByJurisdictionAsync();
 
         if (IncidentRecordNumber.HasValue)
@@ -208,6 +224,9 @@
 
     private async Task GenerateCitationNumAsync()
     {
+        if (!CanCreateAgencyOwnedRecord)
+            return;
+
         _generatingNum = true;
         try { _vm.CitationNum = await ConfigService.GenerateCitationNumAsync(); }
         catch (Exception ex) { _vm.ErrorMessage = ex.Message; }
@@ -221,6 +240,9 @@
 
         try
         {
+            if (!CanCreateAgencyOwnedRecord)
+                throw new InvalidOperationException("Select an active agency before creating a citation.");
+
             var recordNumber = await CitationService.CreateAsync(
                 _vm.Description,
                 _vm.IssueDate,

@@ -1,6 +1,8 @@
 using MediatR;
 using Microsoft.EntityFrameworkCore;
 using Modules.Records.Application.Abstractions;
+using Modules.Records.Application.Common.Extensions;
+using Modules.Records.Domain.Abstractions;
 
 namespace Modules.Records.Application.Common.Queries.GetRecentActivity;
 
@@ -8,10 +10,12 @@ public sealed class GetRecentActivityHandler
     : IRequestHandler<GetRecentActivityQuery, IReadOnlyList<RecentActivityDto>>
 {
     private readonly IApplicationDbContext _dbContext;
+    private readonly ITenantProvider _tenantProvider;
 
-    public GetRecentActivityHandler(IApplicationDbContext dbContext)
+    public GetRecentActivityHandler(IApplicationDbContext dbContext, ITenantProvider tenantProvider)
     {
         _dbContext = dbContext;
+        _tenantProvider = tenantProvider;
     }
 
     public async Task<IReadOnlyList<RecentActivityDto>> Handle(
@@ -20,10 +24,12 @@ public sealed class GetRecentActivityHandler
     {
         var userId         = request.UserId;
         var jurisdictionId = request.JurisdictionId;
+        var agencyId       = _tenantProvider.GetAgencyId();
 
         // EF Core DbContext is not thread-safe — execute queries sequentially.
         var incidents = await _dbContext.IncidentReadModels
             .AsNoTracking()
+            .WhereAgencyScoped(agencyId)
             .Where(r => r.JurisdictionId == jurisdictionId
                      && !r.IsDeleted
                      && (r.CreatedBy == userId || r.ModifiedBy == userId))
@@ -33,6 +39,7 @@ public sealed class GetRecentActivityHandler
 
         var arrests = await _dbContext.ArrestReadModels
             .AsNoTracking()
+            .WhereAgencyScoped(agencyId)
             .Where(r => r.JurisdictionId == jurisdictionId
                      && (r.CreatedBy == userId || r.ModifiedBy == userId))
             .OrderByDescending(r => r.UpdatedAtUtc)
@@ -41,6 +48,7 @@ public sealed class GetRecentActivityHandler
 
         var citations = await _dbContext.CitationReadModels
             .AsNoTracking()
+            .WhereAgencyScoped(agencyId)
             .Where(r => r.JurisdictionId == jurisdictionId
                      && (r.CreatedBy == userId || r.ModifiedBy == userId))
             .OrderByDescending(r => r.UpdatedAtUtc)

@@ -524,6 +524,38 @@ button:focus-visible,
     color: #495057;
 }
 
+.top-header-agency {
+    display: flex;
+    flex-direction: column;
+    gap: 0.2rem;
+    min-width: 15rem;
+}
+
+.top-header-agency-label {
+    color: #738194;
+    font-size: 0.68rem;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+}
+
+.top-header-agency-select {
+    min-width: 15rem;
+    border-color: var(--ar-border);
+    box-shadow: none;
+}
+
+.top-header-agency-select:disabled {
+    background-color: #eef1f5;
+    color: #5f6b7a;
+}
+
+.top-header-agency-note {
+    color: #6c757d;
+    font-size: 0.7rem;
+    text-align: right;
+}
+
 .top-header-user-copy {
     display: flex;
     flex-direction: column;
@@ -582,6 +614,13 @@ button:focus-visible,
 .top-header-pwd-link:hover {
     opacity: 1;
     color: var(--ar-navy);
+}
+
+.top-header-agency-banner {
+    margin: 0;
+    border-radius: 0;
+    border-left: 0;
+    border-right: 0;
 }
 
 /* ── Content Area ───────────────────────────────────────────── */

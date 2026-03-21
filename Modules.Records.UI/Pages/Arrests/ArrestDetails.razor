@@ -8,6 +8,7 @@
 @inject IPicklistService PicklistService
 @inject IAgencyConfigurationService ConfigService
 @inject ITenantProvider TenantProvider
+@inject IActiveAgencyContext ActiveAgencyContext
 @inject IUserLookupService UserLookupService
 @inject NavigationManager Nav
 @inject IKeyboardShortcutService ShortcutService
@@ -810,12 +811,14 @@ else if (_arrest is not null)
     private readonly Dictionary<Guid, (IncidentDto Incident, DateTime LinkedAtUtc)> _pendingIncidentLinkAdds = [];
     private readonly HashSet<Guid> _pendingIncidentLinkRemoves = [];
     private readonly List<string> _createdForeignRecords = [];
+    private IDisposable? _agencySelectionLock;
 
     [SupplyParameterFromQuery(Name = "autoModify")]
     public bool AutoModify { get; set; }
 
     protected override async Task OnInitializedAsync()
     {
+        await ActiveAgencyContext.EnsureLoadedAsync();
         _currentUserId = TenantProvider.GetUserId();
         await LoadAsync();
 
@@ -846,6 +849,7 @@ else if (_arrest is not null)
     {
         if (_arrest is not null && _arrest.IsLocked && _arrest.LockedByUserId == _currentUserId)
         {
+            EnsureAgencySelectionLock();
             _modifyMode = true;
             _editNameId                   = _arrest.NameId;
             _editNameDisplay              = _arrest.SuspectName;
@@ -955,6 +959,7 @@ else if (_arrest is not null)
         try
         {
             await ArrestService.AcquireLockAsync(_arrestId);
+            EnsureAgencySelectionLock();
             _modifyMode = true;
             _editNameId                    = _arrest?.NameId;
             _editNameDisplay               = _arrest?.SuspectName;
@@ -981,9 +986,19 @@ else if (_arrest is not null)
     {
         StopLockTimer();
         _modifyMode = false;
+        ReleaseAgencySelectionLock();
         ClearPendingChanges();
         try { await ArrestService.ReleaseLockAsync(_arrestId); } catch { /* best-effort */ }
         await LoadAsync();
+    }
+
+    private void EnsureAgencySelectionLock()
+        => _agencySelectionLock ??= ActiveAgencyContext.AcquireSelectionLock();
+
+    private void ReleaseAgencySelectionLock()
+    {
+        _agencySelectionLock?.Dispose();
+        _agencySelectionLock = null;
     }
 
     private string ComputeEditSnapshot() =>
@@ -1686,6 +1701,7 @@ else if (_arrest is not null)
         ShortcutService.OnRelease -= HandleShortcutRelease;
         ShortcutService.OnSave    -= HandleShortcutSave;
         StopLockTimer();
+        ReleaseAgencySelectionLock();
         return ValueTask.CompletedTask;
     }
 

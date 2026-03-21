@@ -10,11 +10,13 @@ internal static class LocationSeedPlaceCommandFactory
         IApplicationDbContext dbContext,
         string picklistType,
         Guid jurisdictionId,
+        Guid agencyId,
         CancellationToken cancellationToken)
     {
         return await dbContext.PicklistItems
             .AsNoTracking()
             .Where(p => p.JurisdictionId == jurisdictionId
+                     && p.AgencyId == agencyId
                      && p.PicklistType == picklistType
                      && p.IsActive)
             .ToDictionaryAsync(

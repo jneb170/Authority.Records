@@ -1,6 +1,7 @@
 using MediatR;
 using Microsoft.EntityFrameworkCore;
 using Modules.Records.Application.Abstractions;
+using Modules.Records.Application.Common.Extensions;
 using Modules.Records.Application.DTOs;
 using Modules.Records.Domain.Abstractions;
 
@@ -23,6 +24,7 @@ public sealed class SearchIncidentsHandler : IRequestHandler<SearchIncidentsQuer
     {
         var query = _dbContext.IncidentReadModels
             .AsNoTracking()
+            .WhereAgencyScoped(_tenantProvider.GetAgencyId())
             .Where(i => i.JurisdictionId == _tenantProvider.GetJurisdictionId() && !i.IsDeleted);
 
         if (!string.IsNullOrWhiteSpace(request.Term))
