@@ -8,81 +8,157 @@
     </span>
 </a>
 
-<nav class="nav flex-column px-0 pb-2">
+<nav class="nav flex-column px-0 pb-2 sidebar-nav">
     <div class="sidebar-section-label">Operations</div>
 
     <AuthorizeView Roles="Admin,Supervisor,Officer,Dispatcher">
         <NavLink class="nav-link" href="" Match="NavLinkMatch.All" @onclick="OnNavClicked">
-            <i class="bi bi-house-fill"></i> Home
+            <i class="bi bi-house-fill"></i>
+            <span class="nav-link-label">
+                <span class="nav-label-full">Home</span>
+                <span class="nav-label-short">Home</span>
+            </span>
         </NavLink>
         <NavLink class="nav-link" href="incidents" @onclick="OnNavClicked">
-            <i class="bi bi-clipboard2-pulse-fill"></i> Incidents
+            <i class="bi bi-clipboard2-pulse-fill"></i>
+            <span class="nav-link-label">
+                <span class="nav-label-full">Incidents</span>
+                <span class="nav-label-short">Incidents</span>
+            </span>
         </NavLink>
         <NavLink class="nav-link" href="arrests" @onclick="OnNavClicked">
-            <i class="bi bi-person-badge-fill"></i> Arrests
+            <i class="bi bi-person-badge-fill"></i>
+            <span class="nav-link-label">
+                <span class="nav-label-full">Arrests</span>
+                <span class="nav-label-short">Arrests</span>
+            </span>
         </NavLink>
         <NavLink class="nav-link" href="citations" @onclick="OnNavClicked">
-            <i class="bi bi-file-earmark-text-fill"></i> Citations
+            <i class="bi bi-file-earmark-text-fill"></i>
+            <span class="nav-link-label">
+                <span class="nav-label-full">Citations</span>
+                <span class="nav-label-short">Citations</span>
+            </span>
         </NavLink>
         <NavLink class="nav-link" href="names" @onclick="OnNavClicked">
-            <i class="bi bi-people-fill"></i> Names (MNI)
+            <i class="bi bi-people-fill"></i>
+            <span class="nav-link-label">
+                <span class="nav-label-full">Names (MNI)</span>
+                <span class="nav-label-short">Names</span>
+            </span>
         </NavLink>
         <NavLink class="nav-link" href="locations" @onclick="OnNavClicked">
-            <i class="bi bi-geo-alt-fill"></i> Locations (MLI)
+            <i class="bi bi-geo-alt-fill"></i>
+            <span class="nav-link-label">
+                <span class="nav-label-full">Locations (MLI)</span>
+                <span class="nav-label-short">Locations</span>
+            </span>
         </NavLink>
     </AuthorizeView>
 
     <AuthorizeView Roles="Admin,Supervisor">
         <div class="sidebar-section-label">Administration</div>
         <NavLink class="nav-link" href="admin/configurations" @onclick="OnNavClicked">
-            <i class="bi bi-gear-fill"></i> Configurations
+            <i class="bi bi-gear-fill"></i>
+            <span class="nav-link-label">
+                <span class="nav-label-full">Configurations</span>
+                <span class="nav-label-short">Config</span>
+            </span>
         </NavLink>
         <NavLink class="nav-link" href="admin/picklists" @onclick="OnNavClicked">
-            <i class="bi bi-list-ul"></i> Picklist Items
+            <i class="bi bi-list-ul"></i>
+            <span class="nav-link-label">
+                <span class="nav-label-full">Picklist Items</span>
+                <span class="nav-label-short">Picklists</span>
+            </span>
         </NavLink>
         <NavLink class="nav-link" href="admin/charges" @onclick="OnNavClicked">
-            <i class="bi bi-exclamation-diamond-fill"></i> Charges
+            <i class="bi bi-exclamation-diamond-fill"></i>
+            <span class="nav-link-label">
+                <span class="nav-label-full">Charges</span>
+                <span class="nav-label-short">Charges</span>
+            </span>
         </NavLink>
         <NavLink class="nav-link" href="admin/test-data" @onclick="OnNavClicked">
-            <i class="bi bi-flask"></i> Test Data
+            <i class="bi bi-flask"></i>
+            <span class="nav-link-label">
+                <span class="nav-label-full">Test Data</span>
+                <span class="nav-label-short">Test Data</span>
+            </span>
         </NavLink>
         <NavLink class="nav-link" href="admin/read-model-rebuild" @onclick="OnNavClicked">
-            <i class="bi bi-arrow-repeat"></i> Read Model Rebuild
+            <i class="bi bi-arrow-repeat"></i>
+            <span class="nav-link-label">
+                <span class="nav-label-full">Read Model Rebuild</span>
+                <span class="nav-label-short">Rebuild</span>
+            </span>
         </NavLink>
         <NavLink class="nav-link" href="admin/logs" @onclick="OnNavClicked">
-            <i class="bi bi-journal-text"></i> Logs
+            <i class="bi bi-journal-text"></i>
+            <span class="nav-link-label">
+                <span class="nav-label-full">Logs</span>
+                <span class="nav-label-short">Logs</span>
+            </span>
         </NavLink>
     </AuthorizeView>
 
     <AuthorizeView Roles="Admin">
         <NavLink class="nav-link" href="admin/agencies" @onclick="OnNavClicked">
-            <i class="bi bi-building-fill"></i> Agencies
+            <i class="bi bi-building-fill"></i>
+            <span class="nav-link-label">
+                <span class="nav-label-full">Agencies</span>
+                <span class="nav-label-short">Agencies</span>
+            </span>
         </NavLink>
         <NavLink class="nav-link" href="admin/users" @onclick="OnNavClicked">
-            <i class="bi bi-person-lines-fill"></i> Users
+            <i class="bi bi-person-lines-fill"></i>
+            <span class="nav-link-label">
+                <span class="nav-label-full">Users</span>
+                <span class="nav-label-short">Users</span>
+            </span>
         </NavLink>
         <NavLink class="nav-link" href="admin/hotkeys" @onclick="OnNavClicked">
-            <i class="bi bi-keyboard"></i> Hotkey Settings
+            <i class="bi bi-keyboard"></i>
+            <span class="nav-link-label">
+                <span class="nav-label-full">Hotkey Settings</span>
+                <span class="nav-label-short">Hotkeys</span>
+            </span>
         </NavLink>
         <NavLink class="nav-link" href="admin/location-settings" @onclick="OnNavClicked">
-            <i class="bi bi-geo-alt-fill"></i> Location Settings
+            <i class="bi bi-geo-alt-fill"></i>
+            <span class="nav-link-label">
+                <span class="nav-label-full">Location Settings</span>
+                <span class="nav-label-short">Location</span>
+            </span>
         </NavLink>
     </AuthorizeView>
 
     <AuthorizeView Roles="Super">
         <div class="sidebar-section-label">Super Admin</div>
         <NavLink class="nav-link" href="super/jurisdictions" @onclick="OnNavClicked">
-            <i class="bi bi-bank"></i> Jurisdictions
+            <i class="bi bi-bank"></i>
+            <span class="nav-link-label">
+                <span class="nav-label-full">Jurisdictions</span>
+                <span class="nav-label-short">Jurisdictions</span>
+            </span>
         </NavLink>
         <NavLink class="nav-link" href="super/logs" @onclick="OnNavClicked">
-            <i class="bi bi-journal-richtext"></i> Logs
+            <i class="bi bi-journal-richtext"></i>
+            <span class="nav-link-label">
+                <span class="nav-label-full">Logs</span>
+                <span class="nav-label-short">Logs</span>
+            </span>
         </NavLink>
     </AuthorizeView>
 
     <div class="sidebar-footer">
         <div class="sidebar-footer-label">Session</div>
         <a href="/account/logout" class="nav-link">
-            <i class="bi bi-box-arrow-left"></i> Sign Out
+            <i class="bi bi-box-arrow-left"></i>
+            <span class="nav-link-label">
+                <span class="nav-label-full">Sign Out</span>
+                <span class="nav-label-short">Sign Out</span>
+            </span>
         </a>
     </div>
 

@@ -137,14 +137,16 @@ else if (_names is not null)
             <thead>
                 <tr>
                     <th style="width:3rem"></th>
-                    <th style="width:5rem">Preview</th>
+                    <th style="width:5rem">Photo</th>
                     <SortableColumnHeader ColumnKey="num"      Label="#"
                         CurrentSortColumn="@_sortColumn" SortAscending="@_sortAscending" OnSort="SortBy" />
                     <SortableColumnHeader ColumnKey="type"     Label="Type"
                         CurrentSortColumn="@_sortColumn" SortAscending="@_sortAscending" OnSort="SortBy" />
                     <SortableColumnHeader ColumnKey="lastname" Label="Last / Business Name"
+                        MobileLabel="Name"
                         CurrentSortColumn="@_sortColumn" SortAscending="@_sortAscending" OnSort="SortBy" />
                     <SortableColumnHeader ColumnKey="firstname" Label="First Name"
+                        MobileLabel="First"
                         CurrentSortColumn="@_sortColumn" SortAscending="@_sortAscending" OnSort="SortBy" />
                     <SortableColumnHeader ColumnKey="dob"      Label="DOB"
                         CurrentSortColumn="@_sortColumn" SortAscending="@_sortAscending" OnSort="SortBy" />
