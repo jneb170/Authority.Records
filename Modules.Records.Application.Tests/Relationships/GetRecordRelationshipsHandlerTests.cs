@@ -124,6 +124,28 @@ public sealed class GetRecordRelationshipsHandlerTests
     }
 
     [Fact]
+    public async Task NameQuery_Returns_Null_When_Name_Belongs_To_Different_Agency()
+    {
+        await using var db = RelationshipTestDbContext.Create();
+        var jurisdictionId = Guid.NewGuid();
+        var tenantAgencyId = Guid.NewGuid();
+        var otherAgencyId = Guid.NewGuid();
+        var nameId = Guid.NewGuid();
+
+        // Name belongs to a different agency in the same jurisdiction
+        db.NameReadModels.Add(CreateName(nameId, 3001, jurisdictionId, "Jordan", "Alex", agencyId: otherAgencyId));
+        await db.SaveChangesAsync(CancellationToken.None);
+
+        var handler = new GetRecordRelationshipsHandler(db, new FakeTenantProvider(jurisdictionId, tenantAgencyId));
+
+        var result = await handler.Handle(
+            new GetRecordRelationshipsQuery(RecordRelationshipRecordTypes.Name, 3001),
+            CancellationToken.None);
+
+        Assert.Null(result);
+    }
+
+    [Fact]
     public async Task NameQuery_Returns_Arrests_And_Locations()
     {
         await using var db = RelationshipTestDbContext.Create();
@@ -137,7 +159,7 @@ public sealed class GetRecordRelationshipsHandlerTests
             CreateLocation(primaryLocationId, 7001, jurisdictionId, "Primary Address"),
             CreateLocation(secondaryLocationId, 7002, jurisdictionId, "Secondary Address"));
 
-        db.NameReadModels.Add(CreateName(nameId, 3001, jurisdictionId, "Jordan", "Alex", primaryLocationId, secondaryLocationId));
+        db.NameReadModels.Add(CreateName(nameId, 3001, jurisdictionId, "Jordan", "Alex", primaryLocationId, secondaryLocationId, agencyId));
         db.ArrestReadModels.Add(CreateArrest(Guid.NewGuid(), 2001, jurisdictionId, agencyId, nameId, "AR-2001"));
         await db.SaveChangesAsync(CancellationToken.None);
 
@@ -285,13 +307,14 @@ public sealed class GetRecordRelationshipsHandlerTests
         string lastName,
         string firstName,
         Guid? primaryLocationId = null,
-        Guid? secondaryLocationId = null)
+        Guid? secondaryLocationId = null,
+        Guid? agencyId = null)
     {
         var model = NameReadModel.Create(
             id,
             recordNumber,
             jurisdictionId,
-            Guid.NewGuid(),
+            agencyId ?? Guid.NewGuid(),
             NameTypes.Person,
             lastName,
             firstName,

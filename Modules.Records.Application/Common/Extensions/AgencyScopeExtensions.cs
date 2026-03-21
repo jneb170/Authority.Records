@@ -5,6 +5,9 @@ namespace Modules.Records.Application.Common.Extensions;
 
 internal static class AgencyScopeExtensions
 {
+    public static IQueryable<NameReadModel> WhereAgencyScoped(this IQueryable<NameReadModel> query, Guid agencyId)
+        => agencyId == Guid.Empty ? query.Where(_ => false) : query.Where(x => x.AgencyId == agencyId);
+
     public static IQueryable<IncidentReadModel> WhereAgencyScoped(this IQueryable<IncidentReadModel> query, Guid agencyId)
         => agencyId == Guid.Empty ? query.Where(_ => false) : query.Where(x => x.AgencyId == agencyId);
 
