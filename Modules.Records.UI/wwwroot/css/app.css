@@ -368,7 +368,8 @@ button:focus-visible,
 }
 
 .sidebar-nav {
-    min-height: 100%;
+    flex: 1 1 auto;
+    min-height: 0;
 }
 
 .sidebar-brand {
