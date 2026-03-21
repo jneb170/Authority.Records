@@ -1,7 +1,9 @@
 <th @onclick="HandleClick"
+    class="sortable-column-header"
     style="cursor:pointer;white-space:nowrap;user-select:none;"
     title="Sort by @Label">
-    @Label
+    <span class="sortable-column-header-full">@Label</span>
+    <span class="sortable-column-header-short">@DisplayMobileLabel</span>
     @if (CurrentSortColumn == ColumnKey)
     {
         <span class="ms-1 text-muted small">@(SortAscending ? "▲" : "▼")</span>
@@ -15,9 +17,12 @@
 @code {
     [Parameter, EditorRequired] public string ColumnKey          { get; set; } = "";
     [Parameter, EditorRequired] public string Label              { get; set; } = "";
+    [Parameter]                 public string? MobileLabel       { get; set; }
     [Parameter]                 public string CurrentSortColumn  { get; set; } = "";
     [Parameter]                 public bool   SortAscending      { get; set; }
     [Parameter]                 public EventCallback<string> OnSort { get; set; }
+
+    private string DisplayMobileLabel => string.IsNullOrWhiteSpace(MobileLabel) ? Label : MobileLabel;
 
     private Task HandleClick() => OnSort.InvokeAsync(ColumnKey);
 }
