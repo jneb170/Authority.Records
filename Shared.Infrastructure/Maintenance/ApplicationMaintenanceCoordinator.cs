@@ -46,8 +46,19 @@ public sealed class ApplicationMaintenanceCoordinator
         bool isStartup,
         CancellationToken cancellationToken)
     {
-        await _gate.WaitAsync(cancellationToken);
         var now = DateTime.UtcNow;
+
+        // For request-triggered maintenance, skip (don't block) if a maintenance
+        // run is already in progress so concurrent requests remain responsive.
+        if (!isStartup && !_gate.Wait(0))
+        {
+            _lastActivityUtc = now;
+            return;
+        }
+
+        if (isStartup)
+            await _gate.WaitAsync(cancellationToken);
+
         try
         {
             var maintenanceCancellationToken = _hostApplicationLifetime.ApplicationStopping;

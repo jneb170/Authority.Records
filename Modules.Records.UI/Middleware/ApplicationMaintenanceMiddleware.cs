@@ -18,11 +18,17 @@ public sealed class ApplicationMaintenanceMiddleware
     {
         if (HttpMethods.IsGet(context.Request.Method) || HttpMethods.IsHead(context.Request.Method))
         {
-            var jurisdictionId = GetGuidClaim(context.User, "jurisdiction");
-            await maintenanceCoordinator.RunRequestMaintenanceAsync(
-                context.RequestServices,
-                jurisdictionId,
-                context.RequestAborted);
+            if (context.User?.Identity?.IsAuthenticated == true)
+            {
+                var jurisdictionId = GetGuidClaim(context.User, "jurisdiction");
+                if (jurisdictionId != Guid.Empty)
+                {
+                    await maintenanceCoordinator.RunRequestMaintenanceAsync(
+                        context.RequestServices,
+                        jurisdictionId,
+                        context.RequestAborted);
+                }
+            }
         }
 
         await _next(context);
