@@ -98,7 +98,7 @@ If Azure is temporarily blocking new SQL logical server creation in your default
 The script output will show the exact command. It looks like:
 
 ```powershell
-az ad sp create-for-rbac --name 'authority-records-deploy' --role contributor --scopes /subscriptions/005819af-adae-4fb5-a027-217bcb76399d/resourceGroups/rg-authority-records --json-auth
+az ad sp create-for-rbac --name 'authority-records-deploy' --role contributor --scopes /subscriptions/{your-sub-id}/resourceGroups/rg-authority-records --json-auth
 ```
 
 Copy the entire JSON output — you'll use it in the next step.
