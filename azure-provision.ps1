@@ -305,6 +305,12 @@ $existingPlanJson = az appservice plan show `
 
 if ($LASTEXITCODE -eq 0 -and -not [string]::IsNullOrWhiteSpace($existingPlanJson)) {
     $existingPlan = $existingPlanJson | ConvertFrom-Json
+    if (-not $existingPlan.reserved) {
+        Write-Host "App Service Plan $AppServicePlan exists but is a Windows plan (reserved=false)." -ForegroundColor Red
+        Write-Host ".NET Core 9 runtimes and WebSockets require a Linux plan." -ForegroundColor Red
+        Write-Host "Use a different -AppServicePlan name to create a new Linux plan, or delete the existing plan first." -ForegroundColor Yellow
+        exit 1
+    }
     Write-Host "App Service Plan $AppServicePlan already exists; reusing it."
     if ($existingPlan.location -ne $Location) {
         Write-Host "  Existing plan location: $($existingPlan.location)" -ForegroundColor Yellow
