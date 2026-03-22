@@ -11,6 +11,9 @@
 #
 # Re-run after a partial failure (reuse existing SQL server name):
 #   .\azure-provision.ps1 -SqlAdminPassword "..." -ExistingSqlServerName "sql-authority-records-abc123"
+# 
+# Provision the optional dedicated worker app only when you explicitly want that topology:
+#   .\azure-provision.ps1 -SqlAdminPassword "..." -ProvisionWorkerApp
 ##############################################################################
 
 param(
@@ -36,10 +39,19 @@ param(
     # Provide a name from a previous partial run to reuse an existing SQL server.
     # The script will verify the server exists before skipping creation.
     [string]$ExistingSqlServerName  = "",
-    # Skip the dedicated worker app for the lower-cost baseline.
-    # The Blazor UI host already runs the shared infrastructure hosted services.
+    # The low-cost baseline is UI-only hosting. Opt into the dedicated worker app only when
+    # you explicitly want to split background throughput onto a separate App Service.
+    [switch]$ProvisionWorkerApp,
+    # Backward-compatible alias for callers that still pass -SkipWorkerApp explicitly.
     [switch]$SkipWorkerApp
 )
+
+if ($ProvisionWorkerApp -and $SkipWorkerApp) {
+    Write-Error "Use either -ProvisionWorkerApp or -SkipWorkerApp, not both."
+    exit 1
+}
+
+$shouldProvisionWorkerApp = $ProvisionWorkerApp -and -not $SkipWorkerApp
 
 $suffix        = -join ((48..57) + (97..122) | Get-Random -Count 6 | ForEach-Object { [char]$_ })
 $SqlServerName = if ($ExistingSqlServerName) { $ExistingSqlServerName } else { "$SqlServerBase-$suffix" }
@@ -126,7 +138,7 @@ Write-Host "Location       : $Location"
 Write-Host "SQL Region     : $SqlServerLocation"
 Write-Host "SQL Server     : $SqlServerName"
 Write-Host "UI App         : $UIAppName"
-Write-Host "Worker App     : $(if ($SkipWorkerApp) { '(skipped)' } else { $WorkerAppName })"
+Write-Host "Worker App     : $(if ($shouldProvisionWorkerApp) { $WorkerAppName } else { '(skipped)' })"
 Write-Host "App Svc SKU    : $AppServiceSku"
 Write-Host "SQL Max vCores : $SqlMaxCapacity"
 Write-Host "SQL Min vCores : $SqlMinCapacity"
@@ -255,7 +267,7 @@ if ($uiAppExists) {
 $workerAppExists = $false
 $workerAppJson = ""
 $workerExistingPlanName = ""
-if (-not $SkipWorkerApp) {
+if ($shouldProvisionWorkerApp) {
     $workerAppJson = az webapp show `
         --name           $WorkerAppName `
         --resource-group $ResourceGroup `
@@ -380,7 +392,7 @@ az webapp config connection-string set `
     --output                 none
 Write-Host "UI App configured."
 
-if (-not $SkipWorkerApp) {
+if ($shouldProvisionWorkerApp) {
     # 8. Worker App Service
     Write-Host ""
     Write-Host "Ensuring Worker App Service..." -ForegroundColor Yellow
@@ -418,7 +430,7 @@ Write-Host "[OK] Provisioning complete!" -ForegroundColor Green
 Write-Host "-----------------------------------------------------------"
 Write-Host "SQL Server  : $SqlServerName.database.windows.net"
 Write-Host "UI URL      : https://$UIAppName.azurewebsites.net"
-if (-not $SkipWorkerApp) {
+if ($shouldProvisionWorkerApp) {
     Write-Host "Worker URL  : https://$WorkerAppName.azurewebsites.net"
 } else {
     Write-Host "Worker URL  : (not provisioned)"
@@ -427,7 +439,7 @@ Write-Host ""
 Write-Host "GitHub Secrets to add (Settings -> Secrets -> Actions):"
 Write-Host "  AZURE_SQL_CONNECTION_STRING  =  $connStr"
 Write-Host "  AZURE_WEBAPP_UI_NAME         =  $UIAppName"
-if (-not $SkipWorkerApp) {
+if ($shouldProvisionWorkerApp) {
     Write-Host "  AZURE_WEBAPP_WORKER_NAME     =  $WorkerAppName"
     Write-Host "  DEPLOY_WORKER_APP (repo var) =  true"
 } else {

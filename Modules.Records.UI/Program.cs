@@ -5,9 +5,11 @@ using Modules.Records.Application;
 using Modules.Records.Domain.Abstractions;
 using Modules.Records.UI.Authorization;
 using Modules.Records.UI.Interop;
+using Modules.Records.UI.Middleware;
 using Modules.Records.UI.Services;
 using Shared.Infrastructure;
 using Shared.Infrastructure.Identity;
+using Shared.Infrastructure.Maintenance;
 using Shared.Infrastructure.Persistence;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -63,6 +65,7 @@ app.UseStaticFiles();
 app.MapStaticAssets();
 
 app.UseAuthentication();
+app.UseMiddleware<ApplicationMaintenanceMiddleware>();
 app.UseAuthorization();
 app.UseAntiforgery();
 
@@ -80,6 +83,12 @@ if (app.Environment.IsDevelopment())
 {
     using var scope = app.Services.CreateScope();
     await SeedDevUserAsync(scope.ServiceProvider);
+}
+
+{
+    using var scope = app.Services.CreateScope();
+    var maintenanceCoordinator = scope.ServiceProvider.GetRequiredService<ApplicationMaintenanceCoordinator>();
+    await maintenanceCoordinator.RunStartupMaintenanceAsync(scope.ServiceProvider);
 }
 
 app.Run();
