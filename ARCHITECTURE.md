@@ -451,4 +451,4 @@ User clicks "Add Arrest"
 | `AuditTrailDomainEventHandler` never fires | Registered as `INotificationHandler<IDomainEvent>` but MediatR dispatches using the concrete runtime type, so this handler receives no events. The `AuditTrailEntries` table remains empty. |
 | `Citation` locking | `Citation` implements its own lock fields rather than inheriting from `LockableAggregateRoot<T>`, resulting in inconsistent lock behavior compared to `Incident` and `Arrest`. |
 | No REST API | The `Api` project exists but is not wired to a running host. All operations go through the Blazor Server UI directly via MediatR in-process. |
-| Dev seed user only | Only one hard-coded dev user (`admin@authority.local`) exists. No user management UI is implemented. |
+| Dev seed users only | Hard-coded seed users are intended for local development only; production should provision real users explicitly. |

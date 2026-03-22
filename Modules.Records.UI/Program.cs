@@ -78,11 +78,12 @@ if (app.Environment.IsDevelopment())
     await EnsureAppDbMigrationsAppliedAsync(app.Services);
 }
 
-// Seed initial users and roles on first run (any environment).
-// SeedDevUserAsync is idempotent — it only creates users if they don't exist.
+if (app.Environment.IsDevelopment())
 {
+    // Dev-user seeding is intentionally limited to local development.
+    // Production deployments should provision real users explicitly.
     using var scope = app.Services.CreateScope();
-    await SeedDevUserAsync(scope.ServiceProvider);
+    await SeedDevelopmentUsersAsync(scope.ServiceProvider);
 }
 
 {
@@ -120,7 +121,7 @@ static async Task EnsureAppDbMigrationsAppliedAsync(IServiceProvider services)
         $"{migrationSummary}. Run .\\scripts\\update-db.ps1 before starting the app.");
 }
 
-static async Task SeedDevUserAsync(IServiceProvider services)
+static async Task SeedDevelopmentUsersAsync(IServiceProvider services)
 {
     var authDb = services.GetRequiredService<AuthDbContext>();
     await authDb.Database.MigrateAsync();
