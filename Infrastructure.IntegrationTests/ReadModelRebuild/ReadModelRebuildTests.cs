@@ -51,7 +51,7 @@ public sealed class ReadModelRebuildTests : IDisposable
 
         await using (var rebuildContext = CreateContext())
         {
-            var handler = new RebuildReadModelsHandler(rebuildContext, new TestTenantProvider(_tenantId));
+            var handler = new RebuildReadModelsHandler(rebuildContext, new TestTenantProvider(_tenantId, _agencyId));
             var result = await handler.Handle(new RebuildReadModelsCommand(), CancellationToken.None);
 
             Assert.Equal(1, result.CitationsRebuilt);

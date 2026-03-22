@@ -19,10 +19,10 @@
 
 <div class="row g-4">
 
-    <!-- Schedule Card -->
+    <!-- Automatic Rebuild Card -->
     <div class="col-12 col-md-5">
         <div class="card">
-            <div class="card-header"><strong>⏱ Scheduled Rebuild</strong></div>
+            <div class="card-header"><strong>⚙ Automatic Rebuilds</strong></div>
             <div class="card-body">
                 @if (_loading)
                 {
@@ -30,32 +30,17 @@
                 }
                 else
                 {
-                    <div class="mb-3">
-                        <label class="form-label fw-semibold">Auto-Rebuild Frequency</label>
-                        <select class="form-select" @bind="_schedule" @bind:after="SaveScheduleAsync">
-                            <option value="Off">Off (manual only)</option>
-                            <option value="Hourly">Hourly</option>
-                            <option value="TwiceDaily">Twice Daily</option>
-                            <option value="Daily">Daily</option>
-                        </select>
-                    </div>
-                    <dl class="row mb-0 small">
-                        <dt class="col-5 text-secondary">Last rebuild</dt>
-                        <dd class="col-7">
-                            @(_lastRebuildUtc.HasValue
-                                ? _lastRebuildUtc.Value.ToLocalTime().ToString("g")
-                                : "Never")
-                        </dd>
-                        @if (_schedule != "Off" && _lastRebuildUtc.HasValue)
-                        {
-                            <dt class="col-5 text-secondary">Next rebuild</dt>
-                            <dd class="col-7">@NextRebuildText</dd>
-                        }
-                    </dl>
-                }
-                @if (_scheduleSaved)
-                {
-                    <div class="alert alert-success mt-2 py-1 small">Schedule saved.</div>
+                    <p class="small text-muted">
+                        Automatic rebuilds no longer use a polling background worker.
+                        Instead, rebuilds can occur on the first tenant request after:
+                    </p>
+                    <ul class="small mb-3">
+                        <li>an app startup or redeploy</li>
+                        <li>a configured period of application inactivity</li>
+                    </ul>
+                    <p class="small text-muted mb-0">
+                        Automatic rebuilds run at most once per jurisdiction during each maintenance window.
+                    </p>
                 }
             </div>
         </div>
@@ -115,55 +100,16 @@
 </div>
 
 @code {
-    private bool   _loading     = true;
-    private bool   _confirming  = false;
-    private bool   _running     = false;
-    private bool   _scheduleSaved = false;
-    private string _schedule    = "Off";
-    private DateTime? _lastRebuildUtc;
+    private bool _loading = true;
+    private bool _confirming = false;
+    private bool _running = false;
     private RebuildReadModelsResult? _result;
     private string? _error;
 
-    private string NextRebuildText
-    {
-        get
-        {
-            if (!_lastRebuildUtc.HasValue) return "Soon";
-            var interval = _schedule switch
-            {
-                "Hourly"     => TimeSpan.FromHours(1),
-                "TwiceDaily" => TimeSpan.FromHours(12),
-                "Daily"      => TimeSpan.FromHours(24),
-                _            => (TimeSpan?)null
-            };
-            if (interval is null) return "N/A";
-            var next = _lastRebuildUtc.Value.Add(interval.Value).ToLocalTime();
-            return next < DateTime.Now ? "Overdue" : next.ToString("g");
-        }
-    }
-
     protected override async Task OnInitializedAsync()
     {
-        try
-        {
-            _schedule       = await AdminService.GetRebuildScheduleAsync();
-            _lastRebuildUtc = await AdminService.GetLastRebuildUtcAsync();
-        }
-        catch (Exception ex) { _error = ex.Message; }
-        finally { _loading = false; }
-    }
-
-    private async Task SaveScheduleAsync()
-    {
-        try
-        {
-            await AdminService.SetRebuildScheduleAsync(_schedule);
-            _scheduleSaved = true;
-            await Task.Delay(2000);
-            _scheduleSaved = false;
-            StateHasChanged();
-        }
-        catch (Exception ex) { _error = ex.Message; }
+        await Task.Yield();
+        _loading = false;
     }
 
     private void RequestConfirm() => _confirming = true;
@@ -177,7 +123,6 @@
         try
         {
             _result = await AdminService.RebuildReadModelsAsync();
-            _lastRebuildUtc = DateTime.UtcNow;
         }
         catch (Exception ex) { _error = ex.Message; }
         finally { _running = false; }

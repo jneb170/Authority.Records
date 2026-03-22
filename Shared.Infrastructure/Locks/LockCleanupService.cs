@@ -1,6 +1,5 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Shared.Infrastructure.Audit;
@@ -8,12 +7,7 @@ using Shared.Infrastructure.Persistence;
 
 namespace Shared.Infrastructure.Locks;
 
-/// <summary>
-/// Background service that releases stale locks on startup and periodically.
-/// Handles records whose lock timer expired while the server was offline or
-/// the browser session ended without a clean release.
-/// </summary>
-public sealed class LockCleanupService : BackgroundService
+public sealed class LockCleanupService
 {
     private readonly IServiceScopeFactory _scopeFactory;
     private readonly LockCleanupOptions _options;
@@ -24,71 +18,53 @@ public sealed class LockCleanupService : BackgroundService
         IOptions<LockCleanupOptions> options,
         ILogger<LockCleanupService> logger)
     {
-        _scopeFactory  = scopeFactory;
-        _options       = options.Value;
-        _logger        = logger;
+        _scopeFactory = scopeFactory;
+        _options = options.Value;
+        _logger = logger;
     }
 
-    protected override async Task ExecuteAsync(CancellationToken stoppingToken)
+    public async Task ReleaseExpiredLocksAsync(CancellationToken ct)
     {
-        // Run once immediately on startup to clear any locks left from a previous run.
-        await ReleaseExpiredLocksAsync(stoppingToken);
+        using var scope = _scopeFactory.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+        var cutoff = DateTime.UtcNow.Subtract(_options.LockTimeout);
+        var now = DateTime.UtcNow;
 
-        while (!stoppingToken.IsCancellationRequested)
-        {
-            await Task.Delay(_options.CheckInterval, stoppingToken);
-            await ReleaseExpiredLocksAsync(stoppingToken);
-        }
-    }
+        // Collect expired lock records (with audit data) before releasing them.
+        var expiredNames = await CollectExpiredNameLocksAsync(db, cutoff, ct);
+        var expiredIncidents = await CollectExpiredIncidentLocksAsync(db, cutoff, ct);
+        var expiredArrests = await CollectExpiredArrestLocksAsync(db, cutoff, ct);
+        var expiredCitations = await CollectExpiredCitationLocksAsync(db, cutoff, ct);
 
-    private async Task ReleaseExpiredLocksAsync(CancellationToken ct)
-    {
-        try
-        {
-            using var scope = _scopeFactory.CreateScope();
-            var db     = scope.ServiceProvider.GetRequiredService<AppDbContext>();
-            var cutoff = DateTime.UtcNow.Subtract(_options.LockTimeout);
-            var now    = DateTime.UtcNow;
+        var total = expiredNames.Count + expiredIncidents.Count + expiredArrests.Count + expiredCitations.Count;
+        if (total == 0)
+            return;
 
-            // Collect expired lock records (with audit data) before releasing them.
-            var expiredNames     = await CollectExpiredNameLocksAsync(db, cutoff, ct);
-            var expiredIncidents = await CollectExpiredIncidentLocksAsync(db, cutoff, ct);
-            var expiredArrests   = await CollectExpiredArrestLocksAsync(db, cutoff, ct);
-            var expiredCitations = await CollectExpiredCitationLocksAsync(db, cutoff, ct);
+        // Release locks in entity and read-model tables.
+        await ReleaseEntityLocksAsync(db, expiredNames.Select(x => x.Id).ToList(), "Names", ct);
+        await ReleaseEntityLocksAsync(db, expiredIncidents.Select(x => x.Id).ToList(), "Incidents", ct);
+        await ReleaseEntityLocksAsync(db, expiredArrests.Select(x => x.Id).ToList(), "Arrests", ct);
+        await ReleaseEntityLocksAsync(db, expiredCitations.Select(x => x.Id).ToList(), "Citations", ct);
+        await ReleaseReadModelLocksAsync(
+            db,
+            expiredNames.Select(x => x.Id).ToList(),
+            expiredIncidents.Select(x => x.Id).ToList(),
+            expiredArrests.Select(x => x.Id).ToList(),
+            expiredCitations.Select(x => x.Id).ToList(),
+            ct);
 
-            var total = expiredNames.Count + expiredIncidents.Count + expiredArrests.Count + expiredCitations.Count;
-            if (total == 0) return;
+        // Write one audit entry per released lock.
+        var auditEntries = BuildAuditEntries(expiredNames, "Name", now)
+            .Concat(BuildAuditEntries(expiredIncidents, "Incident", now))
+            .Concat(BuildAuditEntries(expiredArrests, "Arrest", now))
+            .Concat(BuildAuditEntries(expiredCitations, "Citation", now));
 
-            // Release locks in entity and read-model tables.
-            await ReleaseEntityLocksAsync(db, expiredNames.Select(x => x.Id).ToList(), "Names", ct);
-            await ReleaseEntityLocksAsync(db, expiredIncidents.Select(x => x.Id).ToList(), "Incidents", ct);
-            await ReleaseEntityLocksAsync(db, expiredArrests.Select(x => x.Id).ToList(), "Arrests", ct);
-            await ReleaseEntityLocksAsync(db, expiredCitations.Select(x => x.Id).ToList(), "Citations", ct);
-            await ReleaseReadModelLocksAsync(
-                db,
-                expiredNames.Select(x => x.Id).ToList(),
-                expiredIncidents.Select(x => x.Id).ToList(),
-                expiredArrests.Select(x => x.Id).ToList(),
-                expiredCitations.Select(x => x.Id).ToList(),
-                ct);
+        db.AuditLogReadModels.AddRange(auditEntries);
+        await db.SaveChangesAsync(ct);
 
-            // Write one audit entry per released lock.
-            var auditEntries = BuildAuditEntries(expiredNames, "Name", now)
-                .Concat(BuildAuditEntries(expiredIncidents, "Incident", now))
-                .Concat(BuildAuditEntries(expiredArrests, "Arrest", now))
-                .Concat(BuildAuditEntries(expiredCitations, "Citation", now));
-
-            db.AuditLogReadModels.AddRange(auditEntries);
-            await db.SaveChangesAsync(ct);
-
-            _logger.LogInformation(
-                "Released {Count} expired lock(s): {Names} name(s), {Incidents} incident(s), {Arrests} arrest(s), {Citations} citation(s).",
-                total, expiredNames.Count, expiredIncidents.Count, expiredArrests.Count, expiredCitations.Count);
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Lock cleanup failed.");
-        }
+        _logger.LogInformation(
+            "Released {Count} expired lock(s): {Names} name(s), {Incidents} incident(s), {Arrests} arrest(s), {Citations} citation(s).",
+            total, expiredNames.Count, expiredIncidents.Count, expiredArrests.Count, expiredCitations.Count);
     }
 
     // -----------------------------------------------------------------------
@@ -231,10 +207,10 @@ public sealed class LockCleanupService : BackgroundService
     // -----------------------------------------------------------------------
 
     private sealed record ExpiredLockRecord(
-        Guid     Id,
-        Guid     JurisdictionId,
-        Guid     LockedByUserId,
+        Guid Id,
+        Guid JurisdictionId,
+        Guid LockedByUserId,
         DateTime LockedAtUtc,
-        long     Version);
+        long Version);
 }
 

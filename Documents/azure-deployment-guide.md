@@ -115,17 +115,7 @@ In your GitHub repo: **Settings → Secrets and variables → Actions → New re
 | `AZURE_SQL_CONNECTION_STRING` | Printed by `azure-provision.ps1` |
 | `AZURE_WEBAPP_UI_NAME` | `authority-records-ui` (or your custom name) |
 
-Only if you provisioned a dedicated worker app:
-
-| Secret Name | Value |
-|-------------|-------|
-| `AZURE_WEBAPP_WORKER_NAME` | `authority-records-worker` (or your custom name) |
-
-To enable worker deployments in GitHub Actions, also add a repository variable:
-
-| Variable Name | Value |
-|---------------|-------|
-| `DEPLOY_WORKER_APP` | `true` |
+You no longer need worker-app deployment secrets for the default low-cost topology.
 
 ---
 
@@ -153,7 +143,6 @@ Go to **Actions** tab in GitHub to watch the workflow run. The order is:
 1. ✅ Build & Test
 2. ✅ Apply DB Migrations (creates tables in Azure SQL)
 3. ✅ Deploy UI
-4. ✅ Deploy Worker (only when `DEPLOY_WORKER_APP=true`)
 
 First deploy takes ~5 min. Subsequent deploys ~2–3 min.
 
@@ -163,7 +152,6 @@ First deploy takes ~5 min. Subsequent deploys ~2–3 min.
 
 - UI: https://authority-records-ui.azurewebsites.net
 - Check App Service → Log stream in Azure Portal for any startup errors
-- If you opted into the dedicated worker topology, verify the worker app separately in App Service.
 
 ---
 
@@ -174,9 +162,8 @@ GitHub Actions (push to main)
         │
         ├── Migrate AppDbContext   ─┐
         └── Migrate AuthDbContext  ─┤─► Azure SQL Database (AuthorityRecords)
-                                    │         ▲              ▲
-        ├── Deploy UI ──────────────┼─► App Service (UI)    │
-        └── Deploy Worker (optional)┴─► App Service (Worker)─┘
+                                    │         ▲
+        └── Deploy UI ──────────────┴─► App Service (UI)
 ```
 
 ---
@@ -191,12 +178,12 @@ you'll need Azure SignalR Service (free tier available) to handle cross-instance
 ### Scaling
 - Start with `B1` for the lowest dedicated-cost baseline on a new deployment.
 - Scale up to `B2`, `S1`, or higher if interactive load, CPU, or memory pressure warrants it.
-- Add the dedicated worker app only when background throughput justifies a separate host.
+- Add a dedicated worker app later only if background throughput or isolation requirements justify a separate host and you have updated the deployment workflow to use it.
 - Blazor Server is stateful — scale out requires Azure SignalR Service.
 
 ### Worker topology
-- The low-cost baseline is UI-only hosting; the UI host already runs the shared infrastructure hosted services used by the app.
-- The dedicated worker app is an opt-in topology for cases where background throughput or operational isolation justifies the extra deployment surface.
+- The low-cost baseline is UI-only hosting; the UI host runs the active infrastructure services used by the app.
+- The dedicated worker app is no longer part of the default deployment workflow.
 
 ### Connection Strings
 Azure App Service injects connection strings as environment variables at runtime:
