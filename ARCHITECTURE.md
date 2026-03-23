@@ -2,7 +2,7 @@
 
 ## Overview
 
-Authority.Records is a law-enforcement records management system built with **.NET 9**, **Blazor Server**, and **SQL Server**. It follows a **Domain-Driven Design (DDD)** architecture with clean-layer separation, **CQRS** (Command/Query Responsibility Segregation) via MediatR, and an **Outbox pattern** for reliable domain event delivery.
+Authority.Records is a law-enforcement records management system built with **.NET 9**, **SQL Server**, and a server-hosted **Blazor UI implemented with Razor Components using Interactive Server render mode**. It follows a **Domain-Driven Design (DDD)** architecture with clean-layer separation, **CQRS** (Command/Query Responsibility Segregation) via MediatR, and an **Outbox pattern** for reliable domain event delivery.
 
 The system manages three core record types — **Incidents**, **Arrests**, and **Citations** — all of which support a multi-jurisdiction tenancy model, a lifecycle state machine, pessimistic record locking, and soft deletes.
 
@@ -15,12 +15,74 @@ Authority.Records.sln
 ├── Modules.Records.Domain           # Core domain model (entities, events, policies)
 ├── Modules.Records.Application      # Use cases (commands, queries, handlers, DTOs)
 ├── Shared.Infrastructure            # Cross-cutting concerns (EF Core, outbox, identity)
-├── Modules.Records.UI               # Blazor Server front-end
+├── Modules.Records.UI               # Razor Components UI host (Interactive Server)
 ├── Api                              # (Minimal API host — currently unused by UI)
 ├── Modules.Records.Domain.Tests     # Domain unit tests
 ├── Modules.Records.Application.Tests# Application layer unit tests
 └── Infrastructure.IntegrationTests  # Outbox + EF Core integration tests
 ```
+
+---
+
+## Runtime Architecture (ASCII)
+
+```text
+                                      Authority.Records Runtime
+
++---------------------------+        HTTPS + auth cookie + interactive circuit
+|         Browser           | -----------------------------------------------+
+|  Razor Components client  |                                               |
++---------------------------+                                               v
+                                                              +-------------------------------+
+                                                              |      Modules.Records.UI       |
+                                                              |  Razor Components + Pages     |
+                                                              |  Interactive Server host      |
+                                                              |  Scoped UI service wrappers   |
+                                                              +---------------+---------------+
+                                                                              |
+                                                                              | in-process calls
+                                                                              v
+                                                              +-------------------------------+
+                                                              | Modules.Records.Application   |
+                                                              |  MediatR commands / queries   |
+                                                              |  FluentValidation pipeline    |
+                                                              |  Handlers + DTOs + read path  |
+                                                              +---------------+---------------+
+                                                                              |
+                                                                              | domain operations via
+                                                                              | IApplicationDbContext
+                                                                              v
+                   +------------------------------------------+---------------+------------------------------------------+
+                   |                                          |                                                          |
+                   v                                          v                                                          v
+      +-------------------------------+         +-------------------------------+                         +-------------------------------+
+      |   Modules.Records.Domain      |         |    Shared.Infrastructure      |                         | ASP.NET Core Identity/Auth    |
+      |  Aggregates, factories,       | <-----> |  AppDbContext, tenant         | <---------------------> | AuthDbContext, cookies,       |
+      |  lifecycle, locking, events   |         |  resolution, audit, outbox    |                         | claims, user/role management  |
+      +-------------------------------+         +---------------+---------------+                         +-------------------------------+
+                                                              |
+                                                              | SQL persistence
+                                                              v
+                                             +-----------------------------------------------+
+                                             |                  SQL Server                   |
+                                             |  Aggregate tables, read models, outbox, audit |
+                                             |  and Identity tables                          |
+                                             +-------------------+---------------------------+
+                                                                 |
+                                                                 | durable events / retries
+                                                                 v
+                                             +-----------------------------------------------+
+                                             |          Hosted background services           |
+                                             |  OutboxProcessor, LockCleanupService,         |
+                                             |  Read-model rebuild / maintenance workflows   |
+                                             +-----------------------------------------------+
+```
+
+Key runtime characteristics:
+
+- The UI does **not** call a backend REST API for core workflows. Razor components call scoped UI services, which send MediatR commands and queries in-process.
+- `AppDbContext.SaveChangesAsync` writes aggregate changes and outbox messages atomically, then dispatches domain events in-process so projections update immediately.
+- Hosted infrastructure services provide retry/replay and maintenance paths independent of the interactive request/circuit path.
 
 ---
 
@@ -222,7 +284,7 @@ Cross-cutting infrastructure. Depends on both domain and application layers.
 
 Central EF Core `DbContext` for all domain entities and read models. Key design decisions:
 
-- **Registered as `Transient`** — each MediatR handler receives its own `DbContext` instance, preventing Blazor Server SignalR concurrency conflicts between simultaneous user actions.
+- **Registered as `Transient`** — each MediatR handler receives its own `DbContext` instance, preventing interactive server circuit concurrency conflicts between simultaneous user actions. This intentionally differs from the usual ASP.NET Core scoped `DbContext` default.
 - **`SaveChangesAsync` override** implements the outbox pattern:
   1. `UpdateRowVersions()` — stamps `RowVersion` on all modified entities with that property
   2. Collects `DomainEvents` from all tracked `AggregateRoot` entities in `Added/Modified/Deleted` state
@@ -326,7 +388,7 @@ Implements `ITenantProvider` by reading `jurisdiction`, `agency`, and `NameIdent
 
 ## Project: `Modules.Records.UI`
 
-Blazor Server front-end. Uses `InteractiveServer` render mode globally (`App.razor`).
+Server-hosted Blazor UI. `Program.cs` uses `AddRazorComponents().AddInteractiveServerComponents()` and maps the app with `MapRazorComponents<App>().AddInteractiveServerRenderMode()`.
 
 ### Service Layer (`Services/`)
 
@@ -340,7 +402,7 @@ Thin wrappers around MediatR `ISender`. Blazor components never reference Mediat
 
 ### Tenant Provider (`BlazorTenantProvider`)
 
-Overrides `HttpTenantProvider` for Blazor Server circuits. During SignalR interactions, `IHttpContextAccessor.HttpContext` is `null`. `BlazorTenantProvider` falls back to `AuthenticationStateProvider` to read claims when the HTTP context is unavailable.
+Overrides `HttpTenantProvider` for interactive server circuits. During SignalR-driven component interactions, `IHttpContextAccessor.HttpContext` can be `null`. `BlazorTenantProvider` falls back to `AuthenticationStateProvider` to read claims when the HTTP context is unavailable.
 
 ### Pages
 
@@ -450,5 +512,5 @@ User clicks "Add Arrest"
 |---|---|
 | `AuditTrailDomainEventHandler` never fires | Registered as `INotificationHandler<IDomainEvent>` but MediatR dispatches using the concrete runtime type, so this handler receives no events. The `AuditTrailEntries` table remains empty. |
 | `Citation` locking | `Citation` implements its own lock fields rather than inheriting from `LockableAggregateRoot<T>`, resulting in inconsistent lock behavior compared to `Incident` and `Arrest`. |
-| No REST API | The `Api` project exists but is not wired to a running host. All operations go through the Blazor Server UI directly via MediatR in-process. |
+| No REST API | The `Api` project is not the primary application boundary today. Core operations go through the interactive server UI host directly via MediatR in-process. |
 | Dev seed users only | Hard-coded seed users are intended for local development only; production should provision real users explicitly. |
