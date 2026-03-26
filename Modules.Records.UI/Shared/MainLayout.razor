@@ -89,7 +89,12 @@
 
 @if (!_suppressBody)
 {
-    <KeyboardShortcutHandler />
+    <AuthorizeView>
+        <Authorized>
+            <ApplicationActivityHandler />
+            <KeyboardShortcutHandler />
+        </Authorized>
+    </AuthorizeView>
 }
 
 @code {

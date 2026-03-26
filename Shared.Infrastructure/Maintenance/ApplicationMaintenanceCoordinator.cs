@@ -13,18 +13,20 @@ public sealed class ApplicationMaintenanceCoordinator
     private readonly SemaphoreSlim _gate = new(1, 1);
     private readonly HashSet<Guid> _rebuiltJurisdictionsInCurrentWindow = [];
     private readonly IHostApplicationLifetime _hostApplicationLifetime;
+    private readonly IApplicationActivityTracker _activityTracker;
     private readonly ApplicationMaintenanceOptions _options;
     private readonly ILogger<ApplicationMaintenanceCoordinator> _logger;
     private DateTime _maintenanceWindowStartedUtc = DateTime.UtcNow;
-    private DateTime _lastActivityUtc = DateTime.UtcNow;
     private bool _startupMaintenancePending = true;
 
     public ApplicationMaintenanceCoordinator(
         IOptions<ApplicationMaintenanceOptions> options,
+        IApplicationActivityTracker activityTracker,
         IHostApplicationLifetime hostApplicationLifetime,
         ILogger<ApplicationMaintenanceCoordinator> logger)
     {
         _options = options.Value;
+        _activityTracker = activityTracker;
         _hostApplicationLifetime = hostApplicationLifetime;
         _logger = logger;
     }
@@ -52,7 +54,6 @@ public sealed class ApplicationMaintenanceCoordinator
         // run is already in progress so concurrent requests remain responsive.
         if (!isStartup && !_gate.Wait(0))
         {
-            _lastActivityUtc = now;
             return;
         }
 
@@ -79,7 +80,7 @@ public sealed class ApplicationMaintenanceCoordinator
                 return;
             }
 
-            var idleExceeded = now - _lastActivityUtc >= _options.InactivityThreshold;
+            var idleExceeded = now - _activityTracker.LastActivityUtc >= _options.InactivityThreshold;
             if (_startupMaintenancePending || idleExceeded)
             {
                 var trigger = _startupMaintenancePending ? "startup-retry" : "idle-threshold";
@@ -107,7 +108,6 @@ public sealed class ApplicationMaintenanceCoordinator
         }
         finally
         {
-            _lastActivityUtc = now;
             _gate.Release();
         }
     }

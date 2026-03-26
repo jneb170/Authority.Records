@@ -2,11 +2,11 @@
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 using Modules.Records.Application.Abstractions;
 using Modules.Records.Domain.Abstractions;
 using Modules.Records.Domain.DomainEvents;
-using Polly;
-using Polly.Retry;
+using Shared.Infrastructure.Maintenance;
 using Shared.Infrastructure.Persistence;
 using System.Text.Json;
 
@@ -17,51 +17,44 @@ public sealed class OutboxProcessor : BackgroundService
     private readonly int _maxRetries = 5;
 
     private readonly IServiceProvider _serviceProvider;
-    private readonly IServiceScopeFactory _scopeFactory;
     private readonly DomainEventTypeRegistry _typeRegistry;
+    private readonly IApplicationActivityTracker _activityTracker;
+    private readonly ApplicationMaintenanceOptions _options;
     private readonly ILogger<OutboxProcessor> _logger;
-    //private readonly AsyncRetryPolicy _retryPolicy;
 
     public OutboxProcessor(
         IServiceProvider serviceProvider,
-        IServiceScopeFactory scopeFactory,
         DomainEventTypeRegistry typeRegistry,
+        IApplicationActivityTracker activityTracker,
+        IOptions<ApplicationMaintenanceOptions> options,
         ILogger<OutboxProcessor> logger,
         int maxRetries = 5)
     {
         _serviceProvider = serviceProvider;
-        _scopeFactory = scopeFactory;
         _typeRegistry = typeRegistry;
+        _activityTracker = activityTracker;
+        _options = options.Value;
         _logger = logger;
         _maxRetries = maxRetries;
-
-        // Configure retry policy with exponential backoff for transient failures
-        //_retryPolicy = Policy
-        //    .Handle<Exception>()
-        //    .WaitAndRetryAsync(
-        //        retryCount: _maxRetries,
-        //        sleepDurationProvider: attempt =>
-                    
-        //            TimeSpan.FromMilliseconds(10), // small delay for tests
-        //            //TODO: COMMENT ABOVE AND UNCOMMENT BELOW AFTER TESTING
-        //            //TimeSpan.FromSeconds(Math.Pow(2, attempt)), //exponential
-                    
-        //        onRetry: (exception, timespan, retryCount, context) =>
-        //        {
-        //            _logger.LogWarning(
-        //                exception,
-        //                "Retry {RetryCount} after {Delay}s due to error.",
-        //                retryCount,
-        //                timespan.TotalSeconds);
-        //        });
     }
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
         while (!stoppingToken.IsCancellationRequested)
         {
+            var observedActivityUtc = _activityTracker.LastActivityUtc;
+            if (!_activityTracker.HasRecentActivity(_options.InactivityThreshold, DateTime.UtcNow))
+            {
+                _logger.LogDebug(
+                    "Outbox processor is idle. Waiting for authenticated activity before polling SQL again. LastActivityUtc: {LastActivityUtc}",
+                    observedActivityUtc);
+
+                await _activityTracker.WaitForActivityAsync(observedActivityUtc, stoppingToken);
+                continue;
+            }
+
             await ProcessOutboxMessages(stoppingToken);
-            await Task.Delay(TimeSpan.FromSeconds(5), stoppingToken);
+            await Task.Delay(_options.OutboxPollingInterval, stoppingToken);
         }
     }
 

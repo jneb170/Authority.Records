@@ -99,6 +99,7 @@ public static class DependencyInjection
         // Application Maintenance (Startup / Idle-triggered)
         // -------------------------------------------------------
         services.Configure<ApplicationMaintenanceOptions>(configuration.GetSection("ApplicationMaintenance"));
+        services.AddSingleton<IApplicationActivityTracker, ApplicationActivityTracker>();
         services.AddSingleton<ApplicationMaintenanceCoordinator>();
 
         // -------------------------------------------------------
