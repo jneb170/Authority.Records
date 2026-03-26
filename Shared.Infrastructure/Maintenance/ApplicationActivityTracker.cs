@@ -4,7 +4,7 @@ public sealed class ApplicationActivityTracker : IApplicationActivityTracker
 {
     private readonly object _signalGate = new();
     private TaskCompletionSource<DateTime> _nextActivitySignal = CreateSignal();
-    private long _lastActivityTicks = DateTime.UnixEpoch.Ticks;
+    private long _lastActivityTicks = DateTime.UtcNow.Ticks;
 
     public DateTime LastActivityUtc => new(Interlocked.Read(ref _lastActivityTicks), DateTimeKind.Utc);
 
