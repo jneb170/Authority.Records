@@ -5,10 +5,12 @@ using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 using Modules.Records.Application.Abstractions;
 using Modules.Records.Domain.Abstractions;
 using Modules.Records.Domain.DomainEvents;
 using Shared.Infrastructure.DomainEvents;
+using Shared.Infrastructure.Maintenance;
 using Shared.Infrastructure.Outbox;
 using Shared.Infrastructure.Persistence;
 using System;
@@ -39,6 +41,9 @@ namespace Infrastructure.IntegrationTests.Common
 
             services.AddScoped<ITenantProvider>(sp => new TestTenantProvider(Guid.NewGuid()));
             services.AddScoped<IDomainEventDispatcher, MediatRDomainEventDispatcher>();
+            services.AddSingleton<IApplicationActivityTracker, ApplicationActivityTracker>();
+            services.AddSingleton<IOptions<ApplicationMaintenanceOptions>>(
+                Options.Create(new ApplicationMaintenanceOptions()));
 
             services.AddMediatR(cfg =>
                 cfg.RegisterServicesFromAssembly(typeof(IntegrationTestBase).Assembly));
@@ -48,8 +53,9 @@ namespace Infrastructure.IntegrationTests.Common
             {
                 return new OutboxProcessor(
                     sp,
-                    sp.GetRequiredService<IServiceScopeFactory>(),
                     sp.GetRequiredService<DomainEventTypeRegistry>(),
+                    sp.GetRequiredService<IApplicationActivityTracker>(),
+                    sp.GetRequiredService<IOptions<ApplicationMaintenanceOptions>>(),
                     sp.GetRequiredService<ILogger<OutboxProcessor>>(),
                     maxRetries: 1);
             });

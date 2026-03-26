@@ -14,8 +14,14 @@ public sealed class ApplicationMaintenanceMiddleware
 
     public async Task InvokeAsync(
         HttpContext context,
-        ApplicationMaintenanceCoordinator maintenanceCoordinator)
+        ApplicationMaintenanceCoordinator maintenanceCoordinator,
+        IApplicationActivityTracker activityTracker)
     {
+        if (context.User?.Identity?.IsAuthenticated == true)
+        {
+            activityTracker.RecordActivity();
+        }
+
         if (HttpMethods.IsGet(context.Request.Method) || HttpMethods.IsHead(context.Request.Method))
         {
             if (context.User?.Identity?.IsAuthenticated == true)
