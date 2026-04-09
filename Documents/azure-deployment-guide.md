@@ -56,18 +56,40 @@ cd C:\Users\jneb1\source\repos\Authority.Records
 .\azure-provision.ps1 -SqlAdminPassword "YourStrongPassword123!"
 ```
 
+The script now defaults to `eastus`. If the target resource group already exists, the script automatically reuses that resource group's location so reruns do not fail on region mismatches.
+
+The script is also rerun-friendly for partial Azure setups:
+- existing App Service plans are reused instead of recreated,
+- existing UI/worker web apps are reused and reconfigured,
+- if an existing UI or worker app is already attached to an App Service plan, the script adopts that existing plan for the rerun,
+- if the existing UI and worker apps are attached to different plans, the script stops with a clear error instead of guessing.
+- Azure SQL logical server creation now starts with the main deployment region and automatically tries a small fallback region list if Azure is temporarily blocking new SQL server provisioning there.
+- You can also force a specific SQL region with `-SqlServerLocation`.
+
 The script will create:
 - **Resource Group**: `rg-authority-records`
 - **Azure SQL Server** (unique name generated automatically)
 - **Azure SQL Database**: `AuthorityRecords` (Serverless GP — auto-pauses when idle)
-- **App Service Plan**: B2 Linux (minimum for Blazor Server WebSockets)
+- **App Service Plan**: B1 Linux by default (low-cost dedicated baseline)
 - **UI App Service**: `authority-records-ui`
-- **Worker App Service**: `authority-records-worker`
-- Connection strings are configured on both app services automatically
+- **Worker App Service**: optional; provision only when you intentionally want a dedicated worker host
+- Connection strings are configured on the provisioned app services automatically
 
 At the end it will print the exact values you need for GitHub secrets.
 
-> **Cost estimate**: ~$25–35/month for B2 plan + Serverless SQL. Scale down with `-AppServicePlan B1` for dev/staging (but B1 doesn't support WebSockets — use for worker only).
+> **Low-cost baseline**: the script now defaults to a `B1` Linux App Service plan plus a small Azure SQL serverless configuration (`0.5` min vCores, `1` max vCore, `60` minute auto-pause). Scale up later if usage or features justify it.
+
+If you want the cheapest supported starting point, skip the dedicated worker app:
+
+```powershell
+.\azure-provision.ps1 -SqlAdminPassword "YourStrongPassword123!" -SkipWorkerApp
+```
+
+If Azure is temporarily blocking new SQL logical server creation in your default region, you can also force a specific SQL region:
+
+```powershell
+.\azure-provision.ps1 -SqlAdminPassword "YourStrongPassword123!" -SqlServerLocation centralus
+```
 
 ---
 
@@ -76,11 +98,7 @@ At the end it will print the exact values you need for GitHub secrets.
 The script output will show the exact command. It looks like:
 
 ```powershell
-az ad sp create-for-rbac `
-  --name 'authority-records-deploy' `
-  --role contributor `
-  --scopes /subscriptions/{your-sub-id}/resourceGroups/rg-authority-records `
-  --json-auth
+az ad sp create-for-rbac --name 'authority-records-deploy' --role contributor --scopes /subscriptions/{your-sub-id}/resourceGroups/rg-authority-records --json-auth
 ```
 
 Copy the entire JSON output — you'll use it in the next step.
@@ -96,7 +114,8 @@ In your GitHub repo: **Settings → Secrets and variables → Actions → New re
 | `AZURE_CREDENTIALS` | The JSON from Step 3 |
 | `AZURE_SQL_CONNECTION_STRING` | Printed by `azure-provision.ps1` |
 | `AZURE_WEBAPP_UI_NAME` | `authority-records-ui` (or your custom name) |
-| `AZURE_WEBAPP_WORKER_NAME` | `authority-records-worker` (or your custom name) |
+
+You no longer need worker-app deployment secrets for the default low-cost topology.
 
 ---
 
@@ -123,8 +142,7 @@ git push origin main
 Go to **Actions** tab in GitHub to watch the workflow run. The order is:
 1. ✅ Build & Test
 2. ✅ Apply DB Migrations (creates tables in Azure SQL)
-3. ✅ Deploy UI  
-4. ✅ Deploy Worker (parallel with UI)
+3. ✅ Deploy UI
 
 First deploy takes ~5 min. Subsequent deploys ~2–3 min.
 
@@ -144,9 +162,8 @@ GitHub Actions (push to main)
         │
         ├── Migrate AppDbContext   ─┐
         └── Migrate AuthDbContext  ─┤─► Azure SQL Database (AuthorityRecords)
-                                    │         ▲              ▲
-        ├── Deploy UI ──────────────┼─► App Service (UI)    │
-        └── Deploy Worker ──────────┴─► App Service (Worker)─┘
+                                    │         ▲
+        └── Deploy UI ──────────────┴─► App Service (UI)
 ```
 
 ---
@@ -159,9 +176,14 @@ This is required for Blazor Server's SignalR circuits. If you ever scale to mult
 you'll need Azure SignalR Service (free tier available) to handle cross-instance messaging.
 
 ### Scaling
-- B2 handles ~50–100 concurrent Blazor users  
-- For more load: upgrade to P1v3 (`az appservice plan update --sku P1V3`)
-- Blazor Server is stateful — scale out requires Azure SignalR Service
+- Start with `B1` for the lowest dedicated-cost baseline on a new deployment.
+- Scale up to `B2`, `S1`, or higher if interactive load, CPU, or memory pressure warrants it.
+- Add a dedicated worker app later only if background throughput or isolation requirements justify a separate host and you have updated the deployment workflow to use it.
+- Blazor Server is stateful — scale out requires Azure SignalR Service.
+
+### Worker topology
+- The low-cost baseline is UI-only hosting; the UI host runs the active infrastructure services used by the app.
+- The dedicated worker app is no longer part of the default deployment workflow.
 
 ### Connection Strings
 Azure App Service injects connection strings as environment variables at runtime:

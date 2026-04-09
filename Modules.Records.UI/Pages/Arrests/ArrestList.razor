@@ -102,14 +102,16 @@ else if (_arrests is not null)
             <thead>
                 <tr>
                     <th style="width:3rem"></th>
-                    <th style="width:5rem">Preview</th>
+                    <th style="width:5rem">Photo</th>
                     <SortableColumnHeader ColumnKey="num"       Label="#"
                         CurrentSortColumn="@_sortColumn" SortAscending="@_sortAscending" OnSort="SortBy" />
                     <SortableColumnHeader ColumnKey="arrestnum" Label="Arrest #"
+                        MobileLabel="Ar #"
                         CurrentSortColumn="@_sortColumn" SortAscending="@_sortAscending" OnSort="SortBy" />
                     <SortableColumnHeader ColumnKey="suspect"   Label="Suspect"
                         CurrentSortColumn="@_sortColumn" SortAscending="@_sortAscending" OnSort="SortBy" />
                     <SortableColumnHeader ColumnKey="arrestedat" Label="Arrested At"
+                        MobileLabel="Arrested"
                         CurrentSortColumn="@_sortColumn" SortAscending="@_sortAscending" OnSort="SortBy" />
                     <SortableColumnHeader ColumnKey="status"    Label="Status"
                         CurrentSortColumn="@_sortColumn" SortAscending="@_sortAscending" OnSort="SortBy" />

@@ -3,15 +3,20 @@
 @implements IAsyncDisposable
 @inject ICitationService CitationService
 @inject IIncidentService IncidentService
+@inject IChargeService ChargeService
+@inject INameService NameService
 @inject IPicklistService PicklistService
 @inject IAgencyConfigurationService ConfigService
 @inject ITenantProvider TenantProvider
+@inject IActiveAgencyContext ActiveAgencyContext
 @inject IUserLookupService UserLookupService
 @inject NavigationManager Nav
 @inject IKeyboardShortcutService ShortcutService
 @inject ILocationService LocationService
 @using Modules.Records.Domain.Common
+@using Modules.Records.Application.DTOs
 @using Modules.Records.UI.Services
+@using System.Text.Json
 
 <PageTitle>Citation Details</PageTitle>
 
@@ -46,6 +51,12 @@ else if (_citation is not null)
             </div>
         </div>
         <div class="d-flex gap-2 align-items-center record-header-meta">
+            <a class="btn btn-outline-secondary btn-sm"
+               href="/citations/@RecordNumber/texas-print"
+               target="_blank"
+               rel="noopener">
+                <i class="bi bi-printer-fill me-1"></i>Print Texas Citation
+            </a>
             <span class="record-pill @(_citation.IsIssued ? "record-pill-success" : "record-pill-warning")">
                 <i class="bi @(_citation.IsIssued ? "bi-check2-circle" : "bi-hourglass-split")" aria-hidden="true"></i>
                 <span>@(_citation.IsIssued ? "Issued" : "Pending")</span>
@@ -53,6 +64,10 @@ else if (_citation is not null)
             <LockBadge IsLocked="@_citation.IsLocked" LockedByName="@_lockedByName" />
         </div>
     </div>
+
+    <RecordDetailsTabs DetailsUrl="@DetailsTabUrl"
+                       RelationshipsUrl="@RelationshipsTabUrl"
+                       ActiveTab="Details" />
 
     @if (_actionError is not null)
     {
@@ -76,7 +91,10 @@ else if (_citation is not null)
         {
             <div class="alert alert-warning d-flex align-items-center gap-3 py-2 mb-2 record-mode-banner">
                 <span><i class="bi bi-pencil-fill me-1"></i><strong>Modify mode</strong> — lock expires in @_lockSecondsRemaining s</span>
-                <button class="btn btn-sm btn-outline-dark ms-auto" @onclick="RequestReleaseAsync"><i class="bi bi-unlock-fill me-1"></i>Release</button>
+                <div class="record-mode-actions">
+                    <button class="btn btn-sm btn-primary" @onclick="SaveRecordAsync"><i class="bi bi-floppy-fill me-1"></i>Save</button>
+                    <button class="btn btn-sm btn-outline-dark" @onclick="RequestReleaseAsync"><i class="bi bi-unlock-fill me-1"></i>Release</button>
+                </div>
             </div>
         }
         else if (_citation.IsLocked && _citation.LockedByUserId != _currentUserId)
@@ -113,6 +131,7 @@ else if (_citation is not null)
                           SaveLabel="@(_pendingNewRecord ? "Save & New" : "Save & Release")"
                           DiscardLabel="@(_pendingNewRecord ? "Discard & New" : "Discard")"
                           ActionDescription="@(_pendingNewRecord ? "creating a new record" : "releasing the record")"
+                          WarningMessage="@GetReleaseWarningMessage()"
                           OnSaveAndRelease="SaveAndReleaseAsync"
                           OnDiscard="DiscardAndReleaseAsync"
                           OnCancel="CancelRelease" />
@@ -139,6 +158,33 @@ else if (_citation is not null)
                     {
                         <p class="form-control-plaintext form-control-sm ps-0">@(string.IsNullOrWhiteSpace(_citation.CitationNum) ? "—" : _citation.CitationNum)</p>
                     }
+                </div>
+                <div class="record-field-span-2">
+                    <label class="form-label mb-1">Defendant</label>
+                    <div class="d-flex align-items-center gap-2">
+                        <span class="@(_modifyMode ? "fw-semibold" : "record-reference-display")">
+                            @if (!_modifyMode && _editNameRecordNumber.HasValue)
+                            {
+                                <a href="/names/@_editNameRecordNumber" class="record-reference-link">@(_editNameDisplay ?? "— None —")</a>
+                            }
+                            else
+                            {
+                                @(_editNameDisplay ?? "— None —")
+                            }
+                        </span>
+                        @if (_modifyMode)
+                        {
+                            <button type="button" class="btn btn-sm btn-outline-secondary" @onclick="() => _showNameModal = true">
+                                <i class="bi bi-people me-1"></i>@(_editNameId.HasValue ? "Change" : "Assign") Name
+                            </button>
+                            @if (_editNameId.HasValue)
+                            {
+                                <button type="button" class="btn btn-sm btn-outline-danger" aria-label="Clear assigned name" title="Clear assigned name" @onclick="ClearName">
+                                    <i class="bi bi-x-lg"></i>
+                                </button>
+                            }
+                        }
+                    </div>
                 </div>
                 <div class="record-field-span-2">
                     <label class="form-label mb-1">Description</label>
@@ -195,10 +241,500 @@ else if (_citation is not null)
                     <LocationMiniMap LocationId="_editLocationId" />
                 </div>
             </div>
-            @if (_modifyMode)
+        </div>
+    </div>
+
+    <div class="card record-content-card mb-4">
+        <div class="card-body">
+            <div class="d-flex justify-content-between align-items-start gap-3 mb-3">
+                <div>
+                    <h6 class="card-title mb-1">At Time Of Name</h6>
+                    <div class="text-muted small">Historical defendant snapshot stored on this citation.</div>
+                </div>
+                <div class="d-flex flex-wrap gap-2">
+                    @if (_modifyMode)
+                    {
+                        <button type="button"
+                                class="btn btn-sm btn-outline-secondary"
+                                @onclick="CopyCurrentNameToAtTimeOfAsync"
+                                disabled="@(!_editNameId.HasValue)">
+                            <i class="bi bi-arrow-repeat me-1"></i>Copy current Name
+                        </button>
+                    }
+                </div>
+            </div>
+
+            @if (_editAtTimeOfCopiedAtUtc.HasValue)
             {
-                <div class="record-save-row">
-                    <button class="btn btn-sm btn-primary" @onclick="SaveDetailsAsync">Save Details</button>
+                <div class="text-muted small mb-3">
+                    Last copied @(_editAtTimeOfCopiedAtUtc.Value.ToLocalTime().ToString("g"))
+                    @if (!string.IsNullOrWhiteSpace(_editAtTimeOfCopiedByName))
+                    {
+                        <span>by @_editAtTimeOfCopiedByName</span>
+                    }
+                </div>
+            }
+
+            @if (!HasAtTimeOfNameData && !_modifyMode)
+            {
+                <div class="record-related-empty-state">
+                    <div class="empty-state">
+                        <i class="bi bi-person-vcard"></i>
+                        <div class="fw-medium">No At Time Of data stored.</div>
+                        <div class="small mt-1">Enter modify mode and copy the current linked Name to capture a historical snapshot.</div>
+                    </div>
+                </div>
+            }
+            else
+            {
+                <div class="row g-3">
+                    <div class="col-sm-6 col-md-3">
+                        <label class="form-label mb-1">Name Type</label>
+                        @if (_modifyMode)
+                        {
+                            <select class="form-select form-select-sm" @bind="_editAtTimeOfNameType">
+                                <option value="@NameTypes.Person">Person</option>
+                                <option value="@NameTypes.Business">Business</option>
+                            </select>
+                        }
+                        else
+                        {
+                            <p class="form-control-plaintext form-control-sm ps-0">@(_editAtTimeOfNameType == NameTypes.Business ? "Business" : "Person")</p>
+                        }
+                    </div>
+                    <div class="col-sm-6 col-md-3">
+                        <label class="form-label mb-1">@(_editAtTimeOfNameType == NameTypes.Business ? "Business Name" : "Last Name")</label>
+                        <input type="text" class="@(_modifyMode ? "form-control form-control-sm" : "form-control-plaintext form-control-sm ps-0")"
+                               readonly="@(!_modifyMode)"
+                               @bind="_editAtTimeOfLastOrBusinessName"
+                               placeholder="—" />
+                    </div>
+                    @if (_editAtTimeOfNameType == NameTypes.Person)
+                    {
+                        <div class="col-sm-6 col-md-3">
+                            <label class="form-label mb-1">First Name</label>
+                            <input type="text" class="@(_modifyMode ? "form-control form-control-sm" : "form-control-plaintext form-control-sm ps-0")"
+                                   readonly="@(!_modifyMode)"
+                                   @bind="_editAtTimeOfFirstName"
+                                   placeholder="—" />
+                        </div>
+                        <div class="col-sm-6 col-md-3">
+                            <label class="form-label mb-1">Middle Name</label>
+                            <input type="text" class="@(_modifyMode ? "form-control form-control-sm" : "form-control-plaintext form-control-sm ps-0")"
+                                   readonly="@(!_modifyMode)"
+                                   @bind="_editAtTimeOfMiddleName"
+                                   placeholder="—" />
+                        </div>
+                        <div class="col-sm-6 col-md-3">
+                            <label class="form-label mb-1">Date of Birth</label>
+                            <input type="date" class="@(_modifyMode ? "form-control form-control-sm" : "form-control-plaintext form-control-sm ps-0")"
+                                   readonly="@(!_modifyMode)"
+                                   value="@(_editAtTimeOfDateOfBirth?.ToString("yyyy-MM-dd"))"
+                                   @onchange="OnAtTimeOfDateOfBirthChanged" />
+                        </div>
+                        <div class="col-sm-6 col-md-3">
+                            <label class="form-label mb-1">Sex</label>
+                            @if (_modifyMode)
+                            {
+                                <PicklistSelect PicklistType="@PicklistTypes.Sex" @bind-Value="_editAtTimeOfSexId" />
+                            }
+                            else
+                            {
+                                <p class="form-control-plaintext form-control-sm ps-0">@(_atTimeOfSexLabel ?? "—")</p>
+                            }
+                        </div>
+                        <div class="col-sm-6 col-md-3">
+                            <label class="form-label mb-1">Race</label>
+                            @if (_modifyMode)
+                            {
+                                <PicklistSelect PicklistType="@PicklistTypes.Race" @bind-Value="_editAtTimeOfRaceId" />
+                            }
+                            else
+                            {
+                                <p class="form-control-plaintext form-control-sm ps-0">@(_atTimeOfRaceLabel ?? "—")</p>
+                            }
+                        </div>
+                        <div class="col-sm-6 col-md-3">
+                            <label class="form-label mb-1">Driver License</label>
+                            <input type="text" class="@(_modifyMode ? "form-control form-control-sm" : "form-control-plaintext form-control-sm ps-0")"
+                                   readonly="@(!_modifyMode)"
+                                   @bind="_editAtTimeOfDriversLicenseNumber"
+                                   placeholder="—" />
+                        </div>
+                        <div class="col-sm-6 col-md-3">
+                            <label class="form-label mb-1">DL State</label>
+                            @if (_modifyMode)
+                            {
+                                <PicklistSelect PicklistType="@PicklistTypes.State" @bind-Value="_editAtTimeOfDriversLicenseStateId" />
+                            }
+                            else
+                            {
+                                <p class="form-control-plaintext form-control-sm ps-0">@(_atTimeOfDriversLicenseStateLabel ?? "—")</p>
+                            }
+                        </div>
+                        <div class="col-sm-6 col-md-3">
+                            <label class="form-label mb-1">Height (in)</label>
+                            <InputNumber class="form-control form-control-sm" @bind-Value="_editAtTimeOfHeightInches" disabled="@(!_modifyMode)" />
+                        </div>
+                        <div class="col-sm-6 col-md-3">
+                            <label class="form-label mb-1">Weight (lbs)</label>
+                            <InputNumber class="form-control form-control-sm" @bind-Value="_editAtTimeOfWeightLbs" disabled="@(!_modifyMode)" />
+                        </div>
+                        <div class="col-sm-6 col-md-3">
+                            <label class="form-label mb-1">SSN</label>
+                            <input type="text" class="@(_modifyMode ? "form-control form-control-sm" : "form-control-plaintext form-control-sm ps-0")"
+                                   readonly="@(!_modifyMode)"
+                                   @bind="_editAtTimeOfSocialSecurityNumber"
+                                   placeholder="—" />
+                        </div>
+                    }
+                    <div class="col-12">
+                        <label class="form-label mb-1">Primary Address</label>
+                        <textarea rows="2"
+                                  class="@(_modifyMode ? "form-control form-control-sm" : "form-control-plaintext form-control-sm ps-0")"
+                                  readonly="@(!_modifyMode)"
+                                  @bind="_editAtTimeOfPrimaryLocationAddress"
+                                  placeholder="—"></textarea>
+                    </div>
+                </div>
+            }
+        </div>
+    </div>
+
+    <div class="card record-content-card mb-4">
+        <div class="card-body">
+            <div class="d-flex justify-content-between align-items-start gap-3 mb-3">
+                <div>
+                    <h6 class="card-title mb-1">Officer / Complainant</h6>
+                    <div class="text-muted small">Printable complainant details stored directly on this citation.</div>
+                </div>
+            </div>
+
+            @if (!HasOfficerProfileData && !_modifyMode)
+            {
+                <div class="record-related-empty-state">
+                    <div class="empty-state">
+                        <i class="bi bi-person-badge"></i>
+                        <div class="fw-medium">No officer data stored.</div>
+                        <div class="small mt-1">Enter modify mode to assign an officer and store badge, title, and unit details.</div>
+                    </div>
+                </div>
+            }
+            else
+            {
+                <div class="row g-3">
+                    <div class="col-12">
+                        <label class="form-label mb-1">Source Name</label>
+                        <div class="d-flex align-items-center gap-2">
+                            <span class="@(_modifyMode ? "fw-semibold" : "record-reference-display")">
+                                @if (!_modifyMode && _editOfficerSourceRecordNumber.HasValue)
+                                {
+                                    <a href="/names/@_editOfficerSourceRecordNumber" class="record-reference-link">@(_editOfficerSourceDisplay ?? "— None —")</a>
+                                }
+                                else
+                                {
+                                    @(_editOfficerSourceDisplay ?? "— None —")
+                                }
+                            </span>
+                            @if (_modifyMode)
+                            {
+                                <button type="button" class="btn btn-sm btn-outline-secondary" @onclick="() => _showOfficerNameModal = true">
+                                    <i class="bi bi-person-lines-fill me-1"></i>@(_editOfficerSourceNameId.HasValue ? "Change" : "Assign") Officer
+                                </button>
+                                @if (_editOfficerSourceNameId.HasValue)
+                                {
+                                    <button type="button" class="btn btn-sm btn-outline-danger" aria-label="Clear assigned officer source" title="Clear assigned officer source" @onclick="ClearOfficerSource">
+                                        <i class="bi bi-x-lg"></i>
+                                    </button>
+                                }
+                            }
+                        </div>
+                    </div>
+                    <div class="col-sm-6 col-md-4">
+                        <label class="form-label mb-1">Officer / Complainant Name</label>
+                        <input type="text" class="@(_modifyMode ? "form-control form-control-sm" : "form-control-plaintext form-control-sm ps-0")"
+                               readonly="@(!_modifyMode)"
+                               @bind="_editOfficerName"
+                               placeholder="—" />
+                    </div>
+                    <div class="col-sm-6 col-md-4">
+                        <label class="form-label mb-1">Title</label>
+                        <input type="text" class="@(_modifyMode ? "form-control form-control-sm" : "form-control-plaintext form-control-sm ps-0")"
+                               readonly="@(!_modifyMode)"
+                               @bind="_editOfficerTitle"
+                               placeholder="—" />
+                    </div>
+                    <div class="col-sm-6 col-md-2">
+                        <label class="form-label mb-1">Badge / ID</label>
+                        <input type="text" class="@(_modifyMode ? "form-control form-control-sm" : "form-control-plaintext form-control-sm ps-0")"
+                               readonly="@(!_modifyMode)"
+                               @bind="_editOfficerBadgeOrIdentifier"
+                               placeholder="—" />
+                    </div>
+                    <div class="col-sm-6 col-md-2">
+                        <label class="form-label mb-1">Unit</label>
+                        <input type="text" class="@(_modifyMode ? "form-control form-control-sm" : "form-control-plaintext form-control-sm ps-0")"
+                               readonly="@(!_modifyMode)"
+                               @bind="_editOfficerUnitNumber"
+                               placeholder="—" />
+                    </div>
+                </div>
+            }
+        </div>
+    </div>
+
+    <div class="card record-content-card mb-4">
+        <div class="card-body">
+            <div class="d-flex justify-content-between align-items-start gap-3 mb-3">
+                <div>
+                    <h6 class="card-title mb-1">Vehicle</h6>
+                    <div class="text-muted small">Texas citation vehicle details stored directly on this citation.</div>
+                </div>
+            </div>
+
+            @if (!HasVehicleData && !_modifyMode)
+            {
+                <div class="record-related-empty-state">
+                    <div class="empty-state">
+                        <i class="bi bi-car-front"></i>
+                        <div class="fw-medium">No vehicle data stored.</div>
+                        <div class="small mt-1">Enter modify mode to add the plate, state, make, style, and commercial flags needed for Texas printing.</div>
+                    </div>
+                </div>
+            }
+            else
+            {
+                <div class="row g-3">
+                    <div class="col-sm-6 col-md-3">
+                        <label class="form-label mb-1">Plate Number</label>
+                        <input type="text" class="@(_modifyMode ? "form-control form-control-sm" : "form-control-plaintext form-control-sm ps-0")"
+                               readonly="@(!_modifyMode)"
+                               @bind="_editVehiclePlateNumber"
+                               placeholder="—" />
+                    </div>
+                    <div class="col-sm-6 col-md-3">
+                        <label class="form-label mb-1">Plate State</label>
+                        @if (_modifyMode)
+                        {
+                            <PicklistSelect PicklistType="@PicklistTypes.State" @bind-Value="_editVehiclePlateStateId" />
+                        }
+                        else
+                        {
+                            <p class="form-control-plaintext form-control-sm ps-0">@(_vehiclePlateStateLabel ?? "—")</p>
+                        }
+                    </div>
+                    <div class="col-sm-6 col-md-3">
+                        <label class="form-label mb-1">Plate Year</label>
+                        <InputNumber class="form-control form-control-sm" @bind-Value="_editVehiclePlateYear" disabled="@(!_modifyMode)" />
+                    </div>
+                    <div class="col-sm-6 col-md-3">
+                        <label class="form-label mb-1">Model Year</label>
+                        <InputNumber class="form-control form-control-sm" @bind-Value="_editVehicleModelYear" disabled="@(!_modifyMode)" />
+                    </div>
+                    <div class="col-sm-6 col-md-4">
+                        <label class="form-label mb-1">Make</label>
+                        <input type="text" class="@(_modifyMode ? "form-control form-control-sm" : "form-control-plaintext form-control-sm ps-0")"
+                               readonly="@(!_modifyMode)"
+                               @bind="_editVehicleMake"
+                               placeholder="—" />
+                    </div>
+                    <div class="col-sm-6 col-md-4">
+                        <label class="form-label mb-1">Style / Body</label>
+                        <input type="text" class="@(_modifyMode ? "form-control form-control-sm" : "form-control-plaintext form-control-sm ps-0")"
+                               readonly="@(!_modifyMode)"
+                               @bind="_editVehicleStyle"
+                               placeholder="—" />
+                    </div>
+                    <div class="col-sm-6 col-md-4">
+                        <label class="form-label mb-1">Color</label>
+                        <input type="text" class="@(_modifyMode ? "form-control form-control-sm" : "form-control-plaintext form-control-sm ps-0")"
+                               readonly="@(!_modifyMode)"
+                               @bind="_editVehicleColor"
+                               placeholder="—" />
+                    </div>
+                    <div class="col-sm-6 col-md-3">
+                        <div class="form-check mt-4">
+                            <InputCheckbox class="form-check-input" @bind-Value="_editVehicleIsCommercial" disabled="@(!_modifyMode)" />
+                            <label class="form-check-label">Commercial vehicle</label>
+                        </div>
+                    </div>
+                    <div class="col-sm-6 col-md-4">
+                        <div class="form-check mt-4">
+                            <InputCheckbox class="form-check-input" @bind-Value="_editVehicleCarriesHazardousMaterial" disabled="@(!_modifyMode)" />
+                            <label class="form-check-label">Carries hazardous material</label>
+                        </div>
+                    </div>
+                </div>
+            }
+        </div>
+    </div>
+
+    <div class="card record-content-card mb-4">
+        <div class="card-body">
+            <div class="d-flex justify-content-between align-items-start gap-3 mb-3">
+                <div>
+                    <h6 class="card-title mb-1">Texas Citation Mapping</h6>
+                    <div class="text-muted small">Core Texas offense, appearance, bond, and signature fields used by the printable UTC layout.</div>
+                </div>
+            </div>
+
+            @if (!HasTexasDetailsData && !_modifyMode)
+            {
+                <div class="record-related-empty-state">
+                    <div class="empty-state">
+                        <i class="bi bi-journal-text"></i>
+                        <div class="fw-medium">No Texas citation mapping data stored.</div>
+                        <div class="small mt-1">Enter modify mode to capture violation, appearance, and signature fields for Texas printing.</div>
+                    </div>
+                </div>
+            }
+            else
+            {
+                <div class="row g-3">
+                    <div class="col-sm-6 col-md-3">
+                        <label class="form-label mb-1">Docket Number</label>
+                        <input type="text" class="@(_modifyMode ? "form-control form-control-sm" : "form-control-plaintext form-control-sm ps-0")"
+                               readonly="@(!_modifyMode)"
+                               @bind="_editTexasDocketNumber"
+                               placeholder="—" />
+                    </div>
+                    <div class="col-sm-6 col-md-2">
+                        <label class="form-label mb-1">Page Number</label>
+                        <input type="text" class="@(_modifyMode ? "form-control form-control-sm" : "form-control-plaintext form-control-sm ps-0")"
+                               readonly="@(!_modifyMode)"
+                               @bind="_editTexasPageNumber"
+                               placeholder="—" />
+                    </div>
+                    <div class="col-sm-6 col-md-3">
+                        <label class="form-label mb-1">Violation Source</label>
+                        @if (_modifyMode)
+                        {
+                            <PicklistSelect PicklistType="@PicklistTypes.ViolationSourceType" @bind-Value="_editTexasViolationSourceTypeId" />
+                        }
+                        else
+                        {
+                            <p class="form-control-plaintext form-control-sm ps-0">@(_texasViolationSourceTypeLabel ?? "—")</p>
+                        }
+                    </div>
+                    <div class="col-sm-6 col-md-4">
+                        <label class="form-label mb-1">Section</label>
+                        <input type="text" class="@(_modifyMode ? "form-control form-control-sm" : "form-control-plaintext form-control-sm ps-0")"
+                               readonly="@(!_modifyMode)"
+                               @bind="_editTexasViolationSection"
+                               placeholder="—" />
+                    </div>
+                    <div class="col-sm-6 col-md-4">
+                        <label class="form-label mb-1">Violation Group</label>
+                        @if (_modifyMode)
+                        {
+                            <PicklistSelect PicklistType="@PicklistTypes.ViolationGroup" @bind-Value="_editTexasViolationGroupId" />
+                        }
+                        else
+                        {
+                            <p class="form-control-plaintext form-control-sm ps-0">@(_texasViolationGroupLabel ?? "—")</p>
+                        }
+                    </div>
+                    <div class="col-sm-6 col-md-8">
+                        <label class="form-label mb-1">Primary Violation Description</label>
+                        <input type="text" class="@(_modifyMode ? "form-control form-control-sm" : "form-control-plaintext form-control-sm ps-0")"
+                               readonly="@(!_modifyMode)"
+                               @bind="_editTexasPrimaryViolationDescription"
+                               placeholder="—" />
+                    </div>
+                    <div class="col-sm-6 col-md-2">
+                        <label class="form-label mb-1">Speed</label>
+                        <InputNumber class="form-control form-control-sm" @bind-Value="_editTexasSpeedMph" disabled="@(!_modifyMode)" />
+                    </div>
+                    <div class="col-sm-6 col-md-2">
+                        <label class="form-label mb-1">Zone</label>
+                        <InputNumber class="form-control form-control-sm" @bind-Value="_editTexasZoneMph" disabled="@(!_modifyMode)" />
+                    </div>
+                    <div class="col-sm-6 col-md-4">
+                        <label class="form-label mb-1">Speed Band</label>
+                        @if (_modifyMode)
+                        {
+                            <PicklistSelect PicklistType="@PicklistTypes.SpeedBand" @bind-Value="_editTexasSpeedBandId" />
+                        }
+                        else
+                        {
+                            <p class="form-control-plaintext form-control-sm ps-0">@(_texasSpeedBandLabel ?? "—")</p>
+                        }
+                    </div>
+                    <div class="col-12">
+                        <label class="form-label mb-1">Other Violations / Narrative</label>
+                        <textarea rows="3"
+                                  class="@(_modifyMode ? "form-control form-control-sm" : "form-control-plaintext form-control-sm ps-0")"
+                                  readonly="@(!_modifyMode)"
+                                  @bind="_editTexasNarrativeOtherViolations"
+                                  placeholder="—"></textarea>
+                    </div>
+                    <div class="col-12">
+                        <label class="form-label mb-1">Occurred At Text</label>
+                        <input type="text" class="@(_modifyMode ? "form-control form-control-sm" : "form-control-plaintext form-control-sm ps-0")"
+                               readonly="@(!_modifyMode)"
+                               @bind="_editTexasOccurredAtText"
+                               placeholder="—" />
+                    </div>
+                    <div class="col-sm-6 col-md-4">
+                        <label class="form-label mb-1">Court Appearance</label>
+                        <input type="datetime-local" class="@(_modifyMode ? "form-control form-control-sm" : "form-control-plaintext form-control-sm ps-0")"
+                               readonly="@(!_modifyMode)"
+                               value="@(_editTexasCourtAppearanceDateTime.HasValue ? DateTimeLocalInputHelper.Format(_editTexasCourtAppearanceDateTime.Value) : string.Empty)"
+                               @onchange="OnTexasCourtAppearanceChanged" />
+                    </div>
+                    <div class="col-sm-6 col-md-8">
+                        <label class="form-label mb-1">Court Appearance Location</label>
+                        <div class="d-flex align-items-center gap-2">
+                            <span class="@(_modifyMode ? "fw-semibold" : "record-reference-display")">@(_editTexasCourtAppearanceLocationDisplay ?? "— None —")</span>
+                            @if (_modifyMode)
+                            {
+                                <button type="button" class="btn btn-sm btn-outline-secondary" @onclick="() => _showTexasAppearanceLocationModal = true">
+                                    <i class="bi bi-geo-alt me-1"></i>@(_editTexasCourtAppearanceLocationId.HasValue ? "Change" : "Assign") Location
+                                </button>
+                                @if (_editTexasCourtAppearanceLocationId.HasValue)
+                                {
+                                    <button type="button" class="btn btn-sm btn-outline-danger" @onclick="ClearTexasAppearanceLocation" title="Clear appearance location" aria-label="Clear appearance location">
+                                        <i class="bi bi-x-lg"></i>
+                                    </button>
+                                }
+                            }
+                        </div>
+                    </div>
+                    <div class="col-sm-6 col-md-4">
+                        <label class="form-label mb-1">Affidavit Signed Date</label>
+                        <input type="date" class="@(_modifyMode ? "form-control form-control-sm" : "form-control-plaintext form-control-sm ps-0")"
+                               readonly="@(!_modifyMode)"
+                               value="@(_editTexasAffidavitSignedDate?.ToString("yyyy-MM-dd"))"
+                               @onchange="OnTexasAffidavitSignedDateChanged" />
+                    </div>
+                    <div class="col-sm-6 col-md-4">
+                        <label class="form-label mb-1">Complainant Signature</label>
+                        <input type="text" class="@(_modifyMode ? "form-control form-control-sm" : "form-control-plaintext form-control-sm ps-0")"
+                               readonly="@(!_modifyMode)"
+                               @bind="_editTexasComplainantSignatureText"
+                               placeholder="—" />
+                    </div>
+                    <div class="col-sm-6 col-md-4">
+                        <label class="form-label mb-1">Defendant Signature</label>
+                        <input type="text" class="@(_modifyMode ? "form-control form-control-sm" : "form-control-plaintext form-control-sm ps-0")"
+                               readonly="@(!_modifyMode)"
+                               @bind="_editTexasDefendantSignatureText"
+                               placeholder="—" />
+                    </div>
+                    <div class="col-sm-6 col-md-3">
+                        <label class="form-label mb-1">Receipt Number</label>
+                        <input type="text" class="@(_modifyMode ? "form-control form-control-sm" : "form-control-plaintext form-control-sm ps-0")"
+                               readonly="@(!_modifyMode)"
+                               @bind="_editTexasReceiptNumber"
+                               placeholder="—" />
+                    </div>
+                    <div class="col-12 col-md-9">
+                        <label class="form-label mb-1">Accepted Bond Notes</label>
+                        <input type="text" class="@(_modifyMode ? "form-control form-control-sm" : "form-control-plaintext form-control-sm ps-0")"
+                               readonly="@(!_modifyMode)"
+                               @bind="_editTexasAcceptedBondNotes"
+                               placeholder="—" />
+                    </div>
                 </div>
             }
         </div>
@@ -207,13 +743,37 @@ else if (_citation is not null)
     <LocationSearchModal Visible="_showLocationModal"
                          CurrentLocationId="_editLocationId"
                          OnSelected="OnLocationSelected"
+                         OnCreated="OnLocationCreatedAsync"
                          OnCleared="OnLocationCleared"
                          OnCancelled="() => _showLocationModal = false" />
 
-    <AuditInfoSection CreatedAt="@_citation.CreatedAtUtc"
-                      CreatedByName="@_createdByName"
-                      ModifiedAt="@(_citation.ModifiedBy.HasValue ? _citation.UpdatedAtUtc : null)"
-                      ModifiedByName="@_modifiedByName" />
+    <NameSearchModal Visible="_showNameModal"
+                     CurrentNameId="_editNameId"
+                     OnSelected="OnNameSelected"
+                     OnCleared="OnNameCleared"
+                     OnCancelled="() => _showNameModal = false" />
+
+    <NameSearchModal Visible="_showOfficerNameModal"
+                     CurrentNameId="_editOfficerSourceNameId"
+                     OnSelected="OnOfficerNameSelected"
+                     OnCleared="OnOfficerNameCleared"
+                     OnCancelled="() => _showOfficerNameModal = false" />
+
+    <LocationSearchModal Visible="_showTexasAppearanceLocationModal"
+                         CurrentLocationId="_editTexasCourtAppearanceLocationId"
+                         OnSelected="OnTexasAppearanceLocationSelected"
+                         OnCreated="OnTexasAppearanceLocationCreatedAsync"
+                         OnCleared="OnTexasAppearanceLocationCleared"
+                         OnCancelled="() => _showTexasAppearanceLocationModal = false" />
+
+    <RecordChargesSection Title="Charges"
+                          EmptyTitle="No charges linked."
+                          EmptyHint="Add citation-eligible charges in modify mode for this citation."
+                          Charges="VisibleCharges"
+                          ModifyMode="_modifyMode"
+                          CitationEligibleOnly="true"
+                          OnChargeSelected="LinkChargeAsync"
+                          OnChargeRemoved="UnlinkChargeAsync" />
 
     <!-- Linked Incidents -->
     <div class="record-related-section">
@@ -221,11 +781,11 @@ else if (_citation is not null)
             <h4 class="record-related-title">Linked Incidents</h4>
         </div>
         <div class="record-related-body">
-        @if (_linkedIncidents is null)
+        @if (VisibleLinkedIncidents is null)
         {
             <LoadingSpinner Message="Loading linked incidents..." />
         }
-        else if (!_linkedIncidents.Any())
+        else if (!VisibleLinkedIncidents.Any())
         {
             <div class="record-related-empty-state">
                 <div class="empty-state">
@@ -242,7 +802,7 @@ else if (_citation is not null)
                     <tr><th>#</th><th>Incident</th><th>Linked At</th><th></th></tr>
                 </thead>
                 <tbody>
-                    @foreach (var link in _linkedIncidents)
+                    @foreach (var link in VisibleLinkedIncidents)
                     {
                         <tr>
                             <td>@link.IncidentRecordNumber</td>
@@ -279,15 +839,39 @@ else if (_citation is not null)
         }
         </div>
     </div>
+
+    @if (_modifyMode)
+    {
+        <div class="record-save-row mb-4">
+            <button class="btn btn-sm btn-primary" @onclick="SaveRecordAsync">
+                <i class="bi bi-floppy-fill me-1"></i>Save
+            </button>
+        </div>
+    }
+    <AuditInfoSection CreatedAt="@_citation.CreatedAtUtc"
+                      CreatedByName="@_createdByName"
+                      ModifiedAt="@(_citation.ModifiedBy.HasValue ? _citation.UpdatedAtUtc : null)"
+                      ModifiedByName="@_modifiedByName" />
 }
 
 @code {
     [Parameter] public long? IncidentRecordNumber { get; set; }
     [Parameter] public long RecordNumber { get; set; }
 
+    private string DetailsTabUrl =>
+        IncidentRecordNumber.HasValue
+            ? $"/incidents/{IncidentRecordNumber.Value}/citations/{RecordNumber}"
+            : $"/citations/{RecordNumber}";
+
+    private string RelationshipsTabUrl =>
+        IncidentRecordNumber.HasValue
+            ? $"/incidents/{IncidentRecordNumber.Value}/citations/{RecordNumber}/relationships"
+            : $"/citations/{RecordNumber}/relationships";
+
     private Guid _citationId;
     private CitationDto? _citation;
     private IReadOnlyList<IncidentCitationLinkDto>? _linkedIncidents;
+    private IReadOnlyList<RecordChargeDto>? _charges;
     private IReadOnlyList<IncidentDto>? _allIncidents;
     private Guid _linkIncidentId = Guid.Empty;
     private bool _loading = true;
@@ -305,6 +889,79 @@ else if (_citation is not null)
     private System.Threading.Timer? _lockTimer;
     private static readonly TimeSpan LockTimeout = TimeSpan.FromMinutes(10);
 
+    private Guid? _editNameId;
+    private string? _editNameDisplay;
+    private long? _editNameRecordNumber;
+    private bool _showNameModal;
+    private Guid? _editOfficerSourceNameId;
+    private string? _editOfficerSourceDisplay;
+    private long? _editOfficerSourceRecordNumber;
+    private string _editOfficerName = string.Empty;
+    private string? _editOfficerTitle;
+    private string? _editOfficerBadgeOrIdentifier;
+    private string? _editOfficerUnitNumber;
+    private bool _showOfficerNameModal;
+    private string? _editTexasDocketNumber;
+    private string? _editTexasPageNumber;
+    private Guid? _editTexasViolationSourceTypeId;
+    private string? _editTexasViolationSection;
+    private Guid? _editTexasViolationGroupId;
+    private string? _editTexasPrimaryViolationDescription;
+    private int? _editTexasSpeedMph;
+    private int? _editTexasZoneMph;
+    private Guid? _editTexasSpeedBandId;
+    private string? _editTexasNarrativeOtherViolations;
+    private string? _editTexasOccurredAtText;
+    private DateTime? _editTexasCourtAppearanceDateTime;
+    private Guid? _editTexasCourtAppearanceLocationId;
+    private string? _editTexasCourtAppearanceLocationDisplay;
+    private bool _showTexasAppearanceLocationModal;
+    private DateTime? _editTexasAffidavitSignedDate;
+    private string? _editTexasComplainantSignatureText;
+    private string? _editTexasDefendantSignatureText;
+    private string? _editTexasAcceptedBondNotes;
+    private string? _editTexasReceiptNumber;
+    private string? _texasViolationSourceTypeLabel;
+    private string? _texasViolationGroupLabel;
+    private string? _texasSpeedBandLabel;
+    private bool _hasExistingAtTimeOfNameSnapshot;
+    private string _editAtTimeOfNameType = NameTypes.Person;
+    private string _editAtTimeOfLastOrBusinessName = string.Empty;
+    private string? _editAtTimeOfFirstName;
+    private string? _editAtTimeOfMiddleName;
+    private Guid? _editAtTimeOfSexId;
+    private Guid? _editAtTimeOfRaceId;
+    private DateTime? _editAtTimeOfDateOfBirth;
+    private string? _editAtTimeOfDriversLicenseNumber;
+    private Guid? _editAtTimeOfDriversLicenseStateId;
+    private int? _editAtTimeOfHeightInches;
+    private int? _editAtTimeOfWeightLbs;
+    private Guid? _editAtTimeOfHairColorId;
+    private Guid? _editAtTimeOfEyeColorId;
+    private Guid? _editAtTimeOfSuffixId;
+    private string? _editAtTimeOfPlaceOfBirth;
+    private string? _editAtTimeOfFbiNumber;
+    private string? _editAtTimeOfLocalNumber;
+    private string? _editAtTimeOfPrimaryPhone;
+    private string? _editAtTimeOfPrimaryPhoneExtension;
+    private string? _editAtTimeOfWorkPhone;
+    private string? _editAtTimeOfWorkPhoneExtension;
+    private string? _editAtTimeOfOtherPhone;
+    private string? _editAtTimeOfOtherPhoneExtension;
+    private string? _editAtTimeOfSocialSecurityNumber;
+    private bool _editAtTimeOfIsCitizen;
+    private DateTime? _editAtTimeOfDeceasedDate;
+    private Guid? _editAtTimeOfPrimaryLocationId;
+    private long? _editAtTimeOfPrimaryLocationRecordNumber;
+    private string? _editAtTimeOfPrimaryLocationAddress;
+    private Guid? _editAtTimeOfSecondaryLocationId;
+    private long? _editAtTimeOfSecondaryLocationRecordNumber;
+    private string? _editAtTimeOfSecondaryLocationAddress;
+    private DateTime? _editAtTimeOfCopiedAtUtc;
+    private string? _editAtTimeOfCopiedByName;
+    private string? _atTimeOfSexLabel;
+    private string? _atTimeOfRaceLabel;
+    private string? _atTimeOfDriversLicenseStateLabel;
     private string _editDescription = string.Empty;
     private DateTime _editIssueDate = DateTime.Now;
     private string _editCitationNum = string.Empty;
@@ -315,16 +972,33 @@ else if (_citation is not null)
     private Guid?  _editLocationId;
     private string? _editLocationDisplay;
     private bool   _showLocationModal;
+    private string? _editVehiclePlateNumber;
+    private Guid? _editVehiclePlateStateId;
+    private int? _editVehiclePlateYear;
+    private int? _editVehicleModelYear;
+    private string? _editVehicleMake;
+    private string? _editVehicleStyle;
+    private string? _editVehicleColor;
+    private bool _editVehicleIsCommercial;
+    private bool _editVehicleCarriesHazardousMaterial;
+    private string? _vehiclePlateStateLabel;
 
     private string? _createdByName;
     private string? _modifiedByName;
     private string? _lockedByName;
+    private readonly Dictionary<Guid, (ChargeDto Charge, DateTime LinkedAtUtc)> _pendingChargeAdds = [];
+    private readonly HashSet<Guid> _pendingChargeRemoves = [];
+    private readonly Dictionary<Guid, (IncidentDto Incident, DateTime LinkedAtUtc)> _pendingIncidentLinkAdds = [];
+    private readonly HashSet<Guid> _pendingIncidentLinkRemoves = [];
+    private readonly List<string> _createdForeignRecords = [];
+    private IDisposable? _agencySelectionLock;
 
     [SupplyParameterFromQuery(Name = "autoModify")]
     public bool AutoModify { get; set; }
 
     protected override async Task OnInitializedAsync()
     {
+        await ActiveAgencyContext.EnsureLoadedAsync();
         _currentUserId = TenantProvider.GetUserId();
         await LoadAsync();
 
@@ -349,18 +1023,26 @@ else if (_citation is not null)
         => InvokeAsync(async () => { if (_modifyMode) { await RequestReleaseAsync(); StateHasChanged(); } });
 
     private void HandleShortcutSave()
-        => InvokeAsync(async () => { if (_modifyMode) { await SaveDetailsAsync(); StateHasChanged(); } });
+        => InvokeAsync(async () => { if (_modifyMode) { await SaveRecordAsync(); StateHasChanged(); } });
 
     private void RestoreModifyModeIfOwner()
     {
         if (_citation is not null && _citation.IsLocked && _citation.LockedByUserId == _currentUserId)
         {
+            EnsureAgencySelectionLock();
             _modifyMode = true;
+            _editNameId = _citation.DefendantNameId;
+            _editNameDisplay = _citation.DefendantName;
+            _editNameRecordNumber = _citation.DefendantNameRecordNumber;
             _editDescription = _citation.Description;
             _editIssueDate   = _citation.IssueDate;
             _editCitationNum = _citation.CitationNum;
             _editCourtId     = _citation.CourtId;
             _editLocationId  = _citation.LocationId;
+            LoadAtTimeOfName(_citation.AtTimeOfName);
+            LoadOfficerProfile(_citation.OfficerProfile);
+            LoadTexasDetails(_citation.TexasDetails);
+            LoadVehicle(_citation.Vehicle);
             _editSnapshot = ComputeEditSnapshot();
             StartLockTimer();
         }
@@ -379,12 +1061,20 @@ else if (_citation is not null)
 
             if (_citation is not null && !_modifyMode)
             {
+                _editNameId = _citation.DefendantNameId;
+                _editNameDisplay = _citation.DefendantName;
+                _editNameRecordNumber = _citation.DefendantNameRecordNumber;
                 _editDescription = _citation.Description;
                 _editIssueDate   = _citation.IssueDate;
                 _editCitationNum = _citation.CitationNum;
                 _editCourtId     = _citation.CourtId;
                 _editLocationId  = _citation.LocationId;
+                LoadAtTimeOfName(_citation.AtTimeOfName);
+                LoadOfficerProfile(_citation.OfficerProfile);
+                LoadTexasDetails(_citation.TexasDetails);
+                LoadVehicle(_citation.Vehicle);
                 await ResolveLocationDisplayAsync();
+                await ResolveTexasAppearanceLocationDisplayAsync();
             }
 
             if (_citation is not null)
@@ -398,6 +1088,7 @@ else if (_citation is not null)
                     : null;
 
                 _linkedIncidents = await CitationService.GetLinkedIncidentsAsync(_citationId);
+                _charges = await ChargeService.GetByCitationAsync(_citationId);
 
                 if (_modifyMode)
                     _allIncidents = await IncidentService.GetByJurisdictionAsync();
@@ -414,6 +1105,10 @@ else if (_citation is not null)
                 {
                     _courtLabel = null;
                 }
+
+                await ResolveAtTimeOfLabelsAsync();
+                await ResolveTexasLabelsAsync();
+                await ResolveVehicleLabelsAsync();
             }
         }
         catch (Exception ex)
@@ -446,12 +1141,20 @@ else if (_citation is not null)
         try
         {
             await CitationService.AcquireLockAsync(_citationId);
+            EnsureAgencySelectionLock();
             _modifyMode = true;
+            _editNameId = _citation?.DefendantNameId;
+            _editNameDisplay = _citation?.DefendantName;
+            _editNameRecordNumber = _citation?.DefendantNameRecordNumber;
             _editDescription = _citation?.Description ?? string.Empty;
             _editIssueDate   = _citation?.IssueDate ?? DateTime.Now;
             _editCitationNum = _citation?.CitationNum ?? string.Empty;
             _editCourtId     = _citation?.CourtId;
             _editLocationId  = _citation?.LocationId;
+            LoadAtTimeOfName(_citation?.AtTimeOfName);
+            LoadOfficerProfile(_citation?.OfficerProfile);
+            LoadTexasDetails(_citation?.TexasDetails);
+            LoadVehicle(_citation?.Vehicle);
             _editSnapshot = ComputeEditSnapshot();
             StartLockTimer();
             await LoadAsync();
@@ -466,14 +1169,42 @@ else if (_citation is not null)
     {
         StopLockTimer();
         _modifyMode = false;
+        ReleaseAgencySelectionLock();
+        ClearPendingChanges();
         try { await CitationService.ReleaseLockAsync(_citationId); } catch { /* best-effort */ }
         await LoadAsync();
     }
 
-    private string ComputeEditSnapshot() =>
-        string.Join("§", _editDescription, _editIssueDate, _editCitationNum, _editCourtId, _editLocationId);
+    private void EnsureAgencySelectionLock()
+        => _agencySelectionLock ??= ActiveAgencyContext.AcquireSelectionLock();
 
-    private bool HasPendingChanges => _modifyMode && _editSnapshot != ComputeEditSnapshot();
+    private void ReleaseAgencySelectionLock()
+    {
+        _agencySelectionLock?.Dispose();
+        _agencySelectionLock = null;
+    }
+
+    private string ComputeEditSnapshot() =>
+        string.Join("§",
+            _editNameId,
+            _editDescription,
+            _editIssueDate,
+            _editCitationNum,
+            _editCourtId,
+            _editLocationId,
+            JsonSerializer.Serialize(BuildAtTimeOfNameInput()),
+            JsonSerializer.Serialize(BuildOfficerProfileInput()),
+            JsonSerializer.Serialize(BuildTexasDetailsInput()),
+            JsonSerializer.Serialize(BuildVehicleInput()));
+
+    private bool HasPendingChanges =>
+        _modifyMode &&
+        (_editSnapshot != ComputeEditSnapshot()
+         || _pendingChargeAdds.Count > 0
+         || _pendingChargeRemoves.Count > 0
+         || _pendingIncidentLinkAdds.Count > 0
+         || _pendingIncidentLinkRemoves.Count > 0
+         || _createdForeignRecords.Count > 0);
 
     private async Task RequestReleaseAsync()
     {
@@ -515,7 +1246,7 @@ else if (_citation is not null)
         _showReleaseConfirm = false;
         var navigateToNew = _pendingNewRecord;
         _pendingNewRecord = false;
-        await SaveDetailsAsync();
+        await SaveRecordAsync();
         if (_actionError is null)
         {
             await ExitModifyModeAsync();
@@ -548,16 +1279,32 @@ else if (_citation is not null)
         }
     }
 
-    private async Task SaveDetailsAsync()
+    private async Task SaveRecordAsync()
     {
         _actionError = null;
         _saveSuccessMessage = null;
         try
         {
-            await CitationService.UpdateDetailsAsync(_citationId, _editDescription, _editIssueDate, _editCourtId, _editCitationNum, _editLocationId);
+            await CitationService.SavePageAsync(
+                _citationId,
+                _editNameId,
+                _editDescription,
+                _editIssueDate,
+                _editCourtId,
+                _editCitationNum,
+                _editLocationId,
+                BuildAtTimeOfNameInput(),
+                BuildOfficerProfileInput(),
+                BuildTexasDetailsInput(),
+                BuildVehicleInput(),
+                _pendingIncidentLinkAdds.Keys.ToArray(),
+                _pendingIncidentLinkRemoves.ToArray(),
+                _pendingChargeAdds.Keys.ToArray(),
+                _pendingChargeRemoves.ToArray());
             await LoadAsync();
             _editSnapshot = ComputeEditSnapshot();
-            _saveSuccessMessage = "Details saved successfully.";
+            ClearPendingChanges();
+            _saveSuccessMessage = "Record saved successfully.";
             _ = Task.Delay(3000).ContinueWith(_ => InvokeAsync(() =>
             {
                 _saveSuccessMessage = null;
@@ -567,18 +1314,65 @@ else if (_citation is not null)
         catch (Exception ex)
         {
             _actionError = ex.Message;
+            try { await LoadAsync(); } catch { _actionError += " (State may be out of sync — please refresh the page.)"; }
         }
     }
 
     private async Task LinkToIncidentAsync()
     {
         if (_linkIncidentId == Guid.Empty) return;
-        await RunActionAsync(() => CitationService.LinkToIncidentAsync(_citationId, _linkIncidentId));
+        if (_pendingIncidentLinkRemoves.Remove(_linkIncidentId))
+        {
+            _linkIncidentId = Guid.Empty;
+            return;
+        }
+
+        if ((_linkedIncidents?.Any(link => link.IncidentId == _linkIncidentId) ?? false) || _pendingIncidentLinkAdds.ContainsKey(_linkIncidentId))
+        {
+            _linkIncidentId = Guid.Empty;
+            return;
+        }
+
+        var incident = _allIncidents?.FirstOrDefault(i => i.Id == _linkIncidentId);
+        if (incident is not null)
+            _pendingIncidentLinkAdds[_linkIncidentId] = (incident, DateTime.UtcNow);
+
         _linkIncidentId = Guid.Empty;
     }
 
-    private Task UnlinkFromIncidentAsync(Guid incidentId) =>
-        RunActionAsync(() => CitationService.UnlinkFromIncidentAsync(_citationId, incidentId));
+    private Task UnlinkFromIncidentAsync(Guid incidentId)
+    {
+        if (_pendingIncidentLinkAdds.Remove(incidentId))
+            return Task.CompletedTask;
+
+        if (_linkedIncidents?.Any(link => link.IncidentId == incidentId) == true)
+            _pendingIncidentLinkRemoves.Add(incidentId);
+
+        return Task.CompletedTask;
+    }
+
+    private Task LinkChargeAsync(ChargeDto charge)
+    {
+        if (_pendingChargeRemoves.Remove(charge.Id))
+            return Task.CompletedTask;
+
+        if ((_charges?.Any(c => c.ChargeId == charge.Id) ?? false) || _pendingChargeAdds.ContainsKey(charge.Id))
+            return Task.CompletedTask;
+
+        _pendingChargeAdds[charge.Id] = (charge, DateTime.UtcNow);
+        return Task.CompletedTask;
+    }
+
+    private Task UnlinkChargeAsync(Guid chargeId)
+    {
+        if (_pendingChargeAdds.Remove(chargeId))
+            return Task.CompletedTask;
+
+        if (_charges?.Any(c => c.ChargeId == chargeId) == true)
+            _pendingChargeRemoves.Add(chargeId);
+
+        return Task.CompletedTask;
+    }
 
     private void StartLockTimer()
     {
@@ -640,6 +1434,12 @@ else if (_citation is not null)
         _showLocationModal   = false;
     }
 
+    private Task OnLocationCreatedAsync(LocationDto loc)
+    {
+        TrackCreatedForeignRecord($"Location #{loc.RecordNumber} was created. If you discard this page, it will remain in the system but will not be linked to this citation.");
+        return Task.CompletedTask;
+    }
+
     private void OnLocationCleared()
     {
         _editLocationId      = null;
@@ -653,6 +1453,615 @@ else if (_citation is not null)
         _editLocationDisplay = null;
     }
 
+    private Task OnNameSelected(NameDto name)
+    {
+        _editNameId = name.Id;
+        _editNameDisplay = FormatName(name);
+        _editNameRecordNumber = name.RecordNumber;
+        _showNameModal = false;
+        return Task.CompletedTask;
+    }
+
+    private Task OnNameCleared()
+    {
+        ClearName();
+        _showNameModal = false;
+        return Task.CompletedTask;
+    }
+
+    private void ClearName()
+    {
+        _editNameId = null;
+        _editNameDisplay = null;
+        _editNameRecordNumber = null;
+    }
+
+    private Task OnOfficerNameSelected(NameDto name)
+    {
+        _editOfficerSourceNameId = name.Id;
+        _editOfficerSourceDisplay = FormatName(name);
+        _editOfficerSourceRecordNumber = name.RecordNumber;
+
+        if (string.IsNullOrWhiteSpace(_editOfficerName))
+            _editOfficerName = FormatName(name);
+
+        _showOfficerNameModal = false;
+        return Task.CompletedTask;
+    }
+
+    private Task OnOfficerNameCleared()
+    {
+        ClearOfficerSource();
+        _showOfficerNameModal = false;
+        return Task.CompletedTask;
+    }
+
+    private void ClearOfficerSource()
+    {
+        _editOfficerSourceNameId = null;
+        _editOfficerSourceDisplay = null;
+        _editOfficerSourceRecordNumber = null;
+    }
+
+    private static string FormatName(NameDto name)
+        => string.IsNullOrWhiteSpace(name.FirstName)
+            ? name.LastOrBusinessName
+            : $"{name.LastOrBusinessName}, {name.FirstName}";
+
+    private bool HasAtTimeOfNameData => !string.IsNullOrWhiteSpace(_editAtTimeOfLastOrBusinessName);
+    private bool HasOfficerProfileData =>
+        _editOfficerSourceNameId.HasValue
+        || !string.IsNullOrWhiteSpace(_editOfficerName)
+        || !string.IsNullOrWhiteSpace(_editOfficerTitle)
+        || !string.IsNullOrWhiteSpace(_editOfficerBadgeOrIdentifier)
+        || !string.IsNullOrWhiteSpace(_editOfficerUnitNumber);
+
+    private bool HasVehicleData =>
+        !string.IsNullOrWhiteSpace(_editVehiclePlateNumber)
+        || _editVehiclePlateStateId.HasValue
+        || _editVehiclePlateYear.HasValue
+        || _editVehicleModelYear.HasValue
+        || !string.IsNullOrWhiteSpace(_editVehicleMake)
+        || !string.IsNullOrWhiteSpace(_editVehicleStyle)
+        || !string.IsNullOrWhiteSpace(_editVehicleColor)
+        || _editVehicleIsCommercial
+        || _editVehicleCarriesHazardousMaterial;
+
+    private bool HasTexasDetailsData =>
+        !string.IsNullOrWhiteSpace(_editTexasDocketNumber)
+        || !string.IsNullOrWhiteSpace(_editTexasPageNumber)
+        || _editTexasViolationSourceTypeId.HasValue
+        || !string.IsNullOrWhiteSpace(_editTexasViolationSection)
+        || _editTexasViolationGroupId.HasValue
+        || !string.IsNullOrWhiteSpace(_editTexasPrimaryViolationDescription)
+        || _editTexasSpeedMph.HasValue
+        || _editTexasZoneMph.HasValue
+        || _editTexasSpeedBandId.HasValue
+        || !string.IsNullOrWhiteSpace(_editTexasNarrativeOtherViolations)
+        || !string.IsNullOrWhiteSpace(_editTexasOccurredAtText)
+        || _editTexasCourtAppearanceDateTime.HasValue
+        || _editTexasCourtAppearanceLocationId.HasValue
+        || _editTexasAffidavitSignedDate.HasValue
+        || !string.IsNullOrWhiteSpace(_editTexasComplainantSignatureText)
+        || !string.IsNullOrWhiteSpace(_editTexasDefendantSignatureText)
+        || !string.IsNullOrWhiteSpace(_editTexasAcceptedBondNotes)
+        || !string.IsNullOrWhiteSpace(_editTexasReceiptNumber);
+
+    private NameSnapshotInput? BuildAtTimeOfNameInput()
+    {
+        if (!HasAtTimeOfNameData && !_hasExistingAtTimeOfNameSnapshot)
+            return null;
+
+        return new NameSnapshotInput(
+            _editAtTimeOfNameType,
+            _editAtTimeOfLastOrBusinessName,
+            _editAtTimeOfFirstName,
+            _editAtTimeOfMiddleName,
+            _editAtTimeOfSexId,
+            _editAtTimeOfRaceId,
+            _editAtTimeOfDateOfBirth,
+            _editAtTimeOfDriversLicenseNumber,
+            _editAtTimeOfDriversLicenseStateId,
+            _editAtTimeOfHeightInches,
+            _editAtTimeOfWeightLbs,
+            _editAtTimeOfHairColorId,
+            _editAtTimeOfEyeColorId,
+            _editAtTimeOfSuffixId,
+            _editAtTimeOfPlaceOfBirth,
+            _editAtTimeOfFbiNumber,
+            _editAtTimeOfLocalNumber,
+            _editAtTimeOfPrimaryPhone,
+            _editAtTimeOfPrimaryPhoneExtension,
+            _editAtTimeOfWorkPhone,
+            _editAtTimeOfWorkPhoneExtension,
+            _editAtTimeOfOtherPhone,
+            _editAtTimeOfOtherPhoneExtension,
+            _editAtTimeOfSocialSecurityNumber,
+            _editAtTimeOfIsCitizen,
+            _editAtTimeOfDeceasedDate,
+            new NameSnapshotAddressDto(
+                _editAtTimeOfPrimaryLocationId,
+                _editAtTimeOfPrimaryLocationRecordNumber,
+                _editAtTimeOfPrimaryLocationAddress),
+            new NameSnapshotAddressDto(
+                _editAtTimeOfSecondaryLocationId,
+                _editAtTimeOfSecondaryLocationRecordNumber,
+                _editAtTimeOfSecondaryLocationAddress));
+    }
+
+    private CitationOfficerProfileInput? BuildOfficerProfileInput()
+    {
+        if (!HasOfficerProfileData)
+            return null;
+
+        var officerName = string.IsNullOrWhiteSpace(_editOfficerName)
+            ? _editOfficerSourceDisplay ?? string.Empty
+            : _editOfficerName;
+
+        return new CitationOfficerProfileInput(
+            _editOfficerSourceNameId,
+            _editOfficerSourceRecordNumber,
+            officerName,
+            NullIfWhiteSpace(_editOfficerTitle),
+            NullIfWhiteSpace(_editOfficerBadgeOrIdentifier),
+            NullIfWhiteSpace(_editOfficerUnitNumber));
+    }
+
+    private CitationVehicleInput? BuildVehicleInput()
+    {
+        if (!HasVehicleData)
+            return null;
+
+        return new CitationVehicleInput(
+            NullIfWhiteSpace(_editVehiclePlateNumber),
+            _editVehiclePlateStateId,
+            _editVehiclePlateYear,
+            _editVehicleModelYear,
+            NullIfWhiteSpace(_editVehicleMake),
+            NullIfWhiteSpace(_editVehicleStyle),
+            NullIfWhiteSpace(_editVehicleColor),
+            _editVehicleIsCommercial,
+            _editVehicleCarriesHazardousMaterial);
+    }
+
+    private CitationTexasDetailsInput? BuildTexasDetailsInput()
+    {
+        if (!HasTexasDetailsData)
+            return null;
+
+        return new CitationTexasDetailsInput(
+            NullIfWhiteSpace(_editTexasDocketNumber),
+            NullIfWhiteSpace(_editTexasPageNumber),
+            _editTexasViolationSourceTypeId,
+            NullIfWhiteSpace(_editTexasViolationSection),
+            _editTexasViolationGroupId,
+            NullIfWhiteSpace(_editTexasPrimaryViolationDescription),
+            _editTexasSpeedMph,
+            _editTexasZoneMph,
+            _editTexasSpeedBandId,
+            NullIfWhiteSpace(_editTexasNarrativeOtherViolations),
+            NullIfWhiteSpace(_editTexasOccurredAtText),
+            _editTexasCourtAppearanceDateTime,
+            _editTexasCourtAppearanceLocationId,
+            _editTexasAffidavitSignedDate,
+            NullIfWhiteSpace(_editTexasComplainantSignatureText),
+            NullIfWhiteSpace(_editTexasDefendantSignatureText),
+            NullIfWhiteSpace(_editTexasAcceptedBondNotes),
+            NullIfWhiteSpace(_editTexasReceiptNumber));
+    }
+
+    private async Task CopyCurrentNameToAtTimeOfAsync()
+    {
+        if (!_editNameId.HasValue)
+        {
+            _actionError = "Select a linked name before copying At Time Of data.";
+            return;
+        }
+
+        var name = await NameService.GetByIdAsync(_editNameId.Value);
+        if (name is null)
+        {
+            _actionError = "Linked name not found.";
+            return;
+        }
+
+        await PopulateAtTimeOfFromNameAsync(name);
+    }
+
+    private async Task PopulateAtTimeOfFromNameAsync(NameDto name)
+    {
+        _editAtTimeOfNameType = name.NameType;
+        _editAtTimeOfLastOrBusinessName = name.LastOrBusinessName;
+        _editAtTimeOfFirstName = name.FirstName;
+        _editAtTimeOfMiddleName = name.MiddleName;
+        _editAtTimeOfSexId = name.SexId;
+        _editAtTimeOfRaceId = name.RaceId;
+        _editAtTimeOfDateOfBirth = name.DateOfBirth;
+        _editAtTimeOfDriversLicenseNumber = name.DriversLicenseNumber;
+        _editAtTimeOfDriversLicenseStateId = name.DriversLicenseStateId;
+        _editAtTimeOfHeightInches = name.HeightInches;
+        _editAtTimeOfWeightLbs = name.WeightLbs;
+        _editAtTimeOfHairColorId = name.HairColorId;
+        _editAtTimeOfEyeColorId = name.EyeColorId;
+        _editAtTimeOfSuffixId = name.SuffixId;
+        _editAtTimeOfPlaceOfBirth = name.PlaceOfBirth;
+        _editAtTimeOfFbiNumber = name.FbiNumber;
+        _editAtTimeOfLocalNumber = name.LocalNumber;
+        _editAtTimeOfPrimaryPhone = name.PrimaryPhone;
+        _editAtTimeOfPrimaryPhoneExtension = name.PrimaryPhoneExtension;
+        _editAtTimeOfWorkPhone = name.WorkPhone;
+        _editAtTimeOfWorkPhoneExtension = name.WorkPhoneExtension;
+        _editAtTimeOfOtherPhone = name.OtherPhone;
+        _editAtTimeOfOtherPhoneExtension = name.OtherPhoneExtension;
+        _editAtTimeOfSocialSecurityNumber = name.SocialSecurityNumber;
+        _editAtTimeOfIsCitizen = name.IsCitizen;
+        _editAtTimeOfDeceasedDate = name.DeceasedDate;
+        _editAtTimeOfCopiedAtUtc = null;
+        _editAtTimeOfCopiedByName = null;
+
+        await PopulateAtTimeOfAddressAsync(name.PrimaryLocationId, isPrimary: true);
+        await PopulateAtTimeOfAddressAsync(name.SecondaryLocationId, isPrimary: false);
+        await ResolveAtTimeOfLabelsAsync();
+    }
+
+    private async Task PopulateAtTimeOfAddressAsync(Guid? locationId, bool isPrimary)
+    {
+        var location = locationId.HasValue
+            ? await LocationService.GetByIdAsync(locationId.Value)
+            : null;
+
+        if (isPrimary)
+        {
+            _editAtTimeOfPrimaryLocationId = location?.Id;
+            _editAtTimeOfPrimaryLocationRecordNumber = location?.RecordNumber;
+            _editAtTimeOfPrimaryLocationAddress = location?.Address ?? (location is null ? null : FormatLocationDisplay(location));
+            return;
+        }
+
+        _editAtTimeOfSecondaryLocationId = location?.Id;
+        _editAtTimeOfSecondaryLocationRecordNumber = location?.RecordNumber;
+        _editAtTimeOfSecondaryLocationAddress = location?.Address ?? (location is null ? null : FormatLocationDisplay(location));
+    }
+
+    private void LoadAtTimeOfName(NameSnapshotDto? snapshot)
+    {
+        if (snapshot is null)
+        {
+            ClearAtTimeOfName();
+            return;
+        }
+
+        _hasExistingAtTimeOfNameSnapshot = true;
+        _editAtTimeOfNameType = snapshot.NameType;
+        _editAtTimeOfLastOrBusinessName = snapshot.LastOrBusinessName;
+        _editAtTimeOfFirstName = snapshot.FirstName;
+        _editAtTimeOfMiddleName = snapshot.MiddleName;
+        _editAtTimeOfSexId = snapshot.SexId;
+        _editAtTimeOfRaceId = snapshot.RaceId;
+        _editAtTimeOfDateOfBirth = snapshot.DateOfBirth;
+        _editAtTimeOfDriversLicenseNumber = snapshot.DriversLicenseNumber;
+        _editAtTimeOfDriversLicenseStateId = snapshot.DriversLicenseStateId;
+        _editAtTimeOfHeightInches = snapshot.HeightInches;
+        _editAtTimeOfWeightLbs = snapshot.WeightLbs;
+        _editAtTimeOfHairColorId = snapshot.HairColorId;
+        _editAtTimeOfEyeColorId = snapshot.EyeColorId;
+        _editAtTimeOfSuffixId = snapshot.SuffixId;
+        _editAtTimeOfPlaceOfBirth = snapshot.PlaceOfBirth;
+        _editAtTimeOfFbiNumber = snapshot.FbiNumber;
+        _editAtTimeOfLocalNumber = snapshot.LocalNumber;
+        _editAtTimeOfPrimaryPhone = snapshot.PrimaryPhone;
+        _editAtTimeOfPrimaryPhoneExtension = snapshot.PrimaryPhoneExtension;
+        _editAtTimeOfWorkPhone = snapshot.WorkPhone;
+        _editAtTimeOfWorkPhoneExtension = snapshot.WorkPhoneExtension;
+        _editAtTimeOfOtherPhone = snapshot.OtherPhone;
+        _editAtTimeOfOtherPhoneExtension = snapshot.OtherPhoneExtension;
+        _editAtTimeOfSocialSecurityNumber = snapshot.SocialSecurityNumber;
+        _editAtTimeOfIsCitizen = snapshot.IsCitizen;
+        _editAtTimeOfDeceasedDate = snapshot.DeceasedDate;
+        _editAtTimeOfPrimaryLocationId = snapshot.PrimaryAddress?.LocationId;
+        _editAtTimeOfPrimaryLocationRecordNumber = snapshot.PrimaryAddress?.LocationRecordNumber;
+        _editAtTimeOfPrimaryLocationAddress = snapshot.PrimaryAddress?.Address;
+        _editAtTimeOfSecondaryLocationId = snapshot.SecondaryAddress?.LocationId;
+        _editAtTimeOfSecondaryLocationRecordNumber = snapshot.SecondaryAddress?.LocationRecordNumber;
+        _editAtTimeOfSecondaryLocationAddress = snapshot.SecondaryAddress?.Address;
+        _editAtTimeOfCopiedAtUtc = snapshot.LastCopiedAtUtc;
+        _editAtTimeOfCopiedByName = null;
+    }
+
+    private void LoadOfficerProfile(CitationOfficerProfileDto? officerProfile)
+    {
+        if (officerProfile is null)
+        {
+            _editOfficerSourceNameId = null;
+            _editOfficerSourceDisplay = null;
+            _editOfficerSourceRecordNumber = null;
+            _editOfficerName = string.Empty;
+            _editOfficerTitle = null;
+            _editOfficerBadgeOrIdentifier = null;
+            _editOfficerUnitNumber = null;
+            return;
+        }
+
+        _editOfficerSourceNameId = officerProfile.SourceNameId;
+        _editOfficerSourceRecordNumber = officerProfile.SourceNameRecordNumber;
+        _editOfficerSourceDisplay = officerProfile.OfficerName;
+        _editOfficerName = officerProfile.OfficerName;
+        _editOfficerTitle = officerProfile.Title;
+        _editOfficerBadgeOrIdentifier = officerProfile.BadgeOrIdentifier;
+        _editOfficerUnitNumber = officerProfile.UnitNumber;
+    }
+
+    private void LoadVehicle(CitationVehicleDto? vehicle)
+    {
+        if (vehicle is null)
+        {
+            _editVehiclePlateNumber = null;
+            _editVehiclePlateStateId = null;
+            _editVehiclePlateYear = null;
+            _editVehicleModelYear = null;
+            _editVehicleMake = null;
+            _editVehicleStyle = null;
+            _editVehicleColor = null;
+            _editVehicleIsCommercial = false;
+            _editVehicleCarriesHazardousMaterial = false;
+            _vehiclePlateStateLabel = null;
+            return;
+        }
+
+        _editVehiclePlateNumber = vehicle.PlateNumber;
+        _editVehiclePlateStateId = vehicle.PlateStateId;
+        _editVehiclePlateYear = vehicle.PlateYear;
+        _editVehicleModelYear = vehicle.ModelYear;
+        _editVehicleMake = vehicle.Make;
+        _editVehicleStyle = vehicle.Style;
+        _editVehicleColor = vehicle.Color;
+        _editVehicleIsCommercial = vehicle.IsCommercial;
+        _editVehicleCarriesHazardousMaterial = vehicle.CarriesHazardousMaterial;
+    }
+
+    private void LoadTexasDetails(CitationTexasDetailsDto? texasDetails)
+    {
+        if (texasDetails is null)
+        {
+            _editTexasDocketNumber = null;
+            _editTexasPageNumber = null;
+            _editTexasViolationSourceTypeId = null;
+            _editTexasViolationSection = null;
+            _editTexasViolationGroupId = null;
+            _editTexasPrimaryViolationDescription = null;
+            _editTexasSpeedMph = null;
+            _editTexasZoneMph = null;
+            _editTexasSpeedBandId = null;
+            _editTexasNarrativeOtherViolations = null;
+            _editTexasOccurredAtText = null;
+            _editTexasCourtAppearanceDateTime = null;
+            _editTexasCourtAppearanceLocationId = null;
+            _editTexasCourtAppearanceLocationDisplay = null;
+            _editTexasAffidavitSignedDate = null;
+            _editTexasComplainantSignatureText = null;
+            _editTexasDefendantSignatureText = null;
+            _editTexasAcceptedBondNotes = null;
+            _editTexasReceiptNumber = null;
+            _texasViolationSourceTypeLabel = null;
+            _texasViolationGroupLabel = null;
+            _texasSpeedBandLabel = null;
+            return;
+        }
+
+        _editTexasDocketNumber = texasDetails.DocketNumber;
+        _editTexasPageNumber = texasDetails.PageNumber;
+        _editTexasViolationSourceTypeId = texasDetails.ViolationSourceTypeId;
+        _editTexasViolationSection = texasDetails.ViolationSection;
+        _editTexasViolationGroupId = texasDetails.ViolationGroupId;
+        _editTexasPrimaryViolationDescription = texasDetails.PrimaryViolationDescription;
+        _editTexasSpeedMph = texasDetails.SpeedMph;
+        _editTexasZoneMph = texasDetails.ZoneMph;
+        _editTexasSpeedBandId = texasDetails.SpeedBandId;
+        _editTexasNarrativeOtherViolations = texasDetails.NarrativeOtherViolations;
+        _editTexasOccurredAtText = texasDetails.OccurredAtText;
+        _editTexasCourtAppearanceDateTime = texasDetails.CourtAppearanceDateTime;
+        _editTexasCourtAppearanceLocationId = texasDetails.CourtAppearanceLocationId;
+        _editTexasAffidavitSignedDate = texasDetails.AffidavitSignedDate;
+        _editTexasComplainantSignatureText = texasDetails.ComplainantSignatureText;
+        _editTexasDefendantSignatureText = texasDetails.DefendantSignatureText;
+        _editTexasAcceptedBondNotes = texasDetails.AcceptedBondNotes;
+        _editTexasReceiptNumber = texasDetails.ReceiptNumber;
+    }
+
+    private void ClearAtTimeOfName()
+    {
+        _hasExistingAtTimeOfNameSnapshot = false;
+        _editAtTimeOfNameType = NameTypes.Person;
+        _editAtTimeOfLastOrBusinessName = string.Empty;
+        _editAtTimeOfFirstName = null;
+        _editAtTimeOfMiddleName = null;
+        _editAtTimeOfSexId = null;
+        _editAtTimeOfRaceId = null;
+        _editAtTimeOfDateOfBirth = null;
+        _editAtTimeOfDriversLicenseNumber = null;
+        _editAtTimeOfDriversLicenseStateId = null;
+        _editAtTimeOfHeightInches = null;
+        _editAtTimeOfWeightLbs = null;
+        _editAtTimeOfHairColorId = null;
+        _editAtTimeOfEyeColorId = null;
+        _editAtTimeOfSuffixId = null;
+        _editAtTimeOfPlaceOfBirth = null;
+        _editAtTimeOfFbiNumber = null;
+        _editAtTimeOfLocalNumber = null;
+        _editAtTimeOfPrimaryPhone = null;
+        _editAtTimeOfPrimaryPhoneExtension = null;
+        _editAtTimeOfWorkPhone = null;
+        _editAtTimeOfWorkPhoneExtension = null;
+        _editAtTimeOfOtherPhone = null;
+        _editAtTimeOfOtherPhoneExtension = null;
+        _editAtTimeOfSocialSecurityNumber = null;
+        _editAtTimeOfIsCitizen = false;
+        _editAtTimeOfDeceasedDate = null;
+        _editAtTimeOfPrimaryLocationId = null;
+        _editAtTimeOfPrimaryLocationRecordNumber = null;
+        _editAtTimeOfPrimaryLocationAddress = null;
+        _editAtTimeOfSecondaryLocationId = null;
+        _editAtTimeOfSecondaryLocationRecordNumber = null;
+        _editAtTimeOfSecondaryLocationAddress = null;
+        _editAtTimeOfCopiedAtUtc = null;
+        _editAtTimeOfCopiedByName = null;
+        _atTimeOfSexLabel = null;
+        _atTimeOfRaceLabel = null;
+        _atTimeOfDriversLicenseStateLabel = null;
+    }
+
+    private async Task ResolveAtTimeOfLabelsAsync()
+    {
+        if (_editAtTimeOfCopiedAtUtc.HasValue && _citation?.AtTimeOfName?.LastCopiedByUserId is Guid copiedBy)
+        {
+            _editAtTimeOfCopiedByName = await UserLookupService.GetDisplayNameAsync(copiedBy);
+        }
+        else
+        {
+            _editAtTimeOfCopiedByName = null;
+        }
+
+        var ids = new[]
+        {
+            _editAtTimeOfSexId,
+            _editAtTimeOfRaceId,
+            _editAtTimeOfDriversLicenseStateId
+        }
+        .Where(id => id.HasValue)
+        .Select(id => id!.Value)
+        .Distinct()
+        .ToArray();
+
+        if (ids.Length == 0)
+        {
+            _atTimeOfSexLabel = null;
+            _atTimeOfRaceLabel = null;
+            _atTimeOfDriversLicenseStateLabel = null;
+            return;
+        }
+
+        var labels = await PicklistService.GetItemsByIdsAsync(ids);
+        _atTimeOfSexLabel = _editAtTimeOfSexId.HasValue ? labels.GetValueOrDefault(_editAtTimeOfSexId.Value) : null;
+        _atTimeOfRaceLabel = _editAtTimeOfRaceId.HasValue ? labels.GetValueOrDefault(_editAtTimeOfRaceId.Value) : null;
+        _atTimeOfDriversLicenseStateLabel = _editAtTimeOfDriversLicenseStateId.HasValue ? labels.GetValueOrDefault(_editAtTimeOfDriversLicenseStateId.Value) : null;
+    }
+
+    private async Task ResolveVehicleLabelsAsync()
+    {
+        if (!_editVehiclePlateStateId.HasValue)
+        {
+            _vehiclePlateStateLabel = null;
+            return;
+        }
+
+        var labels = await PicklistService.GetItemsByIdsAsync([_editVehiclePlateStateId.Value]);
+        _vehiclePlateStateLabel = labels.GetValueOrDefault(_editVehiclePlateStateId.Value);
+    }
+
+    private async Task ResolveTexasLabelsAsync()
+    {
+        var ids = new[]
+        {
+            _editTexasViolationSourceTypeId,
+            _editTexasViolationGroupId,
+            _editTexasSpeedBandId
+        }
+        .Where(id => id.HasValue)
+        .Select(id => id!.Value)
+        .Distinct()
+        .ToArray();
+
+        if (ids.Length == 0)
+        {
+            _texasViolationSourceTypeLabel = null;
+            _texasViolationGroupLabel = null;
+            _texasSpeedBandLabel = null;
+        }
+        else
+        {
+            var labels = await PicklistService.GetItemsByIdsAsync(ids);
+            _texasViolationSourceTypeLabel = _editTexasViolationSourceTypeId.HasValue ? labels.GetValueOrDefault(_editTexasViolationSourceTypeId.Value) : null;
+            _texasViolationGroupLabel = _editTexasViolationGroupId.HasValue ? labels.GetValueOrDefault(_editTexasViolationGroupId.Value) : null;
+            _texasSpeedBandLabel = _editTexasSpeedBandId.HasValue ? labels.GetValueOrDefault(_editTexasSpeedBandId.Value) : null;
+        }
+
+        await ResolveTexasAppearanceLocationDisplayAsync();
+    }
+
+    private async Task ResolveTexasAppearanceLocationDisplayAsync()
+    {
+        if (_editTexasCourtAppearanceLocationId.HasValue)
+        {
+            var location = await LocationService.GetByIdAsync(_editTexasCourtAppearanceLocationId.Value);
+            _editTexasCourtAppearanceLocationDisplay = location is null ? null : FormatLocationDisplay(location);
+            return;
+        }
+
+        _editTexasCourtAppearanceLocationDisplay = null;
+    }
+
+    private void OnTexasCourtAppearanceChanged(ChangeEventArgs e)
+    {
+        if (DateTimeLocalInputHelper.TryParse(e.Value?.ToString(), out var value))
+        {
+            _editTexasCourtAppearanceDateTime = value;
+        }
+        else
+        {
+            _editTexasCourtAppearanceDateTime = null;
+        }
+    }
+
+    private void OnTexasAffidavitSignedDateChanged(ChangeEventArgs e)
+    {
+        if (DateTime.TryParse(e.Value?.ToString(), out var value))
+        {
+            _editTexasAffidavitSignedDate = value.Date;
+        }
+        else
+        {
+            _editTexasAffidavitSignedDate = null;
+        }
+    }
+
+    private void OnTexasAppearanceLocationSelected(LocationDto location)
+    {
+        _editTexasCourtAppearanceLocationId = location.Id;
+        _editTexasCourtAppearanceLocationDisplay = FormatLocationDisplay(location);
+        _showTexasAppearanceLocationModal = false;
+    }
+
+    private Task OnTexasAppearanceLocationCreatedAsync(LocationDto location)
+    {
+        TrackCreatedForeignRecord($"Location #{location.RecordNumber} was created. If you discard this page, it will remain in the system but will not be linked to this citation.");
+        return Task.CompletedTask;
+    }
+
+    private void OnTexasAppearanceLocationCleared()
+    {
+        _editTexasCourtAppearanceLocationId = null;
+        _editTexasCourtAppearanceLocationDisplay = null;
+        _showTexasAppearanceLocationModal = false;
+    }
+
+    private void ClearTexasAppearanceLocation()
+    {
+        _editTexasCourtAppearanceLocationId = null;
+        _editTexasCourtAppearanceLocationDisplay = null;
+    }
+
+    private void OnAtTimeOfDateOfBirthChanged(ChangeEventArgs e)
+    {
+        if (DateTime.TryParse(e.Value?.ToString(), out var value))
+        {
+            _editAtTimeOfDateOfBirth = value;
+        }
+        else
+        {
+            _editAtTimeOfDateOfBirth = null;
+        }
+    }
+
     private static string FormatLocationDisplay(LocationDto loc)
     {
         var parts = new List<string>();
@@ -662,6 +2071,69 @@ else if (_citation is not null)
         return string.Join(" ", parts);
     }
 
+    private static string? NullIfWhiteSpace(string? value)
+        => string.IsNullOrWhiteSpace(value) ? null : value.Trim();
+
+    private IReadOnlyList<RecordChargeDto>? VisibleCharges =>
+        _charges is null
+            ? null
+            : _charges
+                .Where(c => !_pendingChargeRemoves.Contains(c.ChargeId))
+                .Concat(_pendingChargeAdds.Values
+                    .Where(p => _charges.All(existing => existing.ChargeId != p.Charge.Id))
+                    .Select(p => MapCharge(p.Charge, p.LinkedAtUtc)))
+                .OrderByDescending(c => c.LinkedAtUtc)
+                .ToList();
+
+    private IReadOnlyList<IncidentCitationLinkDto>? VisibleLinkedIncidents =>
+        _linkedIncidents is null
+            ? null
+            : _linkedIncidents
+                .Where(link => !_pendingIncidentLinkRemoves.Contains(link.IncidentId))
+                .Concat(_pendingIncidentLinkAdds.Values
+                    .Where(p => _linkedIncidents.All(existing => existing.IncidentId != p.Incident.Id))
+                    .Select(p => MapIncidentLink(p.Incident, p.LinkedAtUtc)))
+                .OrderByDescending(link => link.LinkedAtUtc)
+                .ToList();
+
+    private static RecordChargeDto MapCharge(ChargeDto charge, DateTime linkedAtUtc) =>
+        new(
+            charge.Id,
+            charge.OffenseName,
+            charge.UcrCode,
+            charge.ChargeLevel,
+            charge.StateClass,
+            charge.IsCitationEligible,
+            charge.IsActive,
+            linkedAtUtc);
+
+    private static IncidentCitationLinkDto MapIncidentLink(IncidentDto incident, DateTime linkedAtUtc) =>
+        new(
+            Guid.Empty,
+            incident.Id,
+            incident.RecordNumber,
+            string.IsNullOrWhiteSpace(incident.Details.IncidentNum) ? $"Incident #{incident.RecordNumber}" : incident.Details.IncidentNum,
+            Guid.Empty,
+            linkedAtUtc);
+
+    private string? GetReleaseWarningMessage() =>
+        _createdForeignRecords.Count == 0 ? null : string.Join(" ", _createdForeignRecords);
+
+    private void TrackCreatedForeignRecord(string message)
+    {
+        if (!_createdForeignRecords.Contains(message, StringComparer.Ordinal))
+            _createdForeignRecords.Add(message);
+    }
+
+    private void ClearPendingChanges()
+    {
+        _pendingChargeAdds.Clear();
+        _pendingChargeRemoves.Clear();
+        _pendingIncidentLinkAdds.Clear();
+        _pendingIncidentLinkRemoves.Clear();
+        _createdForeignRecords.Clear();
+    }
+
     public ValueTask DisposeAsync()
     {
         ShortcutService.OnNew     -= HandleShortcutNew;
@@ -669,6 +2141,7 @@ else if (_citation is not null)
         ShortcutService.OnRelease -= HandleShortcutRelease;
         ShortcutService.OnSave    -= HandleShortcutSave;
         StopLockTimer();
+        ReleaseAgencySelectionLock();
         return ValueTask.CompletedTask;
     }
 }

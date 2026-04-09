@@ -42,7 +42,13 @@ public interface INameService
         string? localNumber = null,
         string? socialSecurityNumber = null,
         bool isCitizen = false,
-        DateTime? deceasedDate = null);
+        DateTime? deceasedDate = null,
+        string? primaryPhone = null,
+        string? primaryPhoneExtension = null,
+        string? workPhone = null,
+        string? workPhoneExtension = null,
+        string? otherPhone = null,
+        string? otherPhoneExtension = null);
     Task UpdateDetailsAsync(
         Guid id,
         string nameType,
@@ -66,7 +72,13 @@ public interface INameService
         bool isCitizen = false,
         DateTime? deceasedDate = null,
         Guid? primaryLocationId = null,
-        Guid? secondaryLocationId = null);
+        Guid? secondaryLocationId = null,
+        string? primaryPhone = null,
+        string? primaryPhoneExtension = null,
+        string? workPhone = null,
+        string? workPhoneExtension = null,
+        string? otherPhone = null,
+        string? otherPhoneExtension = null);
     Task AcquireLockAsync(Guid id);
     Task ReleaseLockAsync(Guid id);
     Task SoftDeleteAsync(Guid id);

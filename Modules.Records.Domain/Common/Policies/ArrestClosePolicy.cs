@@ -21,7 +21,7 @@ public sealed class ArrestClosePolicy : IClosePolicy<Arrest>
 
         var specs = new List<ISpecification<Arrest>>
         {
-            new SuspectNameProvidedSpecification(),
+            new NameProvidedSpecification(),
             new ArrestDateNotFutureSpecification()
         };
 

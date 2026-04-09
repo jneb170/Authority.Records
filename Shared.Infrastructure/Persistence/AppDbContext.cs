@@ -1,6 +1,8 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.ChangeTracking;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
 using Modules.Records.Application.Abstractions;
 using Modules.Records.Application.ReadModels;
 using Modules.Records.Domain.Abstractions;
@@ -23,12 +25,13 @@ public class AppDbContext : DbContext, IApplicationDbContext
 {
     protected readonly ITenantProvider _tenantProvider;
     protected readonly IDomainEventDispatcher _domainEventDispatcher;
+    private readonly ILogger<AppDbContext> _logger;
 
     public Guid CurrentTenantId => _tenantProvider.GetJurisdictionId();
 
     public DbSet<OutboxMessage> OutboxMessages => Set<OutboxMessage>();
     public DbSet<DeadLetterMessage> DeadLetterMessages => Set<DeadLetterMessage>();
-    public DbSet<AuditTrailEntry> AuditTrailEntries => Set<AuditTrailEntry>();
+    public DbSet<AuditLogReadModel> AuditLogReadModels => Set<AuditLogReadModel>();
 
     // Read models
     public DbSet<IncidentReadModel> IncidentReadModels => Set<IncidentReadModel>();
@@ -45,13 +48,22 @@ public class AppDbContext : DbContext, IApplicationDbContext
     public DbSet<Incident> Incidents => Set<Incident>();
     public IQueryable<Incident> AllIncidentsWithDeleted => Set<Incident>().IgnoreQueryFilters();
     public DbSet<Arrest> Arrests => Set<Arrest>();
+    public DbSet<ArrestNameSnapshot> ArrestNameSnapshots => Set<ArrestNameSnapshot>();
     public DbSet<Citation> Citations => Set<Citation>();
+    public DbSet<CitationNameSnapshot> CitationNameSnapshots => Set<CitationNameSnapshot>();
+    public DbSet<CitationOfficerProfile> CitationOfficerProfiles => Set<CitationOfficerProfile>();
+    public DbSet<CitationTexasDetails> CitationTexasDetails => Set<CitationTexasDetails>();
+    public DbSet<CitationVehicle> CitationVehicles => Set<CitationVehicle>();
+    public DbSet<Charge> Charges => Set<Charge>();
     public DbSet<Name> Names => Set<Name>();
     public DbSet<Location> Locations => Set<Location>();
     public DbSet<Mugshot> Mugshots => Set<Mugshot>();
     public DbSet<MugshotLink> MugshotLinks => Set<MugshotLink>();
     public DbSet<IncidentArrestLink> IncidentArrestLinks => Set<IncidentArrestLink>();
     public DbSet<IncidentCitationLink> IncidentCitationLinks => Set<IncidentCitationLink>();
+    public DbSet<ArrestChargeLink> ArrestChargeLinks => Set<ArrestChargeLink>();
+    public DbSet<CitationChargeLink> CitationChargeLinks => Set<CitationChargeLink>();
+    public DbSet<IncidentChargeLink> IncidentChargeLinks => Set<IncidentChargeLink>();
 
     public DbSet<JurisdictionConfiguration> JurisdictionConfigurations => Set<JurisdictionConfiguration>();
     public DbSet<AgencyConfiguration> AgencyConfigurations => Set<AgencyConfiguration>();
@@ -66,22 +78,26 @@ public class AppDbContext : DbContext, IApplicationDbContext
     public AppDbContext(
         DbContextOptions<AppDbContext> options, 
         ITenantProvider tenantProvider, 
-        IDomainEventDispatcher domainEventDispatcher)
+        IDomainEventDispatcher domainEventDispatcher,
+        ILogger<AppDbContext>? logger = null)
         : base(options)
     {
         _tenantProvider = tenantProvider;
         _domainEventDispatcher = domainEventDispatcher;
+        _logger = logger ?? NullLogger<AppDbContext>.Instance;
     }
 
     // Protected overload for derived test contexts (e.g. TestAppDbContext)
     protected AppDbContext(
         DbContextOptions options,
         ITenantProvider tenantProvider,
-        IDomainEventDispatcher domainEventDispatcher)
+        IDomainEventDispatcher domainEventDispatcher,
+        ILogger<AppDbContext>? logger = null)
         : base(options)
     {
         _tenantProvider = tenantProvider;
         _domainEventDispatcher = domainEventDispatcher;
+        _logger = logger ?? NullLogger<AppDbContext>.Instance;
     }
 
     public override int SaveChanges()
@@ -111,6 +127,7 @@ public class AppDbContext : DbContext, IApplicationDbContext
     public override async Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)
     {
         UpdateRowVersions();
+        Guid? tenantId = null;
 
         var domainEntities = ChangeTracker.Entries<AggregateRoot>()
             .Where(e =>
@@ -132,20 +149,22 @@ public class AppDbContext : DbContext, IApplicationDbContext
         // attempt to resolve the tenant from the request pipeline.
         if (domainEvents.Count > 0)
         {
-            var tenantId = CurrentTenantId;
+            tenantId = CurrentTenantId;
+
+            var aggregatesById = domainEntities
+                .Select(x => x.Entity)
+                .GroupBy(x => x.Id)
+                .ToDictionary(x => x.Key, x => x.Last());
 
             foreach (var domainEvent in domainEvents)
             {
-                OutboxMessages.Add(new OutboxMessage(domainEvent, tenantId));
+                OutboxMessages.Add(new OutboxMessage(domainEvent, tenantId.Value));
 
-                AuditTrailEntries.Add(AuditTrailEntry.Create(
-                    eventId:          domainEvent.EventId,
-                    eventType:        domainEvent.GetType().Name,
-                    occurredOnUtc:    domainEvent.OccurredOnUtc,
-                    jurisdictionId:   tenantId,
-                    aggregateId:      domainEvent.AggregateId,
-                    aggregateVersion: domainEvent.AggregateVersion,
-                    payload:          JsonSerializer.Serialize(domainEvent, domainEvent.GetType())));
+                aggregatesById.TryGetValue(domainEvent.AggregateId, out var aggregate);
+                AuditLogReadModels.Add(AuditLogEntryFactory.CreateFromDomainEvent(
+                    domainEvent,
+                    aggregate,
+                    tenantId.Value));
             }
         }
 
@@ -162,7 +181,30 @@ public class AppDbContext : DbContext, IApplicationDbContext
         // Projection handlers are idempotent, so the outbox processor's later
         // dispatch is a safe no-op.
         if (domainEvents.Count > 0)
-            await _domainEventDispatcher.DispatchAsync(domainEvents, cancellationToken);
+        {
+            try
+            {
+                await _domainEventDispatcher.DispatchAsync(domainEvents, cancellationToken);
+            }
+            catch (Exception ex)
+            {
+                var aggregateIds = domainEvents
+                    .Select(domainEvent => domainEvent.AggregateId)
+                    .Distinct()
+                    .ToArray();
+                var eventTypes = domainEvents
+                    .Select(domainEvent => domainEvent.GetType().Name)
+                    .Distinct()
+                    .ToArray();
+
+                _logger.LogError(
+                    ex,
+                    "Immediate domain event dispatch failed after commit. Write model changes succeeded and the outbox will retry asynchronously. TenantId: {TenantId}; AggregateIds: {AggregateIds}; EventTypes: {EventTypes}",
+                    tenantId,
+                    aggregateIds,
+                    eventTypes);
+            }
+        }
 
         return result;
     }

@@ -1,0 +1,16 @@
+@page "/names/{RecordNumber:long}/relationships"
+@using Modules.Records.Application.Relationships.Queries.GetRecordRelationships
+
+<RecordRelationshipsPanel RecordType="@RecordRelationshipRecordTypes.Name"
+                          RecordNumber="@RecordNumber"
+                          ListUrl="/names"
+                          ListLabel="Names"
+                          DetailsUrl="@DetailsUrl"
+                          RelationshipsUrl="@RelationshipsUrl" />
+
+@code {
+    [Parameter] public long RecordNumber { get; set; }
+
+    private string DetailsUrl => $"/names/{RecordNumber}";
+    private string RelationshipsUrl => $"/names/{RecordNumber}/relationships";
+}

@@ -2,7 +2,9 @@
 @implements IDisposable
 @inject NavigationManager Nav
 @inject AuthenticationStateProvider AuthStateProvider
+@inject IActiveAgencyContext AgencyContext
 @using System.Security.Claims
+@using Modules.Records.UI.Services
 
 <div class="app-shell">
     @if (_sidebarOpen)
@@ -25,7 +27,31 @@
                             <span class="top-header-context-label">@CurrentWorkspaceLabel</span>
                             <span class="top-header-context-name">@(_agencyName ?? "Operational workspace")</span>
                         </div>
-                        <div class="top-header-user">
+                         <div class="top-header-user">
+                            @if (!_isSuper)
+                            {
+                                <div class="top-header-agency">
+                                    <label class="top-header-agency-label" for="active-agency-selector">Agency</label>
+                                    <select id="active-agency-selector"
+                                            class="form-select form-select-sm top-header-agency-select"
+                                            value="@ActiveAgencyValue"
+                                            @onchange="OnActiveAgencyChanged"
+                                            disabled="@IsAgencySelectorDisabled">
+                                        @if (!AgencyContext.HasAvailableAgencies)
+                                        {
+                                            <option value="">No agencies assigned</option>
+                                        }
+                                        else
+                                        {
+                                            @foreach (var agency in AgencyContext.AvailableAgencies)
+                                            {
+                                                <option value="@agency.Id">@agency.Name</option>
+                                            }
+                                        }
+                                    </select>
+                                    <span class="top-header-agency-note">@AgencySelectorNote</span>
+                                </div>
+                            }
                             <div class="top-header-avatar">@_initials</div>
                             <div class="top-header-user-copy">
                                 <span class="top-header-user-name">@_displayName</span>
@@ -46,6 +72,12 @@
                 }
             </Authorized>
         </AuthorizeView>
+        @if (AgencyBannerMessage is not null)
+        {
+            <div class="alert alert-warning top-header-agency-banner" role="alert">
+                <i class="bi bi-exclamation-triangle-fill me-2"></i>@AgencyBannerMessage
+            </div>
+        }
         <div class="main-content">
             @if (!_suppressBody)
             {
@@ -57,7 +89,12 @@
 
 @if (!_suppressBody)
 {
-    <KeyboardShortcutHandler />
+    <AuthorizeView>
+        <Authorized>
+            <ApplicationActivityHandler />
+            <KeyboardShortcutHandler />
+        </Authorized>
+    </AuthorizeView>
 }
 
 @code {
@@ -69,19 +106,36 @@
     private string? _role;
     private string _initials = "?";
     private string CurrentWorkspaceLabel => GetWorkspaceLabel(new Uri(Nav.Uri).AbsolutePath);
+    private string ActiveAgencyValue => AgencyContext.HasSelectedAgency ? AgencyContext.ActiveAgencyId.ToString() : string.Empty;
+    private bool IsAgencySelectorDisabled =>
+        AgencyContext.IsSelectionLocked ||
+        !AgencyContext.HasAvailableAgencies ||
+        AgencyContext.AvailableAgencies.Count <= 1;
+    private string AgencySelectorNote =>
+        !AgencyContext.HasAvailableAgencies ? "No agencies assigned" :
+        AgencyContext.IsSelectionLocked ? "Locked while editing" :
+        AgencyContext.AvailableAgencies.Count == 1 ? "Single assigned agency" :
+        "Applies to this session";
+    private string? AgencyBannerMessage =>
+        _suppressBody || _isSuper || !AgencyContext.HasLoaded || AgencyContext.HasSelectedAgency
+            ? null
+            : "No active agency is available for this session. Record creation is disabled until an administrator assigns you a default agency and agency access.";
 
     protected override async Task OnInitializedAsync()
     {
         Nav.LocationChanged += OnLocationChanged;
+        AgencyContext.Changed += HandleAgencyContextChanged;
         var authState = await AuthStateProvider.GetAuthenticationStateAsync();
         var user = authState.User;
         _isSuper = user.IsInRole("Super");
         UpdateSuppressBody();
+        await AgencyContext.EnsureLoadedAsync();
 
         _displayName = user.FindFirst("fullname")?.Value
                     ?? user.FindFirst(ClaimTypes.Name)?.Value
                     ?? user.Identity?.Name;
-        _agencyName  = user.FindFirst("agencyname")?.Value;
+        _agencyName  = AgencyContext.ActiveAgencyName
+                    ?? user.FindFirst("agencyname")?.Value;
         _role        = user.FindFirst(ClaimTypes.Role)?.Value
                     ?? user.FindFirst("role")?.Value;
 
@@ -91,6 +145,21 @@
             _initials = parts.Length >= 2
                 ? $"{char.ToUpper(parts[0][0])}{char.ToUpper(parts[^1][0])}"
                 : _displayName[..Math.Min(2, _displayName.Length)].ToUpper();
+        }
+    }
+
+    private async Task OnActiveAgencyChanged(ChangeEventArgs args)
+    {
+        if (args.Value is not string value || !Guid.TryParse(value, out var agencyId))
+            return;
+
+        var previouslySelectedAgencyId = AgencyContext.ActiveAgencyId;
+        var changed = await AgencyContext.SetActiveAgencyAsync(agencyId);
+        _agencyName = AgencyContext.ActiveAgencyName;
+
+        if (changed && previouslySelectedAgencyId != agencyId)
+        {
+            Nav.Refresh();
         }
     }
 
@@ -105,6 +174,13 @@
             Nav.NavigateTo("/super/jurisdictions", replace: true);
         StateHasChanged();
     }
+
+    private void HandleAgencyContextChanged()
+        => _ = InvokeAsync(() =>
+        {
+            _agencyName = AgencyContext.ActiveAgencyName;
+            StateHasChanged();
+        });
 
     private void UpdateSuppressBody()
     {
@@ -134,5 +210,9 @@
         Nav.NavigateTo("/super/jurisdictions", replace: true);
     }
 
-    public void Dispose() => Nav.LocationChanged -= OnLocationChanged;
+    public void Dispose()
+    {
+        Nav.LocationChanged -= OnLocationChanged;
+        AgencyContext.Changed -= HandleAgencyContextChanged;
+    }
 }

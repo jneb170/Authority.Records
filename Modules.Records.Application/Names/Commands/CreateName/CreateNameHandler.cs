@@ -41,7 +41,13 @@ public sealed class CreateNameHandler : IRequestHandler<CreateNameCommand, long>
             request.LocalNumber,
             request.SocialSecurityNumber,
             request.IsCitizen,
-            request.DeceasedDate);
+            request.DeceasedDate,
+            request.PrimaryPhone,
+            request.PrimaryPhoneExtension,
+            request.WorkPhone,
+            request.WorkPhoneExtension,
+            request.OtherPhone,
+            request.OtherPhoneExtension);
 
         _dbContext.Names.Add(name);
         await _dbContext.SaveChangesAsync(cancellationToken);

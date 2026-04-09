@@ -42,10 +42,10 @@ internal static class StreetParser
             Dictionary<string, Guid> streetTypeDict)
     {
         if (string.IsNullOrWhiteSpace(route))
-            return (null, route, null, null);
+            return (null, null, null, null);
 
         var tokens = route.Trim().Split(' ', StringSplitOptions.RemoveEmptyEntries);
-        if (tokens.Length == 0) return (null, route, null, null);
+        if (tokens.Length == 0) return (null, null, null, null);
 
         int start = 0;
         int end   = tokens.Length - 1;

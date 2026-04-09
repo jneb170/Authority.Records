@@ -5,7 +5,9 @@ public sealed record ArrestDto(
     long RecordNumber,
     Guid JurisdictionId,
     Guid AgencyId,
-    string SuspectName,
+    Guid? NameId,
+    string? SuspectName,
+    long? NameRecordNumber,
     DateTime ArrestedAt,
     string Status,
     bool IsLocked,
@@ -17,4 +19,8 @@ public sealed record ArrestDto(
     Guid? ArrestTypeId = null,
     string ArrestNum = "",
     Guid? LocationId = null,
-    string? PrimaryMugshotUrl = null);
+    Guid? PrimaryIncidentId = null,
+    long? PrimaryIncidentRecordNumber = null,
+    string? PrimaryIncidentNum = null,
+    string? PrimaryMugshotUrl = null,
+    NameSnapshotDto? AtTimeOfName = null);

@@ -1,0 +1,296 @@
+@page "/admin/charges"
+@attribute [Authorize(Roles = "Admin")]
+@inject IChargeService ChargeService
+@using Microsoft.AspNetCore.Authorization
+@using Modules.Records.Application.DTOs
+@using Modules.Records.UI.Services
+
+<PageTitle>Admin — Charges</PageTitle>
+
+<div class="page-header">
+    <div>
+        <h2 class="page-header-title"><i class="bi bi-exclamation-diamond-fill"></i> Charges</h2>
+        <div class="page-header-sub">Manage the master charge catalog used by incidents, arrests, and citations.</div>
+    </div>
+</div>
+
+@if (_error is not null)
+{
+    <div class="alert alert-danger">@_error</div>
+}
+
+@if (_successMessage is not null)
+{
+    <div class="alert alert-success">@_successMessage</div>
+}
+
+<div class="card mb-3">
+    <div class="card-body">
+        <div class="row g-2 align-items-end">
+            <div class="col-md-6">
+                <label class="form-label">Search</label>
+                <input class="form-control form-control-sm" @bind="_searchTerm" @bind:event="oninput" placeholder="Offense name, UCR code, level..." />
+            </div>
+            <div class="col-md-3">
+                <div class="form-check form-switch mt-4">
+                    <input class="form-check-input" type="checkbox" id="inactiveSwitch" @bind="_includeInactive" />
+                    <label class="form-check-label" for="inactiveSwitch">Include inactive</label>
+                </div>
+            </div>
+            <div class="col-md-3 text-md-end">
+                <button class="btn btn-sm btn-primary" @onclick="LoadAsync">Refresh</button>
+                <button class="btn btn-sm btn-outline-primary ms-2" @onclick="StartAdd">Add Charge</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+@if (_showEditor)
+{
+    <div class="card mb-3">
+        <div class="card-body">
+            <h6 class="card-title">@(_editingId.HasValue ? "Edit Charge" : "New Charge")</h6>
+            <div class="row g-2">
+                <div class="col-md-6">
+                    <label class="form-label">Offense Name</label>
+                    <input class="form-control form-control-sm" @bind="_editOffenseName" />
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label">UCR Code</label>
+                    <input class="form-control form-control-sm" @bind="_editUcrCode" />
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label">Charge Level</label>
+                    <input class="form-control form-control-sm" @bind="_editChargeLevel" />
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label">UCR Category</label>
+                    <input class="form-control form-control-sm" @bind="_editUcrCategory" />
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label">NIBRS Group</label>
+                    <input class="form-control form-control-sm" @bind="_editNibrsGroup" />
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label">Crime Against</label>
+                    <input class="form-control form-control-sm" @bind="_editCrimeAgainst" />
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label">State Class</label>
+                    <input class="form-control form-control-sm" @bind="_editStateClass" />
+                </div>
+                <div class="col-md-3">
+                    <div class="form-check mt-4">
+                        <input class="form-check-input" type="checkbox" id="citationEligible" @bind="_editCitationEligible" />
+                        <label class="form-check-label" for="citationEligible">Citation eligible</label>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="form-check mt-4">
+                        <input class="form-check-input" type="checkbox" id="chargeActive" @bind="_editIsActive" />
+                        <label class="form-check-label" for="chargeActive">Active</label>
+                    </div>
+                </div>
+            </div>
+            <div class="mt-3">
+                <button class="btn btn-sm btn-success" @onclick="SaveAsync">Save</button>
+                <button class="btn btn-sm btn-outline-secondary ms-2" @onclick="CancelEdit">Cancel</button>
+            </div>
+        </div>
+    </div>
+}
+
+<div class="card">
+    <div class="card-body">
+        @if (_loading)
+        {
+            <LoadingSpinner />
+        }
+        else if (!_charges.Any())
+        {
+            <p class="text-muted mb-0">No charges found.</p>
+        }
+        else
+        {
+            <table class="table table-sm align-middle mb-0">
+                <thead>
+                    <tr>
+                        <th>Offense</th>
+                        <th>UCR</th>
+                        <th>Level</th>
+                        <th>Crime Against</th>
+                        <th>State Class</th>
+                        <th>Active</th>
+                        <th>Citation</th>
+                        <th></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var charge in _charges)
+                    {
+                        <tr class="@(!charge.IsActive ? "text-muted" : string.Empty)">
+                            <td>@charge.OffenseName</td>
+                            <td><code>@charge.UcrCode</code></td>
+                            <td>@charge.ChargeLevel</td>
+                            <td>@charge.CrimeAgainst</td>
+                            <td>@(string.IsNullOrWhiteSpace(charge.StateClass) ? "—" : charge.StateClass)</td>
+                            <td>@(charge.IsActive ? "Yes" : "No")</td>
+                            <td>@(charge.IsCitationEligible ? "Eligible" : "No")</td>
+                            <td class="text-end">
+                                <button class="btn btn-sm btn-outline-secondary me-1" @onclick="() => StartEdit(charge)">Edit</button>
+                                @if (charge.IsActive)
+                                {
+                                    <button class="btn btn-sm btn-outline-warning me-1" @onclick="() => DeactivateAsync(charge.Id)">Deactivate</button>
+                                }
+                                else
+                                {
+                                    <button class="btn btn-sm btn-outline-success me-1" @onclick="() => ActivateAsync(charge.Id)">Activate</button>
+                                }
+                                <button class="btn btn-sm btn-outline-danger" @onclick="() => DeleteAsync(charge.Id)">Delete</button>
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        }
+    </div>
+</div>
+
+@code {
+    private IReadOnlyList<ChargeDto> _charges = [];
+    private bool _loading = true;
+    private bool _includeInactive = true;
+    private string _searchTerm = string.Empty;
+    private string? _error;
+    private string? _successMessage;
+    private bool _showEditor;
+    private Guid? _editingId;
+    private string _editOffenseName = string.Empty;
+    private string _editUcrCategory = string.Empty;
+    private string _editNibrsGroup = string.Empty;
+    private string _editCrimeAgainst = string.Empty;
+    private string _editUcrCode = string.Empty;
+    private string _editChargeLevel = string.Empty;
+    private string? _editStateClass;
+    private bool _editCitationEligible;
+    private bool _editIsActive = true;
+
+    protected override Task OnInitializedAsync() => LoadAsync();
+
+    private async Task LoadAsync()
+    {
+        _loading = true;
+        _error = null;
+
+        try
+        {
+            _charges = await ChargeService.SearchAsync(_searchTerm, includeInactive: _includeInactive);
+        }
+        catch (Exception ex)
+        {
+            _error = ex.Message;
+        }
+        finally
+        {
+            _loading = false;
+        }
+    }
+
+    private void StartAdd()
+    {
+        _editingId = null;
+        _editOffenseName = string.Empty;
+        _editUcrCategory = string.Empty;
+        _editNibrsGroup = string.Empty;
+        _editCrimeAgainst = string.Empty;
+        _editUcrCode = string.Empty;
+        _editChargeLevel = string.Empty;
+        _editStateClass = null;
+        _editCitationEligible = false;
+        _editIsActive = true;
+        _showEditor = true;
+    }
+
+    private void StartEdit(ChargeDto charge)
+    {
+        _editingId = charge.Id;
+        _editOffenseName = charge.OffenseName;
+        _editUcrCategory = charge.UcrCategory;
+        _editNibrsGroup = charge.NibrsGroup;
+        _editCrimeAgainst = charge.CrimeAgainst;
+        _editUcrCode = charge.UcrCode;
+        _editChargeLevel = charge.ChargeLevel;
+        _editStateClass = charge.StateClass;
+        _editCitationEligible = charge.IsCitationEligible;
+        _editIsActive = charge.IsActive;
+        _showEditor = true;
+    }
+
+    private void CancelEdit()
+    {
+        _showEditor = false;
+        _editingId = null;
+    }
+
+    private async Task SaveAsync()
+    {
+        await RunAsync(async () =>
+        {
+            if (_editingId.HasValue)
+            {
+                await ChargeService.UpdateAsync(
+                    _editingId.Value,
+                    _editOffenseName,
+                    _editUcrCategory,
+                    _editNibrsGroup,
+                    _editCrimeAgainst,
+                    _editUcrCode,
+                    _editChargeLevel,
+                    _editStateClass,
+                    _editCitationEligible,
+                    _editIsActive);
+            }
+            else
+            {
+                await ChargeService.CreateAsync(
+                    _editOffenseName,
+                    _editUcrCategory,
+                    _editNibrsGroup,
+                    _editCrimeAgainst,
+                    _editUcrCode,
+                    _editChargeLevel,
+                    _editStateClass,
+                    _editCitationEligible,
+                    _editIsActive);
+            }
+
+            _showEditor = false;
+        }, _editingId.HasValue ? "Charge updated." : "Charge created.");
+    }
+
+    private Task ActivateAsync(Guid chargeId) =>
+        RunAsync(() => ChargeService.ActivateAsync(chargeId), "Charge activated.");
+
+    private Task DeactivateAsync(Guid chargeId) =>
+        RunAsync(() => ChargeService.DeactivateAsync(chargeId), "Charge deactivated.");
+
+    private Task DeleteAsync(Guid chargeId) =>
+        RunAsync(() => ChargeService.DeleteAsync(chargeId), "Charge deleted.");
+
+    private async Task RunAsync(Func<Task> action, string successMessage)
+    {
+        _error = null;
+        _successMessage = null;
+
+        try
+        {
+            await action();
+            await LoadAsync();
+            _successMessage = successMessage;
+        }
+        catch (Exception ex)
+        {
+            _error = ex.Message;
+        }
+    }
+}

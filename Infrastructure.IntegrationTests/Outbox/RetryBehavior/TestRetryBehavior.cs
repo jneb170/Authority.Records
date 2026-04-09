@@ -1,7 +1,6 @@
-﻿using Infrastructure.IntegrationTests.Common;
+using Infrastructure.IntegrationTests.Common;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
-using Modules.Records.Domain.Abstractions;
 using Shared.Infrastructure.Outbox;
 using Shared.Infrastructure.Persistence;
 using Xunit;
@@ -22,15 +21,10 @@ public sealed class TestRetryBehavior : IntegrationTestBase
 
         using (var scope = ServiceProvider.CreateScope())
         {
-            var tenantProvider = (TestTenantProvider)
-                scope.ServiceProvider.GetRequiredService<ITenantProvider>();
-
-            tenantProvider.SetJurisdictionId(tenantId);
-
             var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
 
             aggregateId = Guid.NewGuid();
-            db.Add(new FailingAggregate(aggregateId, tenantId));
+            db.OutboxMessages.Add(new OutboxMessage(new FailingDomainEvent(aggregateId), tenantId));
 
             await db.SaveChangesAsync();
         }
@@ -47,24 +41,7 @@ public sealed class TestRetryBehavior : IntegrationTestBase
         using (var scope = ServiceProvider.CreateScope())
         {
             var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
-
-            // Debug: Check what's in the database
-            var outboxCount = await db.OutboxMessages.CountAsync();
-            var deadLetterCount = await db.DeadLetterMessages.CountAsync();
-            
             var outboxMessage = await db.OutboxMessages.FirstOrDefaultAsync();
-            
-            // Output diagnostic info
-            if (outboxMessage != null)
-            {
-                throw new Exception($"Test failed: Outbox message still exists. " +
-                    $"Error='{outboxMessage.Error}', " +
-                    $"RetryCount={outboxMessage.RetryCount}, " +
-                    $"IsFailedPermanently={outboxMessage.IsFailedPermanently}, " +
-                    $"ProcessingStartedOnUtc={outboxMessage.ProcessingStartedOnUtc}, " +
-                    $"ProcessedOnUtc={outboxMessage.ProcessedOnUtc}, " +
-                    $"Handler ExecutionCount={AlwaysFailingHandler.ExecutionCount}");
-            }
 
             // Message should have been moved to the dead letter queue
             Assert.Null(outboxMessage);
@@ -75,6 +52,6 @@ public sealed class TestRetryBehavior : IntegrationTestBase
             Assert.Null(deadLetterMessage.RequeuedOnUtc);
         }
 
-        Assert.True(AlwaysFailingHandler.ExecutionCount >= 1);
+        Assert.Equal(1, AlwaysFailingHandler.ExecutionCount);
     }
 }

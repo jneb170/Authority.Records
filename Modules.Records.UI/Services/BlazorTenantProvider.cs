@@ -15,14 +15,17 @@ public sealed class BlazorTenantProvider : ITenantProvider
 {
     private readonly IHttpContextAccessor _httpContextAccessor;
     private readonly AuthenticationStateProvider _authStateProvider;
+    private readonly IActiveAgencyContext _activeAgencyContext;
     private Guid? _backgroundTenantId;
 
     public BlazorTenantProvider(
         IHttpContextAccessor httpContextAccessor,
-        AuthenticationStateProvider authStateProvider)
+        AuthenticationStateProvider authStateProvider,
+        IActiveAgencyContext activeAgencyContext)
     {
         _httpContextAccessor = httpContextAccessor;
         _authStateProvider = authStateProvider;
+        _activeAgencyContext = activeAgencyContext;
     }
 
     private ClaimsPrincipal GetUser()
@@ -53,7 +56,13 @@ public sealed class BlazorTenantProvider : ITenantProvider
         return GetRequiredGuidClaim(GetUser(), "jurisdiction");
     }
 
-    public Guid GetAgencyId() => GetRequiredGuidClaim(GetUser(), "agency");
+    public Guid GetAgencyId()
+    {
+        if (_activeAgencyContext.HasLoaded)
+            return _activeAgencyContext.ActiveAgencyId;
+
+        return GetRequiredGuidClaim(GetUser(), "agency");
+    }
 
     public Guid GetUserId() => GetRequiredGuidClaim(GetUser(), ClaimTypes.NameIdentifier);
 

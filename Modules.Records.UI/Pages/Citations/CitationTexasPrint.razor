@@ -1,0 +1,979 @@
+@page "/citations/{RecordNumber:long}/texas-print"
+@layout PrintLayout
+@attribute [Authorize(Roles = "Admin,Supervisor,Dispatcher,Officer")]
+@inject ICitationService CitationService
+@inject IPicklistService PicklistService
+@inject ILocationService LocationService
+@inject IJSRuntime JS
+@implements IAsyncDisposable
+@using Microsoft.AspNetCore.Authorization
+@using Microsoft.JSInterop
+@using Modules.Records.Application.DTOs
+@using Modules.Records.Domain.Common
+@using Modules.Records.UI.Services
+@using Modules.Records.UI.Shared
+
+<PageTitle>@PrintDocumentTitle()</PageTitle>
+
+@if (!_loading && _error is null && _citation is not null)
+{
+    <div class="screen-actions">
+        <button class="btn-print" @onclick="TriggerPrintAsync">🖨 Print / Save as PDF</button>
+        <button @onclick="CloseWindow">✕ Close</button>
+        <div class="print-note">
+            For the cleanest PDF, use <strong>Portrait</strong>, <strong>Scale 100%</strong>, <strong>Margins: None/Minimum</strong>, and turn <strong>Headers and footers</strong> off in the browser print dialog.
+        </div>
+    </div>
+}
+
+@if (_loading)
+{
+    <p style="padding: 2rem;">Loading…</p>
+}
+else if (_error is not null)
+{
+    <p style="padding: 2rem; color: red;">@_error</p>
+}
+else if (_citation is not null)
+{
+    <div class="utc-page">
+        <div class="utc-reference-row">
+            <span>226985</span>
+            <span>31067269</span>
+            <span>8-8</span>
+        </div>
+
+        <div class="utc-topline">
+            <span class="tiny-logo">Authority Records</span>
+            <span class="vendor-line">G.A. THOMPSON, P.O. BOX 720254, DALLAS, TEXAS 75372</span>
+            <span>TX17-4R (NCR)</span>
+        </div>
+
+        <div class="dash-line"></div>
+
+        <div class="utc-title">UNIFORM TRAFFIC TICKET AND COMPLAINT</div>
+
+        <div class="utc-meta-row">
+            <div class="line-field"><span class="field-label">CASE NO.</span><span class="field-fill">@Display(_citation.CitationNum)</span></div>
+            <div class="line-field"><span class="field-label">DOCKET NO.</span><span class="field-fill">@Display(_citation.TexasDetails?.DocketNumber)</span></div>
+            <div class="line-field small"><span class="field-label">PAGE NO.</span><span class="field-fill">@Display(_citation.TexasDetails?.PageNumber)</span></div>
+        </div>
+
+        <div class="state-line">
+            <div>IN THE NAME AND BY THE AUTHORITY OF THE</div>
+            <div>STATE OF TEXAS</div>
+        </div>
+
+        <div class="section-heading">COMPLAINT - AFFIDAVIT</div>
+
+        <div class="affidavit-text">
+            IN THE <span class="inline-line">@Display(_courtLabel)</span> COURT OF
+            <span class="inline-line">@Display(_appearanceLocationDisplay, _citationLocationDisplay)</span>
+        </div>
+
+        <div class="affidavit-text">
+            THE UNDERSIGNED, BEING DULY SWORN, UPON HIS OATH DEPOSES AND SAYS:
+        </div>
+
+        <div class="time-row">
+            <div class="line-field grow"><span class="field-label">ON</span><span class="field-fill">@DateDisplay(_citation.IssueDate)</span></div>
+            <div class="line-field medium"><span class="field-label">THE</span><span class="field-fill">@DayOfMonthDisplay(_citation.IssueDate)</span></div>
+            <div class="line-field medium"><span class="field-label">DAY OF</span><span class="field-fill">@MonthYearDisplay(_citation.IssueDate)</span></div>
+            <div class="line-field medium"><span class="field-label">AT</span><span class="field-fill">@TimeDisplay(_citation.IssueDate)</span></div>
+            <div class="ampm">@AmPmDisplay(_citation.IssueDate)</div>
+        </div>
+
+        <div class="name-grid">
+            <div class="line-field name-last"><span class="field-label">NAME</span><span class="field-fill">@Display(LastNameDisplay())</span><span class="hint">(LAST)</span></div>
+            <div class="line-field name-first"><span class="hint">(PLEASE PRINT)</span><span class="field-fill">@Display(FirstNameDisplay())</span><span class="hint">(FIRST)</span></div>
+            <div class="line-field name-initial"><span class="field-fill">@Display(InitialDisplay())</span><span class="hint">(INITIAL)</span></div>
+        </div>
+
+        <div class="line-field"><span class="field-label">STREET</span><span class="field-fill">@Display(AddressStreetDisplay())</span></div>
+
+        <div class="identity-grid">
+            <div class="line-field wide"><span class="field-label">CITY - STATE</span><span class="field-fill">@Display(CityStateDisplay())</span></div>
+            <div class="line-field"><span class="field-label">AGE</span><span class="field-fill">@Display(AgeDisplay())</span></div>
+            <div class="line-field"><span class="field-label">BIRTH DATE</span><span class="field-fill">@DateDisplay(_citation.AtTimeOfName?.DateOfBirth)</span></div>
+            <div class="line-field"><span class="field-label">RACE</span><span class="field-fill">@Display(CompactRaceDisplay())</span></div>
+            <div class="line-field"><span class="field-label">SEX</span><span class="field-fill">@Display(_sexLabel)</span></div>
+            <div class="line-field"><span class="field-label">HT</span><span class="field-fill">@Display(HeightDisplay())</span></div>
+            <div class="line-field"><span class="field-label">WT</span><span class="field-fill">@Display(WeightDisplay())</span></div>
+        </div>
+
+        <div class="identity-grid driver-grid">
+            <div class="line-field wide"><span class="field-label">DRIV. LIC. NO.</span><span class="field-fill">@Display(_citation.AtTimeOfName?.DriversLicenseNumber)</span></div>
+            <div class="line-field"><span class="field-label">STATE</span><span class="field-fill">@Display(CompactState(_dlStateLabel))</span></div>
+            <div class="line-field"><span class="field-label">KIND</span><span class="field-fill">&nbsp;</span></div>
+            <div class="driver-note">DID UNLAWFULLY OPERATE (PARK)</div>
+        </div>
+
+        <div class="vehicle-flags">
+            <span>@Mark(_citation.Vehicle?.IsCommercial == true) COMMERCIAL VEHICLE</span>
+            <span>@Mark(_citation.Vehicle?.CarriesHazardousMaterial == true) HAZARDOUS MATERIAL</span>
+        </div>
+
+        <div class="vehicle-grid">
+            <div class="line-field wide"><span class="field-label">VEH. LIC. NO.</span><span class="field-fill">@Display(_citation.Vehicle?.PlateNumber)</span></div>
+            <div class="line-field"><span class="field-label">YR.</span><span class="field-fill">@NumberDisplay(_citation.Vehicle?.PlateYear)</span></div>
+            <div class="line-field"><span class="field-label">STATE</span><span class="field-fill">@Display(CompactState(_vehiclePlateStateLabel))</span></div>
+            <div class="line-field"><span class="field-label">YR.</span><span class="field-fill">@NumberDisplay(_citation.Vehicle?.ModelYear)</span></div>
+            <div class="line-field"><span class="field-label">MAKE</span><span class="field-fill">@Display(_citation.Vehicle?.Make)</span></div>
+            <div class="line-field"><span class="field-label">STYLE</span><span class="field-fill">@Display(_citation.Vehicle?.Style)</span></div>
+            <div class="line-field"><span class="field-label">COLOR</span><span class="field-fill">@Display(_citation.Vehicle?.Color)</span></div>
+        </div>
+
+        <div class="location-text">
+            UPON A PUBLIC STREET OR HIGHWAY, NAMELY <span class="inline-line long">@Display(_citation.TexasDetails?.OccurredAtText, _citationLocationDisplay)</span>
+            LOCATED IN THE CITY, VILLAGE, TOWNSHIP, COUNTY AND STATE AFORESAID AND DID THEN AND THERE COMMIT THE FOLLOWING OFFENSE.
+        </div>
+
+        <div class="mid-layout">
+            <div class="offense-panel">
+                <div class="offense-title">SPEEDING</div>
+                <div class="speed-row">
+                    <span class="over-limit-note">(over limit)</span>
+                    <span>@Mark(IsSpeedRange("5-10")) 5-10 m.p.h.</span>
+                    <span>@Mark(IsSpeedRange("11-15")) 11-15 m.p.h.</span>
+                    <span>@Mark(IsSpeedRange("over_15")) over 15 m.p.h.</span>
+                    <span class="mph-box">MPH @NumberDisplay(_citation.TexasDetails?.SpeedMph)</span>
+                    <span class="mph-box">in @NumberDisplay(_citation.TexasDetails?.ZoneMph) MPH zone</span>
+                </div>
+
+                <div class="checkbox-columns">
+                    <div class="checkbox-column">
+                        <div class="checkbox-item">@Mark(HasText("Unreasonable")) Unreasonable for conditions</div>
+                        <div class="checkbox-item">@Mark(HasText("Unable to stop")) Unable to stop in assured clear distance ahead</div>
+                        <div class="checkbox-item">@Mark(HasText("Improper left")) Improper LEFT TURN</div>
+                        <div class="checkbox-item">@Mark(HasText("Improper right")) Improper RIGHT TURN</div>
+                        <div class="checkbox-item">@Mark(HasText("Improper passing")) Improper PASSING AND LANE USAGE</div>
+                    </div>
+                    <div class="checkbox-column">
+                        <div class="checkbox-item">@Mark(HasText("No signal")) No Signal</div>
+                        <div class="checkbox-item">@Mark(HasText("Signal")) Signal device disobeyed</div>
+                        <div class="checkbox-item">@Mark(HasText("Wrong place")) Wrong place</div>
+                        <div class="checkbox-item">@Mark(HasText("At intersection")) At intersection</div>
+                        <div class="checkbox-item">@Mark(HasText("Lane")) Lane</div>
+                        <div class="checkbox-item">@Mark(HasText("Straddling")) Straddling</div>
+                    </div>
+                    <div class="checkbox-column">
+                        <div class="checkbox-item">@Mark(HasText("Cut corner")) Cut corner</div>
+                        <div class="checkbox-item">@Mark(HasText("Into wrong lane")) Into wrong lane</div>
+                        <div class="checkbox-item">@Mark(HasText("Middle of intersection")) Middle of intersection</div>
+                        <div class="checkbox-item">@Mark(HasText("Walk speed")) Walk speed</div>
+                        <div class="checkbox-item">@Mark(HasText("Cut in")) Cut in</div>
+                        <div class="checkbox-item">@Mark(HasText("On right")) On right</div>
+                        <div class="checkbox-item">@Mark(HasText("Wrong lane")) Wrong lane</div>
+                    </div>
+                    <div class="checkbox-column">
+                        <div class="checkbox-item">@Mark(HasText("From wrong lane")) From wrong lane</div>
+                        <div class="checkbox-item">@Mark(HasText("Wrong side")) Wrong side of pavement</div>
+                        <div class="checkbox-item">@Mark(HasText("Faster")) Faster</div>
+                        <div class="checkbox-item">@Mark(HasText("On hill")) On hill</div>
+                        <div class="checkbox-item">@Mark(HasText("On curve")) On curve</div>
+                    </div>
+                </div>
+
+                <div class="other-violations">
+                    <div class="line-field full"><span class="field-label">OTHER VIOLATIONS (describe)</span><span class="field-fill">@Display(_citation.TexasDetails?.NarrativeOtherViolations, _citation.TexasDetails?.PrimaryViolationDescription)</span></div>
+                    <div class="source-row">
+                        <span>@Mark(IsSource("state")) State Statute</span>
+                        <span>@Mark(IsSource("local")) Local Ordinance</span>
+                        <span class="section-ref">Sec. @Display(_citation.TexasDetails?.ViolationSection)</span>
+                    </div>
+                </div>
+
+                <div class="parking-row">
+                    <span class="parking-title">PARKING</span>
+                    <span>@Mark(IsParking()) Overtime</span>
+                    <span>@Mark(IsParking()) Area</span>
+                    <span>@Mark(IsParking()) Double Parking</span>
+                    <span>@Mark(IsParking()) Expired Meter</span>
+                </div>
+
+                <div class="bottom-grid">
+                    <div class="mini-panel">
+                        <div class="mini-title">CONTRIBUTORS TO LAST VIOLATION</div>
+                        <div class="checkbox-item">@Mark(HasText("Rain")) Rain</div>
+                        <div class="checkbox-item">@Mark(HasText("Snow")) Snow</div>
+                        <div class="checkbox-item">@Mark(HasText("Ice")) Ice</div>
+                        <div class="checkbox-item">@Mark(HasText("Night")) Night</div>
+                        <div class="checkbox-item">@Mark(HasText("Fog")) Fog</div>
+                    </div>
+                    <div class="mini-panel">
+                        <div class="mini-title">CAUSED PERSON TO DODGE</div>
+                        <div class="checkbox-item">@Mark(HasText("Pedestrian")) Pedestrian</div>
+                        <div class="checkbox-item">@Mark(HasText("Driver")) Driver</div>
+                        <div class="checkbox-item">@Mark(HasText("missed")) Just missed accident</div>
+                    </div>
+                    <div class="mini-panel">
+                        <div class="mini-title">TYPE OF COLLISION</div>
+                        <div class="checkbox-item">@Mark(HasText("PD")) PD</div>
+                        <div class="checkbox-item">@Mark(HasText("PI")) PI</div>
+                        <div class="checkbox-item">@Mark(HasText("Fatal")) Fatal</div>
+                        <div class="checkbox-item">@Mark(HasText("Vehicle")) Vehicle</div>
+                        <div class="checkbox-item">@Mark(HasText("Fixed")) Hit fixed object</div>
+                        <div class="checkbox-item">@Mark(HasText("Right angle")) Right angle</div>
+                        <div class="checkbox-item">@Mark(HasText("Head on")) Head on</div>
+                        <div class="checkbox-item">@Mark(HasText("Sideswipe")) Sideswipe</div>
+                        <div class="checkbox-item">@Mark(HasText("Rear end")) Rear end</div>
+                    </div>
+                </div>
+
+                <div class="area-row">
+                    <span>AREA:</span>
+                    <span>@Mark(HasLabel(_violationGroupLabel, "Business")) Business</span>
+                    <span>@Mark(HasLabel(_violationGroupLabel, "School")) School</span>
+                    <span>@Mark(HasLabel(_violationGroupLabel, "Residential")) Residential</span>
+                    <span>@Mark(HasLabel(_violationGroupLabel, "Rural")) Rural</span>
+                </div>
+
+                <div class="area-row">
+                    <span>HIGHWAY TYPE:</span>
+                    <span>@Mark(HasLabel(_speedBandLabel, "2 lane")) 2 lane undivided</span>
+                    <span>@Mark(HasLabel(_speedBandLabel, "3 lane")) 3 lane undivided</span>
+                    <span>@Mark(HasLabel(_speedBandLabel, "4 lane")) 4 lane undivided</span>
+                    <span>@Mark(HasLabel(_speedBandLabel, "divided")) 4 lane divided</span>
+                </div>
+            </div>
+
+            <div class="side-columns">
+                <div class="vertical-box">
+                    <div class="vertical-label">Accepted Bond Amt. or Type</div>
+                    <div class="vertical-value">@Display(_citation.TexasDetails?.AcceptedBondNotes)</div>
+                </div>
+                <div class="vertical-box">
+                    <div class="vertical-label">Receipt No.</div>
+                    <div class="vertical-value">@Display(_citation.TexasDetails?.ReceiptNumber)</div>
+                </div>
+                <div class="vertical-box">
+                    <div class="vertical-label">Name</div>
+                    <div class="vertical-value">@DisplayFullName()</div>
+                </div>
+                <div class="vertical-box">
+                    <div class="vertical-label">Occupation</div>
+                    <div class="vertical-value">&nbsp;</div>
+                </div>
+                <div class="vertical-box">
+                    <div class="vertical-label">Social Security Number</div>
+                    <div class="vertical-value">@Display(_citation.AtTimeOfName?.SocialSecurityNumber)</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="footer-text">
+            THE UNDERSIGNED FURTHER STATES THAT HE HAS JUST AND REASONABLE GROUNDS TO BELIEVE, AND DOES BELIEVE, THAT THE PERSON NAMED ABOVE COMMITTED THE OFFENSE HEREIN SET FORTH.
+        </div>
+
+        <div class="footer-text compact">
+            CONTRARY TO LAW AND AGAINST THE PEACE AND DIGNITY OF THE STATE. SWORN TO AND SUBSCRIBED BEFORE ME
+        </div>
+
+        <div class="signature-row">
+            <div class="line-field grow"><span class="field-label">THIS</span><span class="field-fill">@DateDisplay(_citation.TexasDetails?.AffidavitSignedDate)</span></div>
+            <div class="line-field grow"><span class="field-label">(Signature and identification of officer or other complainant)</span><span class="field-fill">@Display(_citation.TexasDetails?.ComplainantSignatureText, _citation.OfficerProfile?.OfficerName)</span></div>
+        </div>
+
+        <div class="signature-row">
+            <div class="line-field grow"><span class="field-label">(Name and title)</span><span class="field-fill">@Display(_citation.OfficerProfile?.Title)</span></div>
+            <div class="line-field medium"><span class="field-label">(Unit No.)</span><span class="field-fill">@Display(_citation.OfficerProfile?.UnitNumber)</span></div>
+        </div>
+
+        <div class="court-appearance-row">
+            <div class="line-field grow"><span class="field-label">COURT APPEARANCE:</span><span class="field-fill">@Display(_courtLabel)</span></div>
+            <div class="line-field medium"><span class="field-label">DAY OF</span><span class="field-fill">@CourtAppearanceDay()</span></div>
+            <div class="line-field medium"><span class="field-label">AT</span><span class="field-fill">@CourtAppearanceTime()</span></div>
+        </div>
+
+        <div class="line-field"><span class="field-label">ADDRESS OF COURT</span><span class="field-fill">@Display(_appearanceLocationDisplay)</span></div>
+        <div class="promise-line">I PROMISE TO APPEAR IN SAID COURT OR BUREAU AT SAID TIME AND PLACE.</div>
+        <div class="line-field"><span class="field-label">SIGNATURE</span><span class="field-fill">@Display(_citation.TexasDetails?.DefendantSignatureText)</span></div>
+        <div class="notice-line">NOTICE, UNDERSTANDING THAT FAILURE TO APPEAR CONSTITUTES A SEPARATE OFFENSE.</div>
+    </div>
+}
+
+<style>
+    @@page {
+        size: Letter portrait;
+        margin: 0.12in;
+    }
+
+    body {
+        font-family: Arial, Helvetica, sans-serif;
+        font-size: 7.25pt;
+        color: #000;
+        background: #fff;
+    }
+
+    .screen-actions {
+        display: flex;
+        flex-wrap: wrap;
+        gap: .5rem;
+        justify-content: center;
+        margin: 1rem 0;
+    }
+
+    .btn-print, .screen-actions button {
+        border: 1px solid #333;
+        background: #fff;
+        padding: .45rem .8rem;
+        cursor: pointer;
+    }
+
+    .print-note {
+        flex: 1 1 100%;
+        max-width: 7.95in;
+        border: 1px solid #999;
+        background: #fafafa;
+        padding: .35rem .55rem;
+        font-size: .8rem;
+        line-height: 1.3;
+        text-align: left;
+    }
+
+    .utc-page {
+        width: 7.95in;
+        margin: 0 auto;
+        padding: .08in .12in .06in;
+        border: 1px solid #111;
+        box-sizing: border-box;
+        background: #fff;
+        overflow: hidden;
+    }
+
+    .utc-reference-row,
+    .utc-topline {
+        display: flex;
+        justify-content: space-between;
+        font-size: 5.5pt;
+        margin-bottom: .02in;
+        align-items: center;
+    }
+
+    .utc-reference-row {
+        justify-content: center;
+        gap: 1.4in;
+        margin-bottom: .01in;
+    }
+
+    .vendor-line {
+        flex: 1 1 auto;
+        text-align: center;
+    }
+
+    .tiny-logo {
+        min-width: .8in;
+    }
+
+    .dash-line {
+        border-top: 1px dashed #444;
+        margin: .02in 0 .05in;
+    }
+
+    .utc-title {
+        text-align: center;
+        font-size: 9.5pt;
+        font-weight: 700;
+        letter-spacing: .02em;
+        margin: .02in 0 .05in;
+    }
+
+    .utc-meta-row,
+    .time-row,
+    .vehicle-grid,
+    .identity-grid,
+    .signature-row,
+    .court-appearance-row {
+        display: grid;
+        gap: .04in;
+        margin-bottom: .04in;
+    }
+
+    .utc-meta-row { grid-template-columns: 2.2fr 1.5fr .9fr; }
+    .time-row { grid-template-columns: 1.4fr .7fr 1fr .9fr auto; align-items: end; }
+    .identity-grid { grid-template-columns: 2fr .55fr .95fr .7fr .55fr .5fr .5fr; }
+    .driver-grid { grid-template-columns: 2fr .65fr .65fr 1.5fr; }
+    .vehicle-grid { grid-template-columns: 1.2fr .45fr .65fr .45fr 1fr .9fr .7fr; }
+    .signature-row { grid-template-columns: 1fr 1.45fr; }
+    .court-appearance-row { grid-template-columns: 1.5fr .7fr .8fr; }
+
+    .line-field {
+        display: flex;
+        align-items: flex-end;
+        gap: .02in;
+        min-height: .14in;
+    }
+
+    .line-field.grow { min-width: 0; }
+    .line-field.small { min-width: 0; }
+    .line-field.medium { min-width: 0; }
+    .line-field.full { width: 100%; }
+
+    .field-label,
+    .hint {
+        font-size: 5.4pt;
+        line-height: 1;
+        white-space: nowrap;
+    }
+
+    .field-fill,
+    .inline-line {
+        display: inline-flex;
+        align-items: flex-end;
+        min-height: .12in;
+        border-bottom: 1px solid #000;
+        flex: 1 1 auto;
+        padding: 0 .015in 0;
+        font-size: 6.55pt;
+        line-height: 1;
+        overflow: hidden;
+    }
+
+    .inline-line.long { min-width: 2.2in; }
+    .ampm { font-size: 6pt; padding-bottom: .01in; }
+    .state-line, .section-heading, .affidavit-text, .location-text, .footer-text, .promise-line {
+        margin-bottom: .04in;
+    }
+
+    .state-line,
+    .affidavit-text,
+    .location-text,
+    .footer-text,
+    .promise-line {
+        font-size: 5.9pt;
+        line-height: 1.05;
+    }
+
+    .section-heading {
+        text-align: center;
+        font-weight: 700;
+        font-size: 8.8pt;
+        margin: .04in 0 .03in 2.15in;
+        width: 3.1in;
+    }
+
+    .name-grid {
+        display: grid;
+        grid-template-columns: 1.25fr 1.2fr .45fr;
+        gap: .04in;
+        margin-bottom: .04in;
+    }
+
+    .name-grid .line-field {
+        flex-wrap: wrap;
+        align-content: end;
+    }
+
+    .name-grid .field-fill {
+        min-width: 0;
+    }
+
+    .vehicle-flags,
+    .speed-row,
+    .parking-row,
+    .area-row,
+    .source-row {
+        display: flex;
+        flex-wrap: wrap;
+        gap: .07in;
+        font-size: 5.8pt;
+        margin-bottom: .04in;
+        align-items: center;
+    }
+
+    .driver-note {
+        font-size: 5.4pt;
+        align-self: end;
+        padding-bottom: .01in;
+    }
+
+    .mid-layout {
+        display: grid;
+        grid-template-columns: 1fr .52in;
+        gap: .04in;
+        margin: .04in 0;
+    }
+
+    .offense-panel {
+        border: 1px solid #000;
+        padding: .04in;
+    }
+
+    .offense-title,
+    .mini-title {
+        font-size: 6.2pt;
+        font-weight: 700;
+        margin-bottom: .025in;
+    }
+
+    .over-limit-note {
+        font-size: 5.2pt;
+        margin-right: .02in;
+    }
+
+    .checkbox-columns {
+        display: grid;
+        grid-template-columns: repeat(4, 1fr);
+        gap: .04in;
+        margin-bottom: .04in;
+    }
+
+    .checkbox-item {
+        font-size: 5.55pt;
+        line-height: 1.05;
+        margin-bottom: .01in;
+    }
+
+    .checkbox-mark {
+        display: inline-block;
+        width: .13in;
+        font-weight: 700;
+    }
+
+    .mph-box {
+        border-bottom: 1px solid #000;
+        padding: 0 .015in 0;
+        min-width: .62in;
+    }
+
+    .other-violations {
+        border-top: 1px solid #000;
+        padding-top: .03in;
+        margin-top: .03in;
+    }
+
+    .bottom-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr 1.15fr;
+        gap: .04in;
+        margin-top: .04in;
+        border-top: 1px solid #000;
+        padding-top: .04in;
+    }
+
+    .mini-panel {
+        border: 1px solid #000;
+        padding: .03in;
+        min-height: .78in;
+    }
+
+    .side-columns {
+        display: grid;
+        grid-template-columns: repeat(5, 1fr);
+        gap: .015in;
+    }
+
+    .vertical-box {
+        border: 1px solid #000;
+        min-height: 3.25in;
+        display: flex;
+        flex-direction: column;
+        justify-content: space-between;
+        padding: .015in .01in;
+    }
+
+    .vertical-label,
+    .vertical-value {
+        writing-mode: vertical-rl;
+        text-orientation: mixed;
+        font-size: 5.2pt;
+    }
+
+    .vertical-value {
+        font-size: 5.7pt;
+        min-height: .45in;
+    }
+
+    .notice-line {
+        margin-top: .02in;
+        font-size: 5.6pt;
+        line-height: 1;
+    }
+
+    .compact {
+        margin-top: .01in;
+    }
+
+    @@media print {
+        .screen-actions {
+            display: none !important;
+        }
+
+        .utc-page {
+            border: none;
+            width: 100%;
+            margin: 0;
+            padding: .04in .06in;
+        }
+    }
+</style>
+
+@code {
+    [Parameter] public long RecordNumber { get; set; }
+
+    private CitationDto? _citation;
+    private bool _loading = true;
+    private string? _error;
+    private string? _courtLabel;
+    private string? _sexLabel;
+    private string? _raceLabel;
+    private string? _dlStateLabel;
+    private string? _vehiclePlateStateLabel;
+    private string? _violationSourceLabel;
+    private string? _violationGroupLabel;
+    private string? _speedBandLabel;
+    private string? _citationLocationDisplay;
+    private string? _appearanceLocationDisplay;
+    private IJSObjectReference? _printModule;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadAsync();
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender && _citation is not null && _error is null)
+        {
+            try
+            {
+                _printModule = await JS.InvokeAsync<IJSObjectReference>("import", "/js/print.js");
+                await _printModule.InvokeVoidAsync("triggerPrint", PrintDocumentTitle());
+            }
+            catch
+            {
+            }
+        }
+    }
+
+    private async Task LoadAsync()
+    {
+        _loading = true;
+        _error = null;
+
+        try
+        {
+            _citation = await CitationService.GetByRecordNumberAsync(RecordNumber);
+            if (_citation is null)
+            {
+                _error = "Citation not found.";
+                return;
+            }
+
+            var picklistIds = new[]
+            {
+                _citation.CourtId,
+                _citation.AtTimeOfName?.SexId,
+                _citation.AtTimeOfName?.RaceId,
+                _citation.AtTimeOfName?.DriversLicenseStateId,
+                _citation.Vehicle?.PlateStateId,
+                _citation.TexasDetails?.ViolationSourceTypeId,
+                _citation.TexasDetails?.ViolationGroupId,
+                _citation.TexasDetails?.SpeedBandId
+            }
+            .Where(id => id.HasValue)
+            .Select(id => id!.Value)
+            .Distinct()
+            .ToArray();
+
+            var labels = picklistIds.Length == 0
+                ? new Dictionary<Guid, string>()
+                : await PicklistService.GetItemsByIdsAsync(picklistIds);
+
+            _courtLabel = _citation.CourtId.HasValue ? labels.GetValueOrDefault(_citation.CourtId.Value) : null;
+            _sexLabel = _citation.AtTimeOfName?.SexId is Guid sexId ? labels.GetValueOrDefault(sexId) : null;
+            _raceLabel = _citation.AtTimeOfName?.RaceId is Guid raceId ? labels.GetValueOrDefault(raceId) : null;
+            _dlStateLabel = _citation.AtTimeOfName?.DriversLicenseStateId is Guid dlStateId ? labels.GetValueOrDefault(dlStateId) : null;
+            _vehiclePlateStateLabel = _citation.Vehicle?.PlateStateId is Guid vehicleStateId ? labels.GetValueOrDefault(vehicleStateId) : null;
+            _violationSourceLabel = _citation.TexasDetails?.ViolationSourceTypeId is Guid sourceId ? labels.GetValueOrDefault(sourceId) : null;
+            _violationGroupLabel = _citation.TexasDetails?.ViolationGroupId is Guid groupId ? labels.GetValueOrDefault(groupId) : null;
+            _speedBandLabel = _citation.TexasDetails?.SpeedBandId is Guid speedBandId ? labels.GetValueOrDefault(speedBandId) : null;
+
+            _citationLocationDisplay = await ResolveLocationDisplayAsync(_citation.LocationId);
+            _appearanceLocationDisplay = await ResolveLocationDisplayAsync(_citation.TexasDetails?.CourtAppearanceLocationId);
+        }
+        catch (Exception ex)
+        {
+            _error = ex.Message;
+        }
+        finally
+        {
+            _loading = false;
+        }
+    }
+
+    private async Task<string?> ResolveLocationDisplayAsync(Guid? locationId)
+    {
+        if (!locationId.HasValue)
+            return null;
+
+        var location = await LocationService.GetByIdAsync(locationId.Value);
+        return location is null ? null : FormatLocation(location);
+    }
+
+    private async Task TriggerPrintAsync()
+    {
+        try
+        {
+            _printModule ??= await JS.InvokeAsync<IJSObjectReference>("import", "/js/print.js");
+            await _printModule.InvokeVoidAsync("triggerPrint", PrintDocumentTitle());
+        }
+        catch
+        {
+        }
+    }
+
+    private string LastNameDisplay() => _citation?.AtTimeOfName?.LastOrBusinessName ?? string.Empty;
+    private string FirstNameDisplay() => _citation?.AtTimeOfName?.FirstName ?? string.Empty;
+    private string InitialDisplay() => string.IsNullOrWhiteSpace(_citation?.AtTimeOfName?.MiddleName) ? string.Empty : _citation!.AtTimeOfName!.MiddleName![0].ToString();
+    private string HeightDisplay() => _citation?.AtTimeOfName?.HeightInches?.ToString() ?? string.Empty;
+    private string WeightDisplay() => _citation?.AtTimeOfName?.WeightLbs?.ToString() ?? string.Empty;
+
+    private string DisplayFullName()
+    {
+        var snapshot = _citation?.AtTimeOfName;
+        if (snapshot is null)
+            return Display(_citation?.DefendantName);
+
+        if (snapshot.NameType == NameTypes.Business || string.IsNullOrWhiteSpace(snapshot.FirstName))
+            return Display(snapshot.LastOrBusinessName);
+
+        return $"{snapshot.LastOrBusinessName}, {snapshot.FirstName}";
+    }
+
+    private string CityStateDisplay()
+        => CompactAddress(_citation?.AtTimeOfName?.PrimaryAddress?.Address, includeStreet: false);
+
+    private string AddressStreetDisplay()
+        => CompactAddress(_citation?.AtTimeOfName?.PrimaryAddress?.Address, includeStreet: true);
+
+    private string CompactRaceDisplay()
+    {
+        var race = _raceLabel ?? string.Empty;
+        if (race.Contains("Hispanic", StringComparison.OrdinalIgnoreCase))
+            return "Hispanic";
+
+        if (race.Length <= 12)
+            return race;
+
+        return race[..12];
+    }
+
+    private static readonly Dictionary<string, string> StateAbbreviations = new(StringComparer.OrdinalIgnoreCase)
+    {
+        ["Alabama"] = "AL",
+        ["Alaska"] = "AK",
+        ["Arizona"] = "AZ",
+        ["Arkansas"] = "AR",
+        ["California"] = "CA",
+        ["Colorado"] = "CO",
+        ["Connecticut"] = "CT",
+        ["Delaware"] = "DE",
+        ["District of Columbia"] = "DC",
+        ["Florida"] = "FL",
+        ["Georgia"] = "GA",
+        ["Hawaii"] = "HI",
+        ["Idaho"] = "ID",
+        ["Illinois"] = "IL",
+        ["Indiana"] = "IN",
+        ["Iowa"] = "IA",
+        ["Kansas"] = "KS",
+        ["Kentucky"] = "KY",
+        ["Louisiana"] = "LA",
+        ["Maine"] = "ME",
+        ["Maryland"] = "MD",
+        ["Massachusetts"] = "MA",
+        ["Michigan"] = "MI",
+        ["Minnesota"] = "MN",
+        ["Mississippi"] = "MS",
+        ["Missouri"] = "MO",
+        ["Montana"] = "MT",
+        ["Nebraska"] = "NE",
+        ["Nevada"] = "NV",
+        ["New Hampshire"] = "NH",
+        ["New Jersey"] = "NJ",
+        ["New Mexico"] = "NM",
+        ["New York"] = "NY",
+        ["North Carolina"] = "NC",
+        ["North Dakota"] = "ND",
+        ["Ohio"] = "OH",
+        ["Oklahoma"] = "OK",
+        ["Oregon"] = "OR",
+        ["Pennsylvania"] = "PA",
+        ["Rhode Island"] = "RI",
+        ["South Carolina"] = "SC",
+        ["South Dakota"] = "SD",
+        ["Tennessee"] = "TN",
+        ["Texas"] = "TX",
+        ["Utah"] = "UT",
+        ["Vermont"] = "VT",
+        ["Virginia"] = "VA",
+        ["Washington"] = "WA",
+        ["West Virginia"] = "WV",
+        ["Wisconsin"] = "WI",
+        ["Wyoming"] = "WY",
+        ["American Samoa"] = "AS",
+        ["Guam"] = "GU",
+        ["Northern Mariana Islands"] = "MP",
+        ["Puerto Rico"] = "PR",
+        ["Virgin Islands"] = "VI"
+    };
+
+    private static readonly HashSet<string> StateAbbreviationStopWords = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "of", "the", "and"
+    };
+
+    private static string CompactState(string? state)
+    {
+        if (string.IsNullOrWhiteSpace(state))
+            return string.Empty;
+
+        state = state.Trim();
+
+        if (state.Length == 2)
+            return state.ToUpperInvariant();
+
+        if (StateAbbreviations.TryGetValue(state, out var mapped))
+            return mapped;
+
+        var parts = state.Split(' ', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+        var significant = parts.Where(p => !StateAbbreviationStopWords.Contains(p)).ToArray();
+        if (significant.Length == 0)
+            significant = parts;
+
+        string code;
+        if (significant.Length == 1)
+        {
+            var word = significant[0];
+            code = word.Length <= 2 ? word.ToUpperInvariant() : word[..2].ToUpperInvariant();
+        }
+        else
+        {
+            code = string.Concat(significant.Select(p => char.ToUpperInvariant(p[0])));
+            if (code.Length > 2)
+                code = code[..2];
+        }
+
+        return code;
+    }
+
+    private static string CompactAddress(string? address, bool includeStreet)
+    {
+        if (string.IsNullOrWhiteSpace(address))
+            return string.Empty;
+
+        var parts = address.Split(',', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries);
+        if (parts.Length == 0)
+            return address;
+
+        if (includeStreet)
+            return parts[0];
+
+        if (parts.Length == 1)
+            return parts[0];
+
+        return string.Join(", ", parts.Skip(1));
+    }
+
+    private string AgeDisplay()
+    {
+        var dob = _citation?.AtTimeOfName?.DateOfBirth;
+        if (!dob.HasValue)
+            return string.Empty;
+
+        var today = DateTime.Today;
+        var age = today.Year - dob.Value.Year;
+        if (dob.Value.Date > today.AddYears(-age))
+            age--;
+
+        return age.ToString();
+    }
+
+    private static string Display(string? primary, string? fallback = null)
+        => string.IsNullOrWhiteSpace(primary) ? (string.IsNullOrWhiteSpace(fallback) ? string.Empty : fallback) : primary;
+
+    private static string NumberDisplay(int? value)
+        => value.HasValue ? value.Value.ToString() : string.Empty;
+
+    private static string DateDisplay(DateTime? value)
+        => value.HasValue ? value.Value.ToLocalTime().ToString("MM/dd/yyyy") : string.Empty;
+
+    private static string TimeDisplay(DateTime value)
+        => value.ToLocalTime().ToString("h:mm");
+
+    private static string AmPmDisplay(DateTime value)
+        => value.ToLocalTime().ToString("tt");
+
+    private static string DayOfMonthDisplay(DateTime value)
+        => value.ToLocalTime().Day.ToString();
+
+    private static string MonthYearDisplay(DateTime value)
+        => value.ToLocalTime().ToString("MMMM yyyy");
+
+    private string CourtAppearanceDay()
+        => _citation?.TexasDetails?.CourtAppearanceDateTime?.ToLocalTime().ToString("MM/dd/yyyy") ?? string.Empty;
+
+    private string CourtAppearanceTime()
+        => _citation?.TexasDetails?.CourtAppearanceDateTime?.ToLocalTime().ToString("h:mm tt") ?? string.Empty;
+
+    private bool IsSpeedRange(string token)
+    {
+        var label = _speedBandLabel ?? string.Empty;
+        return token switch
+        {
+            "5-10" => label.Contains("5-10", StringComparison.OrdinalIgnoreCase),
+            "11-15" => label.Contains("11-15", StringComparison.OrdinalIgnoreCase),
+            "over_15" => label.Contains("Over 15", StringComparison.OrdinalIgnoreCase) || label.Contains("over 15", StringComparison.OrdinalIgnoreCase),
+            _ => false
+        };
+    }
+
+    private bool IsSource(string token)
+    {
+        var label = _violationSourceLabel ?? string.Empty;
+        return token switch
+        {
+            "state" => label.Contains("State", StringComparison.OrdinalIgnoreCase),
+            "local" => label.Contains("Local", StringComparison.OrdinalIgnoreCase),
+            _ => false
+        };
+    }
+
+    private bool IsParking()
+        => (_violationGroupLabel ?? string.Empty).Contains("Parking", StringComparison.OrdinalIgnoreCase);
+
+    private bool HasText(string text)
+    {
+        var source = $"{_citation?.TexasDetails?.PrimaryViolationDescription} {_citation?.TexasDetails?.NarrativeOtherViolations}";
+        return source.Contains(text, StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static bool HasLabel(string? label, string token)
+        => !string.IsNullOrWhiteSpace(label) && label.Contains(token, StringComparison.OrdinalIgnoreCase);
+
+    private static string Mark(bool selected) => selected ? "[x]" : "[ ]";
+
+    private static string FormatLocation(LocationDto location)
+    {
+        var parts = new List<string>();
+        if (!string.IsNullOrWhiteSpace(location.StreetNumber)) parts.Add(location.StreetNumber);
+        if (!string.IsNullOrWhiteSpace(location.StreetAddress)) parts.Add(location.StreetAddress);
+        if (!string.IsNullOrWhiteSpace(location.City)) parts.Add(location.City);
+        return parts.Count == 0 ? location.Address ?? string.Empty : string.Join(", ", parts);
+    }
+
+    private string PrintDocumentTitle()
+        => string.IsNullOrWhiteSpace(_citation?.CitationNum)
+            ? $"Citation {RecordNumber}"
+            : $"Citation {_citation!.CitationNum}";
+
+    private void CloseWindow()
+        => JS.InvokeVoidAsync("window.close");
+
+    public async ValueTask DisposeAsync()
+    {
+        if (_printModule is not null)
+            await _printModule.DisposeAsync();
+    }
+}

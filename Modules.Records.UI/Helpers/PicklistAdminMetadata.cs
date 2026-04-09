@@ -10,6 +10,16 @@ public static class PicklistAdminMetadata
         PicklistTypes.HairColor => "Hair Color",
         PicklistTypes.EyeColor  => "Eye Color",
         PicklistTypes.StreetType => "Street Type",
+        PicklistTypes.ViolationSourceType => "Violation Source Type",
+        PicklistTypes.ViolationGroup => "Violation Group",
+        PicklistTypes.SpeedBand => "Speed Band",
+        PicklistTypes.MovementViolation => "Movement Violation",
+        PicklistTypes.ParkingViolation => "Parking Violation",
+        PicklistTypes.EnvironmentFactor => "Environment Factor",
+        PicklistTypes.CollisionConfiguration => "Collision Configuration",
+        PicklistTypes.IncidentSeverity => "Incident Severity",
+        PicklistTypes.AreaType => "Area Type",
+        PicklistTypes.HighwayType => "Highway Type",
         _ => SplitPascalCase(type)
     };
 
@@ -26,6 +36,16 @@ public static class PicklistAdminMetadata
         PicklistTypes.Direction => "Pre- and post-direction values for address formatting.",
         PicklistTypes.StreetType => "Street suffix values such as St, Ave, Blvd, and Rd.",
         PicklistTypes.Country => "Country values used on address records and location entry.",
+        PicklistTypes.ViolationSourceType => "Texas citation authority sources such as state statute and local ordinance.",
+        PicklistTypes.ViolationGroup => "Primary Texas citation offense groupings used for print mapping.",
+        PicklistTypes.SpeedBand => "Texas citation speeding ranges used when a speed violation is recorded.",
+        PicklistTypes.MovementViolation => "Texas citation movement-related checkbox values.",
+        PicklistTypes.ParkingViolation => "Texas citation parking-related checkbox values.",
+        PicklistTypes.EnvironmentFactor => "Texas citation surface, visibility, traffic, and avoidance factors.",
+        PicklistTypes.CollisionConfiguration => "Texas citation collision diagram and impact configuration values.",
+        PicklistTypes.IncidentSeverity => "Texas citation incident severity values such as PD, PI, and Fatal.",
+        PicklistTypes.AreaType => "Texas citation area-context values such as business, school, and rural.",
+        PicklistTypes.HighwayType => "Texas citation roadway type values used for roadway description.",
         _ => "Additional configurable dropdown values used across records."
     };
 
@@ -35,7 +55,10 @@ public static class PicklistAdminMetadata
             => "mni",
         PicklistTypes.Direction or PicklistTypes.StreetType or PicklistTypes.Country
             => "mli",
-        PicklistTypes.ArrestType or PicklistTypes.Court
+        PicklistTypes.ArrestType or PicklistTypes.Court or PicklistTypes.ViolationSourceType or PicklistTypes.ViolationGroup
+            or PicklistTypes.SpeedBand or PicklistTypes.MovementViolation or PicklistTypes.ParkingViolation
+            or PicklistTypes.EnvironmentFactor or PicklistTypes.CollisionConfiguration or PicklistTypes.IncidentSeverity
+            or PicklistTypes.AreaType or PicklistTypes.HighwayType
             => "records",
         _ => "other"
     };

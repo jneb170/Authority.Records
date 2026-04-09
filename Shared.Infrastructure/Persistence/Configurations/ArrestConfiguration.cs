@@ -24,7 +24,22 @@ namespace Shared.Infrastructure.Persistence.Configurations
                    .HasMaxLength(50)
                    .IsRequired(false);
 
+            builder.Property(x => x.NameId).IsRequired(false);
+            builder.Property(x => x.PrimaryIncidentId).IsRequired(false);
             builder.Property(x => x.LocationId).IsRequired(false);
+
+            builder.HasIndex(x => x.NameId);
+            builder.HasIndex(x => x.PrimaryIncidentId);
+
+            builder.HasOne<Name>()
+                   .WithMany()
+                   .HasForeignKey(x => x.NameId)
+                   .OnDelete(DeleteBehavior.Restrict);
+
+            builder.HasOne<Incident>()
+                   .WithMany()
+                   .HasForeignKey(x => x.PrimaryIncidentId)
+                   .OnDelete(DeleteBehavior.Restrict);
         }
     }
 }

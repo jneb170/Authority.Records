@@ -22,4 +22,10 @@ public sealed record CreateNameCommand(
     string? LocalNumber,
     string? SocialSecurityNumber,
     bool IsCitizen,
-    DateTime? DeceasedDate) : IRequest<long>;
+    DateTime? DeceasedDate,
+    string? PrimaryPhone = null,
+    string? PrimaryPhoneExtension = null,
+    string? WorkPhone = null,
+    string? WorkPhoneExtension = null,
+    string? OtherPhone = null,
+    string? OtherPhoneExtension = null) : IRequest<long>;

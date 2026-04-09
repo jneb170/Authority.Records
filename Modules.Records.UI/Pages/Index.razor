@@ -319,13 +319,14 @@
         {
             _mapsApiKey = await GoogleMapsConfigService.GetApiKeyAsync();
             var activityTask = HomeService.GetRecentActivityAsync(20);
-            var markersTask  = !string.IsNullOrEmpty(_mapsApiKey)
-                ? HomeService.GetMapMarkersAsync(SinceFromWindow())
-                : Task.FromResult<IReadOnlyList<MapMarkerDto>>(Array.Empty<MapMarkerDto>());
+            var mapStateTask = !string.IsNullOrEmpty(_mapsApiKey)
+                ? HomeService.GetDefaultMapWindowAsync()
+                : Task.FromResult(new ActivityMapWindowState(_mapWindowHours, Array.Empty<MapMarkerDto>()));
 
-            await Task.WhenAll(activityTask, markersTask);
+            await Task.WhenAll(activityTask, mapStateTask);
             _activity    = activityTask.Result;
-            _mapMarkers  = markersTask.Result;
+            _mapWindowHours = mapStateTask.Result.WindowHours;
+            _mapMarkers  = mapStateTask.Result.Markers;
         }
         finally
         {

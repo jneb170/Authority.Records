@@ -1,6 +1,7 @@
 using MediatR;
 using Microsoft.EntityFrameworkCore;
 using Modules.Records.Application.Abstractions;
+using Modules.Records.Application.Common.Extensions;
 using Modules.Records.Domain.Abstractions;
 using Modules.Records.Domain.Common;
 using Modules.Records.Domain.Common.Implementations;
@@ -27,6 +28,9 @@ public sealed class CreateCitationHandler : IRequestHandler<CreateCitationComman
         var agencyId = _tenantProvider.GetAgencyId();
         var userId = _tenantProvider.GetUserId();
 
+        if (agencyId == Guid.Empty)
+            throw new InvalidOperationException("Select an active agency before creating a citation.");
+
         var citationNum = string.IsNullOrWhiteSpace(request.CitationNum)
             ? await TryGenerateCitationNumAsync(cancellationToken)
             : request.CitationNum;
@@ -39,28 +43,27 @@ public sealed class CreateCitationHandler : IRequestHandler<CreateCitationComman
             citationNum);
 
         _dbContext.Citations.Add(citation);
-        await _dbContext.SaveChangesAsync(cancellationToken);
 
-        // Link to any specified incidents
-        foreach (var recordNumber in request.IncidentRecordNumbers)
+        var incidentRecordNumbers = request.IncidentRecordNumbers
+            .Distinct()
+            .ToList();
+
+        if (incidentRecordNumbers.Count > 0)
         {
-            var incident = await _dbContext.IncidentReadModels
+            var incidentIds = await _dbContext.Incidents
                 .AsNoTracking()
-                .FirstOrDefaultAsync(i => i.RecordNumber == recordNumber, cancellationToken);
+                .WhereAgencyScoped(agencyId)
+                .Where(i => i.JurisdictionId == jurisdictionId && incidentRecordNumbers.Contains(i.RecordNumber))
+                .Select(i => i.Id)
+                .ToListAsync(cancellationToken);
 
-            if (incident is null) continue;
-
-            var incidentEntity = await _dbContext.Incidents
-                .FirstOrDefaultAsync(i => i.Id == incident.Id, cancellationToken);
-
-            if (incidentEntity is null) continue;
-
-            var link = new IncidentCitationLink(jurisdictionId, incidentEntity.Id, citation.Id, userId);
-            _dbContext.IncidentCitationLinks.Add(link);
+            foreach (var incidentId in incidentIds.Distinct())
+            {
+                _dbContext.IncidentCitationLinks.Add(new IncidentCitationLink(jurisdictionId, incidentId, citation.Id, userId));
+            }
         }
 
-        if (request.IncidentRecordNumbers.Any())
-            await _dbContext.SaveChangesAsync(cancellationToken);
+        await _dbContext.SaveChangesAsync(cancellationToken);
 
         return citation.RecordNumber;
     }

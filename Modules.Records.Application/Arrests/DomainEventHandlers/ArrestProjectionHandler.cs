@@ -36,11 +36,15 @@ public sealed class ArrestProjectionHandler :
             recordNumber: arrest?.RecordNumber ?? 0,
             jurisdictionId: notification.JurisdictionId,
             agencyId: arrest?.AgencyId ?? Guid.Empty,
-            suspectName: notification.SuspectName,
+            nameId: notification.NameId,
             arrestedAt: notification.ArrestedAt,
             createdAtUtc: notification.OccurredOnUtc,
             createdBy: arrest?.CreatedBy ?? Guid.Empty,
-            arrestNum: notification.ArrestNum);
+            arrestNum: notification.ArrestNum,
+            primaryIncidentId: notification.PrimaryIncidentId);
+
+        readModel.ApplyLocationChanged(arrest?.LocationId);
+        readModel.UpdatedAtUtc = notification.OccurredOnUtc;
 
         _dbContext.ArrestReadModels.Add(readModel);
         await _dbContext.SaveChangesAsync(cancellationToken);
@@ -54,13 +58,9 @@ public sealed class ArrestProjectionHandler :
         if (readModel is null)
             return;
 
-        var arrest = await _dbContext.Arrests
-            .AsNoTracking()
-            .FirstOrDefaultAsync(a => a.Id == notification.ArrestId, cancellationToken);
-
-        readModel.ApplyDetailsChanged(notification.SuspectName, notification.ArrestedAt, notification.ArrestTypeId, notification.ArrestNum);
-        readModel.ApplyLocationChanged(arrest?.LocationId);
-        readModel.ApplyModifiedAudit(arrest?.ModifiedBy, arrest?.ModifiedAt);
+        readModel.ApplyDetailsChanged(notification.NameId, notification.ArrestedAt, notification.ArrestTypeId, notification.ArrestNum, notification.PrimaryIncidentId);
+        readModel.ApplyLocationChanged(notification.LocationId);
+        readModel.ApplyModifiedAudit(notification.ModifiedBy, notification.OccurredOnUtc);
         await _dbContext.SaveChangesAsync(cancellationToken);
     }
 

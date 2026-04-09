@@ -22,6 +22,8 @@ public sealed class GenerateCitationNumHandler : IRequestHandler<GenerateCitatio
     {
         var jurisdictionId = _tenantProvider.GetJurisdictionId();
         var agencyId = _tenantProvider.GetAgencyId();
+        if (agencyId == Guid.Empty)
+            throw new InvalidOperationException("Select an active agency before generating a citation number.");
         var now = DateTime.UtcNow;
         var year = now.Year;
 

@@ -53,6 +53,12 @@ public sealed class NameProjectionHandler :
             placeOfBirth:          name?.PlaceOfBirth,
             fbiNumber:             name?.FbiNumber,
             localNumber:           name?.LocalNumber,
+            primaryPhone:          name?.PrimaryPhone,
+            primaryPhoneExtension: name?.PrimaryPhoneExtension,
+            workPhone:             name?.WorkPhone,
+            workPhoneExtension:    name?.WorkPhoneExtension,
+            otherPhone:            name?.OtherPhone,
+            otherPhoneExtension:   name?.OtherPhoneExtension,
             socialSecurityNumber:  name?.SocialSecurityNumber,
             isCitizen:             name?.IsCitizen ?? false,
             deceasedDate:          name?.DeceasedDate,
@@ -68,10 +74,6 @@ public sealed class NameProjectionHandler :
         var readModel = await _dbContext.NameReadModels
             .FirstOrDefaultAsync(n => n.Id == notification.NameId, cancellationToken);
         if (readModel is null) return;
-
-        var name = await _dbContext.Names
-            .AsNoTracking()
-            .FirstOrDefaultAsync(n => n.Id == notification.NameId, cancellationToken);
 
         readModel.ApplyDetailsChanged(
             notification.NameType,
@@ -93,10 +95,16 @@ public sealed class NameProjectionHandler :
             notification.LocalNumber,
             notification.SocialSecurityNumber,
             notification.IsCitizen,
-            notification.DeceasedDate);
+            notification.DeceasedDate,
+            notification.PrimaryPhone,
+            notification.PrimaryPhoneExtension,
+            notification.WorkPhone,
+            notification.WorkPhoneExtension,
+            notification.OtherPhone,
+            notification.OtherPhoneExtension);
 
-        readModel.ApplyLocationChanged(name?.PrimaryLocationId, name?.SecondaryLocationId);
-        readModel.ApplyModifiedAudit(name?.ModifiedBy, name?.ModifiedAt);
+        readModel.ApplyLocationChanged(notification.PrimaryLocationId, notification.SecondaryLocationId);
+        readModel.ApplyModifiedAudit(notification.ModifiedBy, notification.OccurredOnUtc);
         await _dbContext.SaveChangesAsync(cancellationToken);
     }
 

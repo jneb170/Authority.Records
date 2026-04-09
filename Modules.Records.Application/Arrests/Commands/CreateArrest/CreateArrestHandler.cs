@@ -1,6 +1,8 @@
 using MediatR;
 using Microsoft.EntityFrameworkCore;
 using Modules.Records.Application.Abstractions;
+using Modules.Records.Application.Arrests;
+using Modules.Records.Application.Common.Extensions;
 using Modules.Records.Domain.Abstractions;
 using Modules.Records.Domain.Common;
 using Modules.Records.Domain.Common.Implementations;
@@ -14,15 +16,18 @@ public sealed class CreateArrestHandler : IRequestHandler<CreateArrestCommand, l
     private readonly IApplicationDbContext _dbContext;
     private readonly ITenantProvider _tenantProvider;
     private readonly ArrestFactory _factory;
+    private readonly IModificationContext _modificationContext;
 
     public CreateArrestHandler(
         IApplicationDbContext dbContext,
         ITenantProvider tenantProvider,
-        ArrestFactory factory)
+        ArrestFactory factory,
+        IModificationContext modificationContext)
     {
         _dbContext = dbContext;
         _tenantProvider = tenantProvider;
         _factory = factory;
+        _modificationContext = modificationContext;
     }
 
     public async Task<long> Handle(CreateArrestCommand request, CancellationToken cancellationToken)
@@ -31,6 +36,38 @@ public sealed class CreateArrestHandler : IRequestHandler<CreateArrestCommand, l
         var agencyId = _tenantProvider.GetAgencyId();
         var userId = _tenantProvider.GetUserId();
 
+        if (agencyId == Guid.Empty)
+            throw new InvalidOperationException("Select an active agency before creating an arrest.");
+
+        var name = await _dbContext.Names
+            .AsNoTracking()
+            .FirstOrDefaultAsync(n => n.Id == request.NameId && n.JurisdictionId == jurisdictionId, cancellationToken)
+            ?? throw new InvalidOperationException("Linked name not found.");
+
+        if (request.LocationId.HasValue)
+        {
+            var locationExists = await _dbContext.Locations
+                .AsNoTracking()
+                .AnyAsync(l => l.Id == request.LocationId.Value && l.JurisdictionId == jurisdictionId, cancellationToken);
+
+            if (!locationExists)
+                throw new InvalidOperationException("Linked location not found.");
+        }
+
+        Guid? primaryIncidentId = null;
+        if (request.PrimaryIncidentId.HasValue)
+        {
+            primaryIncidentId = await _dbContext.Incidents
+                .AsNoTracking()
+                .WhereAgencyScoped(agencyId)
+                .Where(i => i.Id == request.PrimaryIncidentId.Value && i.JurisdictionId == jurisdictionId)
+                .Select(i => (Guid?)i.Id)
+                .FirstOrDefaultAsync(cancellationToken);
+
+            if (!primaryIncidentId.HasValue)
+                throw new InvalidOperationException("Primary incident not found.");
+        }
+
         var arrestNum = string.IsNullOrWhiteSpace(request.ArrestNum)
             ? await TryGenerateArrestNumAsync(cancellationToken)
             : request.ArrestNum;
@@ -38,33 +75,51 @@ public sealed class CreateArrestHandler : IRequestHandler<CreateArrestCommand, l
         var arrest = _factory.Create(
             jurisdictionId,
             agencyId,
-            request.SuspectName,
+            request.NameId,
             request.ArrestedAt,
-            arrestNum);
+            arrestNum,
+            request.PrimaryIncidentId);
+
+        arrest.SetLocation(request.LocationId, _modificationContext);
 
         _dbContext.Arrests.Add(arrest);
-        await _dbContext.SaveChangesAsync(cancellationToken);
 
-        // Link to any specified incidents
-        foreach (var recordNumber in request.IncidentRecordNumbers)
+        var snapshotLocations = await ArrestNameSnapshotBuilder.LoadSnapshotLocationsAsync(_dbContext, name, cancellationToken);
+        _dbContext.ArrestNameSnapshots.Add(
+            ArrestNameSnapshotBuilder.CreateFromName(
+                arrest,
+                name,
+                snapshotLocations.PrimaryLocation,
+                snapshotLocations.SecondaryLocation,
+                userId));
+
+        var incidentRecordNumbers = request.IncidentRecordNumbers
+            .Distinct()
+            .ToList();
+
+        var linkedIncidentIds = new HashSet<Guid>();
+
+        if (incidentRecordNumbers.Count > 0)
         {
-            var incident = await _dbContext.IncidentReadModels
+            var incidentIds = await _dbContext.Incidents
                 .AsNoTracking()
-                .FirstOrDefaultAsync(i => i.RecordNumber == recordNumber, cancellationToken);
+                .WhereAgencyScoped(agencyId)
+                .Where(i => i.JurisdictionId == jurisdictionId && incidentRecordNumbers.Contains(i.RecordNumber))
+                .Select(i => i.Id)
+                .ToListAsync(cancellationToken);
 
-            if (incident is null) continue;
-
-            var incidentEntity = await _dbContext.Incidents
-                .FirstOrDefaultAsync(i => i.Id == incident.Id, cancellationToken);
-
-            if (incidentEntity is null) continue;
-
-            var link = new IncidentArrestLink(jurisdictionId, incidentEntity.Id, arrest.Id, userId);
-            _dbContext.IncidentArrestLinks.Add(link);
+            linkedIncidentIds.UnionWith(incidentIds);
         }
 
-        if (request.IncidentRecordNumbers.Any())
-            await _dbContext.SaveChangesAsync(cancellationToken);
+        if (primaryIncidentId.HasValue)
+            linkedIncidentIds.Add(primaryIncidentId.Value);
+
+        foreach (var incidentId in linkedIncidentIds)
+        {
+            _dbContext.IncidentArrestLinks.Add(new IncidentArrestLink(jurisdictionId, incidentId, arrest.Id, userId));
+        }
+
+        await _dbContext.SaveChangesAsync(cancellationToken);
 
         return arrest.RecordNumber;
     }

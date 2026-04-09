@@ -91,6 +91,12 @@ public sealed class NameTests
         var placeOfBirth = "New York, NY";
         var fbiNumber = "FBI123456";
         var localNumber = "LOCAL789";
+        var primaryPhone = "(555) 111-2222";
+        var primaryPhoneExtension = "101";
+        var workPhone = "(555) 333-4444";
+        var workPhoneExtension = "202";
+        var otherPhone = "(555) 555-6666";
+        var otherPhoneExtension = "303";
         var ssn = "123-45-6789";
         var isCitizen = true;
         var deceasedDate = new DateTime(2025, 1, 1);
@@ -118,7 +124,13 @@ public sealed class NameTests
             localNumber,
             ssn,
             isCitizen,
-            deceasedDate);
+            deceasedDate,
+            primaryPhone,
+            primaryPhoneExtension,
+            workPhone,
+            workPhoneExtension,
+            otherPhone,
+            otherPhoneExtension);
 
         // Assert
         Assert.Equal(sexId, name.SexId);
@@ -134,6 +146,12 @@ public sealed class NameTests
         Assert.Equal(placeOfBirth, name.PlaceOfBirth);
         Assert.Equal(fbiNumber, name.FbiNumber);
         Assert.Equal(localNumber, name.LocalNumber);
+        Assert.Equal(primaryPhone, name.PrimaryPhone);
+        Assert.Equal(primaryPhoneExtension, name.PrimaryPhoneExtension);
+        Assert.Equal(workPhone, name.WorkPhone);
+        Assert.Equal(workPhoneExtension, name.WorkPhoneExtension);
+        Assert.Equal(otherPhone, name.OtherPhone);
+        Assert.Equal(otherPhoneExtension, name.OtherPhoneExtension);
         Assert.Equal(ssn, name.SocialSecurityNumber);
         Assert.Equal(isCitizen, name.IsCitizen);
         Assert.Equal(deceasedDate, name.DeceasedDate);
@@ -187,6 +205,12 @@ public sealed class NameTests
         var newPlaceOfBirth = "Boston, MA";
         var newFbiNumber = "FBI999";
         var newLocalNumber = "LOCAL999";
+        var newPrimaryPhone = "(555) 777-8888";
+        var newPrimaryPhoneExtension = "404";
+        var newWorkPhone = "(555) 999-0000";
+        var newWorkPhoneExtension = "505";
+        var newOtherPhone = "(555) 121-2121";
+        var newOtherPhoneExtension = "606";
         var newSsn = "987-65-4321";
         var newIsCitizen = true;
         var newDeceasedDate = new DateTime(2026, 2, 1);
@@ -213,7 +237,13 @@ public sealed class NameTests
             newSsn,
             newIsCitizen,
             newDeceasedDate,
-            context);
+            context,
+            newPrimaryPhone,
+            newPrimaryPhoneExtension,
+            newWorkPhone,
+            newWorkPhoneExtension,
+            newOtherPhone,
+            newOtherPhoneExtension);
 
         // Assert
         Assert.Equal("NewLastName", name.LastOrBusinessName);
@@ -232,6 +262,12 @@ public sealed class NameTests
         Assert.Equal(newPlaceOfBirth, name.PlaceOfBirth);
         Assert.Equal(newFbiNumber, name.FbiNumber);
         Assert.Equal(newLocalNumber, name.LocalNumber);
+        Assert.Equal(newPrimaryPhone, name.PrimaryPhone);
+        Assert.Equal(newPrimaryPhoneExtension, name.PrimaryPhoneExtension);
+        Assert.Equal(newWorkPhone, name.WorkPhone);
+        Assert.Equal(newWorkPhoneExtension, name.WorkPhoneExtension);
+        Assert.Equal(newOtherPhone, name.OtherPhone);
+        Assert.Equal(newOtherPhoneExtension, name.OtherPhoneExtension);
         Assert.Equal(newSsn, name.SocialSecurityNumber);
         Assert.Equal(newIsCitizen, name.IsCitizen);
         Assert.Equal(newDeceasedDate, name.DeceasedDate);
@@ -260,6 +296,9 @@ public sealed class NameTests
         Assert.Equal(name.Id, updatedEvent.NameId);
         Assert.Equal("UpdatedLastName", updatedEvent.LastOrBusinessName);
         Assert.Equal("UpdatedFirstName", updatedEvent.FirstName);
+        Assert.Null(updatedEvent.PrimaryPhone);
+        Assert.Null(updatedEvent.WorkPhone);
+        Assert.Null(updatedEvent.OtherPhone);
     }
 
     [Fact]

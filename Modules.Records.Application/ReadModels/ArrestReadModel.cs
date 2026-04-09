@@ -9,7 +9,7 @@ public sealed class ArrestReadModel
     public long RecordNumber { get; private set; }
     public Guid JurisdictionId { get; private set; }
     public Guid AgencyId { get; private set; }
-    public string SuspectName { get; private set; } = string.Empty;
+    public Guid? NameId { get; private set; }
     public DateTime ArrestedAt { get; private set; }
     public string Status { get; private set; } = string.Empty;
     public bool IsLocked { get; private set; }
@@ -17,10 +17,11 @@ public sealed class ArrestReadModel
     public Guid   CreatedBy     { get; private set; }
     public Guid?  ModifiedBy    { get; private set; }
     public DateTime CreatedAtUtc { get; private set; }
-    public DateTime UpdatedAtUtc { get; private set; }
+    public DateTime UpdatedAtUtc { get; internal set; }
     public Guid? ArrestTypeId { get; private set; }
     public string ArrestNum { get; private set; } = string.Empty;
     public Guid? LocationId { get; private set; }
+    public Guid? PrimaryIncidentId { get; private set; }
     public string? PrimaryMugshotUrl { get; private set; }
 
     private ArrestReadModel() { } // EF
@@ -30,11 +31,12 @@ public sealed class ArrestReadModel
         long recordNumber,
         Guid jurisdictionId,
         Guid agencyId,
-        string suspectName,
+        Guid? nameId,
         DateTime arrestedAt,
         DateTime createdAtUtc,
         Guid createdBy,
-        string arrestNum = "")
+        string arrestNum = "",
+        Guid? primaryIncidentId = null)
     {
         return new ArrestReadModel
         {
@@ -42,7 +44,7 @@ public sealed class ArrestReadModel
             RecordNumber = recordNumber,
             JurisdictionId = jurisdictionId,
             AgencyId = agencyId,
-            SuspectName = suspectName,
+            NameId = nameId,
             ArrestedAt = arrestedAt,
             Status = RecordStatus.Draft.ToString(),
             IsLocked = false,
@@ -51,27 +53,35 @@ public sealed class ArrestReadModel
             ModifiedBy = null,
             CreatedAtUtc = createdAtUtc,
             UpdatedAtUtc = createdAtUtc,
-            ArrestNum = arrestNum
+            ArrestNum = arrestNum,
+            PrimaryIncidentId = primaryIncidentId
         };
     }
 
-    public void ApplyModifiedAudit(Guid? modifiedBy, DateTime? modifiedAt)
+    public void ApplyModifiedAudit(Guid? modifiedBy, DateTime? modifiedAt, DateTime? createdAtFallback = null)
     {
         ModifiedBy   = modifiedBy;
-        UpdatedAtUtc = modifiedAt ?? UpdatedAtUtc;
+        UpdatedAtUtc = modifiedAt ?? createdAtFallback ?? UpdatedAtUtc;
     }
 
-    public ArrestDto ToDto() => new(
+    public ArrestDto ToDto(
+        string? suspectName,
+        long? nameRecordNumber,
+        long? primaryIncidentRecordNumber,
+        string? primaryIncidentNum,
+        NameSnapshotDto? atTimeOfName = null) => new(
         Id, RecordNumber, JurisdictionId, AgencyId,
-        SuspectName, ArrestedAt, Status, IsLocked, LockedByUserId,
-        CreatedBy, ModifiedBy, CreatedAtUtc, UpdatedAtUtc, ArrestTypeId, ArrestNum, LocationId, PrimaryMugshotUrl);
+        NameId, suspectName, nameRecordNumber, ArrestedAt, Status, IsLocked, LockedByUserId,
+        CreatedBy, ModifiedBy, CreatedAtUtc, UpdatedAtUtc, ArrestTypeId, ArrestNum, LocationId,
+        PrimaryIncidentId, primaryIncidentRecordNumber, primaryIncidentNum, PrimaryMugshotUrl, atTimeOfName);
 
-    public void ApplyDetailsChanged(string suspectName, DateTime arrestedAt, Guid? arrestTypeId, string arrestNum)
+    public void ApplyDetailsChanged(Guid? nameId, DateTime arrestedAt, Guid? arrestTypeId, string arrestNum, Guid? primaryIncidentId)
     {
-        SuspectName  = suspectName;
+        NameId       = nameId;
         ArrestedAt   = arrestedAt;
         ArrestTypeId = arrestTypeId;
         ArrestNum    = arrestNum;
+        PrimaryIncidentId = primaryIncidentId;
         UpdatedAtUtc = DateTime.UtcNow;
     }
 

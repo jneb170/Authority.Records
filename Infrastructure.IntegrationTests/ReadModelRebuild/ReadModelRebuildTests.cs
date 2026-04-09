@@ -42,7 +42,7 @@ public sealed class ReadModelRebuildTests : IDisposable
             context.Citations.Add(citation);
             await context.SaveChangesAsync();
 
-            citation.UpdateDetails("Updated citation", expectedIssueDate, courtId: null, citationNum: "CT-200", modificationContext);
+            citation.UpdateDetails("Updated citation", expectedIssueDate, courtId: null, citationNum: "CT-200", defendantNameId: null, modificationContext);
             citation.SetLocation(expectedLocationId, modificationContext);
             await context.SaveChangesAsync();
 
@@ -51,7 +51,7 @@ public sealed class ReadModelRebuildTests : IDisposable
 
         await using (var rebuildContext = CreateContext())
         {
-            var handler = new RebuildReadModelsHandler(rebuildContext, new TestTenantProvider(_tenantId));
+            var handler = new RebuildReadModelsHandler(rebuildContext, new TestTenantProvider(_tenantId, _agencyId));
             var result = await handler.Handle(new RebuildReadModelsCommand(), CancellationToken.None);
 
             Assert.Equal(1, result.CitationsRebuilt);

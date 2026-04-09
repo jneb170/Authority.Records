@@ -1,12 +1,15 @@
+using System.Data.Common;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Modules.Records.Application;
 using Modules.Records.Domain.Abstractions;
 using Modules.Records.UI.Authorization;
 using Modules.Records.UI.Interop;
+using Modules.Records.UI.Middleware;
 using Modules.Records.UI.Services;
 using Shared.Infrastructure;
 using Shared.Infrastructure.Identity;
+using Shared.Infrastructure.Maintenance;
 using Shared.Infrastructure.Persistence;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -27,8 +30,10 @@ builder.Services.AddScoped<ITenantProvider, BlazorTenantProvider>();
 builder.Services.AddScoped<IIncidentService, IncidentService>();
 builder.Services.AddScoped<IArrestService, ArrestService>();
 builder.Services.AddScoped<ICitationService, CitationService>();
+builder.Services.AddScoped<IActiveAgencyContext, ActiveAgencyContext>();
 builder.Services.AddScoped<IAgencyConfigurationService, AgencyConfigurationService>();
 builder.Services.AddScoped<IPicklistService, PicklistService>();
+builder.Services.AddScoped<IChargeService, ChargeService>();
 builder.Services.AddScoped<INameService, NameService>();
 builder.Services.AddScoped<ILocationService, LocationService>();
 builder.Services.AddScoped<IHomeService, HomeService>();
@@ -41,6 +46,7 @@ builder.Services.AddScoped<IAdminService, AdminService>();
 builder.Services.AddScoped<IJurisdictionManagementService, JurisdictionManagementService>();
 builder.Services.AddScoped<IAgencyManagementService, AgencyManagementService>();
 builder.Services.AddScoped<IUserManagementService, UserManagementService>();
+builder.Services.AddScoped<IRelationshipService, RelationshipService>();
 
 builder.Services.AddHttpContextAccessor();
 
@@ -59,6 +65,7 @@ app.UseStaticFiles();
 app.MapStaticAssets();
 
 app.UseAuthentication();
+app.UseMiddleware<ApplicationMaintenanceMiddleware>();
 app.UseAuthorization();
 app.UseAntiforgery();
 
@@ -66,16 +73,55 @@ app.MapRazorPages();
 app.MapRazorComponents<Modules.Records.UI.App>()
     .AddInteractiveServerRenderMode();
 
-// Seed initial users and roles on first run (any environment).
-// SeedDevUserAsync is idempotent — it only creates users if they don't exist.
+if (app.Environment.IsDevelopment())
+{
+    await EnsureAppDbMigrationsAppliedAsync(app.Services);
+}
+
+if (app.Environment.IsDevelopment())
+{
+    // Dev-user seeding is intentionally limited to local development.
+    // Production deployments should provision real users explicitly.
+    using var scope = app.Services.CreateScope();
+    await SeedDevelopmentUsersAsync(scope.ServiceProvider);
+}
+
 {
     using var scope = app.Services.CreateScope();
-    await SeedDevUserAsync(scope.ServiceProvider);
+    var maintenanceCoordinator = scope.ServiceProvider.GetRequiredService<ApplicationMaintenanceCoordinator>();
+    await maintenanceCoordinator.RunStartupMaintenanceAsync(scope.ServiceProvider);
 }
 
 app.Run();
 
-static async Task SeedDevUserAsync(IServiceProvider services)
+static async Task EnsureAppDbMigrationsAppliedAsync(IServiceProvider services)
+{
+    using var scope = services.CreateScope();
+    var appDb = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+
+    IReadOnlyList<string> pendingList;
+    try
+    {
+        pendingList = (await appDb.Database.GetPendingMigrationsAsync()).ToList();
+    }
+    catch (DbException ex)
+    {
+        throw new InvalidOperationException(
+            "Could not check pending AppDbContext migrations. Ensure the database is reachable " +
+            "and run .\\scripts\\update-db.ps1 to apply any outstanding migrations.",
+            ex);
+    }
+
+    if (pendingList.Count == 0)
+        return;
+
+    var migrationSummary = string.Join(", ", pendingList);
+    throw new InvalidOperationException(
+        "Pending AppDbContext migrations were detected: " +
+        $"{migrationSummary}. Run .\\scripts\\update-db.ps1 before starting the app.");
+}
+
+static async Task SeedDevelopmentUsersAsync(IServiceProvider services)
 {
     var authDb = services.GetRequiredService<AuthDbContext>();
     await authDb.Database.MigrateAsync();

@@ -62,6 +62,13 @@ public sealed class Name : LockableAggregateRoot<Name>, IMultiTenant
     /// <summary>Local agency-assigned identifier — Person only.</summary>
     public string? LocalNumber { get; private set; }
 
+    public string? PrimaryPhone { get; private set; }
+    public string? PrimaryPhoneExtension { get; private set; }
+    public string? WorkPhone { get; private set; }
+    public string? WorkPhoneExtension { get; private set; }
+    public string? OtherPhone { get; private set; }
+    public string? OtherPhoneExtension { get; private set; }
+
     /// <summary>Social Security Number stored as formatted string (XXX-XX-XXXX) — Person only.</summary>
     public string? SocialSecurityNumber { get; private set; }
 
@@ -120,7 +127,13 @@ public sealed class Name : LockableAggregateRoot<Name>, IMultiTenant
         string? localNumber,
         string? socialSecurityNumber,
         bool isCitizen,
-        DateTime? deceasedDate)
+        DateTime? deceasedDate,
+        string? primaryPhone = null,
+        string? primaryPhoneExtension = null,
+        string? workPhone = null,
+        string? workPhoneExtension = null,
+        string? otherPhone = null,
+        string? otherPhoneExtension = null)
     {
         Id               = Guid.NewGuid();
         JurisdictionId   = jurisdictionId;
@@ -142,6 +155,12 @@ public sealed class Name : LockableAggregateRoot<Name>, IMultiTenant
         PlaceOfBirth     = placeOfBirth;
         FbiNumber        = fbiNumber;
         LocalNumber      = localNumber;
+        PrimaryPhone     = primaryPhone;
+        PrimaryPhoneExtension = primaryPhoneExtension;
+        WorkPhone        = workPhone;
+        WorkPhoneExtension = workPhoneExtension;
+        OtherPhone       = otherPhone;
+        OtherPhoneExtension = otherPhoneExtension;
         SocialSecurityNumber = socialSecurityNumber;
         IsCitizen        = isCitizen;
         DeceasedDate     = deceasedDate;
@@ -171,7 +190,13 @@ public sealed class Name : LockableAggregateRoot<Name>, IMultiTenant
         string? socialSecurityNumber,
         bool isCitizen,
         DateTime? deceasedDate,
-        IModificationContext context)
+        IModificationContext context,
+        string? primaryPhone = null,
+        string? primaryPhoneExtension = null,
+        string? workPhone = null,
+        string? workPhoneExtension = null,
+        string? otherPhone = null,
+        string? otherPhoneExtension = null)
     {
         NameType              = nameType;
         LastOrBusinessName    = lastOrBusinessName;
@@ -190,6 +215,12 @@ public sealed class Name : LockableAggregateRoot<Name>, IMultiTenant
         PlaceOfBirth          = placeOfBirth;
         FbiNumber             = fbiNumber;
         LocalNumber           = localNumber;
+        PrimaryPhone          = primaryPhone;
+        PrimaryPhoneExtension = primaryPhoneExtension;
+        WorkPhone             = workPhone;
+        WorkPhoneExtension    = workPhoneExtension;
+        OtherPhone            = otherPhone;
+        OtherPhoneExtension   = otherPhoneExtension;
         SocialSecurityNumber  = socialSecurityNumber;
         IsCitizen             = isCitizen;
         DeceasedDate          = deceasedDate;
@@ -198,7 +229,9 @@ public sealed class Name : LockableAggregateRoot<Name>, IMultiTenant
             Id, NameType, LastOrBusinessName, FirstName, MiddleName,
             SexId, RaceId, DateOfBirth, DriversLicenseNumber, DriversLicenseStateId,
             HeightInches, WeightLbs, HairColorId, EyeColorId,
-            SuffixId, PlaceOfBirth, FbiNumber, LocalNumber, SocialSecurityNumber, IsCitizen, DeceasedDate));
+            SuffixId, PlaceOfBirth, FbiNumber, LocalNumber,
+            PrimaryPhone, PrimaryPhoneExtension, WorkPhone, WorkPhoneExtension, OtherPhone, OtherPhoneExtension,
+            SocialSecurityNumber, IsCitizen, DeceasedDate, PrimaryLocationId, SecondaryLocationId, context.UserId));
     }
 
     /// <summary>Sets or clears the primary and/or secondary address from the Master Location Index.</summary>

@@ -9,13 +9,16 @@ public sealed class IssueCitationHandler : IRequestHandler<IssueCitationCommand>
 {
     private readonly IApplicationDbContext _dbContext;
     private readonly ITenantProvider _tenantProvider;
+    private readonly IModificationContext _modificationContext;
 
     public IssueCitationHandler(
         IApplicationDbContext dbContext,
-        ITenantProvider tenantProvider)
+        ITenantProvider tenantProvider,
+        IModificationContext modificationContext)
     {
         _dbContext = dbContext;
         _tenantProvider = tenantProvider;
+        _modificationContext = modificationContext;
     }
 
     public async Task Handle(IssueCitationCommand request, CancellationToken cancellationToken)
@@ -27,7 +30,7 @@ public sealed class IssueCitationHandler : IRequestHandler<IssueCitationCommand>
                 cancellationToken)
             ?? throw new InvalidOperationException("Citation not found.");
 
-        citation.Issue();
+        citation.Issue(_modificationContext);
 
         await _dbContext.SaveChangesAsync(cancellationToken);
     }

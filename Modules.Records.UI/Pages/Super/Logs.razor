@@ -1,0 +1,14 @@
+@page "/super/logs"
+@attribute [Authorize(Roles = "Super")]
+@using Microsoft.AspNetCore.Authorization
+
+<PageTitle>System Logs</PageTitle>
+
+<div class="page-header">
+    <div>
+        <h2 class="page-header-title"><i class="bi bi-journal-richtext"></i> System Logs</h2>
+        <div class="page-header-sub">Cross-jurisdiction and system-level audit history</div>
+    </div>
+</div>
+
+<AuditLogViewer IsSuperView="true" />

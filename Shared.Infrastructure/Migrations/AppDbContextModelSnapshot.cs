@@ -62,6 +62,12 @@ namespace Shared.Infrastructure.Migrations
                     b.Property<Guid?>("ModifiedBy")
                         .HasColumnType("uniqueidentifier");
 
+                    b.Property<Guid?>("NameId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid?>("PrimaryIncidentId")
+                        .HasColumnType("uniqueidentifier");
+
                     b.Property<string>("PrimaryMugshotUrl")
                         .HasColumnType("nvarchar(max)");
 
@@ -73,10 +79,6 @@ namespace Shared.Infrastructure.Migrations
                         .HasMaxLength(50)
                         .HasColumnType("nvarchar(50)");
 
-                    b.Property<string>("SuspectName")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(max)");
-
                     b.Property<DateTime>("UpdatedAtUtc")
                         .HasColumnType("datetime2");
 
@@ -84,9 +86,86 @@ namespace Shared.Infrastructure.Migrations
 
                     b.HasIndex("JurisdictionId");
 
+                    b.HasIndex("NameId");
+
+                    b.HasIndex("PrimaryIncidentId");
+
                     b.HasIndex("Status");
 
                     b.ToTable("ArrestReadModels", (string)null);
+                });
+
+            modelBuilder.Entity("Modules.Records.Application.ReadModels.AuditLogReadModel", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("ActionType")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("nvarchar(64)");
+
+                    b.Property<Guid>("AggregateId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<long>("AggregateVersion")
+                        .HasColumnType("bigint");
+
+                    b.Property<Guid>("EventId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("EventType")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(450)");
+
+                    b.Property<Guid?>("JurisdictionId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("Message")
+                        .IsRequired()
+                        .HasMaxLength(512)
+                        .HasColumnType("nvarchar(512)");
+
+                    b.Property<DateTime>("OccurredOnUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("Payload")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("RecordType")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("nvarchar(64)");
+
+                    b.Property<string>("Severity")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("nvarchar(32)");
+
+                    b.Property<Guid?>("UserId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ActionType");
+
+                    b.HasIndex("EventType");
+
+                    b.HasIndex("JurisdictionId");
+
+                    b.HasIndex("OccurredOnUtc");
+
+                    b.HasIndex("RecordType");
+
+                    b.HasIndex("Severity");
+
+                    b.HasIndex("UserId");
+
+                    b.HasIndex("JurisdictionId", "OccurredOnUtc");
+
+                    b.ToTable("AuditTrailEntries", (string)null);
                 });
 
             modelBuilder.Entity("Modules.Records.Application.ReadModels.CitationReadModel", b =>
@@ -109,6 +188,9 @@ namespace Shared.Infrastructure.Migrations
                         .HasColumnType("datetime2");
 
                     b.Property<Guid>("CreatedBy")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid?>("DefendantNameId")
                         .HasColumnType("uniqueidentifier");
 
                     b.Property<string>("Description")
@@ -571,6 +653,14 @@ namespace Shared.Infrastructure.Migrations
                         .HasMaxLength(20)
                         .HasColumnType("nvarchar(20)");
 
+                    b.Property<string>("OtherPhone")
+                        .HasMaxLength(25)
+                        .HasColumnType("nvarchar(25)");
+
+                    b.Property<string>("OtherPhoneExtension")
+                        .HasMaxLength(10)
+                        .HasColumnType("nvarchar(10)");
+
                     b.Property<string>("PlaceOfBirth")
                         .HasMaxLength(100)
                         .HasColumnType("nvarchar(100)");
@@ -580,6 +670,14 @@ namespace Shared.Infrastructure.Migrations
 
                     b.Property<string>("PrimaryMugshotUrl")
                         .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("PrimaryPhone")
+                        .HasMaxLength(25)
+                        .HasColumnType("nvarchar(25)");
+
+                    b.Property<string>("PrimaryPhoneExtension")
+                        .HasMaxLength(10)
+                        .HasColumnType("nvarchar(10)");
 
                     b.Property<Guid?>("RaceId")
                         .HasColumnType("uniqueidentifier");
@@ -605,6 +703,14 @@ namespace Shared.Infrastructure.Migrations
 
                     b.Property<int?>("WeightLbs")
                         .HasColumnType("int");
+
+                    b.Property<string>("WorkPhone")
+                        .HasMaxLength(25)
+                        .HasColumnType("nvarchar(25)");
+
+                    b.Property<string>("WorkPhoneExtension")
+                        .HasMaxLength(10)
+                        .HasColumnType("nvarchar(10)");
 
                     b.HasKey("Id");
 
@@ -818,6 +924,12 @@ namespace Shared.Infrastructure.Migrations
                     b.Property<Guid?>("ModifiedBy")
                         .HasColumnType("uniqueidentifier");
 
+                    b.Property<Guid?>("NameId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid?>("PrimaryIncidentId")
+                        .HasColumnType("uniqueidentifier");
+
                     b.Property<long>("RecordNumber")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("bigint");
@@ -831,19 +943,330 @@ namespace Shared.Infrastructure.Migrations
                     b.Property<int>("Status")
                         .HasColumnType("int");
 
-                    b.Property<string>("SuspectName")
+                    b.Property<long>("Version")
+                        .HasColumnType("bigint");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("NameId");
+
+                    b.HasIndex("PrimaryIncidentId");
+
+                    b.HasIndex("RecordNumber")
+                        .IsUnique();
+
+                    b.ToTable("Arrests");
+                });
+
+            modelBuilder.Entity("Modules.Records.Domain.Entities.ArrestChargeLink", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("ArrestId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("ChargeId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid>("CreatedBy")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("bit");
+
+                    b.Property<Guid>("JurisdictionId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime>("LinkedAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid>("LinkedByUserId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime?>("ModifiedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid?>("ModifiedBy")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<byte[]>("RowVersion")
                         .IsRequired()
-                        .HasColumnType("nvarchar(max)");
+                        .HasColumnType("varbinary(max)");
 
                     b.Property<long>("Version")
                         .HasColumnType("bigint");
 
                     b.HasKey("Id");
 
-                    b.HasIndex("RecordNumber")
+                    b.HasIndex("ArrestId");
+
+                    b.HasIndex("ChargeId");
+
+                    b.HasIndex("ArrestId", "ChargeId")
                         .IsUnique();
 
-                    b.ToTable("Arrests");
+                    b.ToTable("ArrestChargeLinks");
+                });
+
+            modelBuilder.Entity("Modules.Records.Domain.Entities.ArrestNameSnapshot", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("AgencyId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("ArrestId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid>("CreatedBy")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime?>("DateOfBirth")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime?>("DeceasedDate")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("DriversLicenseNumber")
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.Property<Guid?>("DriversLicenseStateId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid?>("EyeColorId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("FbiNumber")
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)");
+
+                    b.Property<string>("FirstName")
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<Guid?>("HairColorId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<int?>("HeightInches")
+                        .HasColumnType("int");
+
+                    b.Property<bool>("IsCitizen")
+                        .HasColumnType("bit");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("bit");
+
+                    b.Property<Guid>("JurisdictionId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime?>("LastCopiedAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid?>("LastCopiedByUserId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("LastOrBusinessName")
+                        .IsRequired()
+                        .HasMaxLength(250)
+                        .HasColumnType("nvarchar(250)");
+
+                    b.Property<string>("LocalNumber")
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)");
+
+                    b.Property<string>("MiddleName")
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<DateTime?>("ModifiedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid?>("ModifiedBy")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("NameType")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)");
+
+                    b.Property<string>("OtherPhone")
+                        .HasMaxLength(25)
+                        .HasColumnType("nvarchar(25)");
+
+                    b.Property<string>("OtherPhoneExtension")
+                        .HasMaxLength(10)
+                        .HasColumnType("nvarchar(10)");
+
+                    b.Property<string>("PlaceOfBirth")
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<string>("PrimaryLocationAddress")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<Guid?>("PrimaryLocationId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<long?>("PrimaryLocationRecordNumber")
+                        .HasColumnType("bigint");
+
+                    b.Property<string>("PrimaryPhone")
+                        .HasMaxLength(25)
+                        .HasColumnType("nvarchar(25)");
+
+                    b.Property<string>("PrimaryPhoneExtension")
+                        .HasMaxLength(10)
+                        .HasColumnType("nvarchar(10)");
+
+                    b.Property<Guid?>("RaceId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<byte[]>("RowVersion")
+                        .IsRequired()
+                        .HasColumnType("varbinary(max)");
+
+                    b.Property<string>("SecondaryLocationAddress")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<Guid?>("SecondaryLocationId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<long?>("SecondaryLocationRecordNumber")
+                        .HasColumnType("bigint");
+
+                    b.Property<Guid?>("SexId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("SocialSecurityNumber")
+                        .HasMaxLength(11)
+                        .HasColumnType("nvarchar(11)");
+
+                    b.Property<Guid?>("SourceNameId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<long?>("SourceNameRecordNumber")
+                        .HasColumnType("bigint");
+
+                    b.Property<Guid?>("SuffixId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<long>("Version")
+                        .HasColumnType("bigint");
+
+                    b.Property<int?>("WeightLbs")
+                        .HasColumnType("int");
+
+                    b.Property<string>("WorkPhone")
+                        .HasMaxLength(25)
+                        .HasColumnType("nvarchar(25)");
+
+                    b.Property<string>("WorkPhoneExtension")
+                        .HasMaxLength(10)
+                        .HasColumnType("nvarchar(10)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ArrestId")
+                        .IsUnique();
+
+                    b.ToTable("ArrestNameSnapshots");
+                });
+
+            modelBuilder.Entity("Modules.Records.Domain.Entities.Charge", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("AgencyId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("ChargeLevel")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid>("CreatedBy")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("CrimeAgainst")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("bit");
+
+                    b.Property<bool>("IsCitationEligible")
+                        .HasColumnType("bit");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("bit");
+
+                    b.Property<Guid>("JurisdictionId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime?>("ModifiedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid?>("ModifiedBy")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("NibrsGroup")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.Property<string>("OffenseName")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<byte[]>("RowVersion")
+                        .IsRequired()
+                        .HasColumnType("varbinary(max)");
+
+                    b.Property<string>("StateClass")
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.Property<string>("UcrCategory")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.Property<string>("UcrCode")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.Property<long>("Version")
+                        .HasColumnType("bigint");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("IsActive");
+
+                    b.HasIndex("JurisdictionId", "AgencyId", "UcrCode", "OffenseName")
+                        .IsUnique();
+
+                    b.ToTable("Charges");
                 });
 
             modelBuilder.Entity("Modules.Records.Domain.Entities.Citation", b =>
@@ -866,6 +1289,9 @@ namespace Shared.Infrastructure.Migrations
                         .HasColumnType("datetime2");
 
                     b.Property<Guid>("CreatedBy")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid?>("DefendantNameId")
                         .HasColumnType("uniqueidentifier");
 
                     b.Property<string>("Description")
@@ -912,6 +1338,9 @@ namespace Shared.Infrastructure.Migrations
                         .IsRequired()
                         .HasColumnType("varbinary(max)");
 
+                    b.Property<int>("Status")
+                        .HasColumnType("int");
+
                     b.Property<long>("Version")
                         .HasColumnType("bigint");
 
@@ -921,6 +1350,420 @@ namespace Shared.Infrastructure.Migrations
                         .IsUnique();
 
                     b.ToTable("Citations");
+                });
+
+            modelBuilder.Entity("Modules.Records.Domain.Entities.CitationChargeLink", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("ChargeId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("CitationId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid>("CreatedBy")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("bit");
+
+                    b.Property<Guid>("JurisdictionId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime>("LinkedAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid>("LinkedByUserId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime?>("ModifiedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid?>("ModifiedBy")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<byte[]>("RowVersion")
+                        .IsRequired()
+                        .HasColumnType("varbinary(max)");
+
+                    b.Property<long>("Version")
+                        .HasColumnType("bigint");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ChargeId");
+
+                    b.HasIndex("CitationId");
+
+                    b.HasIndex("CitationId", "ChargeId")
+                        .IsUnique();
+
+                    b.ToTable("CitationChargeLinks");
+                });
+
+            modelBuilder.Entity("Modules.Records.Domain.Entities.CitationNameSnapshot", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("AgencyId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("CitationId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid>("CreatedBy")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime?>("DateOfBirth")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime?>("DeceasedDate")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("DriversLicenseNumber")
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.Property<Guid?>("DriversLicenseStateId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid?>("EyeColorId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("FbiNumber")
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)");
+
+                    b.Property<string>("FirstName")
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<Guid?>("HairColorId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<int?>("HeightInches")
+                        .HasColumnType("int");
+
+                    b.Property<bool>("IsCitizen")
+                        .HasColumnType("bit");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("bit");
+
+                    b.Property<Guid>("JurisdictionId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime?>("LastCopiedAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid?>("LastCopiedByUserId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("LastOrBusinessName")
+                        .IsRequired()
+                        .HasMaxLength(250)
+                        .HasColumnType("nvarchar(250)");
+
+                    b.Property<string>("LocalNumber")
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)");
+
+                    b.Property<string>("MiddleName")
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<DateTime?>("ModifiedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid?>("ModifiedBy")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("NameType")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)");
+
+                    b.Property<string>("OtherPhone")
+                        .HasMaxLength(25)
+                        .HasColumnType("nvarchar(25)");
+
+                    b.Property<string>("OtherPhoneExtension")
+                        .HasMaxLength(10)
+                        .HasColumnType("nvarchar(10)");
+
+                    b.Property<string>("PlaceOfBirth")
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<string>("PrimaryLocationAddress")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<Guid?>("PrimaryLocationId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<long?>("PrimaryLocationRecordNumber")
+                        .HasColumnType("bigint");
+
+                    b.Property<string>("PrimaryPhone")
+                        .HasMaxLength(25)
+                        .HasColumnType("nvarchar(25)");
+
+                    b.Property<string>("PrimaryPhoneExtension")
+                        .HasMaxLength(10)
+                        .HasColumnType("nvarchar(10)");
+
+                    b.Property<Guid?>("RaceId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<byte[]>("RowVersion")
+                        .IsRequired()
+                        .HasColumnType("varbinary(max)");
+
+                    b.Property<string>("SecondaryLocationAddress")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<Guid?>("SecondaryLocationId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<long?>("SecondaryLocationRecordNumber")
+                        .HasColumnType("bigint");
+
+                    b.Property<Guid?>("SexId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("SocialSecurityNumber")
+                        .HasMaxLength(11)
+                        .HasColumnType("nvarchar(11)");
+
+                    b.Property<Guid?>("SourceNameId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<long?>("SourceNameRecordNumber")
+                        .HasColumnType("bigint");
+
+                    b.Property<Guid?>("SuffixId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<long>("Version")
+                        .HasColumnType("bigint");
+
+                    b.Property<int?>("WeightLbs")
+                        .HasColumnType("int");
+
+                    b.Property<string>("WorkPhone")
+                        .HasMaxLength(25)
+                        .HasColumnType("nvarchar(25)");
+
+                    b.Property<string>("WorkPhoneExtension")
+                        .HasMaxLength(10)
+                        .HasColumnType("nvarchar(10)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CitationId")
+                        .IsUnique();
+
+                    b.ToTable("CitationNameSnapshots");
+                });
+
+            modelBuilder.Entity("Modules.Records.Domain.Entities.CitationOfficerProfile", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("AgencyId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("BadgeOrIdentifier")
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.Property<Guid>("CitationId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("JurisdictionId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("OfficerName")
+                        .IsRequired()
+                        .HasMaxLength(250)
+                        .HasColumnType("nvarchar(250)");
+
+                    b.Property<Guid?>("SourceNameId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<long?>("SourceNameRecordNumber")
+                        .HasColumnType("bigint");
+
+                    b.Property<string>("Title")
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<string>("UnitNumber")
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CitationId")
+                        .IsUnique();
+
+                    b.ToTable("CitationOfficerProfiles");
+                });
+
+            modelBuilder.Entity("Modules.Records.Domain.Entities.CitationTexasDetails", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("AcceptedBondNotes")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<DateTime?>("AffidavitSignedDate")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid>("AgencyId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("CitationId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("ComplainantSignatureText")
+                        .HasMaxLength(150)
+                        .HasColumnType("nvarchar(150)");
+
+                    b.Property<DateTime?>("CourtAppearanceDateTime")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid?>("CourtAppearanceLocationId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("DefendantSignatureText")
+                        .HasMaxLength(150)
+                        .HasColumnType("nvarchar(150)");
+
+                    b.Property<string>("DocketNumber")
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.Property<Guid>("JurisdictionId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("NarrativeOtherViolations")
+                        .HasMaxLength(1000)
+                        .HasColumnType("nvarchar(1000)");
+
+                    b.Property<string>("OccurredAtText")
+                        .HasMaxLength(250)
+                        .HasColumnType("nvarchar(250)");
+
+                    b.Property<string>("PageNumber")
+                        .HasMaxLength(25)
+                        .HasColumnType("nvarchar(25)");
+
+                    b.Property<string>("PrimaryViolationDescription")
+                        .HasMaxLength(250)
+                        .HasColumnType("nvarchar(250)");
+
+                    b.Property<string>("ReceiptNumber")
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.Property<Guid?>("SpeedBandId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<int?>("SpeedMph")
+                        .HasColumnType("int");
+
+                    b.Property<Guid?>("ViolationGroupId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("ViolationSection")
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.Property<Guid?>("ViolationSourceTypeId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<int?>("ZoneMph")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CitationId")
+                        .IsUnique();
+
+                    b.ToTable("CitationTexasDetails");
+                });
+
+            modelBuilder.Entity("Modules.Records.Domain.Entities.CitationVehicle", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("AgencyId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<bool>("CarriesHazardousMaterial")
+                        .HasColumnType("bit");
+
+                    b.Property<Guid>("CitationId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("Color")
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.Property<bool>("IsCommercial")
+                        .HasColumnType("bit");
+
+                    b.Property<Guid>("JurisdictionId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("Make")
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.Property<int?>("ModelYear")
+                        .HasColumnType("int");
+
+                    b.Property<string>("PlateNumber")
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)");
+
+                    b.Property<Guid?>("PlateStateId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<int?>("PlateYear")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Style")
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CitationId")
+                        .IsUnique();
+
+                    b.ToTable("CitationVehicles");
                 });
 
             modelBuilder.Entity("Modules.Records.Domain.Entities.Incident", b =>
@@ -1066,6 +1909,61 @@ namespace Shared.Infrastructure.Migrations
                         .IsUnique();
 
                     b.ToTable("IncidentArrestLinks");
+                });
+
+            modelBuilder.Entity("Modules.Records.Domain.Entities.IncidentChargeLink", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("ChargeId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid>("CreatedBy")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("IncidentId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("bit");
+
+                    b.Property<Guid>("JurisdictionId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime>("LinkedAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid>("LinkedByUserId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime?>("ModifiedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid?>("ModifiedBy")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<byte[]>("RowVersion")
+                        .IsRequired()
+                        .HasColumnType("varbinary(max)");
+
+                    b.Property<long>("Version")
+                        .HasColumnType("bigint");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ChargeId");
+
+                    b.HasIndex("IncidentId");
+
+                    b.HasIndex("IncidentId", "ChargeId")
+                        .IsUnique();
+
+                    b.ToTable("IncidentChargeLinks");
                 });
 
             modelBuilder.Entity("Modules.Records.Domain.Entities.IncidentCitationLink", b =>
@@ -1469,12 +2367,28 @@ namespace Shared.Infrastructure.Migrations
                         .HasMaxLength(20)
                         .HasColumnType("nvarchar(20)");
 
+                    b.Property<string>("OtherPhone")
+                        .HasMaxLength(25)
+                        .HasColumnType("nvarchar(25)");
+
+                    b.Property<string>("OtherPhoneExtension")
+                        .HasMaxLength(10)
+                        .HasColumnType("nvarchar(10)");
+
                     b.Property<string>("PlaceOfBirth")
                         .HasMaxLength(100)
                         .HasColumnType("nvarchar(100)");
 
                     b.Property<Guid?>("PrimaryLocationId")
                         .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("PrimaryPhone")
+                        .HasMaxLength(25)
+                        .HasColumnType("nvarchar(25)");
+
+                    b.Property<string>("PrimaryPhoneExtension")
+                        .HasMaxLength(10)
+                        .HasColumnType("nvarchar(10)");
 
                     b.Property<Guid?>("RaceId")
                         .HasColumnType("uniqueidentifier");
@@ -1510,6 +2424,14 @@ namespace Shared.Infrastructure.Migrations
 
                     b.Property<int?>("WeightLbs")
                         .HasColumnType("int");
+
+                    b.Property<string>("WorkPhone")
+                        .HasMaxLength(25)
+                        .HasColumnType("nvarchar(25)");
+
+                    b.Property<string>("WorkPhoneExtension")
+                        .HasMaxLength(10)
+                        .HasColumnType("nvarchar(10)");
 
                     b.HasKey("Id");
 
@@ -1635,46 +2557,6 @@ namespace Shared.Infrastructure.Migrations
                     b.ToTable("PicklistSettings");
                 });
 
-            modelBuilder.Entity("Shared.Infrastructure.Audit.AuditTrailEntry", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("uniqueidentifier");
-
-                    b.Property<Guid>("AggregateId")
-                        .HasColumnType("uniqueidentifier");
-
-                    b.Property<long>("AggregateVersion")
-                        .HasColumnType("bigint");
-
-                    b.Property<Guid>("EventId")
-                        .HasColumnType("uniqueidentifier");
-
-                    b.Property<string>("EventType")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(450)");
-
-                    b.Property<Guid>("JurisdictionId")
-                        .HasColumnType("uniqueidentifier");
-
-                    b.Property<DateTime>("OccurredOnUtc")
-                        .HasColumnType("datetime2");
-
-                    b.Property<string>("Payload")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(max)");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("EventType");
-
-                    b.HasIndex("JurisdictionId");
-
-                    b.HasIndex("OccurredOnUtc");
-
-                    b.ToTable("AuditTrailEntries", (string)null);
-                });
-
             modelBuilder.Entity("Shared.Infrastructure.Outbox.DeadLetterMessage", b =>
                 {
                     b.Property<Guid>("Id")
@@ -1773,6 +2655,64 @@ namespace Shared.Infrastructure.Migrations
                     b.HasKey("Id");
 
                     b.ToTable("OutboxMessages");
+                });
+
+            modelBuilder.Entity("Modules.Records.Domain.Entities.Arrest", b =>
+                {
+                    b.HasOne("Modules.Records.Domain.Entities.Name", null)
+                        .WithMany()
+                        .HasForeignKey("NameId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("Modules.Records.Domain.Entities.Incident", null)
+                        .WithMany()
+                        .HasForeignKey("PrimaryIncidentId")
+                        .OnDelete(DeleteBehavior.Restrict);
+                });
+
+            modelBuilder.Entity("Modules.Records.Domain.Entities.ArrestNameSnapshot", b =>
+                {
+                    b.HasOne("Modules.Records.Domain.Entities.Arrest", null)
+                        .WithOne()
+                        .HasForeignKey("Modules.Records.Domain.Entities.ArrestNameSnapshot", "ArrestId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("Modules.Records.Domain.Entities.CitationNameSnapshot", b =>
+                {
+                    b.HasOne("Modules.Records.Domain.Entities.Citation", null)
+                        .WithOne()
+                        .HasForeignKey("Modules.Records.Domain.Entities.CitationNameSnapshot", "CitationId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("Modules.Records.Domain.Entities.CitationOfficerProfile", b =>
+                {
+                    b.HasOne("Modules.Records.Domain.Entities.Citation", null)
+                        .WithOne()
+                        .HasForeignKey("Modules.Records.Domain.Entities.CitationOfficerProfile", "CitationId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("Modules.Records.Domain.Entities.CitationTexasDetails", b =>
+                {
+                    b.HasOne("Modules.Records.Domain.Entities.Citation", null)
+                        .WithOne()
+                        .HasForeignKey("Modules.Records.Domain.Entities.CitationTexasDetails", "CitationId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("Modules.Records.Domain.Entities.CitationVehicle", b =>
+                {
+                    b.HasOne("Modules.Records.Domain.Entities.Citation", null)
+                        .WithOne()
+                        .HasForeignKey("Modules.Records.Domain.Entities.CitationVehicle", "CitationId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
                 });
 #pragma warning restore 612, 618
         }

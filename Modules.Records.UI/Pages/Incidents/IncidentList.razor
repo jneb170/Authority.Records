@@ -93,6 +93,7 @@ else if (_incidents is not null)
                 <SortableColumnHeader ColumnKey="id"        Label="ID"
                     CurrentSortColumn="@_sortColumn" SortAscending="@_sortAscending" OnSort="SortBy" />
                 <SortableColumnHeader ColumnKey="incident"  Label="Incident #"
+                    MobileLabel="Inc #"
                     CurrentSortColumn="@_sortColumn" SortAscending="@_sortAscending" OnSort="SortBy" />
                 <SortableColumnHeader ColumnKey="status"    Label="Status"
                     CurrentSortColumn="@_sortColumn" SortAscending="@_sortAscending" OnSort="SortBy" />
@@ -100,6 +101,7 @@ else if (_incidents is not null)
                     CurrentSortColumn="@_sortColumn" SortAscending="@_sortAscending" OnSort="SortBy" />
                 <th>Lock</th>
                 <SortableColumnHeader ColumnKey="created"   Label="Created"
+                    MobileLabel="Created"
                     CurrentSortColumn="@_sortColumn" SortAscending="@_sortAscending" OnSort="SortBy" />
             </tr>
         </thead>

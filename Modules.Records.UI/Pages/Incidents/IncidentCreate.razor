@@ -1,9 +1,13 @@
 @page "/incidents/create"
 @implements IAsyncDisposable
 @inject IIncidentService IncidentService
+@inject IChargeService ChargeService
 @inject IAgencyConfigurationService ConfigService
+@inject IActiveAgencyContext ActiveAgencyContext
 @inject IKeyboardShortcutService ShortcutService
 @inject NavigationManager Nav
+@using Modules.Records.Application.DTOs
+@using Modules.Records.UI.Services
 @using IncidentDetailsVo = Modules.Records.Domain.ValueObjects.IncidentDetails
 
 <PageTitle>New Incident</PageTitle>
@@ -18,6 +22,10 @@
 @if (_vm.ErrorMessage is not null)
 {
     <div class="alert alert-danger">@_vm.ErrorMessage</div>
+}
+@if (AgencyBlockingMessage is not null)
+{
+    <div class="alert alert-warning">@AgencyBlockingMessage</div>
 }
 
 <div class="record-form-shell">
@@ -39,7 +47,7 @@
                     @if (_hasFormat)
                     {
                         <button type="button" class="btn btn-outline-secondary" @onclick="GenerateAsync"
-                                disabled="@_generating" title="Generate next incident number">
+                                disabled="@(_generating || !CanCreateAgencyOwnedRecord)" title="Generate next incident number">
                             @(_generating ? "…" : "🔁 Generate")
                         </button>
                     }
@@ -65,11 +73,39 @@
                 <InputText class="form-control" @bind-Value="_vm.LocalNum" />
                 <ValidationMessage For="() => _vm.LocalNum" />
             </div>
+            <div class="mb-0 record-field-span-2">
+                <label class="form-label">Charges <span class="text-muted">(optional)</span></label>
+                <div class="d-flex align-items-center gap-2 mb-2">
+                    <button type="button" class="btn btn-sm btn-outline-secondary" @onclick="() => _showChargeModal = true">
+                        <i class="bi bi-search me-1"></i>Add Charge
+                    </button>
+                    <span class="small text-muted">@_selectedCharges.Count charge(s) selected</span>
+                </div>
+                @if (_selectedCharges.Count == 0)
+                {
+                    <div class="form-text">Search and select one or more charges to link after the incident record is created.</div>
+                }
+                else
+                {
+                    <div class="list-group list-group-flush border rounded">
+                        @foreach (var charge in _selectedCharges)
+                        {
+                            <div class="list-group-item py-2 d-flex justify-content-between align-items-center">
+                                <div>
+                                    <div class="fw-semibold">@charge.OffenseName</div>
+                                    <div class="small text-muted">UCR @charge.UcrCode · @charge.ChargeLevel</div>
+                                </div>
+                                <button type="button" class="btn btn-sm btn-outline-danger" @onclick="() => RemoveCharge(charge.Id)">Remove</button>
+                            </div>
+                        }
+                    </div>
+                }
+            </div>
             </div>
         </div>
     </div>
     <div class="record-form-actions">
-        <button type="submit" class="btn btn-primary" disabled="@_submitting">
+        <button type="submit" class="btn btn-primary" disabled="@(_submitting || !CanCreateAgencyOwnedRecord)">
             @(_submitting ? "Creating…" : "Create Incident")
         </button>
         <a class="btn btn-secondary" href="/incidents">Cancel</a>
@@ -85,21 +121,36 @@
                       OnDiscard="DiscardAndCancelAsync"
                       OnCancel="() => _showCancelConfirm = false" />
 
+<ChargeSearchModal Visible="_showChargeModal"
+                   OnSelected="OnChargeSelected"
+                   OnCancelled="() => _showChargeModal = false" />
+
 @code {
     private readonly CreateIncidentViewModel _vm = new();
     private bool _submitting;
     private bool _hasFormat;
     private bool _generating;
     private bool _showCancelConfirm;
+    private bool _showChargeModal;
+    private readonly List<ChargeDto> _selectedCharges = [];
+    private IDisposable? _agencySelectionLock;
 
     private bool HasEnteredData =>
         !string.IsNullOrEmpty(_vm.IncidentNum) ||
         !string.IsNullOrEmpty(_vm.Description) ||
         !string.IsNullOrEmpty(_vm.CFSNum)      ||
-        !string.IsNullOrEmpty(_vm.LocalNum);
+        !string.IsNullOrEmpty(_vm.LocalNum) ||
+        _selectedCharges.Count > 0;
+    private bool CanCreateAgencyOwnedRecord => ActiveAgencyContext.HasSelectedAgency;
+    private string? AgencyBlockingMessage =>
+        CanCreateAgencyOwnedRecord
+            ? null
+            : "No active agency is available. Record creation is disabled until an administrator assigns you a default agency and agency access.";
 
     protected override async Task OnInitializedAsync()
     {
+        _agencySelectionLock ??= ActiveAgencyContext.AcquireSelectionLock();
+        await ActiveAgencyContext.EnsureLoadedAsync();
         ShortcutService.OnRelease += HandleShortcutRelease;
         ShortcutService.OnSave    += HandleShortcutSave;
         _hasFormat = true;
@@ -132,11 +183,16 @@
     {
         ShortcutService.OnRelease -= HandleShortcutRelease;
         ShortcutService.OnSave    -= HandleShortcutSave;
+        _agencySelectionLock?.Dispose();
+        _agencySelectionLock = null;
         return ValueTask.CompletedTask;
     }
 
     private async Task GenerateAsync()
     {
+        if (!CanCreateAgencyOwnedRecord)
+            return;
+
         _generating = true;
         _vm.ErrorMessage = null;
         try
@@ -160,6 +216,9 @@
 
         try
         {
+            if (!CanCreateAgencyOwnedRecord)
+                throw new InvalidOperationException("Select an active agency before creating an incident.");
+
             var id = await IncidentService.CreateAsync(new IncidentDetailsVo
             {
                 IncidentNum = _vm.IncidentNum,
@@ -167,6 +226,16 @@
                 CFSNum      = _vm.CFSNum,
                 LocalNum    = _vm.LocalNum
             });
+
+            if (_selectedCharges.Count > 0)
+            {
+                var incident = await IncidentService.GetByRecordNumberAsync(id)
+                    ?? throw new InvalidOperationException("Incident was created but could not be reloaded for charge linking.");
+
+                foreach (var charge in _selectedCharges)
+                    await ChargeService.LinkToIncidentAsync(incident.Id, charge.Id);
+            }
+
             Nav.NavigateTo($"/incidents/{id}?autoModify=true");
         }
         catch (Exception ex)
@@ -177,5 +246,21 @@
         {
             _submitting = false;
         }
+    }
+
+    private Task OnChargeSelected(ChargeDto charge)
+    {
+        if (_selectedCharges.All(c => c.Id != charge.Id))
+            _selectedCharges.Add(charge);
+
+        _showChargeModal = false;
+        return Task.CompletedTask;
+    }
+
+    private void RemoveCharge(Guid chargeId)
+    {
+        var existing = _selectedCharges.FirstOrDefault(c => c.Id == chargeId);
+        if (existing is not null)
+            _selectedCharges.Remove(existing);
     }
 }

@@ -1,0 +1,190 @@
+@using Modules.Records.Application.Relationships.Queries.GetRecordRelationships
+@using Modules.Records.UI.Services
+@inject IRelationshipService RelationshipService
+
+@if (_loading)
+{
+    <LoadingSpinner />
+}
+else if (_error is not null)
+{
+    <div class="alert alert-danger">@_error</div>
+}
+else if (_result is null)
+{
+    <div class="alert alert-warning">The requested record could not be found.</div>
+}
+else
+{
+    <PageTitle>@($"{_result.Source.Title} Relationships")</PageTitle>
+
+    <nav aria-label="breadcrumb" class="record-breadcrumb">
+        <ol class="breadcrumb">
+            <li class="breadcrumb-item"><a href="@ListUrl">@ListLabel</a></li>
+            <li class="breadcrumb-item"><a href="@DetailsUrl">@_result.Source.Title</a></li>
+            <li class="breadcrumb-item active">Relationships</li>
+        </ol>
+    </nav>
+
+    <div class="page-header record-page-header">
+        <div>
+            <h2 class="page-header-title">
+                <i class="@GetIcon(_result.Source.RecordType)"></i> @_result.Source.Title Relationships
+            </h2>
+            <div class="page-header-sub">
+                @if (!string.IsNullOrWhiteSpace(_result.Source.Subtitle))
+                {
+                    @_result.Source.Subtitle
+                }
+                else
+                {
+                    <span>Review the records directly connected to this @_result.Source.RecordType.ToLowerInvariant() record.</span>
+                }
+            </div>
+        </div>
+        <div class="record-header-meta">
+            <a class="btn btn-outline-secondary btn-sm" href="@DetailsUrl">
+                <i class="bi bi-arrow-left me-1"></i>Back to Details
+            </a>
+        </div>
+    </div>
+
+    <RecordDetailsTabs DetailsUrl="@DetailsUrl"
+                       RelationshipsUrl="@RelationshipsUrl"
+                       ActiveTab="Relationships" />
+
+    @if (_result.Groups.Count == 0)
+    {
+        <div class="card record-content-card">
+            <div class="card-body text-center py-5">
+                <i class="bi bi-diagram-3 display-6 text-muted"></i>
+                <div class="fw-semibold mt-3">No direct relationships found.</div>
+                <div class="text-muted small mt-1">
+                    This record does not currently have any first-degree linked records in the system.
+                </div>
+            </div>
+        </div>
+    }
+    else
+    {
+        @foreach (var group in _result.Groups)
+        {
+            <div class="card record-content-card mb-4">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-3">
+                        <h5 class="mb-0">@group.Title</h5>
+                        <span class="badge text-bg-light">@group.Items.Count item@(group.Items.Count == 1 ? string.Empty : "s")</span>
+                    </div>
+
+                    <div class="relationship-list">
+                        @foreach (var item in group.Items)
+                        {
+                            <div class="relationship-item">
+                                <div class="relationship-item-main">
+                                    <div class="d-flex align-items-center flex-wrap gap-2">
+                                        <span class="record-pill record-pill-neutral">@item.RecordType</span>
+                                        @if (!string.IsNullOrWhiteSpace(item.RelationshipLabel))
+                                        {
+                                            <span class="record-pill record-pill-primary">@item.RelationshipLabel</span>
+                                        }
+                                    </div>
+                                    <a class="relationship-link" href="@item.NavigationUrl">@item.Title</a>
+                                    <div class="text-muted small">
+                                        Record #@item.RecordNumber
+                                        @if (!string.IsNullOrWhiteSpace(item.Subtitle))
+                                        {
+                                            <span>&middot; @item.Subtitle</span>
+                                        }
+                                    </div>
+                                </div>
+                                <div class="relationship-item-action">
+                                    <a class="btn btn-sm btn-outline-primary" href="@item.NavigationUrl">Open</a>
+                                </div>
+                            </div>
+                        }
+                    </div>
+                </div>
+            </div>
+        }
+    }
+}
+
+<style>
+    .relationship-list {
+        display: grid;
+        gap: 0.75rem;
+    }
+
+    .relationship-item {
+        display: flex;
+        justify-content: space-between;
+        gap: 1rem;
+        padding: 1rem;
+        border: 1px solid var(--bs-border-color);
+        border-radius: 0.75rem;
+        background: rgba(var(--bs-light-rgb), 0.55);
+    }
+
+    .relationship-item-main {
+        min-width: 0;
+        display: grid;
+        gap: 0.35rem;
+    }
+
+    .relationship-link {
+        font-weight: 600;
+        text-decoration: none;
+    }
+
+    .relationship-link:hover {
+        text-decoration: underline;
+    }
+
+    .relationship-item-action {
+        display: flex;
+        align-items: center;
+    }
+</style>
+
+@code {
+    [Parameter] public string RecordType { get; set; } = string.Empty;
+    [Parameter] public long RecordNumber { get; set; }
+    [Parameter] public string ListUrl { get; set; } = string.Empty;
+    [Parameter] public string ListLabel { get; set; } = string.Empty;
+    [Parameter] public string DetailsUrl { get; set; } = string.Empty;
+    [Parameter] public string RelationshipsUrl { get; set; } = string.Empty;
+
+    private bool _loading = true;
+    private string? _error;
+    private RecordRelationshipsDto? _result;
+
+    protected override async Task OnParametersSetAsync()
+    {
+        _loading = true;
+        _error = null;
+
+        try
+        {
+            _result = await RelationshipService.GetAsync(RecordType, RecordNumber);
+        }
+        catch (Exception ex)
+        {
+            _error = ex.Message;
+        }
+        finally
+        {
+            _loading = false;
+        }
+    }
+
+    private static string GetIcon(string recordType) =>
+        recordType switch
+        {
+            RecordRelationshipRecordTypes.Incident => "bi bi-clipboard2-pulse-fill",
+            RecordRelationshipRecordTypes.Arrest => "bi bi-person-badge-fill",
+            RecordRelationshipRecordTypes.Citation => "bi bi-file-earmark-text-fill",
+            RecordRelationshipRecordTypes.Name => "bi bi-people-fill",
+            RecordRelationshipRecordTypes.Location => "bi bi-geo-alt-fill",
+            _ => "bi bi-diagram-3"
+        };
+}

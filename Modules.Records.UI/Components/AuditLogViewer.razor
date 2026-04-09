@@ -1,0 +1,469 @@
+@using Modules.Records.Application.Admin.Queries.GetAuditLogs
+@using Modules.Records.Domain.Abstractions
+@using Modules.Records.UI.Services
+@inject IAdminService AdminService
+@inject IUserManagementService UserService
+@inject IJurisdictionManagementService JurisdictionService
+@inject ITenantProvider TenantProvider
+
+<div class="card list-filter-card mb-3">
+    <div class="card-header list-filter-card-header" @onclick="() => _filterExpanded = !_filterExpanded">
+        <span class="list-filter-card-title">
+            <i class="bi bi-funnel-fill me-1"></i>Search / Filter
+        </span>
+        <i class="bi @(_filterExpanded ? "bi-chevron-up" : "bi-chevron-down") list-filter-card-chevron"></i>
+    </div>
+
+    @if (_filterExpanded)
+    {
+        <div class="card-body">
+            <div class="row g-2">
+                <div class="col-sm-6 col-lg-2">
+                    <label class="form-label mb-1">Level</label>
+                    <select class="form-select form-select-sm" @bind="_severity">
+                        <option value="">All</option>
+                        @foreach (var severity in _availableSeverities)
+                        {
+                            <option value="@severity">@severity</option>
+                        }
+                    </select>
+                </div>
+                <div class="col-sm-6 col-lg-2">
+                    <label class="form-label mb-1">Record Type</label>
+                    <select class="form-select form-select-sm" @bind="_recordType">
+                        <option value="">All</option>
+                        @foreach (var recordType in _availableRecordTypes)
+                        {
+                            <option value="@recordType">@recordType</option>
+                        }
+                    </select>
+                </div>
+                <div class="col-sm-6 col-lg-2">
+                    <label class="form-label mb-1">Action</label>
+                    <select class="form-select form-select-sm" @bind="_actionType">
+                        <option value="">All</option>
+                        @foreach (var actionType in _availableActionTypes)
+                        {
+                            <option value="@actionType">@actionType</option>
+                        }
+                    </select>
+                </div>
+                <div class="col-sm-6 col-lg-2">
+                    <label class="form-label mb-1">ID</label>
+                    <input class="form-control form-control-sm"
+                           type="number"
+                           min="1"
+                           @bind="_recordNumberText"
+                           placeholder="Record ID" />
+                </div>
+                <div class="col-sm-6 col-lg-3">
+                    <label class="form-label mb-1">User</label>
+                    <select class="form-select form-select-sm" @bind="_selectedUserIdText">
+                        <option value="">All</option>
+                        @foreach (var user in _users)
+                        {
+                            <option value="@user.Id">@user.FullName</option>
+                        }
+                    </select>
+                </div>
+                @if (IsSuperView)
+                {
+                    <div class="col-sm-6 col-lg-3">
+                        <label class="form-label mb-1">Scope</label>
+                        <select class="form-select form-select-sm" @bind="_scope">
+                            <option value="@AuditLogScopes.All">All</option>
+                            <option value="@AuditLogScopes.Jurisdiction">Jurisdiction</option>
+                            <option value="@AuditLogScopes.System">System</option>
+                        </select>
+                    </div>
+                }
+            </div>
+
+            <div class="row g-2 mt-1">
+                @if (IsSuperView)
+                {
+                    <div class="col-sm-6 col-lg-3">
+                        <label class="form-label mb-1">Jurisdiction</label>
+                        <select class="form-select form-select-sm" @bind="_selectedJurisdictionIdText" disabled="@(_scope != AuditLogScopes.Jurisdiction)">
+                            <option value="">All Jurisdictions</option>
+                            @foreach (var jurisdiction in _jurisdictions)
+                            {
+                                <option value="@jurisdiction.Id">@jurisdiction.Name</option>
+                            }
+                        </select>
+                    </div>
+                }
+                <div class="col-sm-6 col-lg-3">
+                    <label class="form-label mb-1">From</label>
+                    <input class="form-control form-control-sm" type="datetime-local" @bind="_fromLocal" />
+                </div>
+                <div class="col-sm-6 col-lg-3">
+                    <label class="form-label mb-1">To</label>
+                    <input class="form-control form-control-sm" type="datetime-local" @bind="_toLocal" />
+                </div>
+                <div class="col-sm-6 col-lg-@(IsSuperView ? "3" : "6")">
+                    <label class="form-label mb-1">Search</label>
+                    <input class="form-control form-control-sm" @bind="_searchText" placeholder="Message, event type, payload..." />
+                </div>
+            </div>
+
+            <div class="list-filter-actions">
+                <button class="btn btn-sm btn-primary" @onclick="RunSearchAsync">Search</button>
+                <button class="btn btn-sm btn-outline-secondary" @onclick="ClearFiltersAsync">Clear</button>
+            </div>
+        </div>
+    }
+</div>
+
+@if (_loading)
+{
+    <LoadingSpinner />
+}
+else if (_error is not null)
+{
+    <div class="alert alert-danger">@_error</div>
+}
+else if (_result is not null)
+{
+    <div class="list-results-summary">
+        <div class="list-results-count">
+            <strong>@_result.TotalCount</strong> log entr@( _result.TotalCount == 1 ? "y" : "ies")
+        </div>
+        <div class="list-results-flags">
+            <span class="list-summary-chip">
+                <i class="bi bi-clock-history"></i>
+                <span>Page @_result.PageNumber</span>
+            </span>
+        </div>
+    </div>
+
+    @if (_result.Items.Count == 0)
+    {
+        <p class="text-muted">No log entries matched the current filters.</p>
+    }
+    else
+    {
+        <div class="table-responsive list-table-shell">
+            <table class="table table-hover list-page-table">
+                <thead>
+                    <tr>
+                        <SortableColumnHeader ColumnKey="@AuditLogSortFields.OccurredOnUtc" Label="Occurred"
+                                              CurrentSortColumn="@_sortField" SortAscending="@(!_sortDescending)" OnSort="SortBy" />
+                        <SortableColumnHeader ColumnKey="@AuditLogSortFields.Severity" Label="Level"
+                                              CurrentSortColumn="@_sortField" SortAscending="@(!_sortDescending)" OnSort="SortBy" />
+                        @if (IsSuperView)
+                        {
+                            <th>Jurisdiction</th>
+                        }
+                        <SortableColumnHeader ColumnKey="@AuditLogSortFields.RecordType" Label="Record Type"
+                                              CurrentSortColumn="@_sortField" SortAscending="@(!_sortDescending)" OnSort="SortBy" />
+                        <th>ID</th>
+                        <SortableColumnHeader ColumnKey="@AuditLogSortFields.ActionType" Label="Action"
+                                              CurrentSortColumn="@_sortField" SortAscending="@(!_sortDescending)" OnSort="SortBy" />
+                        <th>User</th>
+                        <th>Message</th>
+                        <SortableColumnHeader ColumnKey="@AuditLogSortFields.EventType" Label="Event Type"
+                                              CurrentSortColumn="@_sortField" SortAscending="@(!_sortDescending)" OnSort="SortBy" />
+                        <th>Details</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var item in _result.Items)
+                    {
+                        <tr>
+                            <td>@item.OccurredOnUtc.ToLocalTime().ToString("g")</td>
+                            <td>
+                                <span class="badge @(item.Severity == AuditLogSeverities.Warning ? "text-bg-warning" : "text-bg-info")">
+                                    @item.Severity
+                                </span>
+                            </td>
+                            @if (IsSuperView)
+                            {
+                                <td>@FormatJurisdiction(item.JurisdictionId)</td>
+                            }
+                            <td>@item.RecordType</td>
+                            <td>
+                                @if (item.RecordNumber.HasValue && !string.IsNullOrWhiteSpace(item.NavigationUrl))
+                                {
+                                    <a href="@item.NavigationUrl">@item.RecordNumber.Value</a>
+                                }
+                            </td>
+                            <td>@item.ActionType</td>
+                            <td>@item.ActorDisplayName</td>
+                            <td>
+                                <div>@item.Message</div>
+                                <div class="text-muted small">@item.AggregateId</div>
+                            </td>
+                            <td>@item.EventType</td>
+                            <td class="audit-log-details-cell">
+                                <button type="button"
+                                        class="btn btn-sm btn-outline-secondary"
+                                        @onclick="() => OpenPayloadModal(item)">
+                                    View payload
+                                </button>
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+
+        <div class="d-flex justify-content-between align-items-center mt-3">
+            <button class="btn btn-sm btn-outline-secondary" @onclick="PreviousPageAsync" disabled="@(_result.PageNumber <= 1 || _loading)">
+                <i class="bi bi-chevron-left me-1"></i>Previous
+            </button>
+            <div class="small text-muted">
+                Showing page @_result.PageNumber of @TotalPages
+            </div>
+            <button class="btn btn-sm btn-outline-secondary" @onclick="NextPageAsync" disabled="@(_result.PageNumber >= TotalPages || _loading)">
+                Next<i class="bi bi-chevron-right ms-1"></i>
+            </button>
+        </div>
+    }
+}
+
+@if (_selectedLogEntry is not null)
+{
+    <div class="modal fade show d-block audit-log-modal-backdrop" tabindex="-1" role="dialog" aria-modal="true">
+        <div class="modal-dialog modal-xl modal-dialog-scrollable" role="document">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <div>
+                        <h5 class="modal-title mb-1">Log payload</h5>
+                        <div class="small text-muted">
+                            @_selectedLogEntry.RecordType @(_selectedLogEntry.RecordNumber?.ToString() ?? string.Empty)
+                            &middot; @_selectedLogEntry.ActionType
+                            &middot; @_selectedLogEntry.OccurredOnUtc.ToLocalTime().ToString("g")
+                        </div>
+                    </div>
+                    <button type="button" class="btn-close" aria-label="Close" @onclick="ClosePayloadModal"></button>
+                </div>
+                <div class="modal-body">
+                    <dl class="row small mb-3">
+                        <dt class="col-sm-2">User</dt>
+                        <dd class="col-sm-10">@_selectedLogEntry.ActorDisplayName</dd>
+
+                        <dt class="col-sm-2">Event</dt>
+                        <dd class="col-sm-10">@_selectedLogEntry.EventType</dd>
+
+                        <dt class="col-sm-2">Message</dt>
+                        <dd class="col-sm-10">@_selectedLogEntry.Message</dd>
+
+                        <dt class="col-sm-2">Aggregate</dt>
+                        <dd class="col-sm-10">@_selectedLogEntry.AggregateId</dd>
+                    </dl>
+
+                    <pre class="small mb-0 audit-log-modal-payload">@_selectedLogEntry.Payload</pre>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" @onclick="ClosePayloadModal">Close</button>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+<style>
+    .audit-log-details-cell {
+        min-width: 8rem;
+    }
+
+    .audit-log-modal-backdrop {
+        background: rgba(0, 0, 0, 0.45);
+    }
+
+    .audit-log-modal-payload {
+        white-space: pre-wrap;
+        overflow-wrap: anywhere;
+        word-break: break-word;
+        max-height: 60vh;
+        overflow: auto;
+        background: var(--bs-light);
+        border: 1px solid var(--bs-border-color);
+        border-radius: 0.375rem;
+        padding: 0.75rem;
+    }
+</style>
+
+@code {
+    [Parameter] public bool IsSuperView { get; set; }
+
+    private bool _filterExpanded = true;
+    private bool _loading = true;
+    private string? _error;
+    private AuditLogQueryResult? _result;
+    private List<UserDto> _users = [];
+    private List<global::Shared.Infrastructure.Identity.Jurisdiction> _jurisdictions = [];
+    private List<string> _availableSeverities = [];
+    private List<string> _availableRecordTypes = [];
+    private List<string> _availableActionTypes = [];
+
+    private string _severity = string.Empty;
+    private string _recordType = string.Empty;
+    private string _recordNumberText = string.Empty;
+    private string _actionType = string.Empty;
+    private string _selectedUserIdText = string.Empty;
+    private DateTime? _fromLocal;
+    private DateTime? _toLocal;
+    private string _searchText = string.Empty;
+    private string _scope = AuditLogScopes.All;
+    private string _selectedJurisdictionIdText = string.Empty;
+    private string _sortField = AuditLogSortFields.OccurredOnUtc;
+    private bool _sortDescending = true;
+    private int _pageNumber = 1;
+    private AuditLogEntryDto? _selectedLogEntry;
+    private const int PageSize = 50;
+
+    private int TotalPages =>
+        _result is null || _result.TotalCount == 0
+            ? 1
+            : (int)Math.Ceiling(_result.TotalCount / (double)_result.PageSize);
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            if (IsSuperView)
+            {
+                _jurisdictions = await JurisdictionService.GetAllAsync();
+                _users = await UserService.GetAllAsync();
+            }
+            else
+            {
+                var jurisdictionId = TenantProvider.GetJurisdictionId();
+                _users = await UserService.GetByJurisdictionAsync(jurisdictionId);
+                _scope = AuditLogScopes.Jurisdiction;
+            }
+
+            await LoadAsync();
+        }
+        catch (Exception ex)
+        {
+            _error = ex.Message;
+            _loading = false;
+        }
+    }
+
+    private async Task RunSearchAsync()
+    {
+        _pageNumber = 1;
+        await LoadAsync();
+    }
+
+    private async Task ClearFiltersAsync()
+    {
+        _severity = string.Empty;
+        _recordType = string.Empty;
+        _recordNumberText = string.Empty;
+        _actionType = string.Empty;
+        _selectedUserIdText = string.Empty;
+        _fromLocal = null;
+        _toLocal = null;
+        _searchText = string.Empty;
+        _selectedJurisdictionIdText = string.Empty;
+        _scope = IsSuperView ? AuditLogScopes.All : AuditLogScopes.Jurisdiction;
+        _sortField = AuditLogSortFields.OccurredOnUtc;
+        _sortDescending = true;
+        _pageNumber = 1;
+        await LoadAsync();
+    }
+
+    private async Task PreviousPageAsync()
+    {
+        if (_pageNumber <= 1)
+            return;
+
+        _pageNumber--;
+        await LoadAsync();
+    }
+
+    private async Task NextPageAsync()
+    {
+        if (_pageNumber >= TotalPages)
+            return;
+
+        _pageNumber++;
+        await LoadAsync();
+    }
+
+    private async Task SortBy(string column)
+    {
+        if (_sortField == column)
+            _sortDescending = !_sortDescending;
+        else
+        {
+            _sortField = column;
+            _sortDescending = column == AuditLogSortFields.OccurredOnUtc;
+        }
+
+        await LoadAsync();
+    }
+
+    private async Task LoadAsync()
+    {
+        _loading = true;
+        _error = null;
+        _selectedLogEntry = null;
+
+        try
+        {
+            var request = new AuditLogSearchRequest(
+                Severity: NullIfEmpty(_severity),
+                RecordType: NullIfEmpty(_recordType),
+                RecordNumber: ParseLong(_recordNumberText),
+                ActionType: NullIfEmpty(_actionType),
+                UserId: ParseGuid(_selectedUserIdText),
+                FromUtc: _fromLocal?.ToUniversalTime(),
+                ToUtc: _toLocal?.ToUniversalTime(),
+                SearchText: NullIfEmpty(_searchText),
+                SortField: _sortField,
+                SortDescending: _sortDescending,
+                PageNumber: _pageNumber,
+                PageSize: PageSize,
+                Scope: IsSuperView ? _scope : AuditLogScopes.Jurisdiction,
+                JurisdictionId: IsSuperView && _scope == AuditLogScopes.Jurisdiction
+                    ? ParseGuid(_selectedJurisdictionIdText)
+                    : null);
+
+            _result = IsSuperView
+                ? await AdminService.GetSuperAuditLogsAsync(request)
+                : await AdminService.GetJurisdictionAuditLogsAsync(request);
+
+            _availableSeverities = _result.AvailableSeverities.ToList();
+            _availableRecordTypes = _result.AvailableRecordTypes.ToList();
+            _availableActionTypes = _result.AvailableActionTypes.ToList();
+        }
+        catch (Exception ex)
+        {
+            _error = ex.Message;
+        }
+        finally
+        {
+            _loading = false;
+        }
+    }
+
+    private string FormatJurisdiction(Guid? jurisdictionId)
+    {
+        if (!jurisdictionId.HasValue)
+            return "System";
+
+        return _jurisdictions.FirstOrDefault(x => x.Id == jurisdictionId.Value)?.Name
+            ?? jurisdictionId.Value.ToString();
+    }
+
+    private static string? NullIfEmpty(string? value) =>
+        string.IsNullOrWhiteSpace(value) ? null : value.Trim();
+
+    private static Guid? ParseGuid(string? value) =>
+        Guid.TryParse(value, out var parsed) ? parsed : null;
+
+    private static long? ParseLong(string? value) =>
+        long.TryParse(value, out var parsed) && parsed > 0 ? parsed : null;
+
+    private void OpenPayloadModal(AuditLogEntryDto entry) =>
+        _selectedLogEntry = entry;
+
+    private void ClosePayloadModal() =>
+        _selectedLogEntry = null;
+}

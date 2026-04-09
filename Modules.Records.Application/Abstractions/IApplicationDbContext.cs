@@ -11,13 +11,22 @@ public interface IApplicationDbContext
     /// <summary>Queryable that bypasses the global IsDeleted filter — use for rebuild/admin operations only.</summary>
     IQueryable<Incident> AllIncidentsWithDeleted { get; }
     DbSet<Arrest> Arrests { get; }
+    DbSet<ArrestNameSnapshot> ArrestNameSnapshots { get; }
     DbSet<Citation> Citations { get; }
+    DbSet<CitationNameSnapshot> CitationNameSnapshots { get; }
+    DbSet<CitationOfficerProfile> CitationOfficerProfiles { get; }
+    DbSet<CitationTexasDetails> CitationTexasDetails { get; }
+    DbSet<CitationVehicle> CitationVehicles { get; }
+    DbSet<Charge> Charges { get; }
     DbSet<Name> Names { get; }
     DbSet<Location> Locations { get; }
     DbSet<Mugshot> Mugshots { get; }
     DbSet<MugshotLink> MugshotLinks { get; }
     DbSet<IncidentArrestLink> IncidentArrestLinks { get; }
     DbSet<IncidentCitationLink> IncidentCitationLinks { get; }
+    DbSet<ArrestChargeLink> ArrestChargeLinks { get; }
+    DbSet<CitationChargeLink> CitationChargeLinks { get; }
+    DbSet<IncidentChargeLink> IncidentChargeLinks { get; }
 
     DbSet<IncidentReadModel> IncidentReadModels { get; }
     DbSet<ArrestReadModel> ArrestReadModels { get; }
@@ -28,6 +37,7 @@ public interface IApplicationDbContext
     DbSet<MugshotLinkReadModel> MugshotLinkReadModels { get; }
     DbSet<IncidentArrestLinkReadModel> IncidentArrestLinkReadModels { get; }
     DbSet<IncidentCitationLinkReadModel> IncidentCitationLinkReadModels { get; }
+    DbSet<AuditLogReadModel> AuditLogReadModels { get; }
 
     DbSet<AgencyConfiguration> AgencyConfigurations { get; }
     DbSet<AgencySequenceCounter> AgencySequenceCounters { get; }

@@ -23,9 +23,9 @@ using Shared.Infrastructure.Mugshots;
 using Shared.Infrastructure.Outbox;
 using Shared.Infrastructure.Arrests;
 using Shared.Infrastructure.Citations;
+using Shared.Infrastructure.Maintenance;
 using Shared.Infrastructure.Persistence;
 using Shared.Infrastructure.GoogleMaps;
-using Shared.Infrastructure.ReadModelRebuild;
 using System;
 
 namespace Shared.Infrastructure;
@@ -84,20 +84,23 @@ public static class DependencyInjection
 
 
         // -------------------------------------------------------
-        // Lock Expiration Cleanup (Background Service)
+        // Lock Expiration Cleanup (On-Demand)
         // -------------------------------------------------------
         services.Configure<LockCleanupOptions>(configuration.GetSection("LockCleanup"));
-        services.AddHostedService<LockCleanupService>();
+        services.AddSingleton<LockCleanupService>();
 
         // -------------------------------------------------------
         // Outbox Message Processing (Background Service)
         // -------------------------------------------------------
-        services.AddHostedService<OutboxProcessor>();
+        services.AddSingleton<OutboxProcessor>();
+        services.AddHostedService(sp => sp.GetRequiredService<OutboxProcessor>());
 
         // -------------------------------------------------------
-        // Read Model Rebuild Background Service
+        // Application Maintenance (Startup / Idle-triggered)
         // -------------------------------------------------------
-        services.AddHostedService<ReadModelRebuildBackgroundService>();
+        services.Configure<ApplicationMaintenanceOptions>(configuration.GetSection("ApplicationMaintenance"));
+        services.AddSingleton<IApplicationActivityTracker, ApplicationActivityTracker>();
+        services.AddSingleton<ApplicationMaintenanceCoordinator>();
 
         // -------------------------------------------------------
         // Outbox Message Cleanup Service

@@ -1,0 +1,16 @@
+<nav aria-label="Record sections" class="mb-4">
+    <ul class="nav nav-tabs record-detail-tabs">
+        <li class="nav-item">
+            <a class="nav-link @(ActiveTab == "Details" ? "active" : null)" href="@DetailsUrl">Details</a>
+        </li>
+        <li class="nav-item">
+            <a class="nav-link @(ActiveTab == "Relationships" ? "active" : null)" href="@RelationshipsUrl">Relationships</a>
+        </li>
+    </ul>
+</nav>
+
+@code {
+    [Parameter] public string DetailsUrl { get; set; } = string.Empty;
+    [Parameter] public string RelationshipsUrl { get; set; } = string.Empty;
+    [Parameter] public string ActiveTab { get; set; } = "Details";
+}

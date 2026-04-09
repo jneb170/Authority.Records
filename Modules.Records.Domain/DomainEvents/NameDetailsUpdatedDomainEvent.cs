@@ -21,6 +21,15 @@ public sealed record NameDetailsUpdatedDomainEvent(
     string? PlaceOfBirth,
     string? FbiNumber,
     string? LocalNumber,
+    string? PrimaryPhone,
+    string? PrimaryPhoneExtension,
+    string? WorkPhone,
+    string? WorkPhoneExtension,
+    string? OtherPhone,
+    string? OtherPhoneExtension,
     string? SocialSecurityNumber,
     bool IsCitizen,
-    DateTime? DeceasedDate) : DomainEvent;
+    DateTime? DeceasedDate,
+    Guid? PrimaryLocationId,
+    Guid? SecondaryLocationId,
+    Guid? ModifiedBy) : DomainEvent;

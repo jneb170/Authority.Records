@@ -31,6 +31,12 @@ public sealed class NameReadModelConfiguration : IEntityTypeConfiguration<NameRe
         builder.Property(x => x.PlaceOfBirth).HasMaxLength(100).IsRequired(false);
         builder.Property(x => x.FbiNumber).HasMaxLength(20).IsRequired(false);
         builder.Property(x => x.LocalNumber).HasMaxLength(20).IsRequired(false);
+        builder.Property(x => x.PrimaryPhone).HasMaxLength(25).IsRequired(false);
+        builder.Property(x => x.PrimaryPhoneExtension).HasMaxLength(10).IsRequired(false);
+        builder.Property(x => x.WorkPhone).HasMaxLength(25).IsRequired(false);
+        builder.Property(x => x.WorkPhoneExtension).HasMaxLength(10).IsRequired(false);
+        builder.Property(x => x.OtherPhone).HasMaxLength(25).IsRequired(false);
+        builder.Property(x => x.OtherPhoneExtension).HasMaxLength(10).IsRequired(false);
         builder.Property(x => x.SocialSecurityNumber).HasMaxLength(11).IsRequired(false);
         builder.Property(x => x.IsCitizen).HasDefaultValue(false);
         builder.Property(x => x.DeceasedDate).IsRequired(false);

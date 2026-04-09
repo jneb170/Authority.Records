@@ -1,0 +1,14 @@
+@page "/admin/logs"
+@attribute [Authorize(Roles = "Admin")]
+@using Microsoft.AspNetCore.Authorization
+
+<PageTitle>Admin Logs</PageTitle>
+
+<div class="page-header">
+    <div>
+        <h2 class="page-header-title"><i class="bi bi-journal-text"></i> Admin Logs</h2>
+        <div class="page-header-sub">Jurisdiction-scoped audit and activity history</div>
+    </div>
+</div>
+
+<AuditLogViewer IsSuperView="false" />

@@ -14,7 +14,7 @@ public sealed class IncidentCanBeClosedInvariantTests
         new(new StubJurisdictionRules(mustCloseArrests));
 
     private static Arrest MakeArrest() =>
-        new ArrestFactory().Create(Guid.NewGuid(), Guid.NewGuid(), "Test Subject", DateTime.UtcNow.AddDays(-1), string.Empty);
+        new ArrestFactory().Create(Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), DateTime.UtcNow.AddDays(-1), string.Empty);
 
     private static Arrest MakeFinalizedClosedArrest()
     {
@@ -30,7 +30,7 @@ public sealed class IncidentCanBeClosedInvariantTests
     private static Citation MakeIssuedCitation()
     {
         var c = new Citation(Guid.NewGuid(), Guid.NewGuid(), "Test", DateTime.UtcNow.AddDays(-1), string.Empty);
-        c.Issue();
+        c.Issue(new UserModificationContext(Guid.NewGuid()));
         return c;
     }
 

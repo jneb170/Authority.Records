@@ -6,8 +6,10 @@
 @inject IIncidentService IncidentService
 @inject IArrestService ArrestService
 @inject ICitationService CitationService
+@inject IChargeService ChargeService
 @inject ILocationService LocationService
 @inject ITenantProvider TenantProvider
+@inject IActiveAgencyContext ActiveAgencyContext
 @inject IUserLookupService UserLookupService
 @inject NavigationManager Nav
 @inject IKeyboardShortcutService ShortcutService
@@ -47,6 +49,10 @@ else if (_incident is not null)
         </div>
     </div>
 
+    <RecordDetailsTabs DetailsUrl="@DetailsTabUrl"
+                       RelationshipsUrl="@RelationshipsTabUrl"
+                       ActiveTab="Details" />
+
     @if (_actionError is not null)
     {
         <div class="alert alert-danger alert-dismissible">
@@ -69,7 +75,10 @@ else if (_incident is not null)
         {
             <div class="alert alert-warning d-flex align-items-center gap-3 py-2 mb-2 record-mode-banner">
                 <span><i class="bi bi-pencil-fill me-1"></i><strong>Modify mode</strong> — lock expires in @_lockSecondsRemaining s</span>
-                <button class="btn btn-sm btn-outline-dark ms-auto" @onclick="RequestReleaseAsync"><i class="bi bi-unlock-fill me-1"></i>Release</button>
+                <div class="record-mode-actions">
+                    <button class="btn btn-sm btn-primary" @onclick="SaveRecordAsync"><i class="bi bi-floppy-fill me-1"></i>Save</button>
+                    <button class="btn btn-sm btn-outline-dark" @onclick="RequestReleaseAsync"><i class="bi bi-unlock-fill me-1"></i>Release</button>
+                </div>
             </div>
         }
         else if (_incident.IsLocked && _incident.LockedByUserId != _currentUserId)
@@ -121,6 +130,7 @@ else if (_incident is not null)
                           SaveLabel="@(_pendingNewRecord ? "Save & New" : "Save & Release")"
                           DiscardLabel="@(_pendingNewRecord ? "Discard & New" : "Discard")"
                           ActionDescription="@(_pendingNewRecord ? "creating a new record" : "releasing the record")"
+                          WarningMessage="@GetReleaseWarningMessage()"
                           OnSaveAndRelease="SaveAndReleaseAsync"
                           OnDiscard="DiscardAndReleaseAsync"
                           OnCancel="CancelRelease" />
@@ -172,7 +182,9 @@ else if (_incident is not null)
                 <div class="record-field-span-full">
                     <label class="form-label mb-1">Location</label>
                     <div class="d-flex align-items-center gap-2">
-                        <span class="@(_modifyMode ? "fw-semibold" : "record-reference-display")">@(_editLocationDisplay ?? "— None —")</span>
+                        <span class="@(_modifyMode ? "fw-semibold" : "record-reference-display")">@if (!_modifyMode && _editLocationRecordNumber.HasValue) {
+                            <a href="/locations/@_editLocationRecordNumber" class="record-reference-link">@_editLocationDisplay</a>
+                        } else { @(_editLocationDisplay ?? "— None —") }</span>
                         @if (_modifyMode)
                         {
                             <button type="button" class="btn btn-sm btn-outline-secondary" @onclick="() => _showLocationModal = true">
@@ -189,18 +201,13 @@ else if (_incident is not null)
                     <LocationMiniMap LocationId="_editLocationId" />
                 </div>
             </div>
-            @if (_modifyMode)
-            {
-                <div class="record-save-row">
-                    <button class="btn btn-sm btn-primary" @onclick="SaveDetailsAsync">Save Details</button>
-                </div>
-            }
         </div>
     </div>
 
     <LocationSearchModal Visible="_showLocationModal"
                          CurrentLocationId="_editLocationId"
                          OnSelected="OnLocationSelected"
+                         OnCreated="OnLocationCreatedAsync"
                          OnCleared="OnLocationCleared"
                          OnCancelled="() => _showLocationModal = false" />
 
@@ -315,6 +322,23 @@ else if (_incident is not null)
         </div>
     </div>
 
+    <RecordChargesSection Title="Charges"
+                          EmptyTitle="No charges linked."
+                          EmptyHint="Add one or more charges in modify mode when the incident needs offense tracking."
+                          Charges="VisibleCharges"
+                          ModifyMode="_modifyMode"
+                          OnChargeSelected="LinkChargeAsync"
+                          OnChargeRemoved="UnlinkChargeAsync" />
+
+    @if (_modifyMode)
+    {
+        <div class="record-save-row mb-4">
+            <button class="btn btn-sm btn-primary" @onclick="SaveRecordAsync">
+                <i class="bi bi-floppy-fill me-1"></i>Save
+            </button>
+        </div>
+    }
+
     <AuditInfoSection CreatedAt="@_incident.CreatedAtUtc"
                       CreatedByName="@_createdByName"
                       ModifiedAt="@(_incident.ModifiedBy.HasValue ? _incident.UpdatedAtUtc : null)"
@@ -324,10 +348,14 @@ else if (_incident is not null)
 @code {
     [Parameter] public long RecordNumber { get; set; }
 
+    private string DetailsTabUrl => $"/incidents/{RecordNumber}";
+    private string RelationshipsTabUrl => $"/incidents/{RecordNumber}/relationships";
+
     private Guid _incidentId;
     private IncidentDto? _incident;
     private IReadOnlyList<ArrestDto>? _arrests;
     private IReadOnlyList<CitationDto>? _citations;
+    private IReadOnlyList<RecordChargeDto>? _charges;
     private bool _loading = true;
     private string? _error;
     private string? _actionError;
@@ -347,6 +375,7 @@ else if (_incident is not null)
     private string _editDescription = string.Empty;
     private Guid?  _editLocationId;
     private string? _editLocationDisplay;
+    private long?  _editLocationRecordNumber;
     private bool   _showLocationModal;
     private DateTime? _editOccurredOn;
     private string? _saveSuccessMessage;
@@ -354,12 +383,17 @@ else if (_incident is not null)
     private string? _modifiedByName;
     private string? _lockedByName;
     private Dictionary<Guid, string> _linkLockNames = [];
+    private readonly Dictionary<Guid, (ChargeDto Charge, DateTime LinkedAtUtc)> _pendingChargeAdds = [];
+    private readonly HashSet<Guid> _pendingChargeRemoves = [];
+    private readonly List<string> _createdForeignRecords = [];
+    private IDisposable? _agencySelectionLock;
 
     [SupplyParameterFromQuery(Name = "autoModify")]
     public bool AutoModify { get; set; }
 
     protected override async Task OnInitializedAsync()
     {
+        await ActiveAgencyContext.EnsureLoadedAsync();
         _currentUserId = TenantProvider.GetUserId();
         await LoadAsync();
 
@@ -384,12 +418,13 @@ else if (_incident is not null)
         => InvokeAsync(async () => { if (_modifyMode) { await RequestReleaseAsync(); StateHasChanged(); } });
 
     private void HandleShortcutSave()
-        => InvokeAsync(async () => { if (_modifyMode) { await SaveDetailsAsync(); StateHasChanged(); } });
+        => InvokeAsync(async () => { if (_modifyMode) { await SaveRecordAsync(); StateHasChanged(); } });
 
     private void RestoreModifyModeIfOwner()
     {
         if (_incident is not null && _incident.IsLocked && _incident.LockedByUserId == _currentUserId)
         {
+            EnsureAgencySelectionLock();
             _modifyMode = true;
             _editIncidentNum = _incident.Details.IncidentNum;
             _editLocalNum = _incident.Details.LocalNum;
@@ -414,9 +449,11 @@ else if (_incident is not null)
                 _incidentId = _incident.Id;
                 var t2 = ArrestService.GetByIncidentAsync(_incidentId);
                 var t3 = CitationService.GetByIncidentAsync(_incidentId);
-                await Task.WhenAll(t2, t3);
+                var t4 = ChargeService.GetByIncidentAsync(_incidentId);
+                await Task.WhenAll(t2, t3, t4);
                 _arrests   = t2.Result;
                 _citations = t3.Result;
+                _charges   = t4.Result;
             }
 
             // Keep edit fields in sync so the unified card always shows current values
@@ -481,6 +518,7 @@ else if (_incident is not null)
         try
         {
             await IncidentService.AcquireLockAsync(_incidentId);
+            EnsureAgencySelectionLock();
             _modifyMode = true;
             _editIncidentNum = _incident?.Details.IncidentNum ?? string.Empty;
             _editDescription = _incident?.Details.Description ?? string.Empty;
@@ -502,14 +540,30 @@ else if (_incident is not null)
     {
         StopLockTimer();
         _modifyMode = false;
+        ReleaseAgencySelectionLock();
+        ClearPendingChanges();
         try { await IncidentService.ReleaseLockAsync(_incidentId); } catch { /* best-effort */ }
         await LoadAsync();
+    }
+
+    private void EnsureAgencySelectionLock()
+        => _agencySelectionLock ??= ActiveAgencyContext.AcquireSelectionLock();
+
+    private void ReleaseAgencySelectionLock()
+    {
+        _agencySelectionLock?.Dispose();
+        _agencySelectionLock = null;
     }
 
     private string ComputeEditSnapshot() =>
         string.Join("§", _editIncidentNum, _editDescription, _editCFSNum, _editLocalNum, _editLocationId, _editOccurredOn);
 
-    private bool HasPendingChanges => _modifyMode && _editSnapshot != ComputeEditSnapshot();
+    private bool HasPendingChanges =>
+        _modifyMode &&
+        (_editSnapshot != ComputeEditSnapshot()
+         || _pendingChargeAdds.Count > 0
+         || _pendingChargeRemoves.Count > 0
+         || _createdForeignRecords.Count > 0);
 
     private async Task RequestReleaseAsync()
     {
@@ -551,7 +605,7 @@ else if (_incident is not null)
         _showReleaseConfirm = false;
         var navigateToNew = _pendingNewRecord;
         _pendingNewRecord = false;
-        await SaveDetailsAsync();
+        await SaveRecordAsync();
         if (_actionError is null)
         {
             await ExitModifyModeAsync();
@@ -599,6 +653,28 @@ else if (_incident is not null)
     private Task OpenAsync()    => RunActionAsync(() => IncidentService.OpenAsync(_incidentId));
     private Task CloseAsync()   => RunActionAsync(() => IncidentService.CloseAsync(_incidentId));
     private Task ArchiveAsync() => RunActionAsync(() => IncidentService.ArchiveAsync(_incidentId));
+    private Task LinkChargeAsync(ChargeDto charge)
+    {
+        if (_pendingChargeRemoves.Remove(charge.Id))
+            return Task.CompletedTask;
+
+        if ((_charges?.Any(c => c.ChargeId == charge.Id) ?? false) || _pendingChargeAdds.ContainsKey(charge.Id))
+            return Task.CompletedTask;
+
+        _pendingChargeAdds[charge.Id] = (charge, DateTime.UtcNow);
+        return Task.CompletedTask;
+    }
+
+    private Task UnlinkChargeAsync(Guid chargeId)
+    {
+        if (_pendingChargeAdds.Remove(chargeId))
+            return Task.CompletedTask;
+
+        if (_charges?.Any(c => c.ChargeId == chargeId) == true)
+            _pendingChargeRemoves.Add(chargeId);
+
+        return Task.CompletedTask;
+    }
 
     private void OnOccurredOnChanged(ChangeEventArgs e)
     {
@@ -608,22 +684,29 @@ else if (_incident is not null)
         }
     }
 
-    private async Task SaveDetailsAsync()
+    private async Task SaveRecordAsync()
     {
         _actionError = null;
         _saveSuccessMessage = null;
         try
         {
-            await IncidentService.UpdateDetailsAsync(_incidentId, 
-                new IncidentDetailsVo { 
+            await IncidentService.SavePageAsync(
+                _incidentId,
+                new IncidentDetailsVo
+                {
                     IncidentNum = _editIncidentNum,
                     LocalNum = _editLocalNum,
-                    Description = _editDescription, 
+                    Description = _editDescription,
                     CFSNum = _editCFSNum
-                }, _editLocationId, _editOccurredOn);
+                },
+                _editLocationId,
+                _editOccurredOn,
+                _pendingChargeAdds.Keys.ToArray(),
+                _pendingChargeRemoves.ToArray());
             await LoadAsync();
             _editSnapshot = ComputeEditSnapshot();
-            _saveSuccessMessage = "Details saved successfully.";
+            ClearPendingChanges();
+            _saveSuccessMessage = "Record saved successfully.";
             // Auto-clear after 3 seconds
             _ = Task.Delay(3000).ContinueWith(_ => InvokeAsync(() =>
             {
@@ -634,8 +717,31 @@ else if (_incident is not null)
         catch (Exception ex)
         {
             _actionError = ex.Message;
+            try { await LoadAsync(); } catch { _actionError += " (State may be out of sync — please refresh the page.)"; }
         }
     }
+
+    private IReadOnlyList<RecordChargeDto>? VisibleCharges =>
+        _charges is null
+            ? null
+            : _charges
+                .Where(c => !_pendingChargeRemoves.Contains(c.ChargeId))
+                .Concat(_pendingChargeAdds.Values
+                    .Where(p => _charges.All(existing => existing.ChargeId != p.Charge.Id))
+                    .Select(p => MapCharge(p.Charge, p.LinkedAtUtc)))
+                .OrderByDescending(c => c.LinkedAtUtc)
+                .ToList();
+
+    private static RecordChargeDto MapCharge(ChargeDto charge, DateTime linkedAtUtc) =>
+        new(
+            charge.Id,
+            charge.OffenseName,
+            charge.UcrCode,
+            charge.ChargeLevel,
+            charge.StateClass,
+            charge.IsCitationEligible,
+            charge.IsActive,
+            linkedAtUtc);
 
     private async Task SoftDeleteAsync()
     {
@@ -650,32 +756,59 @@ else if (_incident is not null)
         if (_editLocationId.HasValue)
         {
             var loc = await LocationService.GetByIdAsync(_editLocationId.Value);
-            _editLocationDisplay = loc is null ? null : FormatLocationDisplay(loc);
+            _editLocationDisplay      = loc is null ? null : FormatLocationDisplay(loc);
+            _editLocationRecordNumber = loc?.RecordNumber;
         }
         else
         {
-            _editLocationDisplay = null;
+            _editLocationDisplay      = null;
+            _editLocationRecordNumber = null;
         }
     }
 
     private void OnLocationSelected(LocationDto loc)
     {
-        _editLocationId      = loc.Id;
-        _editLocationDisplay = FormatLocationDisplay(loc);
-        _showLocationModal   = false;
+        _editLocationId           = loc.Id;
+        _editLocationDisplay      = FormatLocationDisplay(loc);
+        _editLocationRecordNumber = loc.RecordNumber;
+        _showLocationModal        = false;
+    }
+
+    private Task OnLocationCreatedAsync(LocationDto loc)
+    {
+        TrackCreatedForeignRecord($"Location #{loc.RecordNumber} was created. If you discard this page, it will remain in the system but will not be linked to this incident.");
+        return Task.CompletedTask;
     }
 
     private void OnLocationCleared()
     {
-        _editLocationId      = null;
-        _editLocationDisplay = null;
-        _showLocationModal   = false;
+        _editLocationId           = null;
+        _editLocationDisplay      = null;
+        _editLocationRecordNumber = null;
+        _showLocationModal        = false;
     }
 
     private void ClearLocation()
     {
-        _editLocationId      = null;
-        _editLocationDisplay = null;
+        _editLocationId           = null;
+        _editLocationDisplay      = null;
+        _editLocationRecordNumber = null;
+    }
+
+    private string? GetReleaseWarningMessage() =>
+        _createdForeignRecords.Count == 0 ? null : string.Join(" ", _createdForeignRecords);
+
+    private void TrackCreatedForeignRecord(string message)
+    {
+        if (!_createdForeignRecords.Contains(message, StringComparer.Ordinal))
+            _createdForeignRecords.Add(message);
+    }
+
+    private void ClearPendingChanges()
+    {
+        _pendingChargeAdds.Clear();
+        _pendingChargeRemoves.Clear();
+        _createdForeignRecords.Clear();
     }
 
     private static string FormatLocationDisplay(LocationDto loc)
@@ -698,6 +831,7 @@ else if (_incident is not null)
         // requires the lock. The lock is released explicitly via "Release Record" or
         // automatically when the 10-minute timeout elapses.
         StopLockTimer();
+        ReleaseAgencySelectionLock();
         return ValueTask.CompletedTask;
     }
 }

@@ -19,7 +19,41 @@ public static class PicklistTypes
     public const string StreetType = "StreetType";  // St, Ave, Blvd, Dr, Ct, Ln, Pl, Rd, Way, Hwy, Pkwy
     public const string Country    = "Country";     // US, CA, MX, etc.
 
+    // Texas citation mapping picklist types
+    public const string ViolationSourceType = "ViolationSourceType";
+    public const string ViolationGroup = "ViolationGroup";
+    public const string SpeedBand = "SpeedBand";
+    public const string MovementViolation = "MovementViolation";
+    public const string ParkingViolation = "ParkingViolation";
+    public const string EnvironmentFactor = "EnvironmentFactor";
+    public const string CollisionConfiguration = "CollisionConfiguration";
+    public const string IncidentSeverity = "IncidentSeverity";
+    public const string AreaType = "AreaType";
+    public const string HighwayType = "HighwayType";
+
     /// <summary>All known picklist types in a consistent order for admin UIs.</summary>
     public static readonly IReadOnlyList<string> All =
-        [ArrestType, Court, Race, Sex, Suffix, State, HairColor, EyeColor, Direction, StreetType, Country];
+    [
+        ArrestType,
+        Court,
+        Race,
+        Sex,
+        Suffix,
+        State,
+        HairColor,
+        EyeColor,
+        Direction,
+        StreetType,
+        Country,
+        ViolationSourceType,
+        ViolationGroup,
+        SpeedBand,
+        MovementViolation,
+        ParkingViolation,
+        EnvironmentFactor,
+        CollisionConfiguration,
+        IncidentSeverity,
+        AreaType,
+        HighwayType
+    ];
 }

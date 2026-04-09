@@ -73,6 +73,10 @@ else if (_name is not null)
         </div>
     </div>
 
+    <RecordDetailsTabs DetailsUrl="@DetailsTabUrl"
+                       RelationshipsUrl="@RelationshipsTabUrl"
+                       ActiveTab="Details" />
+
     @if (_actionError is not null)
     {
         <div class="alert alert-danger alert-dismissible">
@@ -95,7 +99,10 @@ else if (_name is not null)
         {
             <div class="alert alert-warning d-flex align-items-center gap-3 py-2 mb-2 record-mode-banner">
                 <span><i class="bi bi-pencil-fill me-1"></i><strong>Modify mode</strong> — lock expires in @_lockSecondsRemaining s</span>
-                <button class="btn btn-sm btn-outline-dark ms-auto" @onclick="RequestReleaseAsync"><i class="bi bi-unlock-fill me-1"></i>Release</button>
+                <div class="record-mode-actions">
+                    <button class="btn btn-sm btn-primary" @onclick="SaveRecordAsync"><i class="bi bi-floppy-fill me-1"></i>Save</button>
+                    <button class="btn btn-sm btn-outline-dark" @onclick="RequestReleaseAsync"><i class="bi bi-unlock-fill me-1"></i>Release</button>
+                </div>
             </div>
         }
         else if (_name.IsLocked && _name.LockedByUserId != _currentUserId)
@@ -128,6 +135,7 @@ else if (_name is not null)
                           SaveLabel="@(_pendingNewRecord ? "Save & New" : "Save & Release")"
                           DiscardLabel="@(_pendingNewRecord ? "Discard & New" : "Discard")"
                           ActionDescription="@(_pendingNewRecord ? "creating a new record" : "releasing the record")"
+                          WarningMessage="@GetReleaseWarningMessage()"
                           OnSaveAndRelease="SaveAndReleaseAsync"
                           OnDiscard="DiscardAndReleaseAsync"
                           OnCancel="CancelRelease" />
@@ -249,6 +257,50 @@ else if (_name is not null)
                         }
                     </div>
                 }
+            </div>
+        </div>
+    </div>
+
+    <div class="card record-content-card mb-4">
+        <div class="card-body">
+            <h6 class="card-title">Phone Numbers</h6>
+            <div class="row g-3">
+                <div class="col-lg-4">
+                    <PhoneNumberField Label="Primary Phone"
+                                      ModifyMode="_modifyMode"
+                                      LabelClass="@LabelClass"
+                                      NumberInputClass="form-control form-control-sm"
+                                      ExtensionInputClass="form-control form-control-sm"
+                                      ReadOnlyValueClass="form-control-plaintext form-control-sm ps-0 fw-semibold mb-0"
+                                      Number="@_editPrimaryPhone"
+                                      NumberChanged="@(value => _editPrimaryPhone = value)"
+                                      Extension="@_editPrimaryPhoneExtension"
+                                      ExtensionChanged="@(value => _editPrimaryPhoneExtension = value)" />
+                </div>
+                <div class="col-lg-4">
+                    <PhoneNumberField Label="@WorkPhoneLabel"
+                                      ModifyMode="_modifyMode"
+                                      LabelClass="@LabelClass"
+                                      NumberInputClass="form-control form-control-sm"
+                                      ExtensionInputClass="form-control form-control-sm"
+                                      ReadOnlyValueClass="form-control-plaintext form-control-sm ps-0 fw-semibold mb-0"
+                                      Number="@_editWorkPhone"
+                                      NumberChanged="@(value => _editWorkPhone = value)"
+                                      Extension="@_editWorkPhoneExtension"
+                                      ExtensionChanged="@(value => _editWorkPhoneExtension = value)" />
+                </div>
+                <div class="col-lg-4">
+                    <PhoneNumberField Label="Other Phone"
+                                      ModifyMode="_modifyMode"
+                                      LabelClass="@LabelClass"
+                                      NumberInputClass="form-control form-control-sm"
+                                      ExtensionInputClass="form-control form-control-sm"
+                                      ReadOnlyValueClass="form-control-plaintext form-control-sm ps-0 fw-semibold mb-0"
+                                      Number="@_editOtherPhone"
+                                      NumberChanged="@(value => _editOtherPhone = value)"
+                                      Extension="@_editOtherPhoneExtension"
+                                      ExtensionChanged="@(value => _editOtherPhoneExtension = value)" />
+                </div>
             </div>
         </div>
     </div>
@@ -425,13 +477,6 @@ else if (_name is not null)
         </div>
     }
 
-    @if (_modifyMode)
-    {
-        <div class="record-save-row mb-4">
-            <button class="btn btn-sm btn-primary" @onclick="SaveDetailsAsync">Save Details</button>
-        </div>
-    }
-
     <!-- Address Links -->
     <div class="card record-content-card mb-4">
         <div class="card-body">
@@ -440,7 +485,9 @@ else if (_name is not null)
                 <div class="col-12">
                     <label class="@LabelClass">Primary Address</label>
                     <div class="d-flex align-items-center gap-2">
-                        <span class="@(_modifyMode ? "fw-semibold" : "record-reference-display")">@(_editPrimaryLocationDisplay ?? "— None —")</span>
+                        <span class="@(_modifyMode ? "fw-semibold" : "record-reference-display")">@if (!_modifyMode && _editPrimaryLocationRecordNumber.HasValue) {
+                            <a href="/locations/@_editPrimaryLocationRecordNumber" class="record-reference-link">@_editPrimaryLocationDisplay</a>
+                        } else { @(_editPrimaryLocationDisplay ?? "— None —") }</span>
                         @if (_modifyMode)
                         {
                             <button type="button" class="btn btn-sm btn-outline-secondary" @onclick="() => _showPrimaryLocationModal = true">
@@ -459,7 +506,9 @@ else if (_name is not null)
                 <div class="col-12">
                     <label class="@LabelClass">Secondary Address</label>
                     <div class="d-flex align-items-center gap-2">
-                        <span class="@(_modifyMode ? "fw-semibold" : "record-reference-display")">@(_editSecondaryLocationDisplay ?? "— None —")</span>
+                        <span class="@(_modifyMode ? "fw-semibold" : "record-reference-display")">@if (!_modifyMode && _editSecondaryLocationRecordNumber.HasValue) {
+                            <a href="/locations/@_editSecondaryLocationRecordNumber" class="record-reference-link">@_editSecondaryLocationDisplay</a>
+                        } else { @(_editSecondaryLocationDisplay ?? "— None —") }</span>
                         @if (_modifyMode)
                         {
                             <button type="button" class="btn btn-sm btn-outline-secondary" @onclick="() => _showSecondaryLocationModal = true">
@@ -482,25 +531,39 @@ else if (_name is not null)
     <LocationSearchModal Visible="_showPrimaryLocationModal"
                          CurrentLocationId="_editPrimaryLocationId"
                          OnSelected="OnPrimaryLocationSelected"
+                         OnCreated="OnPrimaryLocationCreatedAsync"
                          OnCleared="OnPrimaryLocationCleared"
                          OnCancelled="() => _showPrimaryLocationModal = false" />
 
     <LocationSearchModal Visible="_showSecondaryLocationModal"
                          CurrentLocationId="_editSecondaryLocationId"
                          OnSelected="OnSecondaryLocationSelected"
+                         OnCreated="OnSecondaryLocationCreatedAsync"
                          OnCleared="OnSecondaryLocationCleared"
                          OnCancelled="() => _showSecondaryLocationModal = false" />
+
+    <MugshotGallery NameId="_name.Id" CanModify="_modifyMode" />
+
+    @if (_modifyMode)
+    {
+        <div class="record-save-row mb-4">
+            <button class="btn btn-sm btn-primary" @onclick="SaveRecordAsync">
+                <i class="bi bi-floppy-fill me-1"></i>Save
+            </button>
+        </div>
+    }
 
     <AuditInfoSection CreatedAt="@_name.CreatedAtUtc"
                       CreatedByName="@_createdByName"
                       ModifiedAt="@(_name.ModifiedBy.HasValue ? _name.UpdatedAtUtc : null)"
                       ModifiedByName="@_modifiedByName" />
-
-    <MugshotGallery NameId="_name.Id" CanModify="_modifyMode" />
 }
 
 @code {
     [Parameter] public long RecordNumber { get; set; }
+
+    private string DetailsTabUrl => $"/names/{RecordNumber}";
+    private string RelationshipsTabUrl => $"/names/{RecordNumber}/relationships";
 
     [SupplyParameterFromQuery(Name = "autoModify")]
     public bool AutoModify { get; set; }
@@ -541,15 +604,23 @@ else if (_name is not null)
     private string? _editPlaceOfBirth;
     private string? _editFbiNumber;
     private string? _editLocalNumber;
+    private string? _editPrimaryPhone;
+    private string? _editPrimaryPhoneExtension;
+    private string? _editWorkPhone;
+    private string? _editWorkPhoneExtension;
+    private string? _editOtherPhone;
+    private string? _editOtherPhoneExtension;
     private string? _editSsn;
     private bool _editIsCitizen;
     private DateTime? _editDeceasedDate;
     private bool _showSwitchTypeConfirm;
     private Guid?  _editPrimaryLocationId;
     private string? _editPrimaryLocationDisplay;
+    private long?  _editPrimaryLocationRecordNumber;
     private bool   _showPrimaryLocationModal;
     private Guid?  _editSecondaryLocationId;
     private string? _editSecondaryLocationDisplay;
+    private long?  _editSecondaryLocationRecordNumber;
     private bool   _showSecondaryLocationModal;
 
     // Read-only picklist labels
@@ -563,6 +634,7 @@ else if (_name is not null)
     private string? _createdByName;
     private string? _modifiedByName;
     private string? _lockedByName;
+    private readonly List<string> _createdForeignRecords = [];
 
     private int? EditHeightInches =>
         (_editHeightFeet.HasValue || _editHeightInchesRemainder.HasValue)
@@ -584,6 +656,8 @@ else if (_name is not null)
     private string LabelClass => _modifyMode
         ? "form-label mb-1"
         : "form-label mb-0 small text-muted d-block";
+
+    private string WorkPhoneLabel => _editNameType == NameTypes.Business ? "Secondary Phone" : "Work Phone";
 
     /// <summary>Masks SSN as ***-**-XXXX in view mode. Returns "—" when null.</summary>
     private string SsnDisplay
@@ -623,7 +697,7 @@ else if (_name is not null)
         => InvokeAsync(async () => { if (_modifyMode) { await RequestReleaseAsync(); StateHasChanged(); } });
 
     private void HandleShortcutSave()
-        => InvokeAsync(async () => { if (_modifyMode) { await SaveDetailsAsync(); StateHasChanged(); } });
+        => InvokeAsync(async () => { if (_modifyMode) { await SaveRecordAsync(); StateHasChanged(); } });
 
     private void RestoreModifyModeIfOwner()
     {
@@ -656,6 +730,12 @@ else if (_name is not null)
         _editPlaceOfBirth          = _name.PlaceOfBirth;
         _editFbiNumber             = _name.FbiNumber;
         _editLocalNumber           = _name.LocalNumber;
+        _editPrimaryPhone          = _name.PrimaryPhone;
+        _editPrimaryPhoneExtension = _name.PrimaryPhoneExtension;
+        _editWorkPhone             = _name.WorkPhone;
+        _editWorkPhoneExtension    = _name.WorkPhoneExtension;
+        _editOtherPhone            = _name.OtherPhone;
+        _editOtherPhoneExtension   = _name.OtherPhoneExtension;
         _editSsn                   = _name.SocialSecurityNumber;
         _editIsCitizen             = _name.IsCitizen;
         _editDeceasedDate          = _name.DeceasedDate;
@@ -669,10 +749,13 @@ else if (_name is not null)
             _editSexId, _editRaceId, _editDateOfBirth, _editDlNumber, _editDlStateId,
             _editHeightFeet, _editHeightInchesRemainder, _editWeightLbs,
             _editHairColorId, _editEyeColorId, _editSuffixId, _editPlaceOfBirth,
-            _editFbiNumber, _editLocalNumber, _editSsn, _editIsCitizen, _editDeceasedDate,
+            _editFbiNumber, _editLocalNumber,
+            _editPrimaryPhone, _editPrimaryPhoneExtension, _editWorkPhone, _editWorkPhoneExtension, _editOtherPhone, _editOtherPhoneExtension,
+            _editSsn, _editIsCitizen, _editDeceasedDate,
             _editPrimaryLocationId, _editSecondaryLocationId);
 
-    private bool HasPendingChanges => _modifyMode && _editSnapshot != ComputeEditSnapshot();
+    private bool HasPendingChanges =>
+        _modifyMode && (_editSnapshot != ComputeEditSnapshot() || _createdForeignRecords.Count > 0);
 
     private async Task RequestReleaseAsync()
     {
@@ -720,7 +803,7 @@ else if (_name is not null)
         _showReleaseConfirm = false;
         var navigateToNew = _pendingNewRecord;
         _pendingNewRecord = false;
-        await SaveDetailsAsync();
+        await SaveRecordAsync();
         if (_actionError is null)
         {
             await ExitModifyModeAsync();
@@ -820,11 +903,12 @@ else if (_name is not null)
         StopLockTimer();
         _modifyMode = false;
         _showSwitchTypeConfirm = false;
+        _createdForeignRecords.Clear();
         try { await NameService.ReleaseLockAsync(_nameId); } catch { /* best-effort */ }
         await LoadAsync();
     }
 
-    private async Task SaveDetailsAsync()
+    private async Task SaveRecordAsync()
     {
         _actionError = null;
         _saveSuccessMessage = null;
@@ -851,11 +935,18 @@ else if (_name is not null)
                 _editNameType == NameTypes.Person && _editIsCitizen,
                 _editNameType == NameTypes.Person ? _editDeceasedDate : null,
                 _editPrimaryLocationId,
-                _editSecondaryLocationId);
+                _editSecondaryLocationId,
+                _editPrimaryPhone,
+                _editPrimaryPhoneExtension,
+                _editWorkPhone,
+                _editWorkPhoneExtension,
+                _editOtherPhone,
+                _editOtherPhoneExtension);
 
             await LoadAsync();
             _editSnapshot = ComputeEditSnapshot();
-            _saveSuccessMessage = "Details saved successfully.";
+            _createdForeignRecords.Clear();
+            _saveSuccessMessage = "Record saved successfully.";
             _ = Task.Delay(3000).ContinueWith(_ => InvokeAsync(() =>
             {
                 _saveSuccessMessage = null;
@@ -880,56 +971,93 @@ else if (_name is not null)
         if (_editPrimaryLocationId.HasValue)
         {
             var loc = await LocationService.GetByIdAsync(_editPrimaryLocationId.Value);
-            _editPrimaryLocationDisplay = loc is null ? null : FormatLocationDisplay(loc);
+            _editPrimaryLocationDisplay      = loc is null ? null : FormatLocationDisplay(loc);
+            _editPrimaryLocationRecordNumber = loc?.RecordNumber;
         }
-        else _editPrimaryLocationDisplay = null;
+        else
+        {
+            _editPrimaryLocationDisplay      = null;
+            _editPrimaryLocationRecordNumber = null;
+        }
 
         if (_editSecondaryLocationId.HasValue)
         {
             var loc = await LocationService.GetByIdAsync(_editSecondaryLocationId.Value);
-            _editSecondaryLocationDisplay = loc is null ? null : FormatLocationDisplay(loc);
+            _editSecondaryLocationDisplay      = loc is null ? null : FormatLocationDisplay(loc);
+            _editSecondaryLocationRecordNumber = loc?.RecordNumber;
         }
-        else _editSecondaryLocationDisplay = null;
+        else
+        {
+            _editSecondaryLocationDisplay      = null;
+            _editSecondaryLocationRecordNumber = null;
+        }
     }
 
     private void OnPrimaryLocationSelected(LocationDto loc)
     {
-        _editPrimaryLocationId      = loc.Id;
-        _editPrimaryLocationDisplay = FormatLocationDisplay(loc);
-        _showPrimaryLocationModal   = false;
+        _editPrimaryLocationId           = loc.Id;
+        _editPrimaryLocationDisplay      = FormatLocationDisplay(loc);
+        _editPrimaryLocationRecordNumber = loc.RecordNumber;
+        _showPrimaryLocationModal        = false;
+    }
+
+    private Task OnPrimaryLocationCreatedAsync(LocationDto loc)
+    {
+        TrackCreatedForeignRecord($"Location #{loc.RecordNumber} was created. If you discard this page, it will remain in the system but will not be linked to this name record.");
+        return Task.CompletedTask;
     }
 
     private void OnPrimaryLocationCleared()
     {
-        _editPrimaryLocationId      = null;
-        _editPrimaryLocationDisplay = null;
-        _showPrimaryLocationModal   = false;
+        _editPrimaryLocationId           = null;
+        _editPrimaryLocationDisplay      = null;
+        _editPrimaryLocationRecordNumber = null;
+        _showPrimaryLocationModal        = false;
     }
 
     private void ClearPrimaryLocation()
     {
-        _editPrimaryLocationId      = null;
-        _editPrimaryLocationDisplay = null;
+        _editPrimaryLocationId           = null;
+        _editPrimaryLocationDisplay      = null;
+        _editPrimaryLocationRecordNumber = null;
     }
 
     private void OnSecondaryLocationSelected(LocationDto loc)
     {
-        _editSecondaryLocationId      = loc.Id;
-        _editSecondaryLocationDisplay = FormatLocationDisplay(loc);
-        _showSecondaryLocationModal   = false;
+        _editSecondaryLocationId           = loc.Id;
+        _editSecondaryLocationDisplay      = FormatLocationDisplay(loc);
+        _editSecondaryLocationRecordNumber = loc.RecordNumber;
+        _showSecondaryLocationModal        = false;
+    }
+
+    private Task OnSecondaryLocationCreatedAsync(LocationDto loc)
+    {
+        TrackCreatedForeignRecord($"Location #{loc.RecordNumber} was created. If you discard this page, it will remain in the system but will not be linked to this name record.");
+        return Task.CompletedTask;
     }
 
     private void OnSecondaryLocationCleared()
     {
-        _editSecondaryLocationId      = null;
-        _editSecondaryLocationDisplay = null;
-        _showSecondaryLocationModal   = false;
+        _editSecondaryLocationId           = null;
+        _editSecondaryLocationDisplay      = null;
+        _editSecondaryLocationRecordNumber = null;
+        _showSecondaryLocationModal        = false;
     }
 
     private void ClearSecondaryLocation()
     {
-        _editSecondaryLocationId      = null;
-        _editSecondaryLocationDisplay = null;
+        _editSecondaryLocationId           = null;
+        _editSecondaryLocationDisplay      = null;
+        _editSecondaryLocationRecordNumber = null;
+    }
+
+    private string? GetReleaseWarningMessage() =>
+        _createdForeignRecords.Count == 0 ? null : string.Join(" ", _createdForeignRecords);
+
+    private void TrackCreatedForeignRecord(string message)
+    {
+        if (!_createdForeignRecords.Contains(message, StringComparer.Ordinal))
+            _createdForeignRecords.Add(message);
     }
 
     private static string FormatLocationDisplay(LocationDto loc)

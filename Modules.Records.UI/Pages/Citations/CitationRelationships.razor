@@ -1,0 +1,25 @@
+@page "/citations/{RecordNumber:long}/relationships"
+@page "/incidents/{IncidentRecordNumber:long}/citations/{RecordNumber:long}/relationships"
+@using Modules.Records.Application.Relationships.Queries.GetRecordRelationships
+
+<RecordRelationshipsPanel RecordType="@RecordRelationshipRecordTypes.Citation"
+                          RecordNumber="@RecordNumber"
+                          ListUrl="/citations"
+                          ListLabel="Citations"
+                          DetailsUrl="@DetailsUrl"
+                          RelationshipsUrl="@RelationshipsUrl" />
+
+@code {
+    [Parameter] public long RecordNumber { get; set; }
+    [Parameter] public long? IncidentRecordNumber { get; set; }
+
+    private string DetailsUrl =>
+        IncidentRecordNumber.HasValue
+            ? $"/incidents/{IncidentRecordNumber.Value}/citations/{RecordNumber}"
+            : $"/citations/{RecordNumber}";
+
+    private string RelationshipsUrl =>
+        IncidentRecordNumber.HasValue
+            ? $"/incidents/{IncidentRecordNumber.Value}/citations/{RecordNumber}/relationships"
+            : $"/citations/{RecordNumber}/relationships";
+}

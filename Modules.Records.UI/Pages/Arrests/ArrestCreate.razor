@@ -2,10 +2,15 @@
 @page "/incidents/{IncidentRecordNumber:long}/arrests/create"
 @implements IAsyncDisposable
 @inject IArrestService ArrestService
+@inject IChargeService ChargeService
 @inject IIncidentService IncidentService
 @inject IAgencyConfigurationService ConfigService
+@inject IActiveAgencyContext ActiveAgencyContext
 @inject IKeyboardShortcutService ShortcutService
 @inject NavigationManager Nav
+@using Modules.Records.Application.DTOs
+@using Modules.Records.Domain.Common
+@using Modules.Records.UI.Services
 
 <PageTitle>New Arrest</PageTitle>
 
@@ -20,6 +25,10 @@
 {
     <div class="alert alert-danger">@_vm.ErrorMessage</div>
 }
+@if (AgencyBlockingMessage is not null)
+{
+    <div class="alert alert-warning">@AgencyBlockingMessage</div>
+}
 
 <div class="record-form-shell">
 <EditForm Model="_vm" OnValidSubmit="SubmitAsync">
@@ -33,9 +42,19 @@
             </div>
             <div class="record-grid-2">
             <div class="mb-0">
-                <label class="form-label">Suspect Name</label>
-                <InputText class="form-control" @bind-Value="_vm.SuspectName" />
-                <ValidationMessage For="() => _vm.SuspectName" />
+                <label class="form-label">Suspect</label>
+                <div class="d-flex align-items-center gap-2">
+                    <span class="record-reference-display">@(_selectedNameDisplay ?? "— None —")</span>
+                    <button type="button" class="btn btn-sm btn-outline-secondary" @onclick="() => _showNameModal = true">
+                        <i class="bi bi-people me-1"></i>@(_selectedNameId.HasValue ? "Change" : "Assign") Name
+                    </button>
+                    @if (_selectedNameId.HasValue)
+                    {
+                        <button type="button" class="btn btn-sm btn-outline-danger" aria-label="Clear selected name" title="Clear selected name" @onclick="ClearSelectedName">
+                            <i class="bi bi-x-lg"></i>
+                        </button>
+                    }
+                </div>
             </div>
             <div class="mb-0">
                 <label class="form-label">Arrested At</label>
@@ -46,15 +65,30 @@
                 <label class="form-label">Arrest Number <span class="text-muted">(auto-generated if blank)</span></label>
                 <div class="input-group">
                     <InputText class="form-control" @bind-Value="_vm.ArrestNum" placeholder="e.g. AR-2026-000001" />
-                    <button type="button" class="btn btn-outline-secondary" @onclick="GenerateArrestNumAsync" disabled="@_generatingNum">
+                    <button type="button" class="btn btn-outline-secondary" @onclick="GenerateArrestNumAsync" disabled="@(_generatingNum || !CanCreateAgencyOwnedRecord)">
                         @(_generatingNum ? "…" : "🔁 Generate")
                     </button>
                 </div>
             </div>
             <div class="mb-0 record-field-span-2">
-                <label class="form-label">Link to Incident <span class="text-muted">(optional)</span></label>
+                <label class="form-label">Primary Incident <span class="text-muted">(optional)</span></label>
+                <div class="d-flex align-items-center gap-2 mb-2">
+                    <span class="record-reference-display">@(_primaryIncidentDisplay ?? "— None —")</span>
+                    <button type="button" class="btn btn-sm btn-outline-secondary" @onclick="() => _showPrimaryIncidentModal = true">
+                        <i class="bi bi-clipboard2-pulse me-1"></i>@(_primaryIncidentId.HasValue ? "Change" : "Assign") Incident
+                    </button>
+                    @if (_primaryIncidentId.HasValue)
+                    {
+                        <button type="button" class="btn btn-sm btn-outline-danger" aria-label="Clear primary incident" title="Clear primary incident" @onclick="ClearPrimaryIncident">
+                            <i class="bi bi-x-lg"></i>
+                        </button>
+                    }
+                </div>
+            </div>
+            <div class="mb-0 record-field-span-2">
+                <label class="form-label">Additional Incident Links <span class="text-muted">(optional)</span></label>
                 <select class="form-select" multiple @onchange="OnIncidentSelectionChanged">
-                    @foreach (var i in _incidents)
+                    @foreach (var i in _incidents ?? [])
                     {
                         <option value="@i.RecordNumber" selected="@(_selectedIncidentRecordNumbers.Contains(i.RecordNumber))">
                             @i.RecordNumber — @i.Details.IncidentNum (@i.Status)
@@ -63,11 +97,39 @@
                 </select>
                 <div class="form-text">Hold Ctrl/Cmd to select multiple</div>
             </div>
+            <div class="mb-0 record-field-span-2">
+                <label class="form-label">Charges <span class="text-muted">(optional)</span></label>
+                <div class="d-flex align-items-center gap-2 mb-2">
+                    <button type="button" class="btn btn-sm btn-outline-secondary" @onclick="() => _showChargeModal = true">
+                        <i class="bi bi-search me-1"></i>Add Charge
+                    </button>
+                    <span class="small text-muted">@_selectedCharges.Count charge(s) selected</span>
+                </div>
+                @if (_selectedCharges.Count == 0)
+                {
+                    <div class="form-text">Search and select one or more charges to attach as soon as the arrest is created.</div>
+                }
+                else
+                {
+                    <div class="list-group list-group-flush border rounded">
+                        @foreach (var charge in _selectedCharges)
+                        {
+                            <div class="list-group-item py-2 d-flex justify-content-between align-items-center">
+                                <div>
+                                    <div class="fw-semibold">@charge.OffenseName</div>
+                                    <div class="small text-muted">UCR @charge.UcrCode · @charge.ChargeLevel</div>
+                                </div>
+                                <button type="button" class="btn btn-sm btn-outline-danger" @onclick="() => RemoveCharge(charge.Id)">Remove</button>
+                            </div>
+                        }
+                    </div>
+                }
+            </div>
             </div>
         </div>
     </div>
     <div class="record-form-actions">
-        <button type="submit" class="btn btn-primary" disabled="@_submitting">
+        <button type="submit" class="btn btn-primary" disabled="@(_submitting || !CanCreateAgencyOwnedRecord)">
             @(_submitting ? "Creating…" : "Create Arrest")
         </button>
         @if (IncidentRecordNumber.HasValue)
@@ -81,6 +143,22 @@
     </div>
 </EditForm>
 </div>
+
+<NameSearchModal Visible="_showNameModal"
+                 CurrentNameId="_selectedNameId"
+                 OnSelected="OnNameSelected"
+                 OnCleared="OnNameCleared"
+                 OnCancelled="() => _showNameModal = false" />
+
+<IncidentSearchModal Visible="_showPrimaryIncidentModal"
+                     CurrentIncidentId="_primaryIncidentId"
+                     OnSelected="OnPrimaryIncidentSelected"
+                     OnCleared="OnPrimaryIncidentCleared"
+                     OnCancelled="() => _showPrimaryIncidentModal = false" />
+
+<ChargeSearchModal Visible="_showChargeModal"
+                   OnSelected="OnChargeSelected"
+                   OnCancelled="() => _showChargeModal = false" />
 
 <UnsavedChangesDialog Visible="_showCancelConfirm"
                       SaveLabel="Submit Record"
@@ -97,16 +175,34 @@
     private bool _submitting;
     private bool _generatingNum;
     private bool _showCancelConfirm;
+    private bool _showNameModal;
+    private bool _showPrimaryIncidentModal;
+    private bool _showChargeModal;
     private IReadOnlyList<IncidentDto>? _incidents = new List<IncidentDto>();
     private readonly List<long> _selectedIncidentRecordNumbers = new();
+    private readonly List<ChargeDto> _selectedCharges = [];
+    private IDisposable? _agencySelectionLock;
+    private Guid? _selectedNameId;
+    private string? _selectedNameDisplay;
+    private long? _selectedNameRecordNumber;
+    private Guid? _primaryIncidentId;
+    private string? _primaryIncidentDisplay;
+    private long? _primaryIncidentRecordNumber;
 
     private bool HasEnteredData =>
-        !string.IsNullOrEmpty(_vm.SuspectName) ||
+        _selectedNameId.HasValue ||
         !string.IsNullOrEmpty(_vm.ArrestNum)   ||
-        _selectedIncidentRecordNumbers.Count > 0;
+        _primaryIncidentId.HasValue ||
+        _selectedIncidentRecordNumbers.Count > 0 ||
+        _selectedCharges.Count > 0;
 
     private string CancelUrl =>
         IncidentRecordNumber.HasValue ? $"/incidents/{IncidentRecordNumber}" : "/arrests";
+    private bool CanCreateAgencyOwnedRecord => ActiveAgencyContext.HasSelectedAgency;
+    private string? AgencyBlockingMessage =>
+        CanCreateAgencyOwnedRecord
+            ? null
+            : "No active agency is available. Record creation is disabled until an administrator assigns you a default agency and agency access.";
 
     protected override Task OnInitializedAsync()
     {
@@ -120,6 +216,8 @@
 
     protected override async Task OnParametersSetAsync()
     {
+        _agencySelectionLock ??= ActiveAgencyContext.AcquireSelectionLock();
+        await ActiveAgencyContext.EnsureLoadedAsync();
         _incidents = await IncidentService.GetByJurisdictionAsync();
 
         // Pre-select if coming from an incident page
@@ -139,6 +237,52 @@
                 if (long.TryParse(s, out var rn))
                     _selectedIncidentRecordNumbers.Add(rn);
         }
+    }
+
+    private Task OnNameSelected(NameDto name)
+    {
+        _selectedNameId = name.Id;
+        _selectedNameDisplay = FormatName(name);
+        _selectedNameRecordNumber = name.RecordNumber;
+        _showNameModal = false;
+        return Task.CompletedTask;
+    }
+
+    private Task OnNameCleared()
+    {
+        ClearSelectedName();
+        _showNameModal = false;
+        return Task.CompletedTask;
+    }
+
+    private void ClearSelectedName()
+    {
+        _selectedNameId = null;
+        _selectedNameDisplay = null;
+        _selectedNameRecordNumber = null;
+    }
+
+    private Task OnPrimaryIncidentSelected(IncidentDto incident)
+    {
+        _primaryIncidentId = incident.Id;
+        _primaryIncidentDisplay = FormatIncident(incident);
+        _primaryIncidentRecordNumber = incident.RecordNumber;
+        _showPrimaryIncidentModal = false;
+        return Task.CompletedTask;
+    }
+
+    private Task OnPrimaryIncidentCleared()
+    {
+        ClearPrimaryIncident();
+        _showPrimaryIncidentModal = false;
+        return Task.CompletedTask;
+    }
+
+    private void ClearPrimaryIncident()
+    {
+        _primaryIncidentId = null;
+        _primaryIncidentDisplay = null;
+        _primaryIncidentRecordNumber = null;
     }
 
     private void HandleShortcutRelease()
@@ -164,11 +308,16 @@
     {
         ShortcutService.OnRelease -= HandleShortcutRelease;
         ShortcutService.OnSave    -= HandleShortcutSave;
+        _agencySelectionLock?.Dispose();
+        _agencySelectionLock = null;
         return ValueTask.CompletedTask;
     }
 
     private async Task GenerateArrestNumAsync()
     {
+        if (!CanCreateAgencyOwnedRecord)
+            return;
+
         _generatingNum = true;
         try { _vm.ArrestNum = await ConfigService.GenerateArrestNumAsync(); }
         catch (Exception ex) { _vm.ErrorMessage = ex.Message; }
@@ -182,11 +331,27 @@
 
         try
         {
+            if (!CanCreateAgencyOwnedRecord)
+                throw new InvalidOperationException("Select an active agency before creating an arrest.");
+
+            if (!_selectedNameId.HasValue)
+                throw new InvalidOperationException("Select a suspect name before creating the arrest.");
+
             var recordNumber = await ArrestService.CreateAsync(
-                _vm.SuspectName,
+                _selectedNameId.Value,
                 _vm.ArrestedAt,
                 _selectedIncidentRecordNumbers.AsReadOnly(),
-                _vm.ArrestNum);
+                _vm.ArrestNum,
+                _primaryIncidentId);
+
+            if (_selectedCharges.Count > 0)
+            {
+                var arrest = await ArrestService.GetByRecordNumberAsync(recordNumber)
+                    ?? throw new InvalidOperationException("Arrest was created but could not be reloaded for charge linking.");
+
+                foreach (var charge in _selectedCharges)
+                    await ChargeService.LinkToArrestAsync(arrest.Id, charge.Id);
+            }
 
             if (IncidentRecordNumber.HasValue)
                 Nav.NavigateTo($"/incidents/{IncidentRecordNumber}");
@@ -201,6 +366,40 @@
         {
             _submitting = false;
         }
+    }
+
+    private Task OnChargeSelected(ChargeDto charge)
+    {
+        if (_selectedCharges.All(c => c.Id != charge.Id))
+            _selectedCharges.Add(charge);
+
+        _showChargeModal = false;
+        return Task.CompletedTask;
+    }
+
+    private void RemoveCharge(Guid chargeId)
+    {
+        var existing = _selectedCharges.FirstOrDefault(c => c.Id == chargeId);
+        if (existing is not null)
+            _selectedCharges.Remove(existing);
+    }
+
+    private static string FormatName(NameDto name)
+    {
+        if (name.NameType == NameTypes.Business)
+            return name.LastOrBusinessName;
+
+        return string.IsNullOrWhiteSpace(name.FirstName)
+            ? name.LastOrBusinessName
+            : $"{name.LastOrBusinessName}, {name.FirstName}";
+    }
+
+    private static string FormatIncident(IncidentDto incident)
+    {
+        if (!string.IsNullOrWhiteSpace(incident.Details.IncidentNum))
+            return incident.Details.IncidentNum;
+
+        return $"Incident #{incident.RecordNumber}";
     }
 }
 

@@ -10,14 +10,15 @@ namespace Infrastructure.IntegrationTests.Common
     public sealed class TestTenantProvider : ITenantProvider
     {
         private Guid _tenantId;
+        private readonly Guid _agencyId;
 
-        public TestTenantProvider(Guid tenantId)
-        { _tenantId = tenantId; }
-
-        public Guid GetAgencyId()
+        public TestTenantProvider(Guid tenantId, Guid agencyId = default)
         {
-            throw new NotImplementedException();
+            _tenantId = tenantId;
+            _agencyId = agencyId;
         }
+
+        public Guid GetAgencyId() => _agencyId;
 
         public Guid GetJurisdictionId() => _tenantId;
 
