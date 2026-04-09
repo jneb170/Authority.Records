@@ -210,6 +210,7 @@ public sealed class RebuildReadModelsHandler
             rm.ApplyLocationChanged(i.LocationId);
             rm.ApplyOccurredOnChanged(i.OccurredOn);
             if (i.IsDeleted) rm.ApplyDeleted();
+            rm.ApplyModifiedAudit(i.ModifiedBy, i.ModifiedAt);
 
             // Set denormalised counts directly via multiple increments would be slow;
             // use a helper method instead.
