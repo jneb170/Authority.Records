@@ -137,6 +137,7 @@ else if (_names is not null)
             <thead>
                 <tr>
                     <th style="width:3rem"></th>
+                    <th style="width:5rem">Preview</th>
                     <SortableColumnHeader ColumnKey="num"      Label="#"
                         CurrentSortColumn="@_sortColumn" SortAscending="@_sortAscending" OnSort="SortBy" />
                     <SortableColumnHeader ColumnKey="type"     Label="Type"
@@ -159,6 +160,11 @@ else if (_names is not null)
                         <td>
                             <button class="btn btn-sm row-delete-button" title="Delete name" aria-label="Delete name"
                                     @onclick="() => InitiateDelete(n.Id, n.LastOrBusinessName)"><i class="bi bi-trash3"></i></button>
+                        </td>
+                        <td class="mugshot-table-cell">
+                            <MugshotThumbnail ImageUrl="@n.PrimaryMugshotUrl"
+                                              Alt="@($"Preview for name record {n.RecordNumber}")"
+                                              Compact="true" />
                         </td>
                         <td><a href="/names/@n.RecordNumber">@n.RecordNumber</a></td>
                         <td><span class="badge @(n.NameType == NameTypes.Person ? "bg-primary" : "bg-secondary")">@n.NameType</span></td>

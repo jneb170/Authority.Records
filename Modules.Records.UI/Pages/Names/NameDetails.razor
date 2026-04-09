@@ -56,6 +56,11 @@ else if (_name is not null)
             </div>
         </div>
         <div class="d-flex gap-2 align-items-center record-header-meta">
+            <div class="record-header-thumb" title="Primary mugshot">
+                <MugshotThumbnail ImageUrl="@_name.PrimaryMugshotUrl"
+                                  Alt="@($"Primary mugshot for name record {RecordNumber}")"
+                                  Compact="true" />
+            </div>
             <span class="record-pill @(_name.NameType == NameTypes.Person ? "record-pill-primary" : "record-pill-neutral")">
                 <i class="bi @(_name.NameType == NameTypes.Person ? "bi-person-badge" : "bi-building")" aria-hidden="true"></i>
                 <span>@_name.NameType</span>
@@ -490,6 +495,8 @@ else if (_name is not null)
                       CreatedByName="@_createdByName"
                       ModifiedAt="@(_name.ModifiedBy.HasValue ? _name.UpdatedAtUtc : null)"
                       ModifiedByName="@_modifiedByName" />
+
+    <MugshotGallery NameId="_name.Id" CanModify="_modifyMode" />
 }
 
 @code {

@@ -32,4 +32,5 @@ public sealed record NameDto(
     bool IsCitizen = false,
     DateTime? DeceasedDate = null,
     Guid? PrimaryLocationId = null,
-    Guid? SecondaryLocationId = null);
+    Guid? SecondaryLocationId = null,
+    string? PrimaryMugshotUrl = null);

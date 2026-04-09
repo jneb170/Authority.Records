@@ -19,10 +19,12 @@ using Shared.Infrastructure.DomainEvents;
 using Shared.Infrastructure.Identity;
 using Shared.Infrastructure.Jurisdiction;
 using Shared.Infrastructure.Locks;
+using Shared.Infrastructure.Mugshots;
 using Shared.Infrastructure.Outbox;
 using Shared.Infrastructure.Arrests;
 using Shared.Infrastructure.Citations;
 using Shared.Infrastructure.Persistence;
+using Shared.Infrastructure.GoogleMaps;
 using Shared.Infrastructure.ReadModelRebuild;
 using System;
 
@@ -219,6 +221,13 @@ public static class DependencyInjection
         // User Lookup (display names for audit info)
         // -------------------------------------------------------
         services.AddScoped<IUserLookupService, UserLookupService>();
+        services.AddScoped<IMugshotStorageService, LocalMugshotStorageService>();
+
+        // -------------------------------------------------------
+        // Google Maps Places (test data generation)
+        // -------------------------------------------------------
+        services.AddHttpClient("GoogleMapsPlaces");
+        services.AddScoped<IGoogleMapsPlacesClient, GoogleMapsPlacesClient>();
 
         // -------------------------------------------------------
         // Arrest Repository
