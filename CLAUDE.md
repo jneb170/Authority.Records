@@ -57,8 +57,10 @@ UI service → MediatR command/query → domain aggregate(s) via IApplicationDbC
 - **Validation** is centralized through `Modules.Records.Application/Common/Behaviors/ValidationBehavior.cs`. Add FluentValidation validators rather than duplicating validation in handlers or UI services.
 - **Aggregate creation** goes through domain factories (`IncidentFactory`, `ArrestFactory`, etc.). Constructors are intentionally restricted; private parameterless constructors are reserved for EF materialization.
 - **`AppDbContext.SaveChangesAsync`** persists domain events into the outbox and dispatches them in-process so projections update immediately. Read-model handlers must be idempotent because rebuild/replay paths exist.
+- **Scheduled read-model rebuilds** run in infrastructure background services and can repopulate projections from aggregate tables. If persisted data looks correct before restart but wrong after restart, inspect the rebuild path as well as the write path.
 - **Soft delete and tenant isolation** are enforced via EF Core global query filters. Use `IgnoreQueryFilters()` only when a test or admin flow truly needs deleted or cross-tenant data.
 - **Pessimistic record locking** is a first-class feature. Check aggregate methods before bypassing lock ownership or lifecycle rules in handlers or UI flows.
+- **Tests use xUnit.** Domain tests construct aggregates directly and assert on both state and raised domain events. Integration tests use in-memory SQLite with real DI wiring rather than heavy mocking.
 
 ## Important files to read before deeper changes
 
@@ -66,4 +68,5 @@ UI service → MediatR command/query → domain aggregate(s) via IApplicationDbC
 - `.github/workflows/deploy.yml`
 - `Modules.Records.UI/Program.cs`
 - `Shared.Infrastructure/DependencyInjection.cs`
+- `Modules.Records.Application/AssemblyReference.cs`
 - `Modules.Records.Application/Common/Behaviors/ValidationBehavior.cs`
