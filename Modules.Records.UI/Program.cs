@@ -58,6 +58,7 @@ if (!app.Environment.IsDevelopment())
 {
     app.UseExceptionHandler("/Error");
     app.UseHsts();
+    app.UseMiddleware<CanonicalHostRedirectMiddleware>();
 }
 
 app.UseHttpsRedirection();
