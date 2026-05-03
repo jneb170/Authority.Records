@@ -11,17 +11,20 @@ public static class RecordsAuthorizationPolicies
     public const string SuperOnly = "SuperOnly";
     public const string AdminOnly = "AdminOnly";
 
-    private static readonly string[] RecordsRoles = ["Admin", "Supervisor", "Officer", "Dispatcher"];
+    public const string DemoRole = "Demo";
+
+    private static readonly string[] WriteRoles = ["Admin", "Supervisor", "Officer", "Dispatcher"];
+    private static readonly string[] ReadRoles  = ["Admin", "Supervisor", "Officer", "Dispatcher", DemoRole];
 
     public static void RegisterPolicies(IServiceCollection services)
     {
         services.AddAuthorizationCore(options =>
         {
             options.AddPolicy(RecordsRead, policy =>
-                policy.RequireRole(RecordsRoles));
+                policy.RequireRole(ReadRoles));
 
             options.AddPolicy(RecordsWrite, policy =>
-                policy.RequireRole(RecordsRoles));
+                policy.RequireRole(WriteRoles));
 
             options.AddPolicy(RecordsAdmin, policy =>
                 policy.RequireRole("Admin", "Supervisor"));
