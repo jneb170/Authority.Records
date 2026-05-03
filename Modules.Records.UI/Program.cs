@@ -4,6 +4,7 @@ using Microsoft.EntityFrameworkCore;
 using Modules.Records.Application;
 using Modules.Records.Domain.Abstractions;
 using Modules.Records.UI.Authorization;
+using Modules.Records.UI.Demo;
 using Modules.Records.UI.Interop;
 using Modules.Records.UI.Middleware;
 using Modules.Records.UI.Services;
@@ -92,6 +93,14 @@ if (app.Environment.IsDevelopment())
     using var scope = app.Services.CreateScope();
     var maintenanceCoordinator = scope.ServiceProvider.GetRequiredService<ApplicationMaintenanceCoordinator>();
     await maintenanceCoordinator.RunStartupMaintenanceAsync(scope.ServiceProvider);
+}
+
+// Seed the public demo account if enabled (default: enabled).
+// Idempotent and best-effort — failures are logged but do not block startup.
+if (app.Configuration.GetValue("Demo:Enabled", true))
+{
+    var demoLogger = app.Services.GetRequiredService<ILoggerFactory>().CreateLogger("DemoSeeder");
+    await DemoSeeder.SeedAsync(app.Services, demoLogger);
 }
 
 app.Run();

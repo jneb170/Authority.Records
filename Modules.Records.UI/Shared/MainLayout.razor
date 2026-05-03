@@ -64,14 +64,24 @@
                             {
                                 <span class="top-header-role-pill">@_role</span>
                             }
-                            <a href="/account/change-password" title="Change Password" class="top-header-pwd-link">
-                                <i class="bi bi-key"></i>
-                            </a>
+                            @if (!_isDemo)
+                            {
+                                <a href="/account/change-password" title="Change Password" class="top-header-pwd-link">
+                                    <i class="bi bi-key"></i>
+                                </a>
+                            }
                         </div>
                     </div>
                 }
             </Authorized>
         </AuthorizeView>
+        @if (_isDemo && !_suppressBody)
+        {
+            <div class="alert alert-info top-header-agency-banner mb-0" role="alert">
+                <i class="bi bi-eye me-2"></i>
+                <strong>Demo mode</strong> — this account is read-only. Sign out and create your own account to make changes.
+            </div>
+        }
         @if (AgencyBannerMessage is not null)
         {
             <div class="alert alert-warning top-header-agency-banner" role="alert">
@@ -100,6 +110,7 @@
 @code {
     private bool _suppressBody;
     private bool _isSuper;
+    private bool _isDemo;
     private bool _sidebarOpen;
     private string? _displayName;
     private string? _agencyName;
@@ -128,6 +139,7 @@
         var authState = await AuthStateProvider.GetAuthenticationStateAsync();
         var user = authState.User;
         _isSuper = user.IsInRole("Super");
+        _isDemo = user.IsInRole("Demo");
         UpdateSuppressBody();
         await AgencyContext.EnsureLoadedAsync();
 
