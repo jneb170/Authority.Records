@@ -71,6 +71,7 @@ public static class DependencyInjection
         // -------------------------------------------------------
 
         services.AddScoped<ITenantProvider, HttpTenantProvider>();
+        services.AddScoped<Modules.Records.Application.Abstractions.ICurrentUserContext, HttpCurrentUserContext>();
 
         // -------------------------------------------------------
         // Domain Event Dispatching

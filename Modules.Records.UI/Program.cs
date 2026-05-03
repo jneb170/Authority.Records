@@ -26,6 +26,7 @@ builder.Services.AddInfrastructure(builder.Configuration);
 // IHttpContextAccessor.HttpContext is null during Blazor Server SignalR interactions;
 // BlazorTenantProvider falls back to AuthenticationStateProvider for claims.
 builder.Services.AddScoped<ITenantProvider, BlazorTenantProvider>();
+builder.Services.AddScoped<Modules.Records.Application.Abstractions.ICurrentUserContext, BlazorCurrentUserContext>();
 
 builder.Services.AddScoped<IIncidentService, IncidentService>();
 builder.Services.AddScoped<IArrestService, ArrestService>();
