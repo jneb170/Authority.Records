@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.ChangeTracking;
+using Microsoft.EntityFrameworkCore.Metadata;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
@@ -215,8 +216,9 @@ public class AppDbContext : DbContext, IApplicationDbContext
         //    .Where(e => e.State == EntityState.Modified);
         //changed to below. When AggregateRoot type is specified,
         //  then Entites like OutboxMessage don't populate RowVersion
+        // Include Added so SQLite (which lacks server-generated rowversion) gets a seed value.
         var entries = ChangeTracker.Entries()
-            .Where(e => e.State == EntityState.Modified);
+            .Where(e => e.State == EntityState.Modified || e.State == EntityState.Added);
 
         foreach (var entry in entries)
         {
@@ -243,6 +245,61 @@ public class AppDbContext : DbContext, IApplicationDbContext
         // Store these configurations in Persistence/Configurations folder for better organization.
         modelBuilder.ApplyConfigurationsFromAssembly(typeof(AppDbContext).Assembly);
 
+        if (Database.IsSqlite())
+        {
+            ApplySqliteOverrides(modelBuilder);
+        }
+    }
+
+    private static void ApplySqliteOverrides(ModelBuilder modelBuilder)
+    {
+        // SQLite has no IDENTITY columns on non-PK columns. Substitute ABS(RANDOM())
+        // for entities that use UseIdentityColumn(seed, increment) on SqlServer.
+        modelBuilder.Entity<Incident>().Property(x => x.RecordNumber)
+            .HasDefaultValueSql("ABS(RANDOM())").ValueGeneratedOnAdd();
+        modelBuilder.Entity<Arrest>().Property(x => x.RecordNumber)
+            .HasDefaultValueSql("ABS(RANDOM())").ValueGeneratedOnAdd();
+        modelBuilder.Entity<Citation>().Property(x => x.RecordNumber)
+            .HasDefaultValueSql("ABS(RANDOM())").ValueGeneratedOnAdd();
+        modelBuilder.Entity<Name>().Property(x => x.RecordNumber)
+            .HasDefaultValueSql("ABS(RANDOM())").ValueGeneratedOnAdd();
+        modelBuilder.Entity<Location>().Property(x => x.RecordNumber)
+            .HasDefaultValueSql("ABS(RANDOM())").ValueGeneratedOnAdd();
+
+        // datetime2 is SQL Server-specific; SQLite stores DateTime as TEXT.
+        modelBuilder.Entity<Incident>().Property(x => x.OccurredOn).HasColumnType("TEXT");
+        modelBuilder.Entity<IncidentReadModel>().Property(x => x.OccurredOn).HasColumnType("TEXT");
+
+        // SQLite does not support filtered indexes. Drop the HasFilter on this unique index.
+        // Caveat: at most one Incident per (Jurisdiction, Agency) may have a blank IncidentNum.
+        // Demo-volume usage is well within tolerance; the sequence counter assigns real numbers quickly.
+        modelBuilder.Entity<Incident>()
+            .HasIndex(x => new { x.JurisdictionId, x.AgencyId, x.IncidentNum })
+            .IsUnique()
+            .HasFilter(null);
+
+        // IsRowVersion() emits a SQL Server 'rowversion' column. SQLite has no equivalent.
+        // Demote to plain concurrency-token BLOB; UpdateRowVersions() seeds the value
+        // with Guid.NewGuid().ToByteArray() on Added/Modified.
+        foreach (var entityType in modelBuilder.Model.GetEntityTypes())
+        {
+            var rowVersionProp = entityType.FindProperty("RowVersion");
+            if (rowVersionProp is null)
+                continue;
+
+            var columnType = rowVersionProp.GetColumnType();
+            var isSqlServerRowVersion =
+                rowVersionProp.ValueGenerated == ValueGenerated.OnAddOrUpdate
+                && (string.Equals(columnType, "rowversion", System.StringComparison.OrdinalIgnoreCase)
+                    || string.Equals(columnType, "timestamp", System.StringComparison.OrdinalIgnoreCase));
+
+            if (isSqlServerRowVersion || rowVersionProp.ClrType == typeof(byte[]))
+            {
+                rowVersionProp.ValueGenerated = ValueGenerated.Never;
+                rowVersionProp.IsConcurrencyToken = true;
+                rowVersionProp.SetColumnType("BLOB");
+            }
+        }
     }
 
 

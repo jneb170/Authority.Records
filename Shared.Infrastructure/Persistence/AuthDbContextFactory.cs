@@ -1,5 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Design;
+using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.Extensions.Configuration;
 
 namespace Shared.Infrastructure.Persistence;
@@ -18,12 +20,23 @@ public class AuthDbContextFactory : IDesignTimeDbContextFactory<AuthDbContext>
 
         var optionsBuilder = new DbContextOptionsBuilder<AuthDbContext>();
 
-        var connectionString = configuration.GetConnectionString("DefaultConnection")
-            ?? configuration["DefaultConnection"];
+        var provider = DatabaseProviderResolver.Resolve(configuration);
+        var connectionString = DatabaseProviderResolver.GetConnectionString(
+            configuration, provider, isAuth: true);
+        var migrationsAssembly = typeof(AuthDbContext).Assembly.FullName;
 
-        optionsBuilder.UseSqlServer(
-            connectionString,
-            sql => sql.MigrationsAssembly(typeof(AuthDbContext).Assembly.FullName));
+        if (provider == DatabaseProvider.SqlServer)
+        {
+            optionsBuilder.UseSqlServer(connectionString,
+                sql => sql.MigrationsAssembly(migrationsAssembly));
+            optionsBuilder.ReplaceService<IMigrationsAssembly, SqlServerMigrationsAssembly>();
+        }
+        else
+        {
+            optionsBuilder.UseSqlite(connectionString,
+                sqlite => sqlite.MigrationsAssembly(migrationsAssembly));
+            optionsBuilder.ReplaceService<IMigrationsAssembly, SqliteMigrationsAssembly>();
+        }
 
         return new AuthDbContext(optionsBuilder.Options);
     }

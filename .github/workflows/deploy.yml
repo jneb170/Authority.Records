@@ -44,6 +44,9 @@ jobs:
     runs-on: ubuntu-latest
     needs: build-and-test
     environment: production
+    # Skip when the production App Service is configured for SQLite.
+    # SQLite migrations apply on first app boot against the local file.
+    if: vars.DEFAULT_DATABASE_PROVIDER != 'Sqlite'
 
     steps:
       - uses: actions/checkout@v4
@@ -84,8 +87,13 @@ jobs:
   deploy-ui:
     name: Deploy UI
     runs-on: ubuntu-latest
-    needs: migrate
+    needs: [build-and-test, migrate]
     environment: production
+    # Run after build succeeds, regardless of whether the migrate job ran or was skipped.
+    if: |
+      always() &&
+      needs.build-and-test.result == 'success' &&
+      (needs.migrate.result == 'success' || needs.migrate.result == 'skipped')
 
     steps:
       - uses: actions/checkout@v4

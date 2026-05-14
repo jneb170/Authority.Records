@@ -76,7 +76,20 @@ app.MapRazorPages();
 app.MapRazorComponents<Modules.Records.UI.App>()
     .AddInteractiveServerRenderMode();
 
-if (app.Environment.IsDevelopment())
+var dbProvider = DatabaseProviderResolver.Resolve(app.Configuration);
+
+if (dbProvider == DatabaseProvider.Sqlite)
+{
+    // SQLite migrations always apply on startup because:
+    //  - CI cannot apply them to a file inside Azure App Service.
+    //  - Dev local SQLite files are typically per-developer and ephemeral.
+    EnsureSqliteDataDirectoriesExist(app.Configuration);
+
+    using var scope = app.Services.CreateScope();
+    await scope.ServiceProvider.GetRequiredService<AppDbContext>().Database.MigrateAsync();
+    await scope.ServiceProvider.GetRequiredService<AuthDbContext>().Database.MigrateAsync();
+}
+else if (app.Environment.IsDevelopment())
 {
     await EnsureAppDbMigrationsAppliedAsync(app.Services);
 }
@@ -104,6 +117,27 @@ if (app.Configuration.GetValue("Demo:Enabled", true))
 }
 
 app.Run();
+
+static void EnsureSqliteDataDirectoriesExist(IConfiguration configuration)
+{
+    foreach (var key in new[]
+             {
+                 DatabaseProviderResolver.SqliteAppConnectionStringName,
+                 DatabaseProviderResolver.SqliteAuthConnectionStringName
+             })
+    {
+        var raw = configuration.GetConnectionString(key);
+        if (string.IsNullOrWhiteSpace(raw))
+            continue;
+
+        var expanded = Environment.ExpandEnvironmentVariables(raw);
+        var builder = new Microsoft.Data.Sqlite.SqliteConnectionStringBuilder(expanded);
+        var dataSource = Path.GetFullPath(builder.DataSource);
+        var dir = Path.GetDirectoryName(dataSource);
+        if (!string.IsNullOrEmpty(dir))
+            Directory.CreateDirectory(dir);
+    }
+}
 
 static async Task EnsureAppDbMigrationsAppliedAsync(IServiceProvider services)
 {

@@ -1,5 +1,7 @@
 ﻿using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Design;
+using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.Extensions.Configuration;
 using System;
 using System.IO;
@@ -24,10 +26,23 @@ namespace Shared.Infrastructure.Persistence
 
             var optionsBuilder = new DbContextOptionsBuilder<AppDbContext>();
 
-            var connectionString = configuration.GetConnectionString("DefaultConnection")
-                ?? configuration["DefaultConnection"];
+            var provider = DatabaseProviderResolver.Resolve(configuration);
+            var connectionString = DatabaseProviderResolver.GetConnectionString(
+                configuration, provider, isAuth: false);
+            var migrationsAssembly = typeof(AppDbContext).Assembly.FullName;
 
-            optionsBuilder.UseSqlServer(connectionString);
+            if (provider == DatabaseProvider.SqlServer)
+            {
+                optionsBuilder.UseSqlServer(connectionString,
+                    sql => sql.MigrationsAssembly(migrationsAssembly));
+                optionsBuilder.ReplaceService<IMigrationsAssembly, SqlServerMigrationsAssembly>();
+            }
+            else
+            {
+                optionsBuilder.UseSqlite(connectionString,
+                    sqlite => sqlite.MigrationsAssembly(migrationsAssembly));
+                optionsBuilder.ReplaceService<IMigrationsAssembly, SqliteMigrationsAssembly>();
+            }
 
             // 2️ Provide dummy implementations for tenantProvider & domainEventDispatcher
             return new AppDbContext(

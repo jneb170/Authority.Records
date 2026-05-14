@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.AspNetCore.Identity;
@@ -42,24 +43,17 @@ public static class DependencyInjection
 
         services.AddScoped<AuditInterceptor>();
 
+        var dbProvider = DatabaseProviderResolver.Resolve(configuration);
+
         services.AddDbContext<AppDbContext>((sp, options) =>
         {
             var auditInterceptor = sp.GetRequiredService<AuditInterceptor>();
-
-            options.UseSqlServer(
-                configuration.GetConnectionString("DefaultConnection"),
-                sql =>
-                {
-                    sql.MigrationsAssembly(typeof(AppDbContext).Assembly.FullName);
-                });
-
+            ConfigureProvider(options, dbProvider, isAuth: false, configuration);
             options.AddInterceptors(auditInterceptor);
         }, ServiceLifetime.Transient);
 
         services.AddDbContext<AuthDbContext>(options =>
-            options.UseSqlServer(
-                configuration.GetConnectionString("DefaultConnection"),
-                sql => sql.MigrationsAssembly(typeof(AuthDbContext).Assembly.FullName)));
+            ConfigureProvider(options, dbProvider, isAuth: true, configuration));
 
         // Expose DbContext through abstraction — transient so each MediatR handler gets
         // its own instance, preventing Blazor Server circuit-scope concurrency conflicts.
@@ -263,6 +257,27 @@ public static class DependencyInjection
 
 
         return services;
+    }
+
+    private static void ConfigureProvider(
+        DbContextOptionsBuilder options,
+        DatabaseProvider provider,
+        bool isAuth,
+        IConfiguration configuration)
+    {
+        var connectionString = DatabaseProviderResolver.GetConnectionString(configuration, provider, isAuth);
+        var migrationsAssembly = typeof(AppDbContext).Assembly.FullName;
+
+        if (provider == DatabaseProvider.SqlServer)
+        {
+            options.UseSqlServer(connectionString, sql => sql.MigrationsAssembly(migrationsAssembly));
+            options.ReplaceService<IMigrationsAssembly, SqlServerMigrationsAssembly>();
+        }
+        else
+        {
+            options.UseSqlite(connectionString, sqlite => sqlite.MigrationsAssembly(migrationsAssembly));
+            options.ReplaceService<IMigrationsAssembly, SqliteMigrationsAssembly>();
+        }
     }
 }
 
