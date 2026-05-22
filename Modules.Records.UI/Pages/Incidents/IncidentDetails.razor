@@ -8,6 +8,7 @@
 @inject ICitationService CitationService
 @inject IChargeService ChargeService
 @inject ILocationService LocationService
+@inject IAgencyConfigurationService ConfigService
 @inject ITenantProvider TenantProvider
 @inject IActiveAgencyContext ActiveAgencyContext
 @inject IUserLookupService UserLookupService
@@ -368,7 +369,7 @@ else if (_incident is not null)
     private Guid _currentUserId;
     private int _lockSecondsRemaining;
     private System.Threading.Timer? _lockTimer;
-    private static readonly TimeSpan LockTimeout = TimeSpan.FromMinutes(10);
+    private TimeSpan _lockTimeout = TimeSpan.FromSeconds(ConfigurationKeys.DefaultLockTimeoutSeconds);
     private string _editIncidentNum = string.Empty;
     private string _editLocalNum = string.Empty;
     private string _editCFSNum = string.Empty;
@@ -396,6 +397,7 @@ else if (_incident is not null)
         await ActiveAgencyContext.EnsureLoadedAsync();
         _currentUserId = TenantProvider.GetUserId();
         await LoadAsync();
+        await LoadLockTimeoutAsync();
 
         if (AutoModify)
             await EnterModifyModeAsync();
@@ -625,7 +627,7 @@ else if (_incident is not null)
     private void StartLockTimer()
     {
         StopLockTimer();
-        _lockSecondsRemaining = (int)LockTimeout.TotalSeconds;
+        _lockSecondsRemaining = (int)_lockTimeout.TotalSeconds;
         _lockTimer = new System.Threading.Timer(async _ =>
         {
             _lockSecondsRemaining--;
@@ -648,6 +650,12 @@ else if (_incident is not null)
     {
         _lockTimer?.Dispose();
         _lockTimer = null;
+    }
+
+    private async Task LoadLockTimeoutAsync()
+    {
+        var cfg = await ConfigService.GetAsync(ConfigurationKeys.LockTimeoutSeconds);
+        _lockTimeout = LockTimeout.FromConfigValue(cfg?.Value);
     }
 
     private Task OpenAsync()    => RunActionAsync(() => IncidentService.OpenAsync(_incidentId));

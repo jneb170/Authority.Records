@@ -2,6 +2,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
+using Modules.Records.Domain.Common;
 using Shared.Infrastructure.Audit;
 using Shared.Infrastructure.Persistence;
 
@@ -27,14 +28,24 @@ public sealed class LockCleanupService
     {
         using var scope = _scopeFactory.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
-        var cutoff = DateTime.UtcNow.Subtract(_options.LockTimeout);
         var now = DateTime.UtcNow;
 
-        // Collect expired lock records (with audit data) before releasing them.
-        var expiredNames = await CollectExpiredNameLocksAsync(db, cutoff, ct);
-        var expiredIncidents = await CollectExpiredIncidentLocksAsync(db, cutoff, ct);
-        var expiredArrests = await CollectExpiredArrestLocksAsync(db, cutoff, ct);
-        var expiredCitations = await CollectExpiredCitationLocksAsync(db, cutoff, ct);
+        // The lock timeout is configured per agency (ConfigurationKeys.LockTimeoutSeconds),
+        // so there is no single global cutoff. Load every agency's configured timeout, then
+        // collect all currently-held locks and decide expiry per record against its own
+        // agency's timeout. Agencies without a setting fall back to _options.LockTimeout
+        // (whose default mirrors ConfigurationKeys.DefaultLockTimeoutSeconds).
+        var timeouts = await LoadAgencyTimeoutsAsync(db, ct);
+        TimeSpan TimeoutFor(Guid agencyId) =>
+            timeouts.TryGetValue(agencyId, out var t) ? t : _options.LockTimeout;
+
+        bool IsExpired(ExpiredLockRecord r) => r.LockedAtUtc.Add(TimeoutFor(r.AgencyId)) <= now;
+
+        // Collect held locks (with audit data), then filter to the expired ones in memory.
+        var expiredNames = (await CollectHeldNameLocksAsync(db, ct)).Where(IsExpired).ToList();
+        var expiredIncidents = (await CollectHeldIncidentLocksAsync(db, ct)).Where(IsExpired).ToList();
+        var expiredArrests = (await CollectHeldArrestLocksAsync(db, ct)).Where(IsExpired).ToList();
+        var expiredCitations = (await CollectHeldCitationLocksAsync(db, ct)).Where(IsExpired).ToList();
 
         var total = expiredNames.Count + expiredIncidents.Count + expiredArrests.Count + expiredCitations.Count;
         if (total == 0)
@@ -68,43 +79,66 @@ public sealed class LockCleanupService
     }
 
     // -----------------------------------------------------------------------
-    // Collect helpers — query entity tables before releasing so we have the
-    // audit data (JurisdictionId, LockedByUserId, Version, LockedAtUtc).
+    // Per-agency timeout map. Read across all tenants (IgnoreQueryFilters, no
+    // HTTP context here), excluding soft-deleted config rows so a deleted
+    // setting reverts the agency to the default rather than a stale value.
+    // -----------------------------------------------------------------------
+
+    private static async Task<Dictionary<Guid, TimeSpan>> LoadAgencyTimeoutsAsync(
+        AppDbContext db, CancellationToken ct)
+    {
+        var rows = await db.AgencyConfigurations
+            .IgnoreQueryFilters()
+            .Where(c => c.Key == ConfigurationKeys.LockTimeoutSeconds && !c.IsDeleted)
+            .Select(c => new { c.AgencyId, c.Value })
+            .ToListAsync(ct);
+
+        var map = new Dictionary<Guid, TimeSpan>();
+        foreach (var row in rows)
+            map[row.AgencyId] = LockTimeout.FromConfigValue(row.Value);
+        return map;
+    }
+
+    // -----------------------------------------------------------------------
+    // Collect helpers — query entity tables for currently-held locks so we have
+    // the audit data (AgencyId, JurisdictionId, LockedByUserId, Version,
+    // LockedAtUtc). Expiry is decided per record by the caller using the owning
+    // agency's configured timeout.
     // IgnoreQueryFilters: no HTTP context in a background thread, so the global
     // tenant + soft-delete filters cannot be evaluated. Intentional — lock
     // cleanup must operate across all tenants and all record states.
     // -----------------------------------------------------------------------
 
-    private static async Task<List<ExpiredLockRecord>> CollectExpiredNameLocksAsync(
-        AppDbContext db, DateTime cutoff, CancellationToken ct) =>
+    private static async Task<List<ExpiredLockRecord>> CollectHeldNameLocksAsync(
+        AppDbContext db, CancellationToken ct) =>
         await db.Names
             .IgnoreQueryFilters()
-            .Where(n => n.LockedAtUtc != null && n.LockedAtUtc < cutoff)
-            .Select(n => new ExpiredLockRecord(n.Id, n.JurisdictionId, n.LockedByUserId!.Value, n.LockedAtUtc!.Value, n.Version))
+            .Where(n => n.LockedAtUtc != null)
+            .Select(n => new ExpiredLockRecord(n.Id, n.AgencyId, n.JurisdictionId, n.LockedByUserId!.Value, n.LockedAtUtc!.Value, n.Version))
             .ToListAsync(ct);
 
-    private static async Task<List<ExpiredLockRecord>> CollectExpiredIncidentLocksAsync(
-        AppDbContext db, DateTime cutoff, CancellationToken ct) =>
+    private static async Task<List<ExpiredLockRecord>> CollectHeldIncidentLocksAsync(
+        AppDbContext db, CancellationToken ct) =>
         await db.Incidents
             .IgnoreQueryFilters()
-            .Where(i => i.LockedAtUtc != null && i.LockedAtUtc < cutoff)
-            .Select(i => new ExpiredLockRecord(i.Id, i.JurisdictionId, i.LockedByUserId!.Value, i.LockedAtUtc!.Value, i.Version))
+            .Where(i => i.LockedAtUtc != null)
+            .Select(i => new ExpiredLockRecord(i.Id, i.AgencyId, i.JurisdictionId, i.LockedByUserId!.Value, i.LockedAtUtc!.Value, i.Version))
             .ToListAsync(ct);
 
-    private static async Task<List<ExpiredLockRecord>> CollectExpiredArrestLocksAsync(
-        AppDbContext db, DateTime cutoff, CancellationToken ct) =>
+    private static async Task<List<ExpiredLockRecord>> CollectHeldArrestLocksAsync(
+        AppDbContext db, CancellationToken ct) =>
         await db.Arrests
             .IgnoreQueryFilters()
-            .Where(a => a.LockedAtUtc != null && a.LockedAtUtc < cutoff)
-            .Select(a => new ExpiredLockRecord(a.Id, a.JurisdictionId, a.LockedByUserId!.Value, a.LockedAtUtc!.Value, a.Version))
+            .Where(a => a.LockedAtUtc != null)
+            .Select(a => new ExpiredLockRecord(a.Id, a.AgencyId, a.JurisdictionId, a.LockedByUserId!.Value, a.LockedAtUtc!.Value, a.Version))
             .ToListAsync(ct);
 
-    private static async Task<List<ExpiredLockRecord>> CollectExpiredCitationLocksAsync(
-        AppDbContext db, DateTime cutoff, CancellationToken ct) =>
+    private static async Task<List<ExpiredLockRecord>> CollectHeldCitationLocksAsync(
+        AppDbContext db, CancellationToken ct) =>
         await db.Citations
             .IgnoreQueryFilters()
-            .Where(c => c.LockedAtUtc != null && c.LockedAtUtc < cutoff)
-            .Select(c => new ExpiredLockRecord(c.Id, c.JurisdictionId, c.LockedByUserId!.Value, c.LockedAtUtc!.Value, c.Version))
+            .Where(c => c.LockedAtUtc != null)
+            .Select(c => new ExpiredLockRecord(c.Id, c.AgencyId, c.JurisdictionId, c.LockedByUserId!.Value, c.LockedAtUtc!.Value, c.Version))
             .ToListAsync(ct);
 
     // -----------------------------------------------------------------------
@@ -208,6 +242,7 @@ public sealed class LockCleanupService
 
     private sealed record ExpiredLockRecord(
         Guid Id,
+        Guid AgencyId,
         Guid JurisdictionId,
         Guid LockedByUserId,
         DateTime LockedAtUtc,

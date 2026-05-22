@@ -1,6 +1,7 @@
 using MediatR;
 using Microsoft.EntityFrameworkCore;
 using Modules.Records.Application.Abstractions;
+using Modules.Records.Application.Common;
 using Modules.Records.Domain.Abstractions;
 
 namespace Modules.Records.Application.Locations.Commands.AcquireLocationLock;
@@ -30,7 +31,9 @@ public sealed class AcquireLocationLockHandler : IRequestHandler<AcquireLocation
                 cancellationToken)
             ?? throw new InvalidOperationException("Location record not found.");
 
-        location.AcquireLock(_modificationContext, TimeSpan.FromMinutes(10));
+        var lockTimeout = await LockTimeoutResolver.ResolveAsync(
+            _dbContext, _tenantProvider.GetAgencyId(), cancellationToken);
+        location.AcquireLock(_modificationContext, lockTimeout);
 
         await _dbContext.SaveChangesAsync(cancellationToken);
     }

@@ -4,6 +4,7 @@ using Modules.Records.Domain.Entities;
 using Microsoft.EntityFrameworkCore;
 using System;
 using Modules.Records.Application.Abstractions;
+using Modules.Records.Application.Common;
 using Modules.Records.Domain.Common;
 
 namespace Modules.Records.Application.Incidents.Commands.AcquireIncidentLock;
@@ -32,8 +33,9 @@ public sealed class AcquireIncidentLockHandler : IRequestHandler<AcquireIncident
         if (incident == null)
             throw new InvalidOperationException("Incident not found.");
 
-        // Acquire lock (10 minute timeout for example)
-        incident.AcquireLock(_modificationContext, TimeSpan.FromMinutes(10));
+        var lockTimeout = await LockTimeoutResolver.ResolveAsync(
+            _dbContext, _tenantProvider.GetAgencyId(), cancellationToken);
+        incident.AcquireLock(_modificationContext, lockTimeout);
 
         await _dbContext.SaveChangesAsync(cancellationToken);
         return Unit.Value;
