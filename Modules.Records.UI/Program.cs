@@ -88,6 +88,13 @@ if (dbProvider == DatabaseProvider.Sqlite)
     using var scope = app.Services.CreateScope();
     await scope.ServiceProvider.GetRequiredService<AppDbContext>().Database.MigrateAsync();
     await scope.ServiceProvider.GetRequiredService<AuthDbContext>().Database.MigrateAsync();
+
+    // One-time, idempotent: renumber any records that were created with random
+    // RecordNumbers during the original SQLite cutover (ABS(RANDOM())) back into the
+    // short sequential range, then rebuild affected read models. No-op once clean.
+    var repairLogger = app.Services.GetRequiredService<ILoggerFactory>()
+        .CreateLogger(nameof(SqliteRecordNumberRepair));
+    await SqliteRecordNumberRepair.RepairAsync(app.Services, repairLogger);
 }
 else if (app.Environment.IsDevelopment())
 {
