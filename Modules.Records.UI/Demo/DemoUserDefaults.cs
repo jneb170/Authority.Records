@@ -7,8 +7,6 @@ namespace Modules.Records.UI.Demo;
 /// </summary>
 public static class DemoUserDefaults
 {
-    public const string Role = "Demo";
-
     public const string Email = "demo@authorityrecords.dev";
 
     /// <summary>Hard-coded password the seeder sets and the login button uses.</summary>

@@ -12,10 +12,12 @@ namespace Modules.Records.UI.Demo;
 
 /// <summary>
 /// Idempotent startup seeder for the public demo account.
-/// Creates the Demo role, jurisdiction, agency, user, and a small set of
-/// sample incidents/arrests/citations so the "Try the demo" landing experience
-/// has something to look at. Safe to run on every boot — every step checks
-/// for existence before writing.
+/// Creates the demo jurisdiction, agency, a credentialed admin user, the
+/// passwordless demo user, and a small set of sample incidents/arrests/
+/// citations so the "Try the demo" landing experience has something to look
+/// at. The demo user is seeded with NO role — an administrator assigns its
+/// permissions in /admin/users, so the demo agency behaves like any other.
+/// Safe to run on every boot — every step checks for existence before writing.
 /// </summary>
 public static class DemoSeeder
 {
@@ -30,19 +32,27 @@ public static class DemoSeeder
             var roleMgr = sp.GetRequiredService<RoleManager<IdentityRole>>();
             var userMgr = sp.GetRequiredService<UserManager<ApplicationUser>>();
 
-            await EnsureRoleAsync(roleMgr, DemoUserDefaults.Role);
             await EnsureRoleAsync(roleMgr, "Admin");
+
+            // One-time cleanup: the demo user used to carry a read-only "Demo"
+            // role enforced by a write guard. That concept is gone — the demo
+            // user is now an ordinary account whose permissions an admin sets in
+            // /admin/users. Strip any lingering "Demo" assignments and drop the
+            // role so it no longer appears as assignable. Idempotent: no-ops once
+            // the role is gone.
+            await RemoveLegacyDemoRoleAsync(roleMgr, userMgr);
 
             var jurisdiction = await EnsureJurisdictionAsync(authDb);
             var agency = await EnsureAgencyAsync(authDb, jurisdiction.Id);
 
+            // Seeded with no role on purpose — an admin assigns permissions later.
             var demoUser = await EnsureUserAsync(
                 userMgr,
                 email: DemoUserDefaults.Email,
                 password: DemoUserDefaults.Password,
                 firstName: DemoUserDefaults.FirstName,
                 lastName: DemoUserDefaults.LastName,
-                role: DemoUserDefaults.Role,
+                role: null,
                 jurisdictionId: jurisdiction.Id,
                 agencyId: agency.Id);
             await EnsureUserAgencyAsync(authDb, demoUser.Id, agency.Id);
@@ -85,6 +95,25 @@ public static class DemoSeeder
             await roleMgr.CreateAsync(new IdentityRole(roleName));
     }
 
+    /// <summary>
+    /// Removes the obsolete read-only "Demo" role: unassigns it from every user
+    /// (the public demo account in particular) and deletes the role itself.
+    /// Safe to call repeatedly — once the role is gone this is a no-op.
+    /// </summary>
+    private static async Task RemoveLegacyDemoRoleAsync(
+        RoleManager<IdentityRole> roleMgr, UserManager<ApplicationUser> userMgr)
+    {
+        const string legacyDemoRole = "Demo";
+
+        var role = await roleMgr.FindByNameAsync(legacyDemoRole);
+        if (role is null) return;
+
+        foreach (var user in await userMgr.GetUsersInRoleAsync(legacyDemoRole))
+            await userMgr.RemoveFromRoleAsync(user, legacyDemoRole);
+
+        await roleMgr.DeleteAsync(role);
+    }
+
     private static async Task<Jurisdiction> EnsureJurisdictionAsync(AuthDbContext authDb)
     {
         var existing = await authDb.Jurisdictions
@@ -118,7 +147,7 @@ public static class DemoSeeder
         string password,
         string firstName,
         string lastName,
-        string role,
+        string? role,
         Guid jurisdictionId,
         Guid agencyId)
     {
@@ -133,7 +162,9 @@ public static class DemoSeeder
                 existing.AgencyId = agencyId;
                 await userMgr.UpdateAsync(existing);
             }
-            if (!await userMgr.IsInRoleAsync(existing, role))
+            // Roles are only ensured, never removed — an admin may have changed
+            // them in /admin/users. A null role means "leave permissions alone".
+            if (role is not null && !await userMgr.IsInRoleAsync(existing, role))
                 await userMgr.AddToRoleAsync(existing, role);
             return existing;
         }
@@ -155,7 +186,8 @@ public static class DemoSeeder
             throw new InvalidOperationException(
                 $"Could not create user '{email}': " + string.Join("; ", create.Errors.Select(e => e.Description)));
 
-        await userMgr.AddToRoleAsync(user, role);
+        if (role is not null)
+            await userMgr.AddToRoleAsync(user, role);
         return (await userMgr.FindByEmailAsync(email))!;
     }
 

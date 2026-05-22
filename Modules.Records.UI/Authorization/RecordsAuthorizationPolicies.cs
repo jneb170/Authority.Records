@@ -11,10 +11,8 @@ public static class RecordsAuthorizationPolicies
     public const string SuperOnly = "SuperOnly";
     public const string AdminOnly = "AdminOnly";
 
-    public const string DemoRole = "Demo";
-
     private static readonly string[] WriteRoles = ["Admin", "Supervisor", "Officer", "Dispatcher"];
-    private static readonly string[] ReadRoles  = ["Admin", "Supervisor", "Officer", "Dispatcher", DemoRole];
+    private static readonly string[] ReadRoles  = ["Admin", "Supervisor", "Officer", "Dispatcher"];
 
     public static void RegisterPolicies(IServiceCollection services)
     {
