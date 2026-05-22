@@ -43,16 +43,25 @@ never modifies it. Output defaults to `./out`.
    the printed per-table row counts look right.
 
 2. **Upload before flipping the provider.** Upload `app.db` and `auth.db` to
-   `D:\home\site\data\` on the Azure App Service via Kudu
-   (`https://<app-name>.scm.azurewebsites.net` → Debug console → `site/data`).
-   Do this **while the app is still on SQL Server**, so the directory is populated
-   before the app ever boots on SQLite. Otherwise the app's boot-time
+   `/home/site/data/` on the Azure App Service. Production is a **Linux** App
+   Service, so there is no Kudu "Debug console" file browser — use `az webapp deploy`
+   (one call per file):
+   ```
+   az webapp deploy --resource-group <rg> --name <ui-app> \
+     --src-path app.db  --type static --target-path /home/site/data/app.db
+   az webapp deploy --resource-group <rg> --name <ui-app> \
+     --src-path auth.db --type static --target-path /home/site/data/auth.db
+   ```
+   (FTPS via Deployment Center credentials → `/site/data` is an equivalent GUI
+   option.) Do this **while the app is still on SQL Server**, so the directory is
+   populated before the app ever boots on SQLite. Otherwise the app's boot-time
    `Database.MigrateAsync()` creates empty SQLite files first.
 
 3. **Flip the provider** (see `.claude/session-state/active.md` for the full list):
    set `DefaultDatabaseProvider=Sqlite` plus the two `Sqlite*Connection` strings in
-   Azure App Service config, set the GitHub `DEFAULT_DATABASE_PROVIDER=Sqlite`
-   variable, then push `master`.
+   Azure App Service config (Linux paths use forward slashes:
+   `Data Source=%HOME%/site/data/app.db;Cache=Shared;Foreign Keys=True`), set the
+   GitHub repository variable `DEFAULT_DATABASE_PROVIDER=Sqlite`, then push `master`.
 
 4. **On first SQLite boot**, `MigrateAsync` finds the uploaded files with a matching
    migration history, so it is a no-op against real data (rather than creating empty
