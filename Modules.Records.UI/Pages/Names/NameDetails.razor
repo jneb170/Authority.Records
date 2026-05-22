@@ -7,6 +7,7 @@
 @inject NavigationManager Nav
 @inject IKeyboardShortcutService ShortcutService
 @inject ILocationService LocationService
+@inject IAgencyConfigurationService ConfigService
 @using Modules.Records.Application.DTOs
 @using Modules.Records.Domain.Common
 @using Modules.Records.UI.Services
@@ -583,7 +584,7 @@ else if (_name is not null)
     private Guid _currentUserId;
     private int _lockSecondsRemaining;
     private System.Threading.Timer? _lockTimer;
-    private static readonly TimeSpan LockTimeout = TimeSpan.FromMinutes(10);
+    private TimeSpan _lockTimeout = TimeSpan.FromSeconds(ConfigurationKeys.DefaultLockTimeoutSeconds);
 
     // Edit fields
     private string _editNameType = NameTypes.Person;
@@ -675,6 +676,7 @@ else if (_name is not null)
     {
         _currentUserId = TenantProvider.GetUserId();
         await LoadAsync();
+        await LoadLockTimeoutAsync();
 
         if (AutoModify)
             await EnterModifyModeAsync();
@@ -1072,7 +1074,7 @@ else if (_name is not null)
     private void StartLockTimer()
     {
         StopLockTimer();
-        _lockSecondsRemaining = (int)LockTimeout.TotalSeconds;
+        _lockSecondsRemaining = (int)_lockTimeout.TotalSeconds;
         _lockTimer = new System.Threading.Timer(async _ =>
         {
             _lockSecondsRemaining--;
@@ -1095,6 +1097,12 @@ else if (_name is not null)
     {
         _lockTimer?.Dispose();
         _lockTimer = null;
+    }
+
+    private async Task LoadLockTimeoutAsync()
+    {
+        var cfg = await ConfigService.GetAsync(ConfigurationKeys.LockTimeoutSeconds);
+        _lockTimeout = LockTimeout.FromConfigValue(cfg?.Value);
     }
 
     public ValueTask DisposeAsync()

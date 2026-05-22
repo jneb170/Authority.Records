@@ -1,6 +1,7 @@
 using MediatR;
 using Microsoft.EntityFrameworkCore;
 using Modules.Records.Application.Abstractions;
+using Modules.Records.Application.Common;
 using Modules.Records.Domain.Abstractions;
 
 namespace Modules.Records.Application.Arrests.Commands.AcquireArrestLock;
@@ -30,7 +31,9 @@ public sealed class AcquireArrestLockHandler : IRequestHandler<AcquireArrestLock
                 cancellationToken)
             ?? throw new InvalidOperationException("Arrest not found.");
 
-        arrest.AcquireLock(_modificationContext, TimeSpan.FromMinutes(10));
+        var lockTimeout = await LockTimeoutResolver.ResolveAsync(
+            _dbContext, _tenantProvider.GetAgencyId(), cancellationToken);
+        arrest.AcquireLock(_modificationContext, lockTimeout);
 
         await _dbContext.SaveChangesAsync(cancellationToken);
     }

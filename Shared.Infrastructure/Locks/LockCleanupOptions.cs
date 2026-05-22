@@ -1,12 +1,17 @@
+using Modules.Records.Domain.Common;
+
 namespace Shared.Infrastructure.Locks;
 
 public sealed class LockCleanupOptions
 {
     /// <summary>
-    /// How long a lock can be held before it is considered expired.
-    /// Must match the timeout used when acquiring locks (default: 10 minutes).
+    /// Fallback lock timeout for agencies that have no per-agency
+    /// <see cref="ConfigurationKeys.LockTimeoutSeconds"/> setting. The per-agency
+    /// value takes precedence; this default mirrors
+    /// <see cref="ConfigurationKeys.DefaultLockTimeoutSeconds"/> (10 minutes) so the
+    /// acquire-side and cleanup-side defaults stay in lock-step.
     /// </summary>
-    public TimeSpan LockTimeout { get; set; } = TimeSpan.FromMinutes(10);
+    public TimeSpan LockTimeout { get; set; } = TimeSpan.FromSeconds(ConfigurationKeys.DefaultLockTimeoutSeconds);
 
     /// <summary>
     /// How often the cleanup service checks for expired locks (default: 1 minute).

@@ -741,7 +741,7 @@ else if (_arrest is not null)
     private Guid _currentUserId;
     private int _lockSecondsRemaining;
     private System.Threading.Timer? _lockTimer;
-    private static readonly TimeSpan LockTimeout = TimeSpan.FromMinutes(10);
+    private TimeSpan _lockTimeout = TimeSpan.FromSeconds(ConfigurationKeys.DefaultLockTimeoutSeconds);
 
     private Guid? _editNameId;
     private string? _editNameDisplay;
@@ -821,6 +821,7 @@ else if (_arrest is not null)
         await ActiveAgencyContext.EnsureLoadedAsync();
         _currentUserId = TenantProvider.GetUserId();
         await LoadAsync();
+        await LoadLockTimeoutAsync();
 
         if (AutoModify)
             await EnterModifyModeAsync();
@@ -1254,7 +1255,7 @@ else if (_arrest is not null)
     private void StartLockTimer()
     {
         StopLockTimer();
-        _lockSecondsRemaining = (int)LockTimeout.TotalSeconds;
+        _lockSecondsRemaining = (int)_lockTimeout.TotalSeconds;
         _lockTimer = new System.Threading.Timer(async _ =>
         {
             _lockSecondsRemaining--;
@@ -1277,6 +1278,12 @@ else if (_arrest is not null)
     {
         _lockTimer?.Dispose();
         _lockTimer = null;
+    }
+
+    private async Task LoadLockTimeoutAsync()
+    {
+        var cfg = await ConfigService.GetAsync(ConfigurationKeys.LockTimeoutSeconds);
+        _lockTimeout = LockTimeout.FromConfigValue(cfg?.Value);
     }
 
     private Task OpenAsync()        => RunActionAsync(() => ArrestService.OpenAsync(_arrestId));
