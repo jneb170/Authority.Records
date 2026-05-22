@@ -3,6 +3,7 @@ using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Hosting;
 using Microsoft.AspNetCore.Identity;
 using Modules.Records.Application.Abstractions;
 using Modules.Records.Domain.Abstractions;
@@ -83,6 +84,17 @@ public static class DependencyInjection
         // -------------------------------------------------------
         services.Configure<LockCleanupOptions>(configuration.GetSection("LockCleanup"));
         services.AddSingleton<LockCleanupService>();
+
+        // -------------------------------------------------------
+        // Background Service resilience
+        // -------------------------------------------------------
+        // Defense-in-depth: never let an unhandled exception in a hosted background
+        // service tear down the whole host. The default (StopHost) crashed the web host
+        // into a cold-start loop during the SQLite cutover when the outbox processor's
+        // AppDbContext could not reach the database. Each service still logs and recovers
+        // on its own; this is the backstop for anything that slips through.
+        services.Configure<HostOptions>(options =>
+            options.BackgroundServiceExceptionBehavior = BackgroundServiceExceptionBehavior.Ignore);
 
         // -------------------------------------------------------
         // Outbox Message Processing (Background Service)
