@@ -14,13 +14,16 @@ public class LoginModel : PageModel
 {
     private readonly SignInManager<ApplicationUser> _signInManager;
     private readonly UserManager<ApplicationUser> _userManager;
+    private readonly IConfiguration _configuration;
 
     public LoginModel(
         SignInManager<ApplicationUser> signInManager,
-        UserManager<ApplicationUser> userManager)
+        UserManager<ApplicationUser> userManager,
+        IConfiguration configuration)
     {
         _signInManager = signInManager;
         _userManager = userManager;
+        _configuration = configuration;
     }
 
     [BindProperty]
@@ -54,7 +57,16 @@ public class LoginModel : PageModel
     {
         returnUrl ??= Url.Content("~/");
 
-        var demoUser = await _userManager.FindByEmailAsync(DemoUserDefaults.Email);
+        // The passwordless login target is configurable so an admin can point
+        // "Try the demo" at any curated account (set "Demo:LoginEmail" in app
+        // config / Azure App settings). It is intentionally separate from the
+        // DemoSeeder's account so the seeder never repairs/stomps the chosen
+        // user's agency or roles. Falls back to the seeded demo account.
+        var demoEmail = _configuration["Demo:LoginEmail"];
+        if (string.IsNullOrWhiteSpace(demoEmail))
+            demoEmail = DemoUserDefaults.Email;
+
+        var demoUser = await _userManager.FindByEmailAsync(demoEmail);
         if (demoUser is null)
         {
             ModelState.AddModelError(string.Empty, "Demo account is not available.");
