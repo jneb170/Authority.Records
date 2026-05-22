@@ -1,0 +1,22 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    One-off utility: copies all business data from the production SQL Server
+    database into fresh SQLite database files, reusing the app's EF Core model.
+    Intentionally NOT part of Authority.Records.sln so CI does not build it.
+    Run manually; see README.md in this folder.
+  -->
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net9.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <AssemblyName>Authority.Records.DataMigration</AssemblyName>
+    <RootNamespace>Authority.Records.DataMigration</RootNamespace>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\Shared.Infrastructure\Shared.Infrastructure.csproj" />
+  </ItemGroup>
+
+</Project>

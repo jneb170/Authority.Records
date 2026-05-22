@@ -7,6 +7,10 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <InternalsVisibleTo Include="Authority.Records.DataMigration" />
+  </ItemGroup>
+
+  <ItemGroup>
     <!-- appsettings here are only for EF design-time CLI (migrations). -->
     <!-- Startup projects (UI, Api) own their own appsettings for publish. -->
     <Content Include="appsettings.Development.json">

@@ -259,7 +259,7 @@ public static class DependencyInjection
         return services;
     }
 
-    private static void ConfigureProvider(
+    internal static void ConfigureProvider(
         DbContextOptionsBuilder options,
         DatabaseProvider provider,
         bool isAuth,
