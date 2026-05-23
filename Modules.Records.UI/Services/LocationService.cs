@@ -3,6 +3,7 @@ using Modules.Records.Application.DTOs;
 using Modules.Records.Application.Locations.Commands.AcquireLocationLock;
 using Modules.Records.Application.Locations.Commands.CreateLocation;
 using Modules.Records.Application.Locations.Commands.ReleaseLocationLock;
+using Modules.Records.Application.Locations.Commands.RenewLocationLock;
 using Modules.Records.Application.Locations.Commands.RestoreLocation;
 using Modules.Records.Application.Locations.Commands.SoftDeleteLocation;
 using Modules.Records.Application.Locations.Commands.UpdateLocationDetails;
@@ -81,6 +82,9 @@ public sealed class LocationService : ILocationService
 
     public Task AcquireLockAsync(Guid id) =>
         _sender.Send(new AcquireLocationLockCommand(id));
+
+    public Task RenewLockAsync(Guid id) =>
+        _sender.Send(new RenewLocationLockCommand(id));
 
     public Task ReleaseLockAsync(Guid id) =>
         _sender.Send(new ReleaseLocationLockCommand(id));

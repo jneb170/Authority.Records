@@ -464,6 +464,45 @@ public sealed class IncidentTests
         Assert.Equal(TestUserId, evt.UserId);
     }
 
+    [Fact]
+    public void RenewLock_ByOwner_KeepsLockAndRaisesNoEvent()
+    {
+        var incident = CreateIncident();
+        var context = CreateContext();
+        incident.AcquireLock(context, TimeSpan.FromMinutes(10));
+        incident.ClearDomainEvents();
+
+        incident.RenewLock(context);
+
+        // Still owned by the same user, and no event was raised (renewal must not spam the
+        // audit log or churn the read model).
+        Assert.True(incident.IsLocked);
+        Assert.Equal(TestUserId, incident.LockedByUserId);
+        Assert.NotNull(incident.LockedAtUtc);
+        Assert.Empty(incident.DomainEvents);
+    }
+
+    [Fact]
+    public void RenewLock_ByNonOwner_Throws()
+    {
+        var incident = CreateIncident();
+        incident.AcquireLock(CreateContext(), TimeSpan.FromMinutes(10));
+
+        var otherUser = CreateContext(userId: Guid.NewGuid());
+
+        var ex = Assert.Throws<DomainException>(() => incident.RenewLock(otherUser));
+        Assert.Equal("record.lock.required", ex.Code);
+    }
+
+    [Fact]
+    public void RenewLock_WhenNotLocked_Throws()
+    {
+        var incident = CreateIncident();
+
+        var ex = Assert.Throws<DomainException>(() => incident.RenewLock(CreateContext()));
+        Assert.Equal("record.lock.required", ex.Code);
+    }
+
     #endregion
 
     #region Test Infrastructure

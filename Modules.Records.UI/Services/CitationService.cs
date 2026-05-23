@@ -4,6 +4,7 @@ using Modules.Records.Application.Citations.Commands.CreateCitation;
 using Modules.Records.Application.Citations.Commands.IssueCitation;
 using Modules.Records.Application.Citations.Commands.LinkCitationToIncident;
 using Modules.Records.Application.Citations.Commands.ReleaseCitationLock;
+using Modules.Records.Application.Citations.Commands.RenewCitationLock;
 using Modules.Records.Application.Citations.Commands.RestoreCitation;
 using Modules.Records.Application.Citations.Commands.SaveCitationPage;
 using Modules.Records.Application.Citations.Commands.SoftDeleteCitation;
@@ -102,6 +103,9 @@ public sealed class CitationService : ICitationService
 
     public Task AcquireLockAsync(Guid id) =>
         _sender.Send(new AcquireCitationLockCommand(id));
+
+    public Task RenewLockAsync(Guid id) =>
+        _sender.Send(new RenewCitationLockCommand(id));
 
     public Task ReleaseLockAsync(Guid id) =>
         _sender.Send(new ReleaseCitationLockCommand(id));

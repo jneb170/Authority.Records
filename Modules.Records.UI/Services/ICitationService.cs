@@ -32,6 +32,7 @@ public interface ICitationService
         IReadOnlyCollection<Guid>? chargeIdsToAdd = null,
         IReadOnlyCollection<Guid>? chargeIdsToRemove = null);
     Task AcquireLockAsync(Guid id);
+    Task RenewLockAsync(Guid id);
     Task ReleaseLockAsync(Guid id);
     Task SoftDeleteAsync(Guid id);
     Task RestoreAsync(Guid id);
