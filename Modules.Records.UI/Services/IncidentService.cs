@@ -6,6 +6,7 @@ using Modules.Records.Application.Incidents.Commands.CloseIncident;
 using Modules.Records.Application.Incidents.Commands.CreateIncident;
 using Modules.Records.Application.Incidents.Commands.OpenIncident;
 using Modules.Records.Application.Incidents.Commands.ReleaseIncidentLock;
+using Modules.Records.Application.Incidents.Commands.RenewIncidentLock;
 using Modules.Records.Application.Incidents.Commands.RestoreIncident;
 using Modules.Records.Application.Incidents.Commands.SaveIncidentPage;
 using Modules.Records.Application.Incidents.Commands.SoftDeleteIncident;
@@ -65,6 +66,9 @@ public sealed class IncidentService : IIncidentService
 
     public Task AcquireLockAsync(Guid id) =>
         _sender.Send(new AcquireIncidentLockCommand(id));
+
+    public Task RenewLockAsync(Guid id) =>
+        _sender.Send(new RenewIncidentLockCommand(id));
 
     public Task ReleaseLockAsync(Guid id) =>
         _sender.Send(new ReleaseIncidentLockCommand(id));

@@ -32,6 +32,7 @@ public interface IArrestService
         IReadOnlyCollection<Guid>? chargeIdsToRemove = null,
         NameSnapshotInput? atTimeOfName = null);
     Task AcquireLockAsync(Guid id);
+    Task RenewLockAsync(Guid id);
     Task ReleaseLockAsync(Guid id);
     Task SoftDeleteAsync(Guid id);
     Task RestoreAsync(Guid id);

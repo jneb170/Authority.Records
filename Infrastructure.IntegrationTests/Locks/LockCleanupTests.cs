@@ -8,6 +8,7 @@ using Modules.Records.Application.ReadModels;
 using Modules.Records.Domain.Abstractions;
 using Modules.Records.Domain.DomainEvents;
 using Modules.Records.Domain.Common;
+using Modules.Records.Domain.Common.Implementations;
 using Modules.Records.Domain.Entities;
 using Shared.Infrastructure.Locks;
 using Shared.Infrastructure.Persistence;
@@ -138,6 +139,58 @@ public sealed class LockCleanupTests : IDisposable
             var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
             var citation = await db.Citations.IgnoreQueryFilters().SingleAsync(c => c.Id == citationId);
 
+            Assert.True(citation.IsLocked);
+            Assert.Equal(userId, citation.LockedByUserId);
+        }
+    }
+
+    [Fact]
+    public async Task RenewLock_RefreshesExpiry_SoCleanupRetainsAnAlreadyStaleLock()
+    {
+        var agencyId = Guid.NewGuid();   // LockTimeoutSeconds = 20
+        var userId = Guid.NewGuid();
+        var now = DateTime.UtcNow;
+        Guid citationId;
+        DateTime beforeRenew;
+
+        using (var scope = _provider.CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+
+            db.AgencyConfigurations.Add(new AgencyConfiguration(
+                _jurisdictionId, agencyId, ConfigurationKeys.LockTimeoutSeconds, "20"));
+
+            var citation = new Citation(_jurisdictionId, agencyId, "Renewed lock", now, "CT-RENEW");
+            db.Citations.Add(citation);
+            await db.SaveChangesAsync();
+            citationId = citation.Id;
+
+            // Locked 60s ago — already past the agency's 20s timeout. Without a renewal the
+            // cleanup sweep below would release it (proven by ReleaseExpiredLocks_HonoursPerAgencyTimeout).
+            await BackdateLockAsync(db, userId, now.AddSeconds(-60), citationId);
+        }
+
+        // The lock owner renews (as the UI does on edit activity) before cleanup runs.
+        using (var scope = _provider.CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+            var citation = await db.Citations.IgnoreQueryFilters().SingleAsync(c => c.Id == citationId);
+            beforeRenew = citation.LockedAtUtc!.Value;
+
+            citation.RenewLock(new UserModificationContext(userId));
+            await db.SaveChangesAsync();
+        }
+
+        await _provider.GetRequiredService<LockCleanupService>()
+            .ReleaseExpiredLocksAsync(CancellationToken.None);
+
+        using (var scope = _provider.CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+            var citation = await db.Citations.IgnoreQueryFilters().SingleAsync(c => c.Id == citationId);
+
+            // Renewal advanced LockedAtUtc, so the once-stale lock is fresh and survives cleanup.
+            Assert.True(citation.LockedAtUtc > beforeRenew);
             Assert.True(citation.IsLocked);
             Assert.Equal(userId, citation.LockedByUserId);
         }

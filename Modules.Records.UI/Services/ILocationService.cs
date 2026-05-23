@@ -45,6 +45,7 @@ public interface ILocationService
         string? comments        = null,
         string? address         = null);
     Task AcquireLockAsync(Guid id);
+    Task RenewLockAsync(Guid id);
     Task ReleaseLockAsync(Guid id);
     Task SoftDeleteAsync(Guid id);
     Task RestoreAsync(Guid id);

@@ -28,6 +28,7 @@ else if (_error is not null)
 }
 else if (_incident is not null)
 {
+    <div style="display:contents" @onchange="OnEditActivity">
     <nav aria-label="breadcrumb" class="record-breadcrumb">
         <ol class="breadcrumb">
             <li class="breadcrumb-item"><a href="/incidents">Incidents</a></li>
@@ -344,6 +345,7 @@ else if (_incident is not null)
                       CreatedByName="@_createdByName"
                       ModifiedAt="@(_incident.ModifiedBy.HasValue ? _incident.UpdatedAtUtc : null)"
                       ModifiedByName="@_modifiedByName" />
+    </div>
 }
 
 @code {
@@ -370,6 +372,9 @@ else if (_incident is not null)
     private int _lockSecondsRemaining;
     private System.Threading.Timer? _lockTimer;
     private TimeSpan _lockTimeout = TimeSpan.FromSeconds(ConfigurationKeys.DefaultLockTimeoutSeconds);
+    private DateTime _lastServerRenewUtc;
+    private bool _renewing;
+    private TimeSpan RenewInterval => TimeSpan.FromSeconds(Math.Max(5, _lockTimeout.TotalSeconds / 3));
     private string _editIncidentNum = string.Empty;
     private string _editLocalNum = string.Empty;
     private string _editCFSNum = string.Empty;
@@ -628,6 +633,7 @@ else if (_incident is not null)
     {
         StopLockTimer();
         _lockSecondsRemaining = (int)_lockTimeout.TotalSeconds;
+        _lastServerRenewUtc = DateTime.UtcNow;
         _lockTimer = new System.Threading.Timer(async _ =>
         {
             _lockSecondsRemaining--;
@@ -650,6 +656,22 @@ else if (_incident is not null)
     {
         _lockTimer?.Dispose();
         _lockTimer = null;
+    }
+
+    // Called when a field commits (blur/change events bubble up to the page container).
+    // Restarts the on-screen countdown immediately and renews the server-side lock on a
+    // throttle, so an actively-editing user is never timed out while an idle one still is.
+    private async Task OnEditActivity()
+    {
+        if (!_modifyMode) return;
+        _lockSecondsRemaining = (int)_lockTimeout.TotalSeconds;
+        var now = DateTime.UtcNow;
+        if (_renewing || now - _lastServerRenewUtc < RenewInterval) return;
+        _renewing = true;
+        _lastServerRenewUtc = now;
+        try { await IncidentService.RenewLockAsync(_incidentId); }
+        catch { /* best-effort; the cleanup sweep honors the last successful renew */ }
+        finally { _renewing = false; }
     }
 
     private async Task LoadLockTimeoutAsync()
