@@ -185,6 +185,50 @@ you'll need Azure SignalR Service (free tier available) to handle cross-instance
 - The low-cost baseline is UI-only hosting; the UI host runs the active infrastructure services used by the app.
 - The dedicated worker app is no longer part of the default deployment workflow.
 
+### Cost-aware deployment guidance
+> **Note — biggest cost lever is the database provider.** Production currently runs on the **SQLite**
+> provider (file-backed, no Azure SQL bill) rather than Azure SQL. Switching providers is controlled by
+> the `DefaultDatabaseProvider` App Service setting — see the SQLite cutover details in the project
+> session notes. The SQL-serverless tuning below applies **only** when you deploy on the SQL Server
+> provider; on SQLite the `az sql db ...` steps are not applicable (there is no Azure SQL database to size).
+
+For ongoing cost stewardship, use this operating model unless you have evidence that you need more:
+
+1. Start with the script defaults: `B1` App Service plus low-cap SQL serverless (`0.5` min vCores, `1` max vCore, `60` minute auto-pause).
+2. After the first deployment, inspect actual spend in **Cost Management + Billing**.
+3. If a dedicated worker app is provisioned, stop it for a day and watch whether anything you care about actually breaks:
+    ```powershell
+    az webapp stop `
+      --resource-group rg-authority-records `
+      --name authority-records-worker
+    ```
+4. If nothing important depends on the worker, either keep it stopped or remove it (and disable any `deploy-worker` job that targets it).
+5. If the UI feels memory-constrained, scale the plan to `B2` or `S1` before considering Premium tiers.
+
+The reason to keep a worker around (when one exists) is compatibility with whatever deployment workflow expects it. The reason to stop it is that duplicate background polling can keep Azure SQL serverless online more often than necessary.
+
+### Right-size an existing deployment
+If a deployment was provisioned with the older premium defaults (`P1V2` plan, larger SQL serverless caps), use these commands to scale it down without re-provisioning. The worker line is only relevant if a dedicated worker app exists — skip it otherwise.
+
+```powershell
+$RG     = "rg-authority-records"
+$PLAN   = "asp-authority-records"
+$UI     = "authority-records-ui"
+$WORKER = "authority-records-worker"
+$DB     = "AuthorityRecords"
+$SQL    = az sql server list -g $RG --query "[0].name" -o tsv
+
+az appservice plan update -g $RG -n $PLAN --sku B1 --number-of-workers 1
+
+az sql db update -g $RG -s $SQL -n $DB `
+  --edition GeneralPurpose --compute-model Serverless --family Gen5 `
+  --capacity 1 --min-capacity 0.5 --auto-pause-delay 60
+
+az webapp stop -g $RG -n $WORKER
+```
+
+If the UI becomes constrained afterward, scale the plan back up to `B2` or `S1`. If the worker proves unnecessary, disable its deployment job and then delete it.
+
 ### Connection Strings
 Azure App Service injects connection strings as environment variables at runtime:
 `SQLCONNSTR_DefaultConnection` → maps to `ConnectionStrings:DefaultConnection` in .NET config.
