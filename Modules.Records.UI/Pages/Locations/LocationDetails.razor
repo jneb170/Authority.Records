@@ -31,6 +31,7 @@ else if (_error is not null)
 }
 else if (_location is not null)
 {
+    <div style="display:contents" @onchange="OnEditActivity">
     <nav aria-label="breadcrumb" class="record-breadcrumb">
         <ol class="breadcrumb">
             <li class="breadcrumb-item"><a href="/locations">Locations</a></li>
@@ -347,6 +348,7 @@ else if (_location is not null)
             </button>
         </div>
     }
+    </div>
 }
 
 @code {
@@ -373,7 +375,10 @@ else if (_location is not null)
     private Guid _currentUserId;
     private int _lockSecondsRemaining;
     private System.Threading.Timer? _lockTimer;
-    private static readonly TimeSpan LockTimeout = TimeSpan.FromMinutes(10);
+    private TimeSpan _lockTimeout = TimeSpan.FromSeconds(ConfigurationKeys.DefaultLockTimeoutSeconds);
+    private DateTime _lastServerRenewUtc;
+    private bool _renewing;
+    private TimeSpan RenewInterval => TimeSpan.FromSeconds(Math.Max(5, _lockTimeout.TotalSeconds / 3));
 
     // Edit fields
     private string  _editStreetAddress   = string.Empty;
@@ -422,6 +427,7 @@ else if (_location is not null)
     {
         _currentUserId = TenantProvider.GetUserId();
         await LoadAsync();
+        await LoadLockTimeoutAsync();
 
         if (AutoModify)
             await EnterModifyModeAsync();
@@ -815,7 +821,8 @@ else if (_location is not null)
     private void StartLockTimer()
     {
         StopLockTimer();
-        _lockSecondsRemaining = (int)LockTimeout.TotalSeconds;
+        _lockSecondsRemaining = (int)_lockTimeout.TotalSeconds;
+        _lastServerRenewUtc = DateTime.UtcNow;
         _lockTimer = new System.Threading.Timer(async _ =>
         {
             _lockSecondsRemaining--;
@@ -838,6 +845,28 @@ else if (_location is not null)
     {
         _lockTimer?.Dispose();
         _lockTimer = null;
+    }
+
+    // Called when a field commits (blur/change events bubble up to the page container).
+    // Restarts the on-screen countdown immediately and renews the server-side lock on a
+    // throttle, so an actively-editing user is never timed out while an idle one still is.
+    private async Task OnEditActivity()
+    {
+        if (!_modifyMode) return;
+        _lockSecondsRemaining = (int)_lockTimeout.TotalSeconds;
+        var now = DateTime.UtcNow;
+        if (_renewing || now - _lastServerRenewUtc < RenewInterval) return;
+        _renewing = true;
+        _lastServerRenewUtc = now;
+        try { await LocationService.RenewLockAsync(_locationId); }
+        catch { /* best-effort; the cleanup sweep honors the last successful renew */ }
+        finally { _renewing = false; }
+    }
+
+    private async Task LoadLockTimeoutAsync()
+    {
+        var cfg = await AgencyConfig.GetAsync(ConfigurationKeys.LockTimeoutSeconds);
+        _lockTimeout = LockTimeout.FromConfigValue(cfg?.Value);
     }
 
     public async ValueTask DisposeAsync()

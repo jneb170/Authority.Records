@@ -235,17 +235,132 @@ Azure SQL automatically backs up your database:
 - Transaction logs: every 5–12 min
 - Retention: 7 days (configurable up to 35)
 
-### Custom Domain (optional)
+### Custom Domain
+
+Production uses `authorityrecords.dev` (apex, canonical) and
+`www.authorityrecords.dev` (301-redirected to apex via
+`Modules.Records.UI/Middleware/CanonicalHostRedirectMiddleware.cs`).
+This section is the end-to-end runbook for binding a custom domain on Porkbun.
+Adapt the values for a different registrar or domain.
+
+#### 1 — Pull the two values you'll need from Azure
+
 ```powershell
-az webapp config hostname add `
-  --webapp-name authority-records-ui `
-  --resource-group rg-authority-records `
-  --hostname yourdomain.com
+az webapp show -g rg-authority-records -n authority-records-ui `
+  --query "customDomainVerificationId" -o tsv
+
+# The inbound IP isn't always exposed via 'az webapp show' on Linux App Service
+# until at least one custom domain is bound. Resolve it from DNS instead:
+Resolve-DnsName -Name authority-records-ui.azurewebsites.net -Type A `
+  | Where-Object { $_.IPAddress } | Select-Object -First 1 -ExpandProperty IPAddress
 ```
-Then add a free managed TLS cert:
+
+#### 2 — Add DNS records at the registrar
+
+You need four records. The two `asuid` TXT records are how Azure proves you
+control the domain — bindings will fail without them.
+
+| Type    | Host        | Answer                                     |
+|---------|-------------|--------------------------------------------|
+| `A`     | *(blank)*   | App Service inbound IP from step 1         |
+| `TXT`   | `asuid`     | `customDomainVerificationId` from step 1   |
+| `CNAME` | `www`       | `authority-records-ui.azurewebsites.net`   |
+| `TXT`   | `asuid.www` | `customDomainVerificationId` from step 1   |
+
+> **Porkbun gotcha:** newly registered domains ship with an `ALIAS` at the apex
+> and a `CNAME` at `www`, both pointing to `pixie.porkbun.com` (Porkbun's
+> parking page). DNS doesn't allow `A` and `CNAME`/`ALIAS` to coexist at the
+> same host, so the editor refuses with "record already exists." **Edit those
+> two parking records in place** rather than trying to add alongside them.
+
+> **Apex must be `A`, not `ALIAS`, for the managed cert to issue.** Hostname
+> binding works with either, but Azure's managed-cert validation does an
+> authoritative DNS query that doesn't follow `ALIAS` flattening, and fails
+> with *"The A record for {host} must point to {ip}. The current A record
+> points to empty."*
+
+Wait 5–15 minutes for propagation, then verify each record with e.g.
+`Resolve-DnsName -Name authorityrecords.dev -Type A -Server 1.1.1.1`.
+
+#### 3 — Bind hostnames to the App Service
+
 ```powershell
-az webapp config ssl create `
-  --name authority-records-ui `
-  --resource-group rg-authority-records `
-  --hostname yourdomain.com
+az webapp config hostname add -g rg-authority-records `
+  --webapp-name authority-records-ui --hostname authorityrecords.dev
+
+az webapp config hostname add -g rg-authority-records `
+  --webapp-name authority-records-ui --hostname www.authorityrecords.dev
 ```
+
+Both should report `hostNameType: Verified`. `sslState` will be `null` —
+that's expected; the cert binding is the next step.
+
+#### 4 — Issue free managed TLS certificates
+
+```powershell
+az webapp config ssl create -g rg-authority-records `
+  --name authority-records-ui --hostname authorityrecords.dev
+
+az webapp config ssl create -g rg-authority-records `
+  --name authority-records-ui --hostname www.authorityrecords.dev
+```
+
+Both calls return immediately with *"Managed Certificate creation in
+progress"* — provisioning is asynchronous and takes 2–5 minutes per cert.
+**Don't trust `az webapp config ssl list` to confirm completion** — that
+command currently filters out managed certs in some CLI versions and returns
+`[]` even when the certs exist. Check the underlying ARM resource instead:
+
+```powershell
+az resource list -g rg-authority-records `
+  --resource-type Microsoft.Web/certificates -o table
+```
+
+Wait until both certs show `provisioningState: Succeeded`.
+
+#### 5 — Bind certs and force HTTPS
+
+```powershell
+$apexThumb = az resource show -g rg-authority-records `
+  --resource-type Microsoft.Web/certificates --name authorityrecords.dev `
+  --query "properties.thumbprint" -o tsv
+
+$wwwThumb = az resource show -g rg-authority-records `
+  --resource-type Microsoft.Web/certificates --name www.authorityrecords.dev `
+  --query "properties.thumbprint" -o tsv
+
+az webapp config ssl bind -g rg-authority-records --name authority-records-ui `
+  --certificate-thumbprint $apexThumb --ssl-type SNI --hostname authorityrecords.dev
+
+az webapp config ssl bind -g rg-authority-records --name authority-records-ui `
+  --certificate-thumbprint $wwwThumb  --ssl-type SNI --hostname www.authorityrecords.dev
+
+# .dev is on the HSTS preload list — browsers refuse plain HTTP. Required.
+az webapp update -g rg-authority-records -n authority-records-ui --https-only true
+```
+
+#### 6 — Verify end-to-end
+
+```powershell
+Invoke-WebRequest -Uri "https://authorityrecords.dev"     -MaximumRedirection 0 -SkipHttpErrorCheck
+Invoke-WebRequest -Uri "https://www.authorityrecords.dev" -MaximumRedirection 0 -SkipHttpErrorCheck
+Invoke-WebRequest -Uri "http://authorityrecords.dev"      -MaximumRedirection 0 -SkipHttpErrorCheck
+```
+
+Expect: HTTPS endpoints serve from the app (likely a 302 to the login page),
+and the HTTP request returns a 301 to the HTTPS apex.
+
+#### Why apex is canonical, not www
+
+`www.authorityrecords.dev` 301s to `authorityrecords.dev` via
+`CanonicalHostRedirectMiddleware`, registered in `Program.cs` only for the
+non-Development environment. Apex-as-canonical matches modern convention
+(github.com, openai.com, anthropic.com). To switch directions, edit the two
+constants at the top of that middleware and redeploy.
+
+#### Cert renewal
+
+App Service Managed Certificates auto-renew ~45 days before expiration. No
+action required unless DNS changes — if the apex `A` record or `www` `CNAME`
+is removed or repointed, renewal will fail silently. Set a calendar reminder
+to verify both hostnames are still serving valid certs once a year.

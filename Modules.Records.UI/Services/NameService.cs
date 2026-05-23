@@ -3,6 +3,7 @@ using Modules.Records.Application.DTOs;
 using Modules.Records.Application.Names.Commands.AcquireNameLock;
 using Modules.Records.Application.Names.Commands.CreateName;
 using Modules.Records.Application.Names.Commands.ReleaseNameLock;
+using Modules.Records.Application.Names.Commands.RenewNameLock;
 using Modules.Records.Application.Names.Commands.RestoreName;
 using Modules.Records.Application.Names.Commands.SoftDeleteName;
 using Modules.Records.Application.Names.Commands.UpdateNameDetails;
@@ -129,6 +130,9 @@ public sealed class NameService : INameService
 
     public Task AcquireLockAsync(Guid id) =>
         _sender.Send(new AcquireNameLockCommand(id));
+
+    public Task RenewLockAsync(Guid id) =>
+        _sender.Send(new RenewNameLockCommand(id));
 
     public Task ReleaseLockAsync(Guid id) =>
         _sender.Send(new ReleaseNameLockCommand(id));

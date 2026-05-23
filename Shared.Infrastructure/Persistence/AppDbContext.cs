@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.ChangeTracking;
+using Microsoft.EntityFrameworkCore.Metadata;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
@@ -23,6 +24,14 @@ namespace Shared.Infrastructure.Persistence;
 
 public class AppDbContext : DbContext, IApplicationDbContext
 {
+    // RecordNumber values at or above this are treated as legacy random outliers
+    // (from the original SQLite cutover's ABS(RANDOM()) default) rather than real
+    // sequential numbers. Sequential numbers seed at 10000/20000 and increment by 1,
+    // so realistic values stay far below this; ABS(RANDOM()) values are ~64-bit.
+    // Used to keep outliers from poisoning the next sequential value, and by the
+    // one-time repair that renumbers them. See SqliteRecordNumberRepair.
+    internal const long RandomRecordNumberThreshold = 1_000_000_000L;
+
     protected readonly ITenantProvider _tenantProvider;
     protected readonly IDomainEventDispatcher _domainEventDispatcher;
     private readonly ILogger<AppDbContext> _logger;
@@ -127,6 +136,7 @@ public class AppDbContext : DbContext, IApplicationDbContext
     public override async Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)
     {
         UpdateRowVersions();
+        AssignSqliteRecordNumbers();
         Guid? tenantId = null;
 
         var domainEntities = ChangeTracker.Entries<AggregateRoot>()
@@ -209,14 +219,56 @@ public class AppDbContext : DbContext, IApplicationDbContext
         return result;
     }
 
+    /// <summary>
+    /// SQLite has no IDENTITY columns, so RecordNumber (a SqlServer identity column)
+    /// is assigned here for newly added aggregates. Mirrors the SqlServer seeds
+    /// (10000 for most aggregates, 20000 for Location) and increments by one, keeping
+    /// the short, sequential, URL-friendly numbers users expect. No-op on SqlServer.
+    /// </summary>
+    private void AssignSqliteRecordNumbers()
+    {
+        if (!Database.IsSqlite())
+            return;
+
+        AssignSqliteRecordNumbers<Incident>(seed: 10000);
+        AssignSqliteRecordNumbers<Arrest>(seed: 10000);
+        AssignSqliteRecordNumbers<Citation>(seed: 10000);
+        AssignSqliteRecordNumbers<Name>(seed: 10000);
+        AssignSqliteRecordNumbers<Location>(seed: 20000);
+    }
+
+    private void AssignSqliteRecordNumbers<T>(long seed) where T : class
+    {
+        var added = ChangeTracker.Entries<T>()
+            .Where(e => e.State == EntityState.Added
+                        && (long)e.Property("RecordNumber").CurrentValue! <= 0)
+            .ToList();
+
+        if (added.Count == 0)
+            return;
+
+        // Highest existing sequential number for this entity, ignoring soft-delete /
+        // tenant filters (RecordNumber is unique table-wide) and ignoring any legacy
+        // random outliers so they don't inflate the next value.
+        var max = Set<T>()
+            .IgnoreQueryFilters()
+            .Where(x => EF.Property<long>(x, "RecordNumber") < RandomRecordNumberThreshold)
+            .Select(x => (long?)EF.Property<long>(x, "RecordNumber"))
+            .Max() ?? (seed - 1);
+
+        foreach (var entry in added)
+            entry.Property("RecordNumber").CurrentValue = ++max;
+    }
+
     private void UpdateRowVersions()
     {
         //var entries = ChangeTracker.Entries<AggregateRoot>()
         //    .Where(e => e.State == EntityState.Modified);
         //changed to below. When AggregateRoot type is specified,
         //  then Entites like OutboxMessage don't populate RowVersion
+        // Include Added so SQLite (which lacks server-generated rowversion) gets a seed value.
         var entries = ChangeTracker.Entries()
-            .Where(e => e.State == EntityState.Modified);
+            .Where(e => e.State == EntityState.Modified || e.State == EntityState.Added);
 
         foreach (var entry in entries)
         {
@@ -243,6 +295,60 @@ public class AppDbContext : DbContext, IApplicationDbContext
         // Store these configurations in Persistence/Configurations folder for better organization.
         modelBuilder.ApplyConfigurationsFromAssembly(typeof(AppDbContext).Assembly);
 
+        if (Database.IsSqlite())
+        {
+            ApplySqliteOverrides(modelBuilder);
+        }
+    }
+
+    private static void ApplySqliteOverrides(ModelBuilder modelBuilder)
+    {
+        // SQLite has no IDENTITY columns on non-PK columns. SqlServer uses
+        // UseIdentityColumn(seed, increment) to give RecordNumber short, sequential
+        // values (e.g. 10000, 10001, ...) that are surfaced directly in URLs.
+        // We reproduce that under SQLite by assigning RecordNumber sequentially in
+        // AssignSqliteRecordNumbers() during SaveChanges, so the column is
+        // application-generated (ValueGeneratedNever) rather than DB-defaulted.
+        modelBuilder.Entity<Incident>().Property(x => x.RecordNumber).ValueGeneratedNever();
+        modelBuilder.Entity<Arrest>().Property(x => x.RecordNumber).ValueGeneratedNever();
+        modelBuilder.Entity<Citation>().Property(x => x.RecordNumber).ValueGeneratedNever();
+        modelBuilder.Entity<Name>().Property(x => x.RecordNumber).ValueGeneratedNever();
+        modelBuilder.Entity<Location>().Property(x => x.RecordNumber).ValueGeneratedNever();
+
+        // datetime2 is SQL Server-specific; SQLite stores DateTime as TEXT.
+        modelBuilder.Entity<Incident>().Property(x => x.OccurredOn).HasColumnType("TEXT");
+        modelBuilder.Entity<IncidentReadModel>().Property(x => x.OccurredOn).HasColumnType("TEXT");
+
+        // SQLite does not support filtered indexes. Drop the HasFilter on this unique index.
+        // Caveat: at most one Incident per (Jurisdiction, Agency) may have a blank IncidentNum.
+        // Demo-volume usage is well within tolerance; the sequence counter assigns real numbers quickly.
+        modelBuilder.Entity<Incident>()
+            .HasIndex(x => new { x.JurisdictionId, x.AgencyId, x.IncidentNum })
+            .IsUnique()
+            .HasFilter(null);
+
+        // IsRowVersion() emits a SQL Server 'rowversion' column. SQLite has no equivalent.
+        // Demote to plain concurrency-token BLOB; UpdateRowVersions() seeds the value
+        // with Guid.NewGuid().ToByteArray() on Added/Modified.
+        foreach (var entityType in modelBuilder.Model.GetEntityTypes())
+        {
+            var rowVersionProp = entityType.FindProperty("RowVersion");
+            if (rowVersionProp is null)
+                continue;
+
+            var columnType = rowVersionProp.GetColumnType();
+            var isSqlServerRowVersion =
+                rowVersionProp.ValueGenerated == ValueGenerated.OnAddOrUpdate
+                && (string.Equals(columnType, "rowversion", System.StringComparison.OrdinalIgnoreCase)
+                    || string.Equals(columnType, "timestamp", System.StringComparison.OrdinalIgnoreCase));
+
+            if (isSqlServerRowVersion || rowVersionProp.ClrType == typeof(byte[]))
+            {
+                rowVersionProp.ValueGenerated = ValueGenerated.Never;
+                rowVersionProp.IsConcurrencyToken = true;
+                rowVersionProp.SetColumnType("BLOB");
+            }
+        }
     }
 
 

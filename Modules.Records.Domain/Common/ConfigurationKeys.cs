@@ -60,4 +60,19 @@ public static class ConfigurationKeys
     /// If not set, the map defaults to the geographic center of the United States (39.8283,-98.5795).
     /// </summary>
     public const string MapStartCoordinates = "MapStartCoordinates";
+
+    /// <summary>
+    /// How long (in whole seconds) a pessimistic record lock is held before it is
+    /// considered expired. Governs both lock acquisition (whether another user may
+    /// take over a stale lock) and the background lock-cleanup sweep. Stored as a
+    /// string integer, e.g. "20". If unset or unparsable, falls back to
+    /// <see cref="DefaultLockTimeoutSeconds"/>.
+    /// </summary>
+    public const string LockTimeoutSeconds = "LockTimeoutSeconds";
+
+    /// <summary>
+    /// System default lock timeout used when no agency-specific
+    /// <see cref="LockTimeoutSeconds"/> is configured. 600 seconds = 10 minutes.
+    /// </summary>
+    public const int DefaultLockTimeoutSeconds = 600;
 }

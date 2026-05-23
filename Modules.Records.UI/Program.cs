@@ -4,6 +4,7 @@ using Microsoft.EntityFrameworkCore;
 using Modules.Records.Application;
 using Modules.Records.Domain.Abstractions;
 using Modules.Records.UI.Authorization;
+using Modules.Records.UI.Demo;
 using Modules.Records.UI.Interop;
 using Modules.Records.UI.Middleware;
 using Modules.Records.UI.Services;
@@ -26,6 +27,7 @@ builder.Services.AddInfrastructure(builder.Configuration);
 // IHttpContextAccessor.HttpContext is null during Blazor Server SignalR interactions;
 // BlazorTenantProvider falls back to AuthenticationStateProvider for claims.
 builder.Services.AddScoped<ITenantProvider, BlazorTenantProvider>();
+builder.Services.AddScoped<Modules.Records.Application.Abstractions.ICurrentUserContext, BlazorCurrentUserContext>();
 
 builder.Services.AddScoped<IIncidentService, IncidentService>();
 builder.Services.AddScoped<IArrestService, ArrestService>();
@@ -58,6 +60,7 @@ if (!app.Environment.IsDevelopment())
 {
     app.UseExceptionHandler("/Error");
     app.UseHsts();
+    app.UseMiddleware<CanonicalHostRedirectMiddleware>();
 }
 
 app.UseHttpsRedirection();
@@ -73,7 +76,27 @@ app.MapRazorPages();
 app.MapRazorComponents<Modules.Records.UI.App>()
     .AddInteractiveServerRenderMode();
 
-if (app.Environment.IsDevelopment())
+var dbProvider = DatabaseProviderResolver.Resolve(app.Configuration);
+
+if (dbProvider == DatabaseProvider.Sqlite)
+{
+    // SQLite migrations always apply on startup because:
+    //  - CI cannot apply them to a file inside Azure App Service.
+    //  - Dev local SQLite files are typically per-developer and ephemeral.
+    EnsureSqliteDataDirectoriesExist(app.Configuration);
+
+    using var scope = app.Services.CreateScope();
+    await scope.ServiceProvider.GetRequiredService<AppDbContext>().Database.MigrateAsync();
+    await scope.ServiceProvider.GetRequiredService<AuthDbContext>().Database.MigrateAsync();
+
+    // One-time, idempotent: renumber any records that were created with random
+    // RecordNumbers during the original SQLite cutover (ABS(RANDOM())) back into the
+    // short sequential range, then rebuild affected read models. No-op once clean.
+    var repairLogger = app.Services.GetRequiredService<ILoggerFactory>()
+        .CreateLogger(nameof(SqliteRecordNumberRepair));
+    await SqliteRecordNumberRepair.RepairAsync(app.Services, repairLogger);
+}
+else if (app.Environment.IsDevelopment())
 {
     await EnsureAppDbMigrationsAppliedAsync(app.Services);
 }
@@ -92,7 +115,36 @@ if (app.Environment.IsDevelopment())
     await maintenanceCoordinator.RunStartupMaintenanceAsync(scope.ServiceProvider);
 }
 
+// Seed the public demo account if enabled (default: enabled).
+// Idempotent and best-effort — failures are logged but do not block startup.
+if (app.Configuration.GetValue("Demo:Enabled", true))
+{
+    var demoLogger = app.Services.GetRequiredService<ILoggerFactory>().CreateLogger("DemoSeeder");
+    await DemoSeeder.SeedAsync(app.Services, demoLogger);
+}
+
 app.Run();
+
+static void EnsureSqliteDataDirectoriesExist(IConfiguration configuration)
+{
+    foreach (var key in new[]
+             {
+                 DatabaseProviderResolver.SqliteAppConnectionStringName,
+                 DatabaseProviderResolver.SqliteAuthConnectionStringName
+             })
+    {
+        var raw = configuration.GetConnectionString(key);
+        if (string.IsNullOrWhiteSpace(raw))
+            continue;
+
+        var expanded = Environment.ExpandEnvironmentVariables(raw);
+        var builder = new Microsoft.Data.Sqlite.SqliteConnectionStringBuilder(expanded);
+        var dataSource = Path.GetFullPath(builder.DataSource);
+        var dir = Path.GetDirectoryName(dataSource);
+        if (!string.IsNullOrEmpty(dir))
+            Directory.CreateDirectory(dir);
+    }
+}
 
 static async Task EnsureAppDbMigrationsAppliedAsync(IServiceProvider services)
 {

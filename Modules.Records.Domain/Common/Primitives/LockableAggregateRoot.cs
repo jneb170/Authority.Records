@@ -53,6 +53,22 @@ public abstract class LockableAggregateRoot<TAggregate>
         AddDomainEvent(new LockAcquiredDomainEvent<TAggregate>(Id, context.UserId));
     }
 
+    public virtual void RenewLock(IModificationContext context)
+    {
+        // Renewal only refreshes the expiry window for the current owner. It deliberately
+        // raises NO domain event: it is called frequently while a user edits, and an event
+        // would spam the audit log (LockAcquired) and re-project the read model on every call.
+        // The cleanup sweep reads LockedAtUtc straight off the entity, so it sees the bump.
+        if (!IsLocked || LockedByUserId != context.UserId)
+        {
+            throw new DomainException(
+                "record.lock.required",
+                "User must own the lock to renew it.");
+        }
+
+        LockedAtUtc = DateTime.UtcNow;
+    }
+
     public virtual void ReleaseLock(IModificationContext context)
     {
         AuthorizationPolicy.EnsureCanReleaseLock(

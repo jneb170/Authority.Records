@@ -42,19 +42,45 @@ public sealed class OutboxProcessor : BackgroundService
     {
         while (!stoppingToken.IsCancellationRequested)
         {
-            var observedActivityUtc = _activityTracker.LastActivityUtc;
-            if (!_activityTracker.HasRecentActivity(_options.InactivityThreshold, DateTime.UtcNow))
+            try
             {
-                _logger.LogDebug(
-                    "Outbox processor is idle. Waiting for authenticated activity before polling SQL again. LastActivityUtc: {LastActivityUtc}",
-                    observedActivityUtc);
+                var observedActivityUtc = _activityTracker.LastActivityUtc;
+                if (!_activityTracker.HasRecentActivity(_options.InactivityThreshold, DateTime.UtcNow))
+                {
+                    _logger.LogDebug(
+                        "Outbox processor is idle. Waiting for authenticated activity before polling SQL again. LastActivityUtc: {LastActivityUtc}",
+                        observedActivityUtc);
 
-                await _activityTracker.WaitForActivityAsync(observedActivityUtc, stoppingToken);
-                continue;
+                    await _activityTracker.WaitForActivityAsync(observedActivityUtc, stoppingToken);
+                    continue;
+                }
+
+                await ProcessOutboxMessages(stoppingToken);
+                await Task.Delay(_options.OutboxPollingInterval, stoppingToken);
             }
+            catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
+            {
+                // Graceful shutdown — leave the loop without logging an error.
+                break;
+            }
+            catch (Exception ex)
+            {
+                // An unhandled exception here (e.g. the database being unreachable, as
+                // happened during the SQLite cutover) must NOT propagate out of
+                // ExecuteAsync: with the default BackgroundServiceExceptionBehavior.StopHost
+                // that would crash the entire web host into a cold-start loop. Log, back
+                // off, and let the loop retry on the next iteration.
+                _logger.LogError(ex, "Outbox processor loop iteration failed. Backing off before retrying.");
 
-            await ProcessOutboxMessages(stoppingToken);
-            await Task.Delay(_options.OutboxPollingInterval, stoppingToken);
+                try
+                {
+                    await Task.Delay(_options.OutboxPollingInterval, stoppingToken);
+                }
+                catch (OperationCanceledException)
+                {
+                    break;
+                }
+            }
         }
     }
 
