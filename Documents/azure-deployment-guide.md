@@ -186,6 +186,12 @@ you'll need Azure SignalR Service (free tier available) to handle cross-instance
 - The dedicated worker app is no longer part of the default deployment workflow.
 
 ### Cost-aware deployment guidance
+> **Note — biggest cost lever is the database provider.** Production currently runs on the **SQLite**
+> provider (file-backed, no Azure SQL bill) rather than Azure SQL. Switching providers is controlled by
+> the `DefaultDatabaseProvider` App Service setting — see the SQLite cutover details in the project
+> session notes. The SQL-serverless tuning below applies **only** when you deploy on the SQL Server
+> provider; on SQLite the `az sql db ...` steps are not applicable (there is no Azure SQL database to size).
+
 For ongoing cost stewardship, use this operating model unless you have evidence that you need more:
 
 1. Start with the script defaults: `B1` App Service plus low-cap SQL serverless (`0.5` min vCores, `1` max vCore, `60` minute auto-pause).
