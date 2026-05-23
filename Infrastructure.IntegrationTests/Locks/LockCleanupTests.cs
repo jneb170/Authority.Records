@@ -196,6 +196,99 @@ public sealed class LockCleanupTests : IDisposable
         }
     }
 
+    [Fact]
+    public async Task ReleaseExpiredLocks_HonoursPerAgencyTimeoutForLocations()
+    {
+        // Location is the shared Master Location Index — it has no permanent AgencyId, so the
+        // agency whose timeout governs an outstanding lock is captured on the lock itself
+        // (LockedByAgencyId). Cleanup must read that to pick the right per-agency timeout.
+        var agencyConfigured = Guid.NewGuid();   // LockTimeoutSeconds = 20
+        var agencyDefault = Guid.NewGuid();        // no setting -> default (600s)
+        var userId = Guid.NewGuid();
+        var now = DateTime.UtcNow;
+        Guid configuredId, defaultId;
+
+        using (var scope = _provider.CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+
+            db.AgencyConfigurations.Add(new AgencyConfiguration(
+                _jurisdictionId, agencyConfigured, ConfigurationKeys.LockTimeoutSeconds, "20"));
+
+            var configured = new Location(_jurisdictionId, "100 Main", "Plano");
+            var @default = new Location(_jurisdictionId, "200 Elm", "Plano");
+            db.Locations.Add(configured);
+            db.Locations.Add(@default);
+
+            db.LocationReadModels.Add(LockedLocationReadModel(configured.Id, userId, now, 30001));
+            db.LocationReadModels.Add(LockedLocationReadModel(@default.Id, userId, now, 30002));
+
+            await db.SaveChangesAsync();
+            configuredId = configured.Id;
+            defaultId = @default.Id;
+
+            // Both locked 60s ago under different agencies — past the configured agency's 20s
+            // timeout, but well within the default agency's 600s timeout.
+            await BackdateLocationLockAsync(db, userId, now.AddSeconds(-60),
+                (configuredId, agencyConfigured), (defaultId, agencyDefault));
+        }
+
+        await _provider.GetRequiredService<LockCleanupService>()
+            .ReleaseExpiredLocksAsync(CancellationToken.None);
+
+        using (var scope = _provider.CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+
+            var configured = await db.Locations.IgnoreQueryFilters().SingleAsync(l => l.Id == configuredId);
+            var @default = await db.Locations.IgnoreQueryFilters().SingleAsync(l => l.Id == defaultId);
+
+            // 60s old > 20s configured timeout -> released, including the transient locking agency.
+            Assert.False(configured.IsLocked);
+            Assert.Null(configured.LockedByUserId);
+            Assert.Null(configured.LockedAtUtc);
+            Assert.Null(configured.LockedByAgencyId);
+
+            // 60s old < 600s default timeout -> still held.
+            Assert.True(@default.IsLocked);
+            Assert.Equal(userId, @default.LockedByUserId);
+            Assert.Equal(agencyDefault, @default.LockedByAgencyId);
+
+            // Read-model lock flag follows the entity for the released record.
+            var configuredRm = await db.LocationReadModels.IgnoreQueryFilters().SingleAsync(r => r.Id == configuredId);
+            var defaultRm = await db.LocationReadModels.IgnoreQueryFilters().SingleAsync(r => r.Id == defaultId);
+            Assert.False(configuredRm.IsLocked);
+            Assert.Null(configuredRm.LockedByUserId);
+            Assert.True(defaultRm.IsLocked);
+        }
+    }
+
+    private static async Task BackdateLocationLockAsync(
+        AppDbContext db, Guid userId, DateTime lockedAtUtc, params (Guid Id, Guid AgencyId)[] locks)
+    {
+        // Each Location is locked under a different agency, so the update is per-record.
+        foreach (var (id, agencyId) in locks)
+            await db.Locations.IgnoreQueryFilters()
+                .Where(l => l.Id == id)
+                .ExecuteUpdateAsync(s => s
+                    .SetProperty(l => l.LockedByUserId, userId)
+                    .SetProperty(l => l.LockedAtUtc, lockedAtUtc)
+                    .SetProperty(l => l.LockedByAgencyId, agencyId));
+    }
+
+    private LocationReadModel LockedLocationReadModel(Guid id, Guid userId, DateTime now, long recordNumber)
+    {
+        var rm = LocationReadModel.Create(
+            id, recordNumber, _jurisdictionId,
+            streetNumber: null, preDirectionId: null, streetAddress: "100 Main",
+            streetTypeId: null, postDirectionId: null, city: "Plano",
+            stateId: null, countryId: null, zip: null, aptSuite: null,
+            coordinates: null, commonPlaceName: null, comments: null, address: null,
+            createdAtUtc: now, createdBy: userId);
+        rm.ApplyLockAcquired(userId);
+        return rm;
+    }
+
     private static Task BackdateLockAsync(AppDbContext db, Guid userId, DateTime lockedAtUtc, params Guid[] ids) =>
         db.Citations.IgnoreQueryFilters()
             .Where(c => ids.Contains(c.Id))

@@ -311,6 +311,39 @@ public sealed class LocationTests
     }
 
     [Fact]
+    public void AcquireLock_WithLockingAgency_StampsLockedByAgencyId()
+    {
+        // Arrange — Location is the shared MLI with no permanent AgencyId, so the locking
+        // agency (whose configured timeout governs the lock) is supplied at acquire time.
+        var location = CreateTestLocation();
+        var context  = CreateContext();
+        var agencyId = Guid.NewGuid();
+
+        // Act
+        location.AcquireLock(context, TimeSpan.FromMinutes(10), agencyId);
+
+        // Assert
+        Assert.True(location.IsLocked);
+        Assert.Equal(TestUserId, location.LockedByUserId);
+        Assert.Equal(agencyId, location.LockedByAgencyId);
+    }
+
+    [Fact]
+    public void ReleaseLock_ClearsLockedByAgencyId()
+    {
+        // Arrange
+        var location = CreateTestLocation();
+        var context  = CreateContext();
+        location.AcquireLock(context, TimeSpan.FromMinutes(10), Guid.NewGuid());
+
+        // Act
+        location.ReleaseLock(context);
+
+        // Assert
+        Assert.Null(location.LockedByAgencyId);
+    }
+
+    [Fact]
     public void UpdateDetails_WhenLockedByOtherUser_Throws()
     {
         // Arrange

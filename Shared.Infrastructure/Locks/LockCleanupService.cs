@@ -46,8 +46,10 @@ public sealed class LockCleanupService
         var expiredIncidents = (await CollectHeldIncidentLocksAsync(db, ct)).Where(IsExpired).ToList();
         var expiredArrests = (await CollectHeldArrestLocksAsync(db, ct)).Where(IsExpired).ToList();
         var expiredCitations = (await CollectHeldCitationLocksAsync(db, ct)).Where(IsExpired).ToList();
+        var expiredLocations = (await CollectHeldLocationLocksAsync(db, ct)).Where(IsExpired).ToList();
 
-        var total = expiredNames.Count + expiredIncidents.Count + expiredArrests.Count + expiredCitations.Count;
+        var total = expiredNames.Count + expiredIncidents.Count + expiredArrests.Count
+            + expiredCitations.Count + expiredLocations.Count;
         if (total == 0)
             return;
 
@@ -56,26 +58,29 @@ public sealed class LockCleanupService
         await ReleaseEntityLocksAsync(db, expiredIncidents.Select(x => x.Id).ToList(), "Incidents", ct);
         await ReleaseEntityLocksAsync(db, expiredArrests.Select(x => x.Id).ToList(), "Arrests", ct);
         await ReleaseEntityLocksAsync(db, expiredCitations.Select(x => x.Id).ToList(), "Citations", ct);
+        await ReleaseEntityLocksAsync(db, expiredLocations.Select(x => x.Id).ToList(), "Locations", ct);
         await ReleaseReadModelLocksAsync(
             db,
             expiredNames.Select(x => x.Id).ToList(),
             expiredIncidents.Select(x => x.Id).ToList(),
             expiredArrests.Select(x => x.Id).ToList(),
             expiredCitations.Select(x => x.Id).ToList(),
+            expiredLocations.Select(x => x.Id).ToList(),
             ct);
 
         // Write one audit entry per released lock.
         var auditEntries = BuildAuditEntries(expiredNames, "Name", now)
             .Concat(BuildAuditEntries(expiredIncidents, "Incident", now))
             .Concat(BuildAuditEntries(expiredArrests, "Arrest", now))
-            .Concat(BuildAuditEntries(expiredCitations, "Citation", now));
+            .Concat(BuildAuditEntries(expiredCitations, "Citation", now))
+            .Concat(BuildAuditEntries(expiredLocations, "Location", now));
 
         db.AuditLogReadModels.AddRange(auditEntries);
         await db.SaveChangesAsync(ct);
 
         _logger.LogInformation(
-            "Released {Count} expired lock(s): {Names} name(s), {Incidents} incident(s), {Arrests} arrest(s), {Citations} citation(s).",
-            total, expiredNames.Count, expiredIncidents.Count, expiredArrests.Count, expiredCitations.Count);
+            "Released {Count} expired lock(s): {Names} name(s), {Incidents} incident(s), {Arrests} arrest(s), {Citations} citation(s), {Locations} location(s).",
+            total, expiredNames.Count, expiredIncidents.Count, expiredArrests.Count, expiredCitations.Count, expiredLocations.Count);
     }
 
     // -----------------------------------------------------------------------
@@ -141,6 +146,18 @@ public sealed class LockCleanupService
             .Select(c => new ExpiredLockRecord(c.Id, c.AgencyId, c.JurisdictionId, c.LockedByUserId!.Value, c.LockedAtUtc!.Value, c.Version))
             .ToListAsync(ct);
 
+    // Location is the shared Master Location Index — jurisdiction-scoped, with no permanent AgencyId.
+    // The lock owner's agency is captured on the lock (LockedByAgencyId) so its configured timeout
+    // governs expiry. A null (e.g. a lock taken before this column existed) maps to Guid.Empty, which
+    // is absent from the timeout map and therefore falls back to the system default.
+    private static async Task<List<ExpiredLockRecord>> CollectHeldLocationLocksAsync(
+        AppDbContext db, CancellationToken ct) =>
+        await db.Locations
+            .IgnoreQueryFilters()
+            .Where(l => l.LockedAtUtc != null)
+            .Select(l => new ExpiredLockRecord(l.Id, l.LockedByAgencyId ?? Guid.Empty, l.JurisdictionId, l.LockedByUserId!.Value, l.LockedAtUtc!.Value, l.Version))
+            .ToListAsync(ct);
+
     // -----------------------------------------------------------------------
     // Release helpers
     // -----------------------------------------------------------------------
@@ -180,6 +197,14 @@ public sealed class LockCleanupService
                         .SetProperty(c => c.LockedByUserId, (Guid?)null)
                         .SetProperty(c => c.LockedAtUtc, (DateTime?)null), ct);
                 break;
+            case "Locations":
+                await db.Locations.IgnoreQueryFilters()
+                    .Where(l => ids.Contains(l.Id))
+                    .ExecuteUpdateAsync(s => s
+                        .SetProperty(l => l.LockedByUserId, (Guid?)null)
+                        .SetProperty(l => l.LockedAtUtc, (DateTime?)null)
+                        .SetProperty(l => l.LockedByAgencyId, (Guid?)null), ct);
+                break;
         }
     }
 
@@ -189,6 +214,7 @@ public sealed class LockCleanupService
         List<Guid> incidentIds,
         List<Guid> arrestIds,
         List<Guid> citationIds,
+        List<Guid> locationIds,
         CancellationToken ct)
     {
         if (nameIds.Count > 0)
@@ -215,6 +241,13 @@ public sealed class LockCleanupService
         if (citationIds.Count > 0)
             await db.CitationReadModels
                 .Where(r => citationIds.Contains(r.Id))
+                .ExecuteUpdateAsync(s => s
+                    .SetProperty(r => r.IsLocked, false)
+                    .SetProperty(r => r.LockedByUserId, (Guid?)null), ct);
+
+        if (locationIds.Count > 0)
+            await db.LocationReadModels
+                .Where(r => locationIds.Contains(r.Id))
                 .ExecuteUpdateAsync(s => s
                     .SetProperty(r => r.IsLocked, false)
                     .SetProperty(r => r.LockedByUserId, (Guid?)null), ct);

@@ -67,6 +67,15 @@ public sealed class Location : LockableAggregateRoot<Location>, IMultiTenant
     /// <summary>UTC timestamp when this record was soft-deleted, if applicable.</summary>
     public DateTime? DeletedAtUtc { get; private set; }
 
+    /// <summary>
+    /// Transient lock-state field: the agency the lock owner held the lock under. A Location is the
+    /// Master Location Index — shared across all agencies in its jurisdiction — so it has no permanent
+    /// AgencyId. But the record-lock timeout is configured per agency, so cleanup needs to know which
+    /// agency's timeout governs an outstanding lock. Set on <see cref="AcquireLock(IModificationContext, TimeSpan, Guid)"/>
+    /// from the locking user's agency and cleared when the lock is released. Null when not locked.
+    /// </summary>
+    public Guid? LockedByAgencyId { get; private set; }
+
     // --- Policy wiring ---
     private static readonly LocationAuthorizationPolicy _authorizationPolicy = new();
     protected override IAuthorizationPolicy<Location> AuthorizationPolicy => _authorizationPolicy;
@@ -154,6 +163,23 @@ public sealed class Location : LockableAggregateRoot<Location>, IMultiTenant
         AddDomainEvent(new LocationDetailsUpdatedDomainEvent(
             Id, StreetNumber, PreDirectionId, StreetAddress, StreetTypeId, PostDirectionId,
             City, StateId, CountryId, Zip, AptSuite, Coordinates, CommonPlaceName, Comments, Address));
+    }
+
+    /// <summary>
+    /// Acquires the modify lock and records the agency whose configured timeout governs it.
+    /// Locations carry no permanent AgencyId (see <see cref="LockedByAgencyId"/>), so the locking
+    /// agency must be supplied by the caller (the acquiring user's current agency).
+    /// </summary>
+    public void AcquireLock(IModificationContext context, TimeSpan lockTimeout, Guid lockingAgencyId)
+    {
+        base.AcquireLock(context, lockTimeout);
+        LockedByAgencyId = lockingAgencyId;
+    }
+
+    public override void ReleaseLock(IModificationContext context)
+    {
+        base.ReleaseLock(context);
+        LockedByAgencyId = null;
     }
 
     public override void SoftDelete(Guid userId)
