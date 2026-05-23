@@ -9,9 +9,7 @@ namespace Modules.Records.Application.Incidents.DomainEventHandlers;
 
 public sealed class IncidentProjectionHandler :
     INotificationHandler<IncidentCreatedDomainEvent>,
-    INotificationHandler<IncidentOpenedDomainEvent>,
-    INotificationHandler<IncidentClosedDomainEvent>,
-    INotificationHandler<IncidentArchivedDomainEvent>,
+    INotificationHandler<LifecycleStatusChangedDomainEvent<Incident>>,
     INotificationHandler<IncidentSoftDeletedDomainEvent>,
     INotificationHandler<IncidentRestoredDomainEvent>,
     INotificationHandler<IncidentDetailsUpdatedDomainEvent>,
@@ -68,14 +66,8 @@ public sealed class IncidentProjectionHandler :
         await _dbContext.SaveChangesAsync(cancellationToken);
     }
 
-    public async Task Handle(IncidentOpenedDomainEvent notification, CancellationToken cancellationToken)
-        => await ApplyStatusChange(notification.IncidentId, "Open", cancellationToken);
-
-    public async Task Handle(IncidentClosedDomainEvent notification, CancellationToken cancellationToken)
-        => await ApplyStatusChange(notification.IncidentId, "Closed", cancellationToken);
-
-    public async Task Handle(IncidentArchivedDomainEvent notification, CancellationToken cancellationToken)
-        => await ApplyStatusChange(notification.IncidentId, "Archived", cancellationToken);
+    public async Task Handle(LifecycleStatusChangedDomainEvent<Incident> notification, CancellationToken cancellationToken)
+        => await ApplyStatusChange(notification.AggregateId, notification.NewStatus.ToString(), cancellationToken);
 
     public async Task Handle(IncidentSoftDeletedDomainEvent notification, CancellationToken cancellationToken)
     {

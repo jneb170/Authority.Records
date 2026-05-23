@@ -7,6 +7,7 @@ using Modules.Records.Application.Names.DomainEventHandlers;
 using Modules.Records.Application.ReadModels;
 using Modules.Records.Domain.Common;
 using Modules.Records.Domain.Common.Implementations;
+using Modules.Records.Domain.Common.Policies;
 using Modules.Records.Domain.Common.Primitives;
 using Modules.Records.Domain.DomainEvents;
 using Modules.Records.Domain.Entities;
@@ -55,6 +56,81 @@ public sealed class ProjectionUpdateHandlerTests
         Assert.Equal(locationId, readModel.LocationId);
         Assert.Equal(modifiedBy, readModel.ModifiedBy);
         Assert.Equal(now, readModel.UpdatedAtUtc);
+    }
+
+    [Fact]
+    public async Task IncidentProjectionStatusChange_UpdatesReadModelStatus()
+    {
+        // Regression: lifecycle transitions raise LifecycleStatusChangedDomainEvent<Incident>.
+        // The projection used to subscribe to never-raised Incident{Opened,Closed,Archived}DomainEvent,
+        // so the read-model Status silently never updated and the UI Open button appeared to no-op.
+        // The event is raised through the real aggregate so AddDomainEvent stamps AggregateId
+        // (the base DomainEvent.AggregateId has an internal setter the test assembly can't reach).
+        await using var db = ProjectionUpdateTestDbContextFactory.Create();
+        var now = new DateTime(2026, 3, 10, 10, 0, 0, DateTimeKind.Utc);
+
+        var incident = new IncidentFactory().Create(new CreateIncidentRequest
+        {
+            JurisdictionId = Guid.NewGuid(),
+            AgencyId = Guid.NewGuid(),
+            Details = new IncidentDetails { Description = "Draft incident", IncidentNum = "INC-102", LocalNum = "LOC-102", CFSNum = "CFS-102" }
+        });
+        incident.Open(new UserModificationContext(Guid.NewGuid()), new DefaultLifecyclePolicy<Incident>(new DefaultClosePolicy<Incident>()));
+        var evt = incident.DomainEvents.OfType<LifecycleStatusChangedDomainEvent<Incident>>().Single();
+
+        db.IncidentReadModels.Add(IncidentReadModel.Create(
+            incident.Id,
+            102,
+            incident.JurisdictionId,
+            incident.AgencyId,
+            new IncidentDetails { Description = "Draft incident", IncidentNum = "INC-102", LocalNum = "LOC-102", CFSNum = "CFS-102" },
+            RecordStatus.Draft,
+            now.AddDays(-1),
+            Guid.NewGuid()));
+        await db.SaveChangesAsync(CancellationToken.None);
+
+        var handler = new IncidentProjectionHandler(db);
+        await handler.Handle(evt, CancellationToken.None);
+
+        var readModel = await db.IncidentReadModels.SingleAsync(i => i.Id == incident.Id);
+        Assert.Equal("Open", readModel.Status);
+    }
+
+    [Fact]
+    public async Task ArrestProjectionStatusChange_UpdatesReadModelStatus()
+    {
+        await using var db = ProjectionUpdateTestDbContextFactory.Create();
+        var now = new DateTime(2026, 3, 10, 10, 15, 0, DateTimeKind.Utc);
+
+        var arrest = new ArrestFactory().Create(
+            Guid.NewGuid(),
+            Guid.NewGuid(),
+            Guid.NewGuid(),
+            now.AddDays(-1),
+            "AR-202",
+            null);
+        arrest.Open(new UserModificationContext(Guid.NewGuid()), new DefaultLifecyclePolicy<Arrest>(new DefaultClosePolicy<Arrest>()));
+        var evt = arrest.DomainEvents.OfType<LifecycleStatusChangedDomainEvent<Arrest>>().Single();
+
+        var readModel = ArrestReadModel.Create(
+            arrest.Id,
+            202,
+            arrest.JurisdictionId,
+            arrest.AgencyId,
+            null,
+            now.AddDays(-1),
+            now.AddDays(-1),
+            Guid.NewGuid(),
+            "AR-202");
+        readModel.ApplyStatusChange("Draft");
+        db.ArrestReadModels.Add(readModel);
+        await db.SaveChangesAsync(CancellationToken.None);
+
+        var handler = new ArrestProjectionHandler(db);
+        await handler.Handle(evt, CancellationToken.None);
+
+        var updated = await db.ArrestReadModels.SingleAsync(a => a.Id == arrest.Id);
+        Assert.Equal("Open", updated.Status);
     }
 
     [Fact]
