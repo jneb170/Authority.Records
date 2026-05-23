@@ -10,6 +10,7 @@ namespace Modules.Records.Application.Arrests.DomainEventHandlers;
 public sealed class ArrestProjectionHandler :
     INotificationHandler<ArrestCreatedDomainEvent>,
     INotificationHandler<ArrestDetailsUpdatedDomainEvent>,
+    INotificationHandler<LifecycleStatusChangedDomainEvent<Arrest>>,
     INotificationHandler<LockAcquiredDomainEvent<Arrest>>,
     INotificationHandler<LockReleasedDomainEvent<Arrest>>
 {
@@ -61,6 +62,18 @@ public sealed class ArrestProjectionHandler :
         readModel.ApplyDetailsChanged(notification.NameId, notification.ArrestedAt, notification.ArrestTypeId, notification.ArrestNum, notification.PrimaryIncidentId);
         readModel.ApplyLocationChanged(notification.LocationId);
         readModel.ApplyModifiedAudit(notification.ModifiedBy, notification.OccurredOnUtc);
+        await _dbContext.SaveChangesAsync(cancellationToken);
+    }
+
+    public async Task Handle(LifecycleStatusChangedDomainEvent<Arrest> notification, CancellationToken cancellationToken)
+    {
+        var readModel = await _dbContext.ArrestReadModels
+            .FirstOrDefaultAsync(a => a.Id == notification.AggregateId, cancellationToken);
+
+        if (readModel is null)
+            return;
+
+        readModel.ApplyStatusChange(notification.NewStatus.ToString());
         await _dbContext.SaveChangesAsync(cancellationToken);
     }
 
