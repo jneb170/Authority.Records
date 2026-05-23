@@ -2070,6 +2070,9 @@ namespace Shared.Infrastructure.Persistence.Migrations.Sqlite
                     b.Property<DateTime?>("LockedAtUtc")
                         .HasColumnType("TEXT");
 
+                    b.Property<Guid?>("LockedByAgencyId")
+                        .HasColumnType("TEXT");
+
                     b.Property<Guid?>("LockedByUserId")
                         .HasColumnType("TEXT");
 

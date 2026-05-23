@@ -31,9 +31,10 @@ public sealed class AcquireLocationLockHandler : IRequestHandler<AcquireLocation
                 cancellationToken)
             ?? throw new InvalidOperationException("Location record not found.");
 
+        var lockingAgencyId = _tenantProvider.GetAgencyId();
         var lockTimeout = await LockTimeoutResolver.ResolveAsync(
-            _dbContext, _tenantProvider.GetAgencyId(), cancellationToken);
-        location.AcquireLock(_modificationContext, lockTimeout);
+            _dbContext, lockingAgencyId, cancellationToken);
+        location.AcquireLock(_modificationContext, lockTimeout, lockingAgencyId);
 
         await _dbContext.SaveChangesAsync(cancellationToken);
     }
