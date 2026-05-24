@@ -25,4 +25,27 @@ public static class LockTimeoutResolver
 
         return LockTimeout.FromConfigValue(value);
     }
+
+    /// <summary>
+    /// Resolves a lock timeout from an arbitrary config key with an explicit default (seconds).
+    /// Used for Narratives, which deliberately use a much longer timeout
+    /// (<see cref="ConfigurationKeys.NarrativeLockTimeoutSeconds"/>) than ordinary records.
+    /// </summary>
+    public static async Task<TimeSpan> ResolveAsync(
+        IApplicationDbContext db,
+        Guid agencyId,
+        string configKey,
+        int defaultSeconds,
+        CancellationToken cancellationToken)
+    {
+        var value = await db.AgencyConfigurations
+            .AsNoTracking()
+            .Where(c => c.AgencyId == agencyId && c.Key == configKey)
+            .Select(c => c.Value)
+            .FirstOrDefaultAsync(cancellationToken);
+
+        return int.TryParse(value, out var seconds) && seconds > 0
+            ? TimeSpan.FromSeconds(seconds)
+            : TimeSpan.FromSeconds(defaultSeconds);
+    }
 }

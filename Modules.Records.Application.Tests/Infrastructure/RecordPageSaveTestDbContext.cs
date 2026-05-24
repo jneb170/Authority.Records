@@ -27,6 +27,10 @@ internal sealed class RecordPageSaveTestDbContext(DbContextOptions<RecordPageSav
     public DbSet<Location> Locations { get; set; } = null!;
     public DbSet<Mugshot> Mugshots => throw new NotImplementedException();
     public DbSet<MugshotLink> MugshotLinks => throw new NotImplementedException();
+    public DbSet<Narrative> Narratives => throw new NotImplementedException();
+    public DbSet<NarrativeLink> NarrativeLinks => throw new NotImplementedException();
+    public DbSet<NarrativeReadModel> NarrativeReadModels => throw new NotImplementedException();
+    public DbSet<NarrativeLinkReadModel> NarrativeLinkReadModels => throw new NotImplementedException();
     public DbSet<IncidentArrestLink> IncidentArrestLinks { get; set; } = null!;
     public DbSet<IncidentCitationLink> IncidentCitationLinks { get; set; } = null!;
     public DbSet<ArrestChargeLink> ArrestChargeLinks { get; set; } = null!;

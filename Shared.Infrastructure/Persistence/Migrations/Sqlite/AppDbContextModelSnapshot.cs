@@ -16,7 +16,7 @@ namespace Shared.Infrastructure.Persistence.Migrations.Sqlite
         protected override void BuildModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
-            modelBuilder.HasAnnotation("ProductVersion", "9.0.13");
+            modelBuilder.HasAnnotation("ProductVersion", "10.0.8");
 
             modelBuilder.Entity("Modules.Records.Application.ReadModels.ArrestReadModel", b =>
                 {
@@ -739,6 +739,87 @@ namespace Shared.Infrastructure.Persistence.Migrations.Sqlite
                     b.ToTable("NameReadModels", (string)null);
                 });
 
+            modelBuilder.Entity("Modules.Records.Application.ReadModels.NarrativeLinkReadModel", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("TEXT");
+
+                    b.Property<int>("DisplayOrder")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<Guid>("JurisdictionId")
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime>("LinkedAtUtc")
+                        .HasColumnType("TEXT");
+
+                    b.Property<Guid>("NarrativeId")
+                        .HasColumnType("TEXT");
+
+                    b.Property<Guid>("OwnerId")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("OwnerType")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("TEXT");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("NarrativeId");
+
+                    b.HasIndex("JurisdictionId", "OwnerType", "OwnerId");
+
+                    b.ToTable("NarrativeLinkReadModels", (string)null);
+                });
+
+            modelBuilder.Entity("Modules.Records.Application.ReadModels.NarrativeReadModel", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Content")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime>("CreatedAtUtc")
+                        .HasColumnType("TEXT");
+
+                    b.Property<Guid>("CreatedBy")
+                        .HasColumnType("TEXT");
+
+                    b.Property<bool>("IsLocked")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<Guid>("JurisdictionId")
+                        .HasColumnType("TEXT");
+
+                    b.Property<Guid?>("LockedByUserId")
+                        .HasColumnType("TEXT");
+
+                    b.Property<Guid?>("ModifiedBy")
+                        .HasColumnType("TEXT");
+
+                    b.Property<long>("RecordNumber")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("Title")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime>("UpdatedAtUtc")
+                        .HasColumnType("TEXT");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("JurisdictionId");
+
+                    b.ToTable("NarrativeReadModels", (string)null);
+                });
+
             modelBuilder.Entity("Modules.Records.Domain.Common.Implementations.AgencySequenceCounter", b =>
                 {
                     b.Property<Guid>("Id")
@@ -925,7 +1006,10 @@ namespace Shared.Infrastructure.Persistence.Migrations.Sqlite
                         .HasColumnType("TEXT");
 
                     b.Property<long>("RecordNumber")
-                        .HasColumnType("INTEGER");
+                        .HasColumnType("INTEGER")
+                        .HasAnnotation("SqlServer:IdentityIncrement", 1)
+                        .HasAnnotation("SqlServer:IdentitySeed", 10000L)
+                        .HasAnnotation("SqlServer:ValueGenerationStrategy", SqlServerValueGenerationStrategy.IdentityColumn);
 
                     b.Property<byte[]>("RowVersion")
                         .IsConcurrencyToken()
@@ -1324,7 +1408,10 @@ namespace Shared.Infrastructure.Persistence.Migrations.Sqlite
                         .HasColumnType("TEXT");
 
                     b.Property<long>("RecordNumber")
-                        .HasColumnType("INTEGER");
+                        .HasColumnType("INTEGER")
+                        .HasAnnotation("SqlServer:IdentityIncrement", 1)
+                        .HasAnnotation("SqlServer:IdentitySeed", 10000L)
+                        .HasAnnotation("SqlServer:ValueGenerationStrategy", SqlServerValueGenerationStrategy.IdentityColumn);
 
                     b.Property<byte[]>("RowVersion")
                         .IsConcurrencyToken()
@@ -1823,7 +1910,10 @@ namespace Shared.Infrastructure.Persistence.Migrations.Sqlite
                         .HasColumnType("TEXT");
 
                     b.Property<long>("RecordNumber")
-                        .HasColumnType("INTEGER");
+                        .HasColumnType("INTEGER")
+                        .HasAnnotation("SqlServer:IdentityIncrement", 1)
+                        .HasAnnotation("SqlServer:IdentitySeed", 10000L)
+                        .HasAnnotation("SqlServer:ValueGenerationStrategy", SqlServerValueGenerationStrategy.IdentityColumn);
 
                     b.Property<byte[]>("RowVersion")
                         .IsConcurrencyToken()
@@ -2089,7 +2179,10 @@ namespace Shared.Infrastructure.Persistence.Migrations.Sqlite
                         .HasColumnType("TEXT");
 
                     b.Property<long>("RecordNumber")
-                        .HasColumnType("INTEGER");
+                        .HasColumnType("INTEGER")
+                        .HasAnnotation("SqlServer:IdentityIncrement", 1)
+                        .HasAnnotation("SqlServer:IdentitySeed", 20000L)
+                        .HasAnnotation("SqlServer:ValueGenerationStrategy", SqlServerValueGenerationStrategy.IdentityColumn);
 
                     b.Property<byte[]>("RowVersion")
                         .IsConcurrencyToken()
@@ -2391,7 +2484,10 @@ namespace Shared.Infrastructure.Persistence.Migrations.Sqlite
                         .HasColumnType("TEXT");
 
                     b.Property<long>("RecordNumber")
-                        .HasColumnType("INTEGER");
+                        .HasColumnType("INTEGER")
+                        .HasAnnotation("SqlServer:IdentityIncrement", 1)
+                        .HasAnnotation("SqlServer:IdentitySeed", 10000L)
+                        .HasAnnotation("SqlServer:ValueGenerationStrategy", SqlServerValueGenerationStrategy.IdentityColumn);
 
                     b.Property<byte[]>("RowVersion")
                         .IsConcurrencyToken()
@@ -2434,6 +2530,143 @@ namespace Shared.Infrastructure.Persistence.Migrations.Sqlite
                         .IsUnique();
 
                     b.ToTable("Names");
+                });
+
+            modelBuilder.Entity("Modules.Records.Domain.Entities.Narrative", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Content")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<Guid>("CreatedBy")
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime?>("DeletedAtUtc")
+                        .HasColumnType("TEXT");
+
+                    b.Property<Guid?>("DeletedBy")
+                        .HasColumnType("TEXT");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<Guid>("JurisdictionId")
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime?>("LockedAtUtc")
+                        .HasColumnType("TEXT");
+
+                    b.Property<Guid?>("LockedByAgencyId")
+                        .HasColumnType("TEXT");
+
+                    b.Property<Guid?>("LockedByUserId")
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime?>("ModifiedAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<Guid?>("ModifiedBy")
+                        .HasColumnType("TEXT");
+
+                    b.Property<long>("RecordNumber")
+                        .HasColumnType("INTEGER")
+                        .HasAnnotation("SqlServer:IdentityIncrement", 1)
+                        .HasAnnotation("SqlServer:IdentitySeed", 30000L)
+                        .HasAnnotation("SqlServer:ValueGenerationStrategy", SqlServerValueGenerationStrategy.IdentityColumn);
+
+                    b.Property<byte[]>("RowVersion")
+                        .IsConcurrencyToken()
+                        .IsRequired()
+                        .HasColumnType("BLOB");
+
+                    b.Property<int>("Status")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("Title")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("TEXT");
+
+                    b.Property<long>("Version")
+                        .HasColumnType("INTEGER");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("JurisdictionId");
+
+                    b.HasIndex("RecordNumber")
+                        .IsUnique();
+
+                    b.ToTable("Narratives");
+                });
+
+            modelBuilder.Entity("Modules.Records.Domain.Entities.NarrativeLink", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<Guid>("CreatedBy")
+                        .HasColumnType("TEXT");
+
+                    b.Property<int>("DisplayOrder")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<Guid>("JurisdictionId")
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime>("LinkedAtUtc")
+                        .HasColumnType("TEXT");
+
+                    b.Property<Guid>("LinkedByUserId")
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime?>("ModifiedAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<Guid?>("ModifiedBy")
+                        .HasColumnType("TEXT");
+
+                    b.Property<Guid>("NarrativeId")
+                        .HasColumnType("TEXT");
+
+                    b.Property<Guid>("OwnerId")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("OwnerType")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("TEXT");
+
+                    b.Property<byte[]>("RowVersion")
+                        .IsConcurrencyToken()
+                        .IsRequired()
+                        .HasColumnType("BLOB");
+
+                    b.Property<long>("Version")
+                        .HasColumnType("INTEGER");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("OwnerType", "OwnerId");
+
+                    b.HasIndex("NarrativeId", "OwnerType", "OwnerId")
+                        .IsUnique();
+
+                    b.ToTable("NarrativeLinks");
                 });
 
             modelBuilder.Entity("Modules.Records.Domain.Entities.PicklistItem", b =>

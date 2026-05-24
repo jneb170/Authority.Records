@@ -1,0 +1,216 @@
+@inject INarrativeService NarrativeService
+@using Modules.Records.Application.DTOs
+@using Modules.Records.UI.Services
+
+<div class="card mb-3">
+    <div class="card-body">
+        <div class="d-flex justify-content-between align-items-center mb-2">
+            <h6 class="card-title mb-0"><i class="bi bi-journal-text me-1"></i>Narratives</h6>
+            @if (CanModify && !_adding && _editingId is null)
+            {
+                <button type="button" class="btn btn-sm btn-outline-primary" @onclick="StartAdd">
+                    <i class="bi bi-plus-lg me-1"></i>Add Narrative
+                </button>
+            }
+        </div>
+
+        @if (_error is not null)
+        {
+            <div class="alert alert-danger py-2">@_error</div>
+        }
+
+        @if (_loading)
+        {
+            <div class="text-muted small">Loading…</div>
+        }
+        else
+        {
+            @if (_adding)
+            {
+                <div class="border rounded p-2 mb-3">
+                    <input class="form-control mb-2" placeholder="Title (e.g. Initial Report)" @bind="_draftTitle" maxlength="200" />
+                    <textarea class="form-control mb-2" rows="6" placeholder="Narrative…" @bind="_draftContent"></textarea>
+                    <div class="d-flex gap-2">
+                        <button type="button" class="btn btn-sm btn-primary" disabled="@_busy" @onclick="CreateAsync">Save</button>
+                        <button type="button" class="btn btn-sm btn-secondary" disabled="@_busy" @onclick="CancelAdd">Cancel</button>
+                    </div>
+                </div>
+            }
+
+            @if (_narratives.Count == 0 && !_adding)
+            {
+                <div class="text-muted small">No narratives yet.</div>
+            }
+
+            @foreach (var n in _narratives)
+            {
+                <div class="border-bottom py-2">
+                    @if (_editingId == n.Id)
+                    {
+                        <input class="form-control mb-2" @bind="_draftTitle" maxlength="200" />
+                        <textarea class="form-control mb-2" rows="8" @bind="_draftContent"></textarea>
+                        <div class="d-flex gap-2">
+                            <button type="button" class="btn btn-sm btn-primary" disabled="@_busy" @onclick="() => SaveEditAsync(n.Id)">Save</button>
+                            <button type="button" class="btn btn-sm btn-secondary" disabled="@_busy" @onclick="() => CancelEditAsync(n.Id)">Cancel</button>
+                        </div>
+                    }
+                    else
+                    {
+                        <div class="d-flex justify-content-between align-items-start">
+                            <div class="flex-grow-1">
+                                <div class="fw-semibold">@n.Title</div>
+                                <div class="small text-muted" style="white-space: pre-wrap;">@n.Content</div>
+                                <div class="small text-muted mt-1">#@n.RecordNumber · updated @n.UpdatedAtUtc.ToLocalTime().ToString("g")</div>
+                            </div>
+                            @if (CanModify && _editingId is null && !_adding)
+                            {
+                                <div class="d-flex gap-1 ms-2">
+                                    <button type="button" class="btn btn-sm btn-outline-secondary" @onclick="() => StartEditAsync(n)">Edit</button>
+                                    <button type="button" class="btn btn-sm btn-outline-danger" @onclick="() => DeleteAsync(n.Id)">Delete</button>
+                                </div>
+                            }
+                        </div>
+                    }
+                </div>
+            }
+        }
+    </div>
+</div>
+
+@code {
+    [Parameter] public string OwnerType { get; set; } = string.Empty;
+    [Parameter] public Guid OwnerId { get; set; }
+    [Parameter] public bool CanModify { get; set; }
+
+    private IReadOnlyList<NarrativeDto> _narratives = [];
+    private bool _loading = true;
+    private bool _busy;
+    private bool _adding;
+    private Guid? _editingId;
+    private string _draftTitle = string.Empty;
+    private string _draftContent = string.Empty;
+    private string? _error;
+
+    protected override async Task OnParametersSetAsync()
+    {
+        if (string.IsNullOrEmpty(OwnerType) || OwnerId == Guid.Empty)
+        {
+            _narratives = [];
+            _loading = false;
+            return;
+        }
+        await LoadAsync();
+    }
+
+    private async Task LoadAsync()
+    {
+        _loading = true;
+        _error = null;
+        try
+        {
+            _narratives = await NarrativeService.GetByOwnerAsync(OwnerType, OwnerId);
+        }
+        catch (Exception ex)
+        {
+            _error = ex.Message;
+        }
+        finally
+        {
+            _loading = false;
+        }
+    }
+
+    private void StartAdd()
+    {
+        _adding = true;
+        _draftTitle = string.Empty;
+        _draftContent = string.Empty;
+        _error = null;
+    }
+
+    private void CancelAdd() => _adding = false;
+
+    private async Task CreateAsync()
+    {
+        _busy = true;
+        _error = null;
+        try
+        {
+            await NarrativeService.CreateAsync(OwnerType, OwnerId, _draftTitle, _draftContent);
+            _adding = false;
+            await LoadAsync();
+        }
+        catch (Exception ex)
+        {
+            _error = ex.Message;
+        }
+        finally
+        {
+            _busy = false;
+        }
+    }
+
+    private async Task StartEditAsync(NarrativeDto n)
+    {
+        _error = null;
+        try
+        {
+            await NarrativeService.AcquireLockAsync(n.Id);
+            _editingId = n.Id;
+            _draftTitle = n.Title;
+            _draftContent = n.Content;
+        }
+        catch (Exception ex)
+        {
+            _error = ex.Message;
+        }
+    }
+
+    private async Task SaveEditAsync(Guid id)
+    {
+        _busy = true;
+        _error = null;
+        try
+        {
+            await NarrativeService.UpdateContentAsync(id, _draftTitle, _draftContent);
+            await NarrativeService.ReleaseLockAsync(id);
+            _editingId = null;
+            await LoadAsync();
+        }
+        catch (Exception ex)
+        {
+            _error = ex.Message;
+        }
+        finally
+        {
+            _busy = false;
+        }
+    }
+
+    private async Task CancelEditAsync(Guid id)
+    {
+        try { await NarrativeService.ReleaseLockAsync(id); }
+        catch { /* best-effort release */ }
+        _editingId = null;
+        await LoadAsync();
+    }
+
+    private async Task DeleteAsync(Guid id)
+    {
+        _busy = true;
+        _error = null;
+        try
+        {
+            await NarrativeService.SoftDeleteAsync(id);
+            await LoadAsync();
+        }
+        catch (Exception ex)
+        {
+            _error = ex.Message;
+        }
+        finally
+        {
+            _busy = false;
+        }
+    }
+}

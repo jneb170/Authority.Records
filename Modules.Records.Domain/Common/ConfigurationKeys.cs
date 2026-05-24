@@ -75,4 +75,18 @@ public static class ConfigurationKeys
     /// <see cref="LockTimeoutSeconds"/> is configured. 600 seconds = 10 minutes.
     /// </summary>
     public const int DefaultLockTimeoutSeconds = 600;
+
+    /// <summary>
+    /// How long (in whole seconds) a Narrative edit lock is held before expiry.
+    /// Narratives are long-form, so this is deliberately much longer than the
+    /// general <see cref="LockTimeoutSeconds"/> — a composer shouldn't be timed
+    /// out mid-write. Stored as a string integer; falls back to
+    /// <see cref="DefaultNarrativeLockTimeoutSeconds"/> when unset/unparsable.
+    /// </summary>
+    public const string NarrativeLockTimeoutSeconds = "NarrativeLockTimeoutSeconds";
+
+    /// <summary>
+    /// System default Narrative lock timeout. 14400 seconds = 4 hours.
+    /// </summary>
+    public const int DefaultNarrativeLockTimeoutSeconds = 14400;
 }

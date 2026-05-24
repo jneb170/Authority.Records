@@ -219,6 +219,10 @@ public sealed class CountMapMarkersHandlerTests
         public DbSet<Location>                      Locations                      => throw new NotImplementedException();
         public DbSet<Mugshot>                       Mugshots                       => throw new NotImplementedException();
         public DbSet<MugshotLink>                   MugshotLinks                   => throw new NotImplementedException();
+    public DbSet<Narrative> Narratives => throw new NotImplementedException();
+    public DbSet<NarrativeLink> NarrativeLinks => throw new NotImplementedException();
+    public DbSet<NarrativeReadModel> NarrativeReadModels => throw new NotImplementedException();
+    public DbSet<NarrativeLinkReadModel> NarrativeLinkReadModels => throw new NotImplementedException();
         public DbSet<IncidentArrestLink>            IncidentArrestLinks            => throw new NotImplementedException();
         public DbSet<IncidentCitationLink>          IncidentCitationLinks          => throw new NotImplementedException();
         public DbSet<ArrestChargeLink>              ArrestChargeLinks              => throw new NotImplementedException();
