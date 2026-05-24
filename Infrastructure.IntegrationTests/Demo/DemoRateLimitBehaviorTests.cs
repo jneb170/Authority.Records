@@ -10,6 +10,7 @@ using Modules.Records.Application.Common;
 using Modules.Records.Application.Common.Behaviors;
 using Modules.Records.Application.Common.Exceptions;
 using Modules.Records.Application.Incidents.Commands.CreateIncident;
+using Modules.Records.Application.Mugshots.Commands.UploadMugshot;
 using Modules.Records.Domain.Abstractions;
 using Modules.Records.Domain.DomainEvents;
 using Modules.Records.Domain.Factories;
@@ -127,24 +128,65 @@ public sealed class DemoRateLimitBehaviorTests : IDisposable
         Assert.True(nextCalled);
     }
 
+    [Fact]
+    public async Task MugshotUpload_IsExemptFromSizeCap_ForDemoUser()
+    {
+        // The mugshot command carries image bytes well over the text cap, but enforces its
+        // own 5 MB / image-type limit, so it opts out of the per-write size cap.
+        var options = new DemoRateLimitOptions { MaxCreatesPerWindow = 1000, MaxBytesPerWrite = 512 };
+        var upload = new UploadMugshotCommand("Name", Guid.NewGuid(), "f.jpg", "image/jpeg",
+            Content: new byte[4096]);
+
+        var nextCalled = false;
+        await HandleUpload(upload, isDemo: true, options, () => nextCalled = true);
+
+        Assert.True(nextCalled);
+    }
+
+    [Fact]
+    public async Task MugshotUpload_CountsAgainstTheCreateCap()
+    {
+        // Mugshot uploads create a record too, so they share the demo creation bucket.
+        var options = new DemoRateLimitOptions { MaxCreatesPerWindow = 3, WindowMinutes = 60 };
+        await SeedIncidentsAsync(_demoUserId, DateTime.UtcNow, count: 3); // bucket already full
+
+        var upload = new UploadMugshotCommand("Name", Guid.NewGuid(), "f.jpg", "image/jpeg",
+            Content: new byte[4096]);
+
+        var nextCalled = false;
+        await Assert.ThrowsAsync<DemoLimitExceededException>(() =>
+            HandleUpload(upload, isDemo: true, options, () => nextCalled = true));
+
+        Assert.False(nextCalled);
+    }
+
     private static CreateIncidentCommand SampleCommand(string description = "test") =>
         new(new IncidentDetails { IncidentNum = "INC-1", LocalNum = "L-1", Description = description });
 
-    private async Task<long> Handle(
+    private Task<long> Handle(
         CreateIncidentCommand command, bool isDemo, DemoRateLimitOptions options, Action onNext)
+        => RunBehavior<CreateIncidentCommand, long>(command, 42L, isDemo, options, onNext);
+
+    private Task<Guid> HandleUpload(
+        UploadMugshotCommand command, bool isDemo, DemoRateLimitOptions options, Action onNext)
+        => RunBehavior<UploadMugshotCommand, Guid>(command, Guid.NewGuid(), isDemo, options, onNext);
+
+    private async Task<TResponse> RunBehavior<TRequest, TResponse>(
+        TRequest request, TResponse nextResult, bool isDemo, DemoRateLimitOptions options, Action onNext)
+        where TRequest : notnull
     {
         using var scope = _provider.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
 
-        var behavior = new DemoRateLimitBehavior<CreateIncidentCommand, long>(
+        var behavior = new DemoRateLimitBehavior<TRequest, TResponse>(
             new StubCurrentUser(isDemo),
             new FixedTenantProvider(_jurisdictionId, _demoUserId),
             db,
             Options.Create(options));
 
         return await behavior.Handle(
-            command,
-            (_) => { onNext(); return Task.FromResult(42L); },
+            request,
+            (_) => { onNext(); return Task.FromResult(nextResult); },
             CancellationToken.None);
     }
 

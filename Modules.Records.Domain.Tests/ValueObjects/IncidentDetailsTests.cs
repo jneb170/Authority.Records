@@ -91,6 +91,34 @@ public sealed class IncidentDetailsTests
         Assert.Null(result);
     }
 
+    [Fact]
+    public void Validate_WithDescriptionExceedingMax_ThrowsDomainException()
+    {
+        var details = new IncidentDetails
+        {
+            IncidentNum = "INC-001",
+            LocalNum = "",
+            Description = new string('X', IncidentDetails.MaxDescriptionLength + 1)
+        };
+
+        var ex = Assert.Throws<DomainException>(() => details.Validate());
+        Assert.Equal("incident.description.length", ex.Code);
+    }
+
+    [Fact]
+    public void Validate_WithDescriptionAtMax_DoesNotThrow()
+    {
+        var details = new IncidentDetails
+        {
+            IncidentNum = "INC-001",
+            LocalNum = "",
+            Description = new string('X', IncidentDetails.MaxDescriptionLength)
+        };
+
+        var result = Record.Exception(() => details.Validate());
+        Assert.Null(result);
+    }
+
     #endregion
 
     #region Equality Tests
