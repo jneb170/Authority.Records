@@ -39,6 +39,14 @@ public sealed class Narrative : LockableAggregateRoot<Narrative>, IMultiTenant
     public Guid? DeletedBy { get; private set; }
     public DateTime? DeletedAtUtc { get; private set; }
 
+    /// <summary>
+    /// Transient lock-state field: the agency whose configured narrative-lock timeout governs an
+    /// outstanding lock. Narratives have no permanent AgencyId (shared, like Location), but the
+    /// timeout is configured per agency, so the cleanup sweep needs the locking agency. Set on
+    /// <see cref="AcquireLock(IModificationContext, TimeSpan, Guid)"/>, cleared on release. Null when unlocked.
+    /// </summary>
+    public Guid? LockedByAgencyId { get; private set; }
+
     // --- Policy wiring (mirrors Location) ---
     private static readonly NarrativeAuthorizationPolicy _authorizationPolicy = new();
     protected override IAuthorizationPolicy<Narrative> AuthorizationPolicy => _authorizationPolicy;
@@ -72,6 +80,22 @@ public sealed class Narrative : LockableAggregateRoot<Narrative>, IMultiTenant
         Content = content;
 
         AddDomainEvent(new NarrativeContentUpdatedDomainEvent(Id, Title));
+    }
+
+    /// <summary>
+    /// Acquires the edit lock and records the agency whose configured narrative timeout governs it.
+    /// Narratives carry no permanent AgencyId, so the locking agency must be supplied by the caller.
+    /// </summary>
+    public void AcquireLock(IModificationContext context, TimeSpan lockTimeout, Guid lockingAgencyId)
+    {
+        base.AcquireLock(context, lockTimeout);
+        LockedByAgencyId = lockingAgencyId;
+    }
+
+    public override void ReleaseLock(IModificationContext context)
+    {
+        base.ReleaseLock(context);
+        LockedByAgencyId = null;
     }
 
     public override void SoftDelete(Guid userId)

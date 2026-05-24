@@ -22,6 +22,8 @@ public interface IApplicationDbContext
     DbSet<Location> Locations { get; }
     DbSet<Mugshot> Mugshots { get; }
     DbSet<MugshotLink> MugshotLinks { get; }
+    DbSet<Narrative> Narratives { get; }
+    DbSet<NarrativeLink> NarrativeLinks { get; }
     DbSet<IncidentArrestLink> IncidentArrestLinks { get; }
     DbSet<IncidentCitationLink> IncidentCitationLinks { get; }
     DbSet<ArrestChargeLink> ArrestChargeLinks { get; }
@@ -35,6 +37,8 @@ public interface IApplicationDbContext
     DbSet<LocationReadModel> LocationReadModels { get; }
     DbSet<MugshotReadModel> MugshotReadModels { get; }
     DbSet<MugshotLinkReadModel> MugshotLinkReadModels { get; }
+    DbSet<NarrativeReadModel> NarrativeReadModels { get; }
+    DbSet<NarrativeLinkReadModel> NarrativeLinkReadModels { get; }
     DbSet<IncidentArrestLinkReadModel> IncidentArrestLinkReadModels { get; }
     DbSet<IncidentCitationLinkReadModel> IncidentCitationLinkReadModels { get; }
     DbSet<AuditLogReadModel> AuditLogReadModels { get; }

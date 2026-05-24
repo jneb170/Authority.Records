@@ -136,6 +136,22 @@ public sealed class NarrativeTests
     }
 
     [Fact]
+    public void AcquireLock_WithAgency_StampsLockingAgency_AndReleaseClearsIt()
+    {
+        var narrative = CreateTestNarrative();
+        var agencyId = Guid.NewGuid();
+        var context = CreateContext(TestUserId);
+
+        narrative.AcquireLock(context, TimeSpan.FromHours(4), agencyId);
+        Assert.True(narrative.IsLocked);
+        Assert.Equal(agencyId, narrative.LockedByAgencyId);
+
+        narrative.ReleaseLock(context);
+        Assert.False(narrative.IsLocked);
+        Assert.Null(narrative.LockedByAgencyId);
+    }
+
+    [Fact]
     public void SoftDelete_MarksDeleted_AndRaisesEvent()
     {
         var narrative = CreateTestNarrative();

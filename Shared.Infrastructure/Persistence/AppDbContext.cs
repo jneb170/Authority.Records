@@ -50,6 +50,8 @@ public class AppDbContext : DbContext, IApplicationDbContext
     public DbSet<LocationReadModel> LocationReadModels => Set<LocationReadModel>();
     public DbSet<MugshotReadModel> MugshotReadModels => Set<MugshotReadModel>();
     public DbSet<MugshotLinkReadModel> MugshotLinkReadModels => Set<MugshotLinkReadModel>();
+    public DbSet<NarrativeReadModel> NarrativeReadModels => Set<NarrativeReadModel>();
+    public DbSet<NarrativeLinkReadModel> NarrativeLinkReadModels => Set<NarrativeLinkReadModel>();
     public DbSet<IncidentArrestLinkReadModel> IncidentArrestLinkReadModels => Set<IncidentArrestLinkReadModel>();
     public DbSet<IncidentCitationLinkReadModel> IncidentCitationLinkReadModels => Set<IncidentCitationLinkReadModel>();
 
@@ -68,6 +70,8 @@ public class AppDbContext : DbContext, IApplicationDbContext
     public DbSet<Location> Locations => Set<Location>();
     public DbSet<Mugshot> Mugshots => Set<Mugshot>();
     public DbSet<MugshotLink> MugshotLinks => Set<MugshotLink>();
+    public DbSet<Narrative> Narratives => Set<Narrative>();
+    public DbSet<NarrativeLink> NarrativeLinks => Set<NarrativeLink>();
     public DbSet<IncidentArrestLink> IncidentArrestLinks => Set<IncidentArrestLink>();
     public DbSet<IncidentCitationLink> IncidentCitationLinks => Set<IncidentCitationLink>();
     public DbSet<ArrestChargeLink> ArrestChargeLinks => Set<ArrestChargeLink>();
@@ -235,6 +239,7 @@ public class AppDbContext : DbContext, IApplicationDbContext
         AssignSqliteRecordNumbers<Citation>(seed: 10000);
         AssignSqliteRecordNumbers<Name>(seed: 10000);
         AssignSqliteRecordNumbers<Location>(seed: 20000);
+        AssignSqliteRecordNumbers<Narrative>(seed: 30000);
     }
 
     private void AssignSqliteRecordNumbers<T>(long seed) where T : class
@@ -314,6 +319,7 @@ public class AppDbContext : DbContext, IApplicationDbContext
         modelBuilder.Entity<Citation>().Property(x => x.RecordNumber).ValueGeneratedNever();
         modelBuilder.Entity<Name>().Property(x => x.RecordNumber).ValueGeneratedNever();
         modelBuilder.Entity<Location>().Property(x => x.RecordNumber).ValueGeneratedNever();
+        modelBuilder.Entity<Narrative>().Property(x => x.RecordNumber).ValueGeneratedNever();
 
         // datetime2 is SQL Server-specific; SQLite stores DateTime as TEXT.
         modelBuilder.Entity<Incident>().Property(x => x.OccurredOn).HasColumnType("TEXT");
