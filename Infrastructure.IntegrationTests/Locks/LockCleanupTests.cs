@@ -263,6 +263,68 @@ public sealed class LockCleanupTests : IDisposable
         }
     }
 
+    [Fact]
+    public async Task ReleaseExpiredLocks_HonoursNarrativeTimeout()
+    {
+        // Narratives use their own long timeout (NarrativeLockTimeoutSeconds, default 4h).
+        var agencyConfigured = Guid.NewGuid();   // NarrativeLockTimeoutSeconds = 20
+        var agencyDefault = Guid.NewGuid();        // no setting -> 4h default
+        var userId = Guid.NewGuid();
+        var now = DateTime.UtcNow;
+        Guid configuredId, defaultId;
+
+        using (var scope = _provider.CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+
+            db.AgencyConfigurations.Add(new AgencyConfiguration(
+                _jurisdictionId, agencyConfigured, ConfigurationKeys.NarrativeLockTimeoutSeconds, "20"));
+
+            var configured = new Narrative(_jurisdictionId, "Configured", "body");
+            var @default = new Narrative(_jurisdictionId, "Default", "body");
+            db.Narratives.Add(configured);
+            db.Narratives.Add(@default);
+            await db.SaveChangesAsync();
+            configuredId = configured.Id;
+            defaultId = @default.Id;
+
+            // Both locked 60s ago — past the 20s configured narrative timeout, but far within the 4h default.
+            await BackdateNarrativeLockAsync(db, userId, now.AddSeconds(-60),
+                (configuredId, agencyConfigured), (defaultId, agencyDefault));
+        }
+
+        await _provider.GetRequiredService<LockCleanupService>()
+            .ReleaseExpiredLocksAsync(CancellationToken.None);
+
+        using (var scope = _provider.CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+
+            var configured = await db.Narratives.IgnoreQueryFilters().SingleAsync(n => n.Id == configuredId);
+            var @default = await db.Narratives.IgnoreQueryFilters().SingleAsync(n => n.Id == defaultId);
+
+            Assert.False(configured.IsLocked);
+            Assert.Null(configured.LockedByUserId);
+            Assert.Null(configured.LockedByAgencyId);
+
+            Assert.True(@default.IsLocked); // 60s << 4h default
+            Assert.Equal(userId, @default.LockedByUserId);
+            Assert.Equal(agencyDefault, @default.LockedByAgencyId);
+        }
+    }
+
+    private static async Task BackdateNarrativeLockAsync(
+        AppDbContext db, Guid userId, DateTime lockedAtUtc, params (Guid Id, Guid AgencyId)[] locks)
+    {
+        foreach (var (id, agencyId) in locks)
+            await db.Narratives.IgnoreQueryFilters()
+                .Where(n => n.Id == id)
+                .ExecuteUpdateAsync(s => s
+                    .SetProperty(n => n.LockedByUserId, userId)
+                    .SetProperty(n => n.LockedAtUtc, lockedAtUtc)
+                    .SetProperty(n => n.LockedByAgencyId, agencyId));
+    }
+
     private static async Task BackdateLocationLockAsync(
         AppDbContext db, Guid userId, DateTime lockedAtUtc, params (Guid Id, Guid AgencyId)[] locks)
     {

@@ -41,15 +41,25 @@ public sealed class LockCleanupService
 
         bool IsExpired(ExpiredLockRecord r) => r.LockedAtUtc.Add(TimeoutFor(r.AgencyId)) <= now;
 
+        // Narratives use their own, much longer per-agency timeout (NarrativeLockTimeoutSeconds,
+        // default 4h) so a long-form composer isn't swept out mid-write.
+        var narrativeTimeouts = await LoadNarrativeTimeoutsAsync(db, ct);
+        var narrativeDefault = TimeSpan.FromSeconds(ConfigurationKeys.DefaultNarrativeLockTimeoutSeconds);
+        TimeSpan NarrativeTimeoutFor(Guid agencyId) =>
+            narrativeTimeouts.TryGetValue(agencyId, out var t) ? t : narrativeDefault;
+        bool IsNarrativeExpired(ExpiredLockRecord r) =>
+            r.LockedAtUtc.Add(NarrativeTimeoutFor(r.AgencyId)) <= now;
+
         // Collect held locks (with audit data), then filter to the expired ones in memory.
         var expiredNames = (await CollectHeldNameLocksAsync(db, ct)).Where(IsExpired).ToList();
         var expiredIncidents = (await CollectHeldIncidentLocksAsync(db, ct)).Where(IsExpired).ToList();
         var expiredArrests = (await CollectHeldArrestLocksAsync(db, ct)).Where(IsExpired).ToList();
         var expiredCitations = (await CollectHeldCitationLocksAsync(db, ct)).Where(IsExpired).ToList();
         var expiredLocations = (await CollectHeldLocationLocksAsync(db, ct)).Where(IsExpired).ToList();
+        var expiredNarratives = (await CollectHeldNarrativeLocksAsync(db, ct)).Where(IsNarrativeExpired).ToList();
 
         var total = expiredNames.Count + expiredIncidents.Count + expiredArrests.Count
-            + expiredCitations.Count + expiredLocations.Count;
+            + expiredCitations.Count + expiredLocations.Count + expiredNarratives.Count;
         if (total == 0)
             return;
 
@@ -59,6 +69,7 @@ public sealed class LockCleanupService
         await ReleaseEntityLocksAsync(db, expiredArrests.Select(x => x.Id).ToList(), "Arrests", ct);
         await ReleaseEntityLocksAsync(db, expiredCitations.Select(x => x.Id).ToList(), "Citations", ct);
         await ReleaseEntityLocksAsync(db, expiredLocations.Select(x => x.Id).ToList(), "Locations", ct);
+        await ReleaseEntityLocksAsync(db, expiredNarratives.Select(x => x.Id).ToList(), "Narratives", ct);
         await ReleaseReadModelLocksAsync(
             db,
             expiredNames.Select(x => x.Id).ToList(),
@@ -68,19 +79,28 @@ public sealed class LockCleanupService
             expiredLocations.Select(x => x.Id).ToList(),
             ct);
 
+        var narrativeIds = expiredNarratives.Select(x => x.Id).ToList();
+        if (narrativeIds.Count > 0)
+            await db.NarrativeReadModels
+                .Where(r => narrativeIds.Contains(r.Id))
+                .ExecuteUpdateAsync(s => s
+                    .SetProperty(r => r.IsLocked, false)
+                    .SetProperty(r => r.LockedByUserId, (Guid?)null), ct);
+
         // Write one audit entry per released lock.
         var auditEntries = BuildAuditEntries(expiredNames, "Name", now)
             .Concat(BuildAuditEntries(expiredIncidents, "Incident", now))
             .Concat(BuildAuditEntries(expiredArrests, "Arrest", now))
             .Concat(BuildAuditEntries(expiredCitations, "Citation", now))
-            .Concat(BuildAuditEntries(expiredLocations, "Location", now));
+            .Concat(BuildAuditEntries(expiredLocations, "Location", now))
+            .Concat(BuildAuditEntries(expiredNarratives, "Narrative", now));
 
         db.AuditLogReadModels.AddRange(auditEntries);
         await db.SaveChangesAsync(ct);
 
         _logger.LogInformation(
-            "Released {Count} expired lock(s): {Names} name(s), {Incidents} incident(s), {Arrests} arrest(s), {Citations} citation(s), {Locations} location(s).",
-            total, expiredNames.Count, expiredIncidents.Count, expiredArrests.Count, expiredCitations.Count, expiredLocations.Count);
+            "Released {Count} expired lock(s): {Names} name(s), {Incidents} incident(s), {Arrests} arrest(s), {Citations} citation(s), {Locations} location(s), {Narratives} narrative(s).",
+            total, expiredNames.Count, expiredIncidents.Count, expiredArrests.Count, expiredCitations.Count, expiredLocations.Count, expiredNarratives.Count);
     }
 
     // -----------------------------------------------------------------------
@@ -101,6 +121,22 @@ public sealed class LockCleanupService
         var map = new Dictionary<Guid, TimeSpan>();
         foreach (var row in rows)
             map[row.AgencyId] = LockTimeout.FromConfigValue(row.Value);
+        return map;
+    }
+
+    private static async Task<Dictionary<Guid, TimeSpan>> LoadNarrativeTimeoutsAsync(
+        AppDbContext db, CancellationToken ct)
+    {
+        var rows = await db.AgencyConfigurations
+            .IgnoreQueryFilters()
+            .Where(c => c.Key == ConfigurationKeys.NarrativeLockTimeoutSeconds && !c.IsDeleted)
+            .Select(c => new { c.AgencyId, c.Value })
+            .ToListAsync(ct);
+
+        var map = new Dictionary<Guid, TimeSpan>();
+        foreach (var row in rows)
+            if (int.TryParse(row.Value, out var seconds) && seconds > 0)
+                map[row.AgencyId] = TimeSpan.FromSeconds(seconds);
         return map;
     }
 
@@ -158,6 +194,16 @@ public sealed class LockCleanupService
             .Select(l => new ExpiredLockRecord(l.Id, l.LockedByAgencyId ?? Guid.Empty, l.JurisdictionId, l.LockedByUserId!.Value, l.LockedAtUtc!.Value, l.Version))
             .ToListAsync(ct);
 
+    // Narratives carry no permanent AgencyId (like Location); the locking agency is captured on
+    // the lock (LockedByAgencyId) so its NarrativeLockTimeoutSeconds governs expiry.
+    private static async Task<List<ExpiredLockRecord>> CollectHeldNarrativeLocksAsync(
+        AppDbContext db, CancellationToken ct) =>
+        await db.Narratives
+            .IgnoreQueryFilters()
+            .Where(n => n.LockedAtUtc != null)
+            .Select(n => new ExpiredLockRecord(n.Id, n.LockedByAgencyId ?? Guid.Empty, n.JurisdictionId, n.LockedByUserId!.Value, n.LockedAtUtc!.Value, n.Version))
+            .ToListAsync(ct);
+
     // -----------------------------------------------------------------------
     // Release helpers
     // -----------------------------------------------------------------------
@@ -204,6 +250,14 @@ public sealed class LockCleanupService
                         .SetProperty(l => l.LockedByUserId, (Guid?)null)
                         .SetProperty(l => l.LockedAtUtc, (DateTime?)null)
                         .SetProperty(l => l.LockedByAgencyId, (Guid?)null), ct);
+                break;
+            case "Narratives":
+                await db.Narratives.IgnoreQueryFilters()
+                    .Where(n => ids.Contains(n.Id))
+                    .ExecuteUpdateAsync(s => s
+                        .SetProperty(n => n.LockedByUserId, (Guid?)null)
+                        .SetProperty(n => n.LockedAtUtc, (DateTime?)null)
+                        .SetProperty(n => n.LockedByAgencyId, (Guid?)null), ct);
                 break;
         }
     }
