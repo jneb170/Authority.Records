@@ -60,6 +60,11 @@ public sealed class DemoRateLimitBehavior<TRequest, TResponse>
         if (limit <= 0)
             return;
 
+        // Commands carrying legitimate large binary (e.g. image uploads) enforce
+        // their own size limit and are exempt from this text-calibrated cap.
+        if (request is IExemptFromDemoWriteSizeLimit)
+            return;
+
         int bytes;
         try
         {
@@ -95,7 +100,8 @@ public sealed class DemoRateLimitBehavior<TRequest, TResponse>
             + await CountSince(_db.Arrests, userId, cutoff, cancellationToken)
             + await CountSince(_db.Citations, userId, cutoff, cancellationToken)
             + await CountSince(_db.Names, userId, cutoff, cancellationToken)
-            + await CountSince(_db.Locations, userId, cutoff, cancellationToken);
+            + await CountSince(_db.Locations, userId, cutoff, cancellationToken)
+            + await CountSince(_db.Mugshots, userId, cutoff, cancellationToken);
 
         if (created >= limit)
             throw new DemoLimitExceededException(

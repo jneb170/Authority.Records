@@ -9,6 +9,14 @@ namespace Modules.Records.Domain.ValueObjects;
 /// </summary>
 public sealed record IncidentDetails
 {
+    /// <summary>
+    /// Hard upper bound on the free-text Description. The DB column is unbounded
+    /// (nvarchar(max)/TEXT), so this is the only thing stopping a single edit from
+    /// stuffing the narrative with megabytes. Generous enough for any real narrative;
+    /// the create form applies a tighter limit of its own.
+    /// </summary>
+    public const int MaxDescriptionLength = 50_000;
+
     public required string IncidentNum { get; init; }
     public required string LocalNum { get; init; }
     public          string Description { get; init; } = string.Empty;
@@ -24,6 +32,11 @@ public sealed record IncidentDetails
 
         if(CFSNum.Length > 30)
             throw new DomainException("incident.cfsnum.length", "CFSNum must not exceed 30 characters.");
+
+        if (Description.Length > MaxDescriptionLength)
+            throw new DomainException(
+                "incident.description.length",
+                $"Description must not exceed {MaxDescriptionLength:N0} characters.");
 
         return this;
     }
