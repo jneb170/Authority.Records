@@ -1,4 +1,5 @@
 using MediatR;
+using Modules.Records.Application.Common;
 
 namespace Modules.Records.Application.Locations.Commands.CreateLocation;
 
@@ -16,4 +17,4 @@ public sealed record CreateLocationCommand(
     string? Coordinates = null,
     string? CommonPlaceName = null,
     string? Comments = null,
-    string? Address = null) : IRequest<long>;
+    string? Address = null) : IRequest<long>, IRateLimitedCommand;

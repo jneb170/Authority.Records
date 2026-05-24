@@ -1,4 +1,5 @@
 using MediatR;
+using Modules.Records.Application.Common;
 
 namespace Modules.Records.Application.Arrests.Commands.CreateArrest;
 
@@ -8,4 +9,4 @@ public sealed record CreateArrestCommand(
     IReadOnlyList<long> IncidentRecordNumbers,
     string ArrestNum = "",
     Guid? PrimaryIncidentId = null,
-    Guid? LocationId = null) : IRequest<long>;
+    Guid? LocationId = null) : IRequest<long>, IRateLimitedCommand;
