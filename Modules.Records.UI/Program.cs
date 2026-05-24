@@ -23,6 +23,11 @@ builder.Services.AddRazorPages();
 builder.Services.AddApplication();
 builder.Services.AddInfrastructure(builder.Configuration);
 
+// Demo-account abuse limits (creation rate + per-save size). Defaults live in
+// DemoRateLimitOptions; override in Azure via Demo__RateLimit__* App settings.
+builder.Services.AddOptions<Modules.Records.Application.Common.DemoRateLimitOptions>()
+    .BindConfiguration(Modules.Records.Application.Common.DemoRateLimitOptions.SectionName);
+
 // Override ITenantProvider with Blazor-aware implementation.
 // IHttpContextAccessor.HttpContext is null during Blazor Server SignalR interactions;
 // BlazorTenantProvider falls back to AuthenticationStateProvider for claims.

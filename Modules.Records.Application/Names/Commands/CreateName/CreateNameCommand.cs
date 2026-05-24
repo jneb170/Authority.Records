@@ -1,4 +1,5 @@
 using MediatR;
+using Modules.Records.Application.Common;
 
 namespace Modules.Records.Application.Names.Commands.CreateName;
 
@@ -28,4 +29,4 @@ public sealed record CreateNameCommand(
     string? WorkPhone = null,
     string? WorkPhoneExtension = null,
     string? OtherPhone = null,
-    string? OtherPhoneExtension = null) : IRequest<long>;
+    string? OtherPhoneExtension = null) : IRequest<long>, IRateLimitedCommand;

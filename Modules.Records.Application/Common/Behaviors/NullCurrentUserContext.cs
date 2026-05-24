@@ -10,4 +10,8 @@ namespace Modules.Records.Application.Common.Behaviors;
 internal sealed class NullCurrentUserContext : ICurrentUserContext
 {
     public bool IsInRole(string roleName) => false;
+
+    // Background services / seeding run as no one, never as the demo account,
+    // so demo abuse limits must not fire here.
+    public bool IsDemoUser => false;
 }
