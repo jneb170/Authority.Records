@@ -849,6 +849,8 @@ else if (_citation is not null)
             </button>
         </div>
     }
+    <NarrativesSection OwnerType="@NarrativeOwnerTypes.Citation" OwnerId="_citation.Id" CanModify="_modifyMode" />
+
     <AuditInfoSection CreatedAt="@_citation.CreatedAtUtc"
                       CreatedByName="@_createdByName"
                       ModifiedAt="@(_citation.ModifiedBy.HasValue ? _citation.UpdatedAtUtc : null)"

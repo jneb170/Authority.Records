@@ -695,6 +695,8 @@ else if (_arrest is not null)
 
     <MugshotGallery ArrestId="_arrest.Id" CanModify="_modifyMode" />
 
+    <NarrativesSection OwnerType="@NarrativeOwnerTypes.Arrest" OwnerId="_arrest.Id" CanModify="_modifyMode" />
+
     @if (_modifyMode)
     {
         <div class="record-save-row mb-4">

@@ -45,6 +45,7 @@ builder.Services.AddScoped<INameService, NameService>();
 builder.Services.AddScoped<ILocationService, LocationService>();
 builder.Services.AddScoped<IHomeService, HomeService>();
 builder.Services.AddScoped<IMugshotService, MugshotService>();
+builder.Services.AddScoped<INarrativeService, NarrativeService>();
 builder.Services.AddScoped<IKeyboardShortcutService, KeyboardShortcutService>();
 builder.Services.AddScoped<IHotkeyConfigService, HotkeyConfigService>();
 builder.Services.AddScoped<IGoogleMapsConfigService, GoogleMapsConfigService>();
