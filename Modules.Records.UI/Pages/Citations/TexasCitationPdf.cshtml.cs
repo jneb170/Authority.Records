@@ -19,14 +19,16 @@ public class TexasCitationPdfModel : PageModel
 
     public TexasCitationPdfModel(ICitationTexasPrintModelBuilder builder) => _builder = builder;
 
-    public async Task<IActionResult> OnGetAsync(long recordNumber, bool download = false, CancellationToken cancellationToken = default)
+    public async Task<IActionResult> OnGetAsync(long recordNumber, bool download = false, string? size = null, CancellationToken cancellationToken = default)
     {
         var model = await _builder.BuildAsync(recordNumber, cancellationToken);
         if (model is null)
             return NotFound();
 
-        var pdf = new CitationTexasPdfDocument(model).GeneratePdf();
-        var fileName = $"{Sanitize(model.DocumentTitle)}.pdf";
+        var printSize = ParseSize(size);
+        var pdf = new CitationTexasPdfDocument(model, printSize).GeneratePdf();
+        var suffix = printSize == CitationPrintSize.FourInch ? "-4in" : string.Empty;
+        var fileName = $"{Sanitize(model.DocumentTitle)}{suffix}.pdf";
 
         // Inline by default so the browser PDF viewer (with its native print/save controls) renders
         // it; attachment only when explicitly downloading.
@@ -39,6 +41,13 @@ public class TexasCitationPdfModel : PageModel
 
         return File(pdf, "application/pdf");
     }
+
+    // Anything that isn't an explicit 4-inch request falls back to the Letter (left-anchored) default.
+    private static CitationPrintSize ParseSize(string? size) => size?.Trim().ToLowerInvariant() switch
+    {
+        "4" or "4in" or "four" or "fourinch" or "thermal" => CitationPrintSize.FourInch,
+        _ => CitationPrintSize.Letter,
+    };
 
     private static string Sanitize(string value)
     {

@@ -75,10 +75,14 @@
 @code {
     [Parameter] public long RecordNumber { get; set; }
 
+    [SupplyParameterFromQuery] public string? Size { get; set; }
+
     private IJSObjectReference? _printModule;
 
-    private string ViewUrl => $"/citations/{RecordNumber}/texas-pdf";
-    private string DownloadUrl => $"/citations/{RecordNumber}/texas-pdf?download=1";
+    private string SizeQuery => string.IsNullOrWhiteSpace(Size) ? string.Empty : $"&size={Uri.EscapeDataString(Size)}";
+
+    private string ViewUrl => $"/citations/{RecordNumber}/texas-pdf?inline=1{SizeQuery}";
+    private string DownloadUrl => $"/citations/{RecordNumber}/texas-pdf?download=1{SizeQuery}";
 
     private async Task PrintAsync()
     {
