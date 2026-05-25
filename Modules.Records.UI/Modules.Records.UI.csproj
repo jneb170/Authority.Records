@@ -12,6 +12,14 @@
     <PackageReference Include="QuestPDF" Version="2026.5.0" />
   </ItemGroup>
 
+  <!-- Arimo (Apache/OFL, metric-identical to Arial) is embedded and registered at runtime so the
+       Texas citation PDF matches the State form's Arial face AND renders on Linux App Service, which
+       has no system Arial. See CitationTexasPdfDocument's static constructor. -->
+  <ItemGroup>
+    <EmbeddedResource Include="Fonts\Arimo\Arimo-Regular.ttf" />
+    <EmbeddedResource Include="Fonts\Arimo\Arimo-Bold.ttf" />
+  </ItemGroup>
+
   <ItemGroup>
     <ProjectReference Include="..\Modules.Records.Application\Modules.Records.Application.csproj" />
     <ProjectReference Include="..\Shared.Infrastructure\Shared.Infrastructure.csproj" />

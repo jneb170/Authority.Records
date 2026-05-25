@@ -11,18 +11,51 @@ namespace Modules.Records.UI.Printing;
 /// browser-rendered HTML print page, so the output no longer depends on the officer's browser margin
 /// or scale settings. The document is pure layout — all data resolution and formatting happens in
 /// <see cref="CitationTexasPrintModelBuilder"/>.
+///
+/// The layout is a faithful (human-eye, not pixel-exact) reproduction of the State master form: the
+/// defendant block packs onto the same lines with the same stacked sub-labels, and the offense box is
+/// flanked by the same rotated vertical margin fields (ACCIDENT CASE / Leading Causes of Accidents and
+/// Conditions that Increased Seriousness of Violation on the left; Arrest-Delivered to, Accepted
+/// Bond-Amt. or Type, Receipt No., NAME, Occupation, Social Security Number on the right).
 /// </summary>
 public sealed class CitationTexasPdfDocument : IDocument
 {
+    // The State form face is Arial/Helvetica. We cannot use the system "Arial" because Linux App Service
+    // has no Arial and silently falls back to a wider font whose metrics overflow this dense layout and
+    // throw (see project_citation_pdf_linux_font). So we bundle Arimo — metric-identical to Arial,
+    // freely licensed (OFL) — embedded in this assembly and registered in the static constructor below,
+    // so it matches the State face AND renders identically on Windows and Linux.
+    private const string FontFamily = "Arimo";
+
+    static CitationTexasPdfDocument()
+    {
+        // Register the embedded Arimo faces with QuestPDF before any render. Runs in both the web host
+        // and the test host (the type is touched before GeneratePdf), so neither relies on a system font.
+        var assembly = typeof(CitationTexasPdfDocument).Assembly;
+        foreach (var resource in assembly.GetManifestResourceNames())
+        {
+            if (!resource.EndsWith(".ttf", StringComparison.OrdinalIgnoreCase) ||
+                !resource.Contains("Arimo", StringComparison.OrdinalIgnoreCase))
+                continue;
+
+            using var stream = assembly.GetManifestResourceStream(resource);
+            if (stream is not null)
+                QuestPDF.Drawing.FontManager.RegisterFont(stream);
+        }
+    }
+
     private const float LabelSize = 5.4f;
     private const float FillSize = 6.6f;
     private const float BodySize = 5.9f;
     private const float CheckSize = 5.6f;
+    private const float SubLabelSize = 4.4f;
+    private const float VLabelSize = 5f;
     private const float LineThickness = 0.7f;
 
     // The form content is always rendered into a fixed-width block so the two page sizes are spaced
-    // identically. 4.00in page − 2 × 0.18in margin = 3.64in usable; the Letter variant pins the same
-    // 3.64in block on the left and leaves the rest of the page blank for the future back-of-ticket print.
+    // identically. 4.00in page − 2 × 0.18in margin = 3.64in usable; this is essentially the State form's
+    // true width, so it reproduces 1:1 on a 4in thermal roll. The Letter variant pins the same 3.64in
+    // block on the left and leaves the rest of the page blank for the future back-of-ticket print.
     private const float FormWidthInches = 3.64f;
     private const float MarginInches = 0.18f;
 
@@ -41,12 +74,8 @@ public sealed class CitationTexasPdfDocument : IDocument
     {
         container.Page(page =>
         {
-            // Use Lato (bundled and registered by QuestPDF on every platform) — NOT a system font
-            // like Arial. Linux App Service has no Arial, so it silently fell back to a wider font
-            // whose metrics overflowed this dense layout and threw a layout exception for every
-            // citation. Lato renders identically on Windows and Linux, so local output matches prod.
             page.Margin(MarginInches, Unit.Inch);
-            page.DefaultTextStyle(t => t.FontSize(FillSize).FontColor(Colors.Black).FontFamily("Lato"));
+            page.DefaultTextStyle(t => t.FontSize(FillSize).FontColor(Colors.Black).FontFamily(FontFamily));
 
             if (_size == CitationPrintSize.FourInch)
             {
@@ -86,7 +115,10 @@ public sealed class CitationTexasPdfDocument : IDocument
             ComposeDefendant(root);
             ComposeVehicle(root);
             ComposeOffenseLocation(root);
-            ComposeMidLayout(root);
+            ComposeOffenseBox(root);
+            ComposeParking(root);
+            ComposeConditionsBox(root);
+            ComposeAreaAndHighway(root);
             ComposeFooter(root);
         });
     }
@@ -115,9 +147,9 @@ public sealed class CitationTexasPdfDocument : IDocument
             row.RelativeItem(0.9f).Element(c => Field(c, "PAGE NO.", _model.PageNo));
         });
 
-        col.Item().AlignCenter().Text(text =>
+        col.Item().Row(row =>
         {
-            text.Span("IN THE NAME AND BY THE AUTHORITY OF THE STATE OF TEXAS").FontSize(BodySize);
+            row.RelativeItem().AlignLeft().Text("IN THE NAME AND BY THE AUTHORITY OF THE STATE OF TEXAS").FontSize(BodySize);
         });
 
         col.Item().AlignRight().Text("COMPLAINT - AFFIDAVIT").FontSize(8.8f).Bold();
@@ -153,73 +185,91 @@ public sealed class CitationTexasPdfDocument : IDocument
 
     private void ComposeDefendant(ColumnDescriptor col)
     {
-        col.Item().Row(row =>
+        // NAME: a single underline carrying LAST / FIRST / INITIAL, with the State form's sub-labels
+        // printed BENEATH the line at the matching positions (not as inline field labels).
+        col.Item().Column(name =>
         {
-            row.Spacing(6);
-            row.RelativeItem(1.25f).Element(c => Field(c, "NAME (LAST)", _model.LastName));
-            row.RelativeItem(1.2f).Element(c => Field(c, "(FIRST)", _model.FirstName));
-            row.RelativeItem(0.45f).Element(c => Field(c, "(INIT)", _model.Initial));
+            name.Item().Row(row =>
+            {
+                row.AutoItem().PaddingRight(2).AlignBottom().Text("NAME").FontSize(LabelSize);
+                row.RelativeItem().BorderBottom(LineThickness).MinHeight(9).PaddingHorizontal(1).PaddingBottom(1)
+                    .AlignBottom().Row(fill =>
+                    {
+                        fill.RelativeItem(3).Element(c => Fill(c, _model.LastName));
+                        fill.RelativeItem(3).Element(c => Fill(c, _model.FirstName));
+                        fill.RelativeItem(1).Element(c => Fill(c, _model.Initial));
+                    });
+            });
+
+            // Sub-labels beneath the line. The left third carries both LAST and (PLEASE PRINT).
+            name.Item().PaddingLeft(20).Row(sub =>
+            {
+                sub.RelativeItem(3).Row(left =>
+                {
+                    left.RelativeItem().AlignLeft().Text("LAST").FontSize(SubLabelSize);
+                    left.RelativeItem().AlignCenter().Text("(PLEASE PRINT)").FontSize(SubLabelSize);
+                });
+                sub.RelativeItem(3).AlignLeft().Text("FIRST").FontSize(SubLabelSize);
+                sub.RelativeItem(1).AlignLeft().Text("INITIAL").FontSize(SubLabelSize);
+            });
         });
 
         col.Item().Element(c => Field(c, "STREET", _model.AddressStreet));
-
-        // Identity split across rows — seven fields on one line cannot fit the ~262pt width. City/State
-        // gets its own line (it is the longest), so AGE/BIRTH DATE/RACE keep enough width to print a
-        // full date without truncating.
         col.Item().Element(c => Field(c, "CITY - STATE", _model.CityState));
 
+        // AGE / BIRTH DATE / RACE / SEX / HT. / WT. on ONE line, matching the master. BIRTH DATE uses a
+        // two-line stacked label (BIRTH over DATE) sitting left of its fill.
         col.Item().Row(row =>
         {
-            row.Spacing(5);
-            row.RelativeItem(0.7f).Element(c => Field(c, "AGE", _model.Age));
-            row.RelativeItem(1.4f).Element(c => Field(c, "BIRTH DATE", _model.BirthDate));
-            row.RelativeItem(1f).Element(c => Field(c, "RACE", _model.Race));
+            row.Spacing(4);
+            row.RelativeItem(1.0f).Element(c => Field(c, "AGE", _model.Age));
+            row.RelativeItem(1.7f).Element(c => StackedLabelField(c, "BIRTH", "DATE", _model.BirthDate));
+            row.RelativeItem(1.2f).Element(c => Field(c, "RACE", _model.Race));
+            row.RelativeItem(1.2f).Element(c => Field(c, "SEX", _model.Sex));
+            row.RelativeItem(0.9f).Element(c => Field(c, "HT.", _model.Height));
+            row.RelativeItem(0.9f).Element(c => Field(c, "WT.", _model.Weight));
         });
 
+        // DRIV. / LIC. No. stacked label; STATE and KIND are sub-labels under the same continuing line,
+        // and DID UNLAWFULLY OPERATE (PARK) trails at the right of that line.
         col.Item().Row(row =>
         {
-            row.Spacing(5);
-            row.RelativeItem(1f).Element(c => Field(c, "SEX", _model.Sex));
-            row.RelativeItem(0.8f).Element(c => Field(c, "HT", _model.Height));
-            row.RelativeItem(0.8f).Element(c => Field(c, "WT", _model.Weight));
+            row.Spacing(3);
+            row.AutoItem().AlignBottom().Column(lbl =>
+            {
+                lbl.Item().Text("DRIV.").FontSize(LabelSize);
+                lbl.Item().Text("LIC. No.").FontSize(LabelSize);
+            });
+            row.RelativeItem(1.6f).Element(c => SubLabelledFill(c, _model.DriversLicenseNumber, "STATE", _model.DriversLicenseState, "KIND", string.Empty));
+            row.AutoItem().AlignBottom().PaddingLeft(2).Text("DID UNLAWFULLY OPERATE (PARK)").FontSize(LabelSize);
         });
 
+        // COMMERCIAL VEHICLE and HAZARDOUS MATERIAL: label first, then the checkbox (master order).
         col.Item().Row(row =>
         {
-            row.Spacing(5);
-            row.RelativeItem(2f).Element(c => Field(c, "DRIV. LIC. NO.", _model.DriversLicenseNumber));
-            row.RelativeItem(0.8f).Element(c => Field(c, "STATE", _model.DriversLicenseState));
-            row.RelativeItem(0.8f).Element(c => Field(c, "KIND", string.Empty));
+            row.Spacing(10);
+            row.AutoItem().Element(c => CheckAfter(c, _model.VehicleIsCommercial, "COMMERCIAL VEHICLE"));
+            row.AutoItem().Element(c => CheckAfter(c, _model.VehicleCarriesHazmat, "HAZARDOUS MATERIAL"));
         });
-
-        col.Item().AlignRight().Text("DID UNLAWFULLY OPERATE (PARK)").FontSize(5.4f);
     }
 
     private void ComposeVehicle(ColumnDescriptor col)
     {
         col.Item().Row(row =>
         {
-            row.Spacing(10);
-            row.RelativeItem().Element(c => Check(c, _model.VehicleIsCommercial, "COMMERCIAL VEHICLE"));
-            row.RelativeItem().Element(c => Check(c, _model.VehicleCarriesHazmat, "HAZARDOUS MATERIAL"));
-        });
-
-        // Vehicle details split across two rows for the narrow width.
-        col.Item().Row(row =>
-        {
-            row.Spacing(5);
-            row.RelativeItem(1.6f).Element(c => Field(c, "VEH. LIC. NO.", _model.PlateNumber));
-            row.RelativeItem(0.7f).Element(c => Field(c, "YR.", _model.PlateYear));
-            row.RelativeItem(0.9f).Element(c => Field(c, "STATE", _model.PlateState));
+            row.Spacing(4);
+            row.RelativeItem(2.0f).Element(c => Field(c, "VEH. LIC. No.", _model.PlateNumber));
+            row.RelativeItem(0.8f).Element(c => Field(c, "YR.", _model.PlateYear));
+            row.RelativeItem(1.0f).Element(c => Field(c, "STATE", _model.PlateState));
         });
 
         col.Item().Row(row =>
         {
-            row.Spacing(5);
-            row.RelativeItem(0.7f).Element(c => Field(c, "YR.", _model.ModelYear));
-            row.RelativeItem(1.2f).Element(c => Field(c, "MAKE", _model.Make));
-            row.RelativeItem(1f).Element(c => Field(c, "STYLE", _model.Style));
-            row.RelativeItem(0.9f).Element(c => Field(c, "COLOR", _model.Color));
+            row.Spacing(4);
+            row.RelativeItem(0.8f).Element(c => Field(c, "YR.", _model.ModelYear));
+            row.RelativeItem(1.3f).Element(c => Field(c, "MAKE", _model.Make));
+            row.RelativeItem(1.1f).Element(c => Field(c, "STYLE", _model.Style));
+            row.RelativeItem(1.0f).Element(c => Field(c, "COLOR", _model.Color));
         });
     }
 
@@ -234,15 +284,62 @@ public sealed class CitationTexasPdfDocument : IDocument
         });
     }
 
-    // ---- Offense panel + side strip ---------------------------------------------------------
+    // ---- Offense box (flanked by vertical margin fields) ------------------------------------
 
-    private void ComposeMidLayout(ColumnDescriptor col)
+    private void ComposeOffenseBox(ColumnDescriptor col)
     {
-        // At ~3.64in usable width the former side-by-side layout (a ~1.33in side strip beside the
-        // dense checkbox grid) starves the offense panel, so the side strip is stacked BELOW the
-        // panel as a full-width section. This keeps the printed form's top-to-bottom order.
-        col.Item().Border(0.7f).Padding(3).Column(ComposeOffensePanel);
-        col.Item().Element(ComposeSideStrip);
+        // The main offense box is flanked the way the master form is: ACCIDENT CASE / Leading Causes of
+        // Accidents reads up the left edge; the right edge carries the Arrest-Delivered to / Accepted
+        // Bond / Receipt No. / NAME / Occupation / Social Security Number vertical fields.
+        col.Item().Row(row =>
+        {
+            row.ConstantItem(20).Element(c => LeftAccidentStrip(c));
+            row.RelativeItem().Border(0.7f).Padding(3).Column(ComposeOffensePanel);
+            row.ConstantItem(58).Element(c => RightMarginStrip(c));
+        });
+    }
+
+    private void LeftAccidentStrip(IContainer container)
+    {
+        container.Row(strip =>
+        {
+            strip.ConstantItem(10).BorderLeft(LineThickness).AlignBottom().PaddingBottom(1)
+                .RotateLeft().Row(r =>
+                {
+                    r.AutoItem().Text("ACCIDENT CASE").FontSize(VLabelSize).Bold();
+                    r.AutoItem().PaddingLeft(2).Element(c => Box(c, false));
+                });
+            strip.ConstantItem(9).AlignBottom().RotateLeft().Text("Leading Causes of Accidents").FontSize(VLabelSize - 0.5f);
+        });
+    }
+
+    private void RightMarginStrip(IContainer container)
+    {
+        // Reads (left→right in the right margin): the upper Arrest/Bond/Receipt inner column, then the
+        // tall NAME / Occupation / Social Security Number lines down the far edge.
+        container.Row(strip =>
+        {
+            VField(strip.ConstantItem(9), "Arrest-Delivered to", string.Empty, withBox: true);
+            VField(strip.ConstantItem(9), "Accepted Bond-Amt. or Type", _model.AcceptedBondNotes);
+            VField(strip.ConstantItem(9), "Receipt No.", _model.ReceiptNumber);
+            VField(strip.ConstantItem(10), "NAME", _model.FullName);
+            VField(strip.ConstantItem(10), "Occupation", string.Empty);
+            VField(strip.ConstantItem(11), "Social Security Number", _model.SocialSecurityNumber);
+        });
+    }
+
+    /// <summary>A rotated (bottom-to-top) margin field: a vertical line with its label at the base, and
+    /// the value written up the line above the label.</summary>
+    private static void VField(IContainer container, string label, string value, bool withBox = false)
+    {
+        container.BorderLeft(LineThickness).PaddingHorizontal(1).AlignBottom().RotateLeft().Row(r =>
+        {
+            if (withBox)
+                r.AutoItem().PaddingRight(2).AlignMiddle().Element(c => Box(c, false));
+            r.AutoItem().Text(label).FontSize(VLabelSize);
+            if (!string.IsNullOrEmpty(value))
+                r.AutoItem().PaddingLeft(3).Text(value).FontSize(VLabelSize);
+        });
     }
 
     private void ComposeOffensePanel(ColumnDescriptor panel)
@@ -255,7 +352,6 @@ public sealed class CitationTexasPdfDocument : IDocument
             row.RelativeItem().PaddingLeft(4).AlignBottom().Text("(over limit)").FontSize(5.2f);
         });
 
-        // Speeding split into two rows — the three over-limit boxes plus both fields will not fit one row.
         panel.Item().Row(row =>
         {
             row.Spacing(4);
@@ -328,9 +424,11 @@ public sealed class CitationTexasPdfDocument : IDocument
                 row.RelativeItem().Element(x => Field(x, "Sec.", _model.ViolationSection));
             });
         });
+    }
 
-        // Parking
-        panel.Item().Row(row =>
+    private void ComposeParking(ColumnDescriptor col)
+    {
+        col.Item().Row(row =>
         {
             row.Spacing(8);
             row.AutoItem().AlignBottom().Text("PARKING").FontSize(5.8f).Bold();
@@ -339,47 +437,59 @@ public sealed class CitationTexasPdfDocument : IDocument
             row.RelativeItem().Element(c => Check(c, _model.IsParking, "Double Parking"));
             row.RelativeItem().Element(c => Check(c, _model.IsParking, "Expired Meter"));
         });
+    }
 
-        // Bottom three mini-panels
-        panel.Item().BorderTop(0.6f).PaddingTop(3).Row(row =>
+    private void ComposeConditionsBox(ColumnDescriptor col)
+    {
+        // The lower box is flanked on the left by the rotated "Conditions that Increased Seriousness of
+        // Violation" label.
+        col.Item().Row(row =>
         {
-            row.Spacing(4);
+            row.ConstantItem(11).BorderLeft(LineThickness).AlignBottom().PaddingBottom(1)
+                .RotateLeft().Text("Conditions that Increased Seriousness of Violation").FontSize(VLabelSize - 0.5f);
 
-            row.RelativeItem().Border(0.6f).Padding(2).Column(c =>
+            row.RelativeItem().BorderTop(0.6f).PaddingTop(3).Row(inner =>
             {
-                c.Item().Text("CONTRIBUTORS TO LAST VIOLATION").FontSize(5.6f).Bold();
-                Check(c.Item(), _model.Flag(ViolationFlagKey.Rain), "Rain");
-                Check(c.Item(), _model.Flag(ViolationFlagKey.Snow), "Snow");
-                Check(c.Item(), _model.Flag(ViolationFlagKey.Ice), "Ice");
-                Check(c.Item(), _model.Flag(ViolationFlagKey.Night), "Night");
-                Check(c.Item(), _model.Flag(ViolationFlagKey.Fog), "Fog");
-            });
+                inner.Spacing(4);
 
-            row.RelativeItem().Border(0.6f).Padding(2).Column(c =>
-            {
-                c.Item().Text("CAUSED PERSON TO DODGE").FontSize(5.6f).Bold();
-                Check(c.Item(), _model.Flag(ViolationFlagKey.DodgePedestrian), "Pedestrian");
-                Check(c.Item(), _model.Flag(ViolationFlagKey.DodgeDriver), "Driver");
-                Check(c.Item(), _model.Flag(ViolationFlagKey.JustMissedAccident), "Just missed accident");
-            });
+                inner.RelativeItem().Border(0.6f).Padding(2).Column(c =>
+                {
+                    c.Item().Text("CONTRIBUTORS TO LAST VIOLATION").FontSize(5.6f).Bold();
+                    Check(c.Item(), _model.Flag(ViolationFlagKey.Rain), "Rain");
+                    Check(c.Item(), _model.Flag(ViolationFlagKey.Snow), "Snow");
+                    Check(c.Item(), _model.Flag(ViolationFlagKey.Ice), "Ice");
+                    Check(c.Item(), _model.Flag(ViolationFlagKey.Night), "Night");
+                    Check(c.Item(), _model.Flag(ViolationFlagKey.Fog), "Fog");
+                });
 
-            row.RelativeItem(1.15f).Border(0.6f).Padding(2).Column(c =>
-            {
-                c.Item().Text("TYPE OF COLLISION").FontSize(5.6f).Bold();
-                Check(c.Item(), _model.Flag(ViolationFlagKey.CollisionPropertyDamage), "PD");
-                Check(c.Item(), _model.Flag(ViolationFlagKey.CollisionPersonalInjury), "PI");
-                Check(c.Item(), _model.Flag(ViolationFlagKey.CollisionFatal), "Fatal");
-                Check(c.Item(), _model.Flag(ViolationFlagKey.CollisionVehicle), "Vehicle");
-                Check(c.Item(), _model.Flag(ViolationFlagKey.HitFixedObject), "Hit fixed object");
-                Check(c.Item(), _model.Flag(ViolationFlagKey.CollisionRightAngle), "Right angle");
-                Check(c.Item(), _model.Flag(ViolationFlagKey.CollisionHeadOn), "Head on");
-                Check(c.Item(), _model.Flag(ViolationFlagKey.CollisionSideswipe), "Sideswipe");
-                Check(c.Item(), _model.Flag(ViolationFlagKey.CollisionRearEnd), "Rear end");
+                inner.RelativeItem().Border(0.6f).Padding(2).Column(c =>
+                {
+                    c.Item().Text("CAUSED PERSON TO DODGE").FontSize(5.6f).Bold();
+                    Check(c.Item(), _model.Flag(ViolationFlagKey.DodgePedestrian), "Pedestrian");
+                    Check(c.Item(), _model.Flag(ViolationFlagKey.DodgeDriver), "Driver");
+                    Check(c.Item(), _model.Flag(ViolationFlagKey.JustMissedAccident), "Just missed accident");
+                });
+
+                inner.RelativeItem(1.15f).Border(0.6f).Padding(2).Column(c =>
+                {
+                    c.Item().Text("TYPE OF COLLISION").FontSize(5.6f).Bold();
+                    Check(c.Item(), _model.Flag(ViolationFlagKey.CollisionPropertyDamage), "PD");
+                    Check(c.Item(), _model.Flag(ViolationFlagKey.CollisionPersonalInjury), "PI");
+                    Check(c.Item(), _model.Flag(ViolationFlagKey.CollisionFatal), "Fatal");
+                    Check(c.Item(), _model.Flag(ViolationFlagKey.CollisionVehicle), "Vehicle");
+                    Check(c.Item(), _model.Flag(ViolationFlagKey.HitFixedObject), "Hit fixed object");
+                    Check(c.Item(), _model.Flag(ViolationFlagKey.CollisionRightAngle), "Right angle");
+                    Check(c.Item(), _model.Flag(ViolationFlagKey.CollisionHeadOn), "Head on");
+                    Check(c.Item(), _model.Flag(ViolationFlagKey.CollisionSideswipe), "Sideswipe");
+                    Check(c.Item(), _model.Flag(ViolationFlagKey.CollisionRearEnd), "Rear end");
+                });
             });
         });
+    }
 
-        // Area
-        panel.Item().Row(row =>
+    private void ComposeAreaAndHighway(ColumnDescriptor col)
+    {
+        col.Item().Row(row =>
         {
             row.Spacing(8);
             row.AutoItem().AlignBottom().Text("AREA:").FontSize(5.8f);
@@ -389,8 +499,7 @@ public sealed class CitationTexasPdfDocument : IDocument
             row.RelativeItem().Element(c => Check(c, _model.AreaRural, "Rural"));
         });
 
-        // Highway type
-        panel.Item().Row(row =>
+        col.Item().Row(row =>
         {
             row.Spacing(8);
             row.AutoItem().AlignBottom().Text("HIGHWAY TYPE:").FontSize(5.8f);
@@ -398,35 +507,6 @@ public sealed class CitationTexasPdfDocument : IDocument
             row.RelativeItem().Element(c => Check(c, _model.Highway3Lane, "3 lane undivided"));
             row.RelativeItem().Element(c => Check(c, _model.Highway4Lane, "4 lane undivided"));
             row.RelativeItem().Element(c => Check(c, _model.Highway4LaneDivided, "4 lane divided"));
-        });
-    }
-
-    private void ComposeSideStrip(IContainer container)
-    {
-        container.Column(col =>
-        {
-            col.Spacing(2);
-            SideField(col.Item(), "Accepted Bond Amt. or Type", _model.AcceptedBondNotes);
-            SideField(col.Item(), "Receipt No.", _model.ReceiptNumber);
-            SideField(col.Item(), "Name", _model.FullName);
-            SideField(col.Item(), "Occupation", string.Empty);
-            SideField(col.Item(), "Social Security Number", _model.SocialSecurityNumber);
-        });
-    }
-
-    private static void SideField(IContainer container, string label, string value)
-    {
-        container.Border(0.6f).Padding(2).Column(col =>
-        {
-            col.Item().Text(label).FontSize(5f);
-            col.Item().MinHeight(13).PaddingTop(1).Text(t =>
-            {
-                // One clamped line so an oversized value (e.g. a long name) can't grow the box and
-                // shove the sections below it; shrink the font first to fit more before truncating.
-                t.ClampLines(1);
-                t.DefaultTextStyle(s => s.FontSize(FitFontSize(value, 5.8f, 24)));
-                t.Span(value ?? string.Empty);
-            });
         });
     }
 
@@ -485,12 +565,7 @@ public sealed class CitationTexasPdfDocument : IDocument
         container.Column(col =>
         {
             col.Item().BorderBottom(LineThickness).MinHeight(11).PaddingHorizontal(1).PaddingBottom(1)
-                .AlignBottom().Text(t =>
-                {
-                    t.ClampLines(1);
-                    t.DefaultTextStyle(s => s.FontSize(FitFontSize(value, FillSize, 24)));
-                    t.Span(value ?? string.Empty);
-                });
+                .AlignBottom().Element(c => Fill(c, value));
             col.Item().Text(caption).FontSize(4.8f).FontColor(Colors.Grey.Darken2);
         });
     }
@@ -504,30 +579,55 @@ public sealed class CitationTexasPdfDocument : IDocument
                 row.AutoItem().PaddingRight(2).AlignBottom().Text(label).FontSize(LabelSize);
 
             row.RelativeItem().BorderBottom(LineThickness).MinHeight(9).PaddingBottom(1).PaddingHorizontal(1)
-                .AlignBottom().Text(t =>
-                {
-                    // A data fill must never grow the row and shift neighbouring fields. Clamp to one
-                    // line (truncate with an ellipsis) and shrink the font for long values so more fits
-                    // before truncation — never let it wrap or expand the layout.
-                    t.ClampLines(1);
-                    t.DefaultTextStyle(s => s.FontSize(FitFontSize(value, FillSize, 22)));
-                    t.Span(value ?? string.Empty);
-                });
+                .AlignBottom().Element(c => Fill(c, value));
         });
     }
 
-    /// <summary>
-    /// Shrink-to-fit font size for a data value: keeps <paramref name="baseSize"/> up to
-    /// <paramref name="comfortable"/> characters, then steps down so longer values stay on one line
-    /// before the caller's line clamp truncates them. Heuristic (QuestPDF has no native auto-fit).
-    /// </summary>
-    private static float FitFontSize(string? value, float baseSize, int comfortable)
+    /// <summary>A field with a two-line stacked label (e.g. BIRTH / DATE) sitting left of the fill.</summary>
+    private static void StackedLabelField(IContainer container, string labelLine1, string labelLine2, string value)
     {
-        var len = value?.Length ?? 0;
-        if (len <= comfortable) return baseSize;
-        if (len <= comfortable * 1.5) return baseSize - 0.8f;
-        if (len <= comfortable * 2.1) return baseSize - 1.4f;
-        return baseSize - 1.9f;
+        container.Row(row =>
+        {
+            row.AutoItem().PaddingRight(2).AlignBottom().Column(lbl =>
+            {
+                lbl.Item().Text(labelLine1).FontSize(LabelSize);
+                lbl.Item().Text(labelLine2).FontSize(LabelSize);
+            });
+            row.RelativeItem().BorderBottom(LineThickness).MinHeight(9).PaddingBottom(1).PaddingHorizontal(1)
+                .AlignBottom().Element(c => Fill(c, value));
+        });
+    }
+
+    /// <summary>One underlined fill carrying a primary value, with two trailing sub-labelled fills
+    /// (e.g. the driver's-license line: number, then STATE and KIND).</summary>
+    private static void SubLabelledFill(IContainer container, string value, string sub1, string sub1Value, string sub2, string sub2Value)
+    {
+        container.Column(col =>
+        {
+            col.Item().BorderBottom(LineThickness).MinHeight(9).PaddingBottom(1).PaddingHorizontal(1).AlignBottom().Row(fill =>
+            {
+                fill.RelativeItem(2.4f).Element(c => Fill(c, value));
+                fill.RelativeItem(1f).Element(c => Fill(c, sub1Value));
+                fill.RelativeItem(1f).Element(c => Fill(c, sub2Value));
+            });
+            col.Item().Row(sub =>
+            {
+                sub.RelativeItem(2.4f).Text(string.Empty);
+                sub.RelativeItem(1f).AlignCenter().Text(sub1).FontSize(SubLabelSize);
+                sub.RelativeItem(1f).AlignCenter().Text(sub2).FontSize(SubLabelSize);
+            });
+        });
+    }
+
+    /// <summary>A single-line, single-size data fill that truncates rather than wrapping or expanding —
+    /// a long value must never grow a row and shift its neighbours.</summary>
+    private static void Fill(IContainer container, string? value)
+    {
+        container.Text(t =>
+        {
+            t.ClampLines(1);
+            t.Span(value ?? string.Empty).FontSize(FillSize);
+        });
     }
 
     /// <summary>A checkbox followed by its caption.</summary>
@@ -542,14 +642,24 @@ public sealed class CitationTexasPdfDocument : IDocument
         });
     }
 
+    /// <summary>A caption followed by its checkbox (master order for COMMERCIAL VEHICLE / HAZARDOUS MATERIAL).</summary>
+    private static void CheckAfter(IContainer container, bool on, string caption)
+    {
+        container.Row(row =>
+        {
+            row.AutoItem().AlignBottom().PaddingRight(2).Text(caption).FontSize(CheckSize);
+            row.AutoItem().AlignBottom().Element(c => Box(c, on));
+        });
+    }
+
     private static void Box(IContainer container, bool on)
     {
         var box = container.Width(7).Height(7).Border(0.6f).AlignCenter().AlignMiddle();
 
         // Only emit a text line when the box is ticked. An empty Text still reserves a full line
         // box, and at this size the rendering font's line height can exceed the 7pt box height —
-        // which throws a layout exception under fonts with taller metrics than Arial (e.g. the Lato
-        // fallback used on Linux). LineHeight(1) pins the line box to the glyph size so the "X" fits.
+        // which throws a layout exception under fonts with taller metrics than Arial. LineHeight(1)
+        // pins the line box to the glyph size so the "X" fits.
         if (on)
             box.Text("X").FontSize(5.5f).LineHeight(1f).Bold();
     }
