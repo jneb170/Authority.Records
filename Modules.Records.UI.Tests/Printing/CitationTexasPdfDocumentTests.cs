@@ -79,10 +79,12 @@ public class CitationTexasPdfDocumentTests
         },
     };
 
-    [Fact]
-    public void GeneratePdf_ProducesValidPdfBytes()
+    [Theory]
+    [InlineData(CitationPrintSize.Letter)]
+    [InlineData(CitationPrintSize.FourInch)]
+    public void GeneratePdf_ProducesValidPdfBytes(CitationPrintSize size)
     {
-        var pdf = new CitationTexasPdfDocument(SampleModel()).GeneratePdf();
+        var pdf = new CitationTexasPdfDocument(SampleModel(), size).GeneratePdf();
 
         Assert.NotNull(pdf);
         Assert.True(pdf.Length > 1000, $"PDF unexpectedly small ({pdf.Length} bytes).");
@@ -92,8 +94,10 @@ public class CitationTexasPdfDocumentTests
         Assert.Equal("%PDF-", header);
     }
 
-    [Fact]
-    public void GeneratePdf_HandlesLongValues_WithoutThrowing()
+    [Theory]
+    [InlineData(CitationPrintSize.Letter)]
+    [InlineData(CitationPrintSize.FourInch)]
+    public void GeneratePdf_HandlesLongValues_WithoutThrowing(CitationPrintSize size)
     {
         // Guards against layout overflow from oversized field content (long notes, pasted text,
         // long unbreakable tokens). The font-metric overflow that broke prod is covered by the
@@ -115,29 +119,39 @@ public class CitationTexasPdfDocumentTests
             OfficerNameAndTitle = longToken,
         };
 
-        var pdf = new CitationTexasPdfDocument(model).GeneratePdf();
+        var pdf = new CitationTexasPdfDocument(model, size).GeneratePdf();
 
         Assert.True(pdf.Length > 1000);
     }
 
-    [Fact]
-    public void GeneratePdf_HandlesEmptyModel_WithoutThrowing()
+    [Theory]
+    [InlineData(CitationPrintSize.Letter)]
+    [InlineData(CitationPrintSize.FourInch)]
+    public void GeneratePdf_HandlesEmptyModel_WithoutThrowing(CitationPrintSize size)
     {
         var empty = new CitationTexasPrintModel { RecordNumber = 1, DocumentTitle = "Citation 1" };
-        var pdf = new CitationTexasPdfDocument(empty).GeneratePdf();
+        var pdf = new CitationTexasPdfDocument(empty, size).GeneratePdf();
 
         Assert.True(pdf.Length > 1000);
     }
 
     [Fact]
-    public void GeneratePdf_WritesSampleToTemp_ForVisualInspection()
+    public void GeneratePdf_WritesSamplesToTemp_ForVisualInspection()
     {
-        // Emits a real PDF to the temp dir so the layout can be eyeballed during development.
-        // Not an assertion of pixel layout — just that a file lands on disk.
-        var pdf = new CitationTexasPdfDocument(SampleModel()).GeneratePdf();
-        var path = Path.Combine(Path.GetTempPath(), "citation-texas-test.pdf");
-        File.WriteAllBytes(path, pdf);
+        // Emits a real PDF per size to the temp dir so the layout can be eyeballed during development.
+        // Not an assertion of pixel layout — just that the files land on disk. Overlay the 4-inch
+        // output against the left block of the Letter output to confirm spacing is identical.
+        foreach (var (size, name) in new[]
+        {
+            (CitationPrintSize.Letter, "citation-texas-letter.pdf"),
+            (CitationPrintSize.FourInch, "citation-texas-4in.pdf"),
+        })
+        {
+            var pdf = new CitationTexasPdfDocument(SampleModel(), size).GeneratePdf();
+            var path = Path.Combine(Path.GetTempPath(), name);
+            File.WriteAllBytes(path, pdf);
 
-        Assert.True(File.Exists(path));
+            Assert.True(File.Exists(path));
+        }
     }
 }
