@@ -118,8 +118,9 @@ else
                         <option value="@ConfigurationKeys.CitationFormat" />
                         <option value="@ConfigurationKeys.MapStartCoordinates" />
                         <option value="@ConfigurationKeys.LockTimeoutSeconds" />
+                        <option value="@ConfigurationKeys.TimeZoneId" />
                     </datalist>
-                    <div class="form-text">Well-known keys: <code>@ConfigurationKeys.IncidentFormat</code>, <code>@ConfigurationKeys.ArrestFormat</code>, <code>@ConfigurationKeys.CitationFormat</code> — control auto-generated record numbers. <code>@ConfigurationKeys.MapStartCoordinates</code> — map center (lat,lng) for the Google Maps picker. <code>@ConfigurationKeys.LockTimeoutSeconds</code> — how long (whole seconds) a record stays locked in modify mode before it expires (default @ConfigurationKeys.DefaultLockTimeoutSeconds).</div>
+                    <div class="form-text">Well-known keys: <code>@ConfigurationKeys.IncidentFormat</code>, <code>@ConfigurationKeys.ArrestFormat</code>, <code>@ConfigurationKeys.CitationFormat</code> — control auto-generated record numbers. <code>@ConfigurationKeys.MapStartCoordinates</code> — map center (lat,lng) for the Google Maps picker. <code>@ConfigurationKeys.LockTimeoutSeconds</code> — how long (whole seconds) a record stays locked in modify mode before it expires (default @ConfigurationKeys.DefaultLockTimeoutSeconds). <code>@ConfigurationKeys.TimeZoneId</code> — time zone for printed dates/times such as the Texas citation, e.g. <code>America/Chicago</code> (default @ConfigurationKeys.DefaultTimeZoneId).</div>
                 </div>
                 <div class="mb-3">
                     <label class="form-label">Value</label>
@@ -264,6 +265,8 @@ else
         ConfigurationKeys.ArrestFormat   => "Arrest Number Format",
         ConfigurationKeys.CitationFormat => "Citation Number Format",
         ConfigurationKeys.MapStartCoordinates => "Map Starting Point",
+        ConfigurationKeys.LockTimeoutSeconds => "Record Lock Timeout (seconds)",
+        ConfigurationKeys.TimeZoneId => "Time Zone",
         _ => key
     };
 
