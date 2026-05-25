@@ -89,4 +89,19 @@ public static class ConfigurationKeys
     /// System default Narrative lock timeout. 14400 seconds = 4 hours.
     /// </summary>
     public const int DefaultNarrativeLockTimeoutSeconds = 14400;
+
+    /// <summary>
+    /// IANA (e.g. "America/Chicago") or Windows (e.g. "Central Standard Time") time-zone id used to
+    /// render dates and times on printed documents — notably the Texas UTC citation, which is a legal
+    /// document and must show local wall-clock time, not the server's. Stored timestamps are UTC; the
+    /// print converts them into this zone. .NET resolves both id forms on Windows and Linux. If unset
+    /// or unrecognized, falls back to <see cref="DefaultTimeZoneId"/>.
+    /// </summary>
+    public const string TimeZoneId = "TimeZoneId";
+
+    /// <summary>
+    /// System default time zone used when no agency-specific <see cref="TimeZoneId"/> is configured.
+    /// Central time, the zone of the Texas UTC citation form this defaults for.
+    /// </summary>
+    public const string DefaultTimeZoneId = "America/Chicago";
 }

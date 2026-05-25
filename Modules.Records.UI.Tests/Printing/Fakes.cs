@@ -49,6 +49,24 @@ internal sealed class FakePicklistService : IPicklistService
     public Task ActivateItemAsync(Guid itemId) => throw new NotImplementedException();
 }
 
+internal sealed class FakeAgencyConfigurationService : IAgencyConfigurationService
+{
+    private readonly Dictionary<string, string> _values;
+    public FakeAgencyConfigurationService(Dictionary<string, string>? values = null) => _values = values ?? new();
+
+    public Task<AgencyConfigurationDto?> GetAsync(string key) => Task.FromResult(
+        _values.TryGetValue(key, out var value)
+            ? new AgencyConfigurationDto(Guid.NewGuid(), key, value, null)
+            : null);
+
+    public Task<IReadOnlyList<AgencyConfigurationDto>> GetAllAsync() => throw new NotImplementedException();
+    public Task SetAsync(string key, string value) => throw new NotImplementedException();
+    public Task DeleteAsync(string key) => throw new NotImplementedException();
+    public Task<string> GenerateIncidentNumAsync() => throw new NotImplementedException();
+    public Task<string> GenerateArrestNumAsync() => throw new NotImplementedException();
+    public Task<string> GenerateCitationNumAsync() => throw new NotImplementedException();
+}
+
 internal sealed class FakeLocationService : ILocationService
 {
     private readonly Dictionary<Guid, LocationDto> _locations;

@@ -17,12 +17,14 @@ public class CitationTexasPrintModelBuilderTests
     private static (CitationTexasPrintModelBuilder builder, long recordNumber) Build(
         CitationDto citation,
         Dictionary<Guid, string>? labels = null,
-        Dictionary<Guid, LocationDto>? locations = null)
+        Dictionary<Guid, LocationDto>? locations = null,
+        Dictionary<string, string>? config = null)
     {
         var builder = new CitationTexasPrintModelBuilder(
             new FakeCitationService(citation),
             new FakePicklistService(labels ?? new()),
-            new FakeLocationService(locations));
+            new FakeLocationService(locations),
+            new FakeAgencyConfigurationService(config));
         return (builder, citation.RecordNumber);
     }
 
@@ -61,7 +63,8 @@ public class CitationTexasPrintModelBuilderTests
         var builder = new CitationTexasPrintModelBuilder(
             new FakeCitationService(null),
             new FakePicklistService(new()),
-            new FakeLocationService());
+            new FakeLocationService(),
+            new FakeAgencyConfigurationService());
 
         Assert.Null(await builder.BuildAsync(999));
     }
@@ -162,6 +165,68 @@ public class CitationTexasPrintModelBuilderTests
         Assert.Equal("30", model.ZoneMph);
         Assert.True(model.IsParking);
         Assert.True(model.AreaResidential is false); // "Parking - Area" doesn't contain "Residential"
+    }
+
+    [Fact]
+    public async Task BuildAsync_ConvertsIssueInstant_ToCentral_ByDefault()
+    {
+        // IssueDate is 2026-05-24 14:30 UTC. With no agency TimeZoneId set, the print must render
+        // Central (the default) — 09:30 CDT — NOT the server-local time, which is UTC on the Linux
+        // App Service. This is the B-6 fix: the old code printed 2:30 PM there.
+        var (builder, recordNumber) = Build(NewCitation());
+        var model = await builder.BuildAsync(recordNumber);
+
+        Assert.NotNull(model);
+        Assert.Equal("9:30", model!.IssueTime);
+        Assert.Equal("AM", model.IssueAmPm);
+        Assert.Equal("05/24/2026", model.IssueDate);
+        Assert.Equal("24", model.IssueDayOfMonth);
+        Assert.Equal("May 2026", model.IssueMonthYear);
+    }
+
+    [Fact]
+    public async Task BuildAsync_HonorsConfiguredTimeZone_ForIssueInstant()
+    {
+        // Same 14:30 UTC instant, but the agency is configured for Eastern -> 10:30 EDT.
+        var config = new Dictionary<string, string> { [ConfigurationKeys.TimeZoneId] = "America/New_York" };
+        var (builder, recordNumber) = Build(NewCitation(), config: config);
+        var model = await builder.BuildAsync(recordNumber);
+
+        Assert.NotNull(model);
+        Assert.Equal("10:30", model!.IssueTime);
+        Assert.Equal("AM", model.IssueAmPm);
+    }
+
+    [Fact]
+    public async Task BuildAsync_InstantConversion_RollsDateBack_WhenZoneIsBehindUtc()
+    {
+        // 02:00 UTC on the 24th is still 21:00 on the 23rd in Central. Converting the true instant
+        // (not just relabeling) must roll the printed date back a day.
+        var citation = NewCitation() with { IssueDate = new DateTime(2026, 5, 24, 2, 0, 0, DateTimeKind.Utc) };
+        var (builder, recordNumber) = Build(citation);
+        var model = await builder.BuildAsync(recordNumber);
+
+        Assert.NotNull(model);
+        Assert.Equal("05/23/2026", model!.IssueDate);
+        Assert.Equal("23", model.IssueDayOfMonth);
+        Assert.Equal("9:00", model.IssueTime);
+        Assert.Equal("PM", model.IssueAmPm);
+    }
+
+    [Fact]
+    public async Task BuildAsync_BirthDate_IsNotShiftedByTimeZone()
+    {
+        // A date of birth is a calendar date, not an instant. Even stored at midnight UTC it must
+        // print as that date in any zone -- never rolled back a day like an instant would be.
+        var name = new NameSnapshotDto(
+            SourceNameId: null, SourceNameRecordNumber: null, NameType: NameTypes.Person,
+            LastOrBusinessName: "Perez", FirstName: "Mary", MiddleName: "L",
+            DateOfBirth: new DateTime(1990, 1, 1, 0, 0, 0, DateTimeKind.Utc));
+        var (builder, recordNumber) = Build(NewCitation(name: name));
+        var model = await builder.BuildAsync(recordNumber);
+
+        Assert.NotNull(model);
+        Assert.Equal("01/01/1990", model!.BirthDate);
     }
 
     [Fact]
