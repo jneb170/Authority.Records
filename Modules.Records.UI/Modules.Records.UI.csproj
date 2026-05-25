@@ -9,6 +9,7 @@
 
   <ItemGroup>
     <PackageReference Include="MediatR" Version="14.0.0" />
+    <PackageReference Include="QuestPDF" Version="2026.5.0" />
   </ItemGroup>
 
   <ItemGroup>

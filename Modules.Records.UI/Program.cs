@@ -15,6 +15,11 @@ using Shared.Infrastructure.Persistence;
 
 var builder = WebApplication.CreateBuilder(args);
 
+// QuestPDF runs under the Community license (free for individuals and organizations with
+// annual gross revenue under $1M USD). If this product crosses that threshold, switch to a
+// paid license. Must be set once at startup before any PDF is generated, or QuestPDF throws.
+QuestPDF.Settings.License = QuestPDF.Infrastructure.LicenseType.Community;
+
 builder.Services.AddRazorComponents()
     .AddInteractiveServerComponents();
 
@@ -46,6 +51,7 @@ builder.Services.AddScoped<ILocationService, LocationService>();
 builder.Services.AddScoped<IHomeService, HomeService>();
 builder.Services.AddScoped<IMugshotService, MugshotService>();
 builder.Services.AddScoped<INarrativeService, NarrativeService>();
+builder.Services.AddScoped<Modules.Records.UI.Printing.ICitationTexasPrintModelBuilder, Modules.Records.UI.Printing.CitationTexasPrintModelBuilder>();
 builder.Services.AddScoped<IKeyboardShortcutService, KeyboardShortcutService>();
 builder.Services.AddScoped<IHotkeyConfigService, HotkeyConfigService>();
 builder.Services.AddScoped<IGoogleMapsConfigService, GoogleMapsConfigService>();
