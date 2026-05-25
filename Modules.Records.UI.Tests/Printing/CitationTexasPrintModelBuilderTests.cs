@@ -230,6 +230,60 @@ public class CitationTexasPrintModelBuilderTests
     }
 
     [Fact]
+    public async Task BuildAsync_RendersOfficerNameWithTitle_AndBadgeOnIdentificationLine()
+    {
+        // A-4: name + title on the "(Name and title)" line (was title only).
+        // A-3: the captured badge prints on the identification line (was never printed).
+        var profile = new CitationOfficerProfileDto(
+            SourceNameId: null, SourceNameRecordNumber: null,
+            OfficerName: "J. Smith", Title: "Sergeant", BadgeOrIdentifier: "1234", UnitNumber: "12");
+        var citation = NewCitation() with { OfficerProfile = profile };
+
+        var (builder, recordNumber) = Build(citation);
+        var model = await builder.BuildAsync(recordNumber);
+
+        Assert.NotNull(model);
+        Assert.Equal("J. Smith, Sergeant", model!.OfficerNameAndTitle);
+        Assert.Equal("J. Smith  #1234", model.ComplainantSignature); // name (no signature text) + badge
+        Assert.Equal("12", model.UnitNumber);
+    }
+
+    [Fact]
+    public async Task BuildAsync_OfficerIdentification_FallsBackCleanly()
+    {
+        // No badge -> identification line is just the name; no title -> name/title line is just the name.
+        var profile = new CitationOfficerProfileDto(
+            SourceNameId: null, SourceNameRecordNumber: null,
+            OfficerName: "A. Jones", Title: null, BadgeOrIdentifier: null, UnitNumber: null);
+        var citation = NewCitation() with { OfficerProfile = profile };
+
+        var (builder, recordNumber) = Build(citation);
+        var model = await builder.BuildAsync(recordNumber);
+
+        Assert.NotNull(model);
+        Assert.Equal("A. Jones", model!.OfficerNameAndTitle);
+        Assert.Equal("A. Jones", model.ComplainantSignature);
+    }
+
+    [Fact]
+    public async Task BuildAsync_ComputesAge_AtIssueDate_NotPrintDate()
+    {
+        // B-7: born 2000-01-01, issued 2020-01-01 -> age 20 at issuance. Computing at today's date
+        // (2026+) would give 26, so this proves age is anchored to the issue date.
+        var name = new NameSnapshotDto(
+            SourceNameId: null, SourceNameRecordNumber: null, NameType: NameTypes.Person,
+            LastOrBusinessName: "Perez", FirstName: "Mary",
+            DateOfBirth: new DateTime(2000, 1, 1, 0, 0, 0, DateTimeKind.Utc));
+        var citation = NewCitation(name: name) with { IssueDate = new DateTime(2020, 1, 1, 12, 0, 0, DateTimeKind.Utc) };
+
+        var (builder, recordNumber) = Build(citation);
+        var model = await builder.BuildAsync(recordNumber);
+
+        Assert.NotNull(model);
+        Assert.Equal("20", model!.Age);
+    }
+
+    [Fact]
     public async Task BuildAsync_FallsBackToCitationLocation_ForOccurredAt()
     {
         var location = new LocationDto(
