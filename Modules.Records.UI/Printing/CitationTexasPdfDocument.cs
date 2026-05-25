@@ -32,7 +32,11 @@ public sealed class CitationTexasPdfDocument : IDocument
         {
             page.Size(PageSizes.Letter);
             page.Margin(0.18f, Unit.Inch);
-            page.DefaultTextStyle(t => t.FontSize(FillSize).FontColor(Colors.Black).FontFamily(Fonts.Arial));
+            // Use Lato (bundled and registered by QuestPDF on every platform) — NOT a system font
+            // like Arial. Linux App Service has no Arial, so it silently fell back to a wider font
+            // whose metrics overflowed this dense layout and threw a layout exception for every
+            // citation. Lato renders identically on Windows and Linux, so local output matches prod.
+            page.DefaultTextStyle(t => t.FontSize(FillSize).FontColor(Colors.Black).FontFamily("Lato"));
 
             page.Content().Border(0.8f).Padding(4).Column(root =>
             {
@@ -427,7 +431,13 @@ public sealed class CitationTexasPdfDocument : IDocument
 
     private static void Box(IContainer container, bool on)
     {
-        container.Width(7).Height(7).Border(0.6f).AlignCenter().AlignMiddle()
-            .Text(on ? "X" : string.Empty).FontSize(6).Bold();
+        var box = container.Width(7).Height(7).Border(0.6f).AlignCenter().AlignMiddle();
+
+        // Only emit a text line when the box is ticked. An empty Text still reserves a full line
+        // box, and at this size the rendering font's line height can exceed the 7pt box height —
+        // which throws a layout exception under fonts with taller metrics than Arial (e.g. the Lato
+        // fallback used on Linux). LineHeight(1) pins the line box to the glyph size so the "X" fits.
+        if (on)
+            box.Text("X").FontSize(5.5f).LineHeight(1f).Bold();
     }
 }

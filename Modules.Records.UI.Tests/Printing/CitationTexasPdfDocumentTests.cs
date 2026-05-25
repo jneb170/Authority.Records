@@ -10,6 +10,7 @@ public class CitationTexasPdfDocumentTests
     static CitationTexasPdfDocumentTests()
     {
         QuestPDF.Settings.License = LicenseType.Community;
+        QuestPDF.Settings.EnableDebugging = true;
     }
 
     private static CitationTexasPrintModel SampleModel() => new()
@@ -89,6 +90,34 @@ public class CitationTexasPdfDocumentTests
         // Valid PDFs start with the "%PDF-" magic header.
         var header = System.Text.Encoding.ASCII.GetString(pdf, 0, 5);
         Assert.Equal("%PDF-", header);
+    }
+
+    [Fact]
+    public void GeneratePdf_HandlesLongValues_WithoutThrowing()
+    {
+        // Guards against layout overflow from oversized field content (long notes, pasted text,
+        // long unbreakable tokens). The font-metric overflow that broke prod is covered by the
+        // sample/empty tests rendering under the bundled Lato font; this adds a long-content guard.
+        var longToken = new string('A', 80);
+        var longProse = string.Join(" ", System.Linq.Enumerable.Repeat("failure to maintain a single marked lane and control of speed", 60));
+        var model = SampleModel() with
+        {
+            AcceptedBondNotes = longToken,
+            SocialSecurityNumber = longToken,
+            OtherViolations = longProse,
+            OccurredAt = longProse,
+            CourtAddress = longToken,
+            AddressStreet = longToken,
+            DriversLicenseNumber = longToken,
+            FullName = longToken,
+            CityState = longToken,
+            ComplainantSignature = longToken,
+            OfficerNameAndTitle = longToken,
+        };
+
+        var pdf = new CitationTexasPdfDocument(model).GeneratePdf();
+
+        Assert.True(pdf.Length > 1000);
     }
 
     [Fact]
