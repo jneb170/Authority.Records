@@ -106,7 +106,7 @@ public sealed class CitationTexasPrintModelBuilder : ICitationTexasPrintModelBui
 
             AddressStreet = CompactAddress(name?.PrimaryAddress?.Address, includeStreet: true),
             CityState = CompactAddress(name?.PrimaryAddress?.Address, includeStreet: false),
-            Age = AgeDisplay(name?.DateOfBirth),
+            Age = AgeDisplay(name?.DateOfBirth, citation.IssueDate),
             BirthDate = DateOnlyDisplay(name?.DateOfBirth),
             Race = CompactRaceDisplay(raceLabel),
             Sex = Display(sexLabel),
@@ -156,8 +156,8 @@ public sealed class CitationTexasPrintModelBuilder : ICitationTexasPrintModelBui
             ReceiptNumber = Display(offense?.ReceiptNumber),
 
             AffidavitSignedDate = DateOnlyDisplay(offense?.AffidavitSignedDate),
-            ComplainantSignature = Display(offense?.ComplainantSignatureText, citation.OfficerProfile?.OfficerName),
-            OfficerNameAndTitle = Display(citation.OfficerProfile?.Title),
+            ComplainantSignature = OfficerIdentification(citation.OfficerProfile, offense?.ComplainantSignatureText),
+            OfficerNameAndTitle = OfficerNameAndTitle(citation.OfficerProfile),
             UnitNumber = Display(citation.OfficerProfile?.UnitNumber),
             CourtAppearanceDay = CourtAppearanceDay(offense?.CourtAppearanceDateTime, timeZone),
             CourtAppearanceTime = CourtAppearanceTime(offense?.CourtAppearanceDateTime, timeZone),
@@ -212,6 +212,33 @@ public sealed class CitationTexasPrintModelBuilder : ICitationTexasPrintModelBui
             return Display(snapshot.LastOrBusinessName);
 
         return $"{snapshot.LastOrBusinessName}, {snapshot.FirstName}";
+    }
+
+    // A-4: the "(Name and title)" line previously printed only the title. Render the officer's name
+    // with the title, mirroring the form label. Falls back gracefully when either is missing.
+    private static string OfficerNameAndTitle(CitationOfficerProfileDto? profile)
+    {
+        var name = profile?.OfficerName?.Trim();
+        var title = profile?.Title?.Trim();
+
+        if (!string.IsNullOrWhiteSpace(name) && !string.IsNullOrWhiteSpace(title))
+            return $"{name}, {title}";
+
+        return Display(name, title);
+    }
+
+    // A-3: the badge/ID is captured but was never printed. Render it on the officer-identification
+    // line ("(Signature and identification of officer or other complainant)"), appended to the
+    // signature text or, absent that, the officer name.
+    private static string OfficerIdentification(CitationOfficerProfileDto? profile, string? signatureText)
+    {
+        var signature = Display(signatureText, profile?.OfficerName);
+        var badge = profile?.BadgeOrIdentifier?.Trim();
+
+        if (string.IsNullOrWhiteSpace(badge))
+            return signature;
+
+        return string.IsNullOrWhiteSpace(signature) ? $"#{badge}" : $"{signature}  #{badge}";
     }
 
     private static string CompactRaceDisplay(string? raceLabel)
@@ -343,14 +370,16 @@ public sealed class CitationTexasPrintModelBuilder : ICitationTexasPrintModelBui
         return string.Join(", ", parts.Skip(1));
     }
 
-    private static string AgeDisplay(DateTime? dob)
+    // B-7: age is the defendant's age at the time of the offense (issue date), not the print date —
+    // otherwise a reprint months later shows a different age than the citation was issued with.
+    private static string AgeDisplay(DateTime? dob, DateTime issueDate)
     {
         if (!dob.HasValue)
             return string.Empty;
 
-        var today = DateTime.Today;
-        var age = today.Year - dob.Value.Year;
-        if (dob.Value.Date > today.AddYears(-age))
+        var asOf = issueDate.Date;
+        var age = asOf.Year - dob.Value.Year;
+        if (dob.Value.Date > asOf.AddYears(-age))
             age--;
 
         return age.ToString();
