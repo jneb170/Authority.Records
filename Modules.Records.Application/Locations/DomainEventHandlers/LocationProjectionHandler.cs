@@ -11,6 +11,7 @@ public sealed class LocationProjectionHandler :
     INotificationHandler<LocationCreatedDomainEvent>,
     INotificationHandler<LocationDetailsUpdatedDomainEvent>,
     INotificationHandler<LocationSoftDeletedDomainEvent>,
+    INotificationHandler<LocationRestoredDomainEvent>,
     INotificationHandler<LockAcquiredDomainEvent<Location>>,
     INotificationHandler<LockReleasedDomainEvent<Location>>
 {
@@ -95,6 +96,48 @@ public sealed class LocationProjectionHandler :
         if (readModel is null) return;
 
         _dbContext.LocationReadModels.Remove(readModel);
+        await _dbContext.SaveChangesAsync(cancellationToken);
+    }
+
+    public async Task Handle(LocationRestoredDomainEvent notification, CancellationToken cancellationToken)
+    {
+        // SoftDelete removed the read-model row (LocationReadModel has no IsDeleted flag), so restore
+        // must rebuild it from the aggregate or the location stays invisible in the MLI despite being live.
+        var exists = await _dbContext.LocationReadModels
+            .AnyAsync(l => l.Id == notification.LocationId, cancellationToken);
+        if (exists) return;
+
+        var location = await _dbContext.Locations
+            .AsNoTracking()
+            .FirstOrDefaultAsync(l => l.Id == notification.LocationId, cancellationToken);
+        if (location is null) return;
+
+        var readModel = LocationReadModel.Create(
+            id:             location.Id,
+            recordNumber:   location.RecordNumber,
+            jurisdictionId: location.JurisdictionId,
+            streetNumber:   location.StreetNumber,
+            preDirectionId: location.PreDirectionId,
+            streetAddress:  location.StreetAddress,
+            streetTypeId:   location.StreetTypeId,
+            postDirectionId: location.PostDirectionId,
+            city:           location.City,
+            stateId:        location.StateId,
+            countryId:      location.CountryId,
+            zip:            location.Zip,
+            aptSuite:       location.AptSuite,
+            coordinates:    location.Coordinates,
+            commonPlaceName: location.CommonPlaceName,
+            comments:       location.Comments,
+            address:        location.Address,
+            createdAtUtc:   location.CreatedAt,
+            createdBy:      location.CreatedBy);
+
+        if (location.IsLocked && location.LockedByUserId is Guid lockedBy)
+            readModel.ApplyLockAcquired(lockedBy);
+        readModel.ApplyModifiedAudit(location.ModifiedBy, location.ModifiedAt, location.CreatedAt);
+
+        _dbContext.LocationReadModels.Add(readModel);
         await _dbContext.SaveChangesAsync(cancellationToken);
     }
 
