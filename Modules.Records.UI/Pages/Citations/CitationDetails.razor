@@ -1479,6 +1479,12 @@ else if (_citation is not null)
     {
         _showDeleteConfirm = false;
         await RunActionAsync(() => CitationService.SoftDeleteAsync(_citationId));
+
+        // Only leave the page if the delete actually succeeded; navigating regardless would hide a
+        // failure (RunActionAsync swallows the exception into _actionError for the banner to show).
+        if (_actionError is not null)
+            return;
+
         if (IncidentRecordNumber.HasValue)
             Nav.NavigateTo($"/incidents/{IncidentRecordNumber}");
         else
