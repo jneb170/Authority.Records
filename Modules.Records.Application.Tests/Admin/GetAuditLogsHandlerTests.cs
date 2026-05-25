@@ -204,6 +204,8 @@ public sealed class GetAuditLogsHandlerTests
         public DbSet<CitationNameSnapshot> CitationNameSnapshots => throw new NotImplementedException();
         public DbSet<CitationOfficerProfile> CitationOfficerProfiles => throw new NotImplementedException();
         public DbSet<CitationTexasDetails> CitationTexasDetails => throw new NotImplementedException();
+        public DbSet<CitationOffenseDetails> CitationOffenseDetails => throw new NotImplementedException();
+        public DbSet<CitationViolationFlag> CitationViolationFlags => throw new NotImplementedException();
         public DbSet<CitationVehicle> CitationVehicles => throw new NotImplementedException();
         public DbSet<Charge> Charges => throw new NotImplementedException();
         public DbSet<Name> Names => throw new NotImplementedException();

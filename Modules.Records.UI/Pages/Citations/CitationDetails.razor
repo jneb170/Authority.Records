@@ -14,6 +14,7 @@
 @inject IKeyboardShortcutService ShortcutService
 @inject ILocationService LocationService
 @using Modules.Records.Domain.Common
+@using Modules.Records.Domain.Common.Violations
 @using Modules.Records.Application.DTOs
 @using Modules.Records.UI.Services
 @using System.Text.Json
@@ -579,7 +580,7 @@ else if (_citation is not null)
                 </div>
             </div>
 
-            @if (!HasTexasDetailsData && !_modifyMode)
+            @if (!HasCitationFormData && !_modifyMode)
             {
                 <div class="record-related-empty-state">
                     <div class="empty-state">
@@ -735,6 +736,34 @@ else if (_citation is not null)
                                readonly="@(!_modifyMode)"
                                @bind="_editTexasAcceptedBondNotes"
                                placeholder="—" />
+                    </div>
+
+                    <div class="col-12">
+                        <div class="d-flex justify-content-between align-items-center mt-2 mb-1">
+                            <label class="form-label mb-0 fw-semibold">Violation Flags</label>
+                            <span class="text-muted small">The checkbox grid printed on the UTC form — tick each violation that applies.</span>
+                        </div>
+                        <div class="border rounded p-2">
+                            <div class="fw-semibold small text-uppercase text-muted mb-1">@SectionTitle(ViolationFlagSection.Offense)</div>
+                            <div style="columns: 4 11rem; column-gap: 1rem;">
+                                @foreach (var def in ViolationFlagCatalog.ForSection(ViolationFlagSection.Offense))
+                                {
+                                    @RenderFlagCheckbox(def)
+                                }
+                            </div>
+                            <div class="row g-2 mt-1">
+                                @foreach (var section in _miniFlagSections)
+                                {
+                                    <div class="col-12 col-md-4">
+                                        <div class="fw-semibold small text-uppercase text-muted mb-1">@SectionTitle(section)</div>
+                                        @foreach (var def in ViolationFlagCatalog.ForSection(section))
+                                        {
+                                            @RenderFlagCheckbox(def)
+                                        }
+                                    </div>
+                                }
+                            </div>
+                        </div>
                     </div>
                 </div>
             }
@@ -931,6 +960,9 @@ else if (_citation is not null)
     private string? _texasViolationSourceTypeLabel;
     private string? _texasViolationGroupLabel;
     private string? _texasSpeedBandLabel;
+    // Manually-selected structured violation flags (the checkbox grid). Charge-derived flags, when
+    // that feature lands, are owned server-side and are not edited here.
+    private readonly HashSet<ViolationFlagKey> _editViolationFlags = new();
     private bool _hasExistingAtTimeOfNameSnapshot;
     private string _editAtTimeOfNameType = NameTypes.Person;
     private string _editAtTimeOfLastOrBusinessName = string.Empty;
@@ -1050,6 +1082,8 @@ else if (_citation is not null)
             LoadAtTimeOfName(_citation.AtTimeOfName);
             LoadOfficerProfile(_citation.OfficerProfile);
             LoadTexasDetails(_citation.TexasDetails);
+            LoadOffenseDetails(_citation.OffenseDetails);
+            LoadViolationFlags(_citation.ViolationFlags);
             LoadVehicle(_citation.Vehicle);
             _editSnapshot = ComputeEditSnapshot();
             StartLockTimer();
@@ -1162,6 +1196,8 @@ else if (_citation is not null)
             LoadAtTimeOfName(_citation?.AtTimeOfName);
             LoadOfficerProfile(_citation?.OfficerProfile);
             LoadTexasDetails(_citation?.TexasDetails);
+            LoadOffenseDetails(_citation?.OffenseDetails);
+            LoadViolationFlags(_citation?.ViolationFlags);
             LoadVehicle(_citation?.Vehicle);
             _editSnapshot = ComputeEditSnapshot();
             StartLockTimer();
@@ -1203,6 +1239,8 @@ else if (_citation is not null)
             JsonSerializer.Serialize(BuildAtTimeOfNameInput()),
             JsonSerializer.Serialize(BuildOfficerProfileInput()),
             JsonSerializer.Serialize(BuildTexasDetailsInput()),
+            JsonSerializer.Serialize(BuildOffenseDetailsInput()),
+            string.Join(",", _editViolationFlags.OrderBy(f => f)),
             JsonSerializer.Serialize(BuildVehicleInput()));
 
     private bool HasPendingChanges =>
@@ -1305,6 +1343,8 @@ else if (_citation is not null)
                 BuildOfficerProfileInput(),
                 BuildTexasDetailsInput(),
                 BuildVehicleInput(),
+                BuildOffenseDetailsInput(),
+                BuildViolationFlags(),
                 _pendingIncidentLinkAdds.Keys.ToArray(),
                 _pendingIncidentLinkRemoves.ToArray(),
                 _pendingChargeAdds.Keys.ToArray(),
@@ -1560,8 +1600,10 @@ else if (_citation is not null)
 
     private bool HasTexasDetailsData =>
         !string.IsNullOrWhiteSpace(_editTexasDocketNumber)
-        || !string.IsNullOrWhiteSpace(_editTexasPageNumber)
-        || _editTexasViolationSourceTypeId.HasValue
+        || !string.IsNullOrWhiteSpace(_editTexasPageNumber);
+
+    private bool HasOffenseDetailsData =>
+        _editTexasViolationSourceTypeId.HasValue
         || !string.IsNullOrWhiteSpace(_editTexasViolationSection)
         || _editTexasViolationGroupId.HasValue
         || !string.IsNullOrWhiteSpace(_editTexasPrimaryViolationDescription)
@@ -1577,6 +1619,10 @@ else if (_citation is not null)
         || !string.IsNullOrWhiteSpace(_editTexasDefendantSignatureText)
         || !string.IsNullOrWhiteSpace(_editTexasAcceptedBondNotes)
         || !string.IsNullOrWhiteSpace(_editTexasReceiptNumber);
+
+    // Whether the citation has any offense/Texas/flag data worth showing the section for.
+    private bool HasCitationFormData =>
+        HasTexasDetailsData || HasOffenseDetailsData || _editViolationFlags.Count > 0;
 
     private NameSnapshotInput? BuildAtTimeOfNameInput()
     {
@@ -1662,7 +1708,15 @@ else if (_citation is not null)
 
         return new CitationTexasDetailsInput(
             NullIfWhiteSpace(_editTexasDocketNumber),
-            NullIfWhiteSpace(_editTexasPageNumber),
+            NullIfWhiteSpace(_editTexasPageNumber));
+    }
+
+    private CitationOffenseDetailsInput? BuildOffenseDetailsInput()
+    {
+        if (!HasOffenseDetailsData)
+            return null;
+
+        return new CitationOffenseDetailsInput(
             _editTexasViolationSourceTypeId,
             NullIfWhiteSpace(_editTexasViolationSection),
             _editTexasViolationGroupId,
@@ -1680,6 +1734,9 @@ else if (_citation is not null)
             NullIfWhiteSpace(_editTexasAcceptedBondNotes),
             NullIfWhiteSpace(_editTexasReceiptNumber));
     }
+
+    // The full manual flag set sent on save (non-null replaces the manual set; empty clears it).
+    private IReadOnlyCollection<ViolationFlagKey> BuildViolationFlags() => _editViolationFlags.ToArray();
 
     private async Task CopyCurrentNameToAtTimeOfAsync()
     {
@@ -1852,52 +1909,81 @@ else if (_citation is not null)
 
     private void LoadTexasDetails(CitationTexasDetailsDto? texasDetails)
     {
-        if (texasDetails is null)
+        _editTexasDocketNumber = texasDetails?.DocketNumber;
+        _editTexasPageNumber = texasDetails?.PageNumber;
+    }
+
+    private void LoadOffenseDetails(CitationOffenseDetailsDto? offenseDetails)
+    {
+        _editTexasViolationSourceTypeId = offenseDetails?.ViolationSourceTypeId;
+        _editTexasViolationSection = offenseDetails?.ViolationSection;
+        _editTexasViolationGroupId = offenseDetails?.ViolationGroupId;
+        _editTexasPrimaryViolationDescription = offenseDetails?.PrimaryViolationDescription;
+        _editTexasSpeedMph = offenseDetails?.SpeedMph;
+        _editTexasZoneMph = offenseDetails?.ZoneMph;
+        _editTexasSpeedBandId = offenseDetails?.SpeedBandId;
+        _editTexasNarrativeOtherViolations = offenseDetails?.NarrativeOtherViolations;
+        _editTexasOccurredAtText = offenseDetails?.OccurredAtText;
+        _editTexasCourtAppearanceDateTime = offenseDetails?.CourtAppearanceDateTime;
+        _editTexasCourtAppearanceLocationId = offenseDetails?.CourtAppearanceLocationId;
+        _editTexasAffidavitSignedDate = offenseDetails?.AffidavitSignedDate;
+        _editTexasComplainantSignatureText = offenseDetails?.ComplainantSignatureText;
+        _editTexasDefendantSignatureText = offenseDetails?.DefendantSignatureText;
+        _editTexasAcceptedBondNotes = offenseDetails?.AcceptedBondNotes;
+        _editTexasReceiptNumber = offenseDetails?.ReceiptNumber;
+
+        if (offenseDetails is null)
         {
-            _editTexasDocketNumber = null;
-            _editTexasPageNumber = null;
-            _editTexasViolationSourceTypeId = null;
-            _editTexasViolationSection = null;
-            _editTexasViolationGroupId = null;
-            _editTexasPrimaryViolationDescription = null;
-            _editTexasSpeedMph = null;
-            _editTexasZoneMph = null;
-            _editTexasSpeedBandId = null;
-            _editTexasNarrativeOtherViolations = null;
-            _editTexasOccurredAtText = null;
-            _editTexasCourtAppearanceDateTime = null;
-            _editTexasCourtAppearanceLocationId = null;
             _editTexasCourtAppearanceLocationDisplay = null;
-            _editTexasAffidavitSignedDate = null;
-            _editTexasComplainantSignatureText = null;
-            _editTexasDefendantSignatureText = null;
-            _editTexasAcceptedBondNotes = null;
-            _editTexasReceiptNumber = null;
             _texasViolationSourceTypeLabel = null;
             _texasViolationGroupLabel = null;
             _texasSpeedBandLabel = null;
-            return;
         }
-
-        _editTexasDocketNumber = texasDetails.DocketNumber;
-        _editTexasPageNumber = texasDetails.PageNumber;
-        _editTexasViolationSourceTypeId = texasDetails.ViolationSourceTypeId;
-        _editTexasViolationSection = texasDetails.ViolationSection;
-        _editTexasViolationGroupId = texasDetails.ViolationGroupId;
-        _editTexasPrimaryViolationDescription = texasDetails.PrimaryViolationDescription;
-        _editTexasSpeedMph = texasDetails.SpeedMph;
-        _editTexasZoneMph = texasDetails.ZoneMph;
-        _editTexasSpeedBandId = texasDetails.SpeedBandId;
-        _editTexasNarrativeOtherViolations = texasDetails.NarrativeOtherViolations;
-        _editTexasOccurredAtText = texasDetails.OccurredAtText;
-        _editTexasCourtAppearanceDateTime = texasDetails.CourtAppearanceDateTime;
-        _editTexasCourtAppearanceLocationId = texasDetails.CourtAppearanceLocationId;
-        _editTexasAffidavitSignedDate = texasDetails.AffidavitSignedDate;
-        _editTexasComplainantSignatureText = texasDetails.ComplainantSignatureText;
-        _editTexasDefendantSignatureText = texasDetails.DefendantSignatureText;
-        _editTexasAcceptedBondNotes = texasDetails.AcceptedBondNotes;
-        _editTexasReceiptNumber = texasDetails.ReceiptNumber;
     }
+
+    private void LoadViolationFlags(IReadOnlyList<CitationViolationFlagDto>? flags)
+    {
+        _editViolationFlags.Clear();
+        if (flags is null)
+            return;
+
+        // Only manual flags are edited in the grid; charge-derived flags are server-owned.
+        foreach (var flag in flags.Where(f => f.Source == ViolationFlagSource.Manual))
+            _editViolationFlags.Add(flag.Key);
+    }
+
+    private bool IsViolationFlagSelected(ViolationFlagKey key) => _editViolationFlags.Contains(key);
+
+    private void ToggleViolationFlag(ViolationFlagKey key, bool selected)
+    {
+        if (selected)
+            _editViolationFlags.Add(key);
+        else
+            _editViolationFlags.Remove(key);
+    }
+
+    private static readonly ViolationFlagSection[] _miniFlagSections =
+    {
+        ViolationFlagSection.Contributor,
+        ViolationFlagSection.Dodge,
+        ViolationFlagSection.Collision
+    };
+
+    private static string SectionTitle(ViolationFlagSection section) => section switch
+    {
+        ViolationFlagSection.Offense => "Offense",
+        ViolationFlagSection.Contributor => "Contributors to last violation",
+        ViolationFlagSection.Dodge => "Caused person to dodge",
+        ViolationFlagSection.Collision => "Type of collision",
+        _ => section.ToString()
+    };
+
+    private RenderFragment RenderFlagCheckbox(ViolationFlagDefinition def) => @<div class="form-check small" style="break-inside: avoid;">
+        <input class="form-check-input" type="checkbox" id="@($"vf_{def.Key}")"
+               checked="@IsViolationFlagSelected(def.Key)" disabled="@(!_modifyMode)"
+               @onchange="e => ToggleViolationFlag(def.Key, (bool)(e.Value ?? false))" />
+        <label class="form-check-label" for="@($"vf_{def.Key}")">@def.Label</label>
+    </div>;
 
     private void ClearAtTimeOfName()
     {

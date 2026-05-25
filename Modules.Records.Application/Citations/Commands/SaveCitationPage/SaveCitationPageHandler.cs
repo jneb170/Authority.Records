@@ -112,6 +112,18 @@ public sealed class SaveCitationPageHandler : IRequestHandler<SaveCitationPageCo
             request.TexasDetails,
             cancellationToken);
 
+        await CitationSupplementalDataWriter.ApplyOffenseDetailsAsync(
+            _dbContext,
+            citation,
+            request.OffenseDetails,
+            cancellationToken);
+
+        await CitationSupplementalDataWriter.ApplyViolationFlagsAsync(
+            _dbContext,
+            citation,
+            request.ViolationFlags,
+            cancellationToken);
+
         await CitationSupplementalDataWriter.ApplyVehicleAsync(
             _dbContext,
             citation,

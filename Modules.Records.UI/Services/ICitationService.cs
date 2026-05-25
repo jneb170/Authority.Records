@@ -1,4 +1,5 @@
 using Modules.Records.Application.DTOs;
+using Modules.Records.Domain.Common.Violations;
 
 namespace Modules.Records.UI.Services;
 
@@ -27,6 +28,8 @@ public interface ICitationService
         CitationOfficerProfileInput? officerProfile = null,
         CitationTexasDetailsInput? texasDetails = null,
         CitationVehicleInput? vehicle = null,
+        CitationOffenseDetailsInput? offenseDetails = null,
+        IReadOnlyCollection<ViolationFlagKey>? violationFlags = null,
         IReadOnlyCollection<Guid>? incidentIdsToAdd = null,
         IReadOnlyCollection<Guid>? incidentIdsToRemove = null,
         IReadOnlyCollection<Guid>? chargeIdsToAdd = null,

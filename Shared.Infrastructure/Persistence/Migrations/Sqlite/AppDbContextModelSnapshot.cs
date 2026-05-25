@@ -1661,6 +1661,85 @@ namespace Shared.Infrastructure.Persistence.Migrations.Sqlite
                     b.ToTable("CitationNameSnapshots");
                 });
 
+            modelBuilder.Entity("Modules.Records.Domain.Entities.CitationOffenseDetails", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("AcceptedBondNotes")
+                        .HasMaxLength(500)
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime?>("AffidavitSignedDate")
+                        .HasColumnType("TEXT");
+
+                    b.Property<Guid>("AgencyId")
+                        .HasColumnType("TEXT");
+
+                    b.Property<Guid>("CitationId")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("ComplainantSignatureText")
+                        .HasMaxLength(150)
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime?>("CourtAppearanceDateTime")
+                        .HasColumnType("TEXT");
+
+                    b.Property<Guid?>("CourtAppearanceLocationId")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("DefendantSignatureText")
+                        .HasMaxLength(150)
+                        .HasColumnType("TEXT");
+
+                    b.Property<Guid>("JurisdictionId")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("NarrativeOtherViolations")
+                        .HasMaxLength(1000)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("OccurredAtText")
+                        .HasMaxLength(250)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("PrimaryViolationDescription")
+                        .HasMaxLength(250)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("ReceiptNumber")
+                        .HasMaxLength(50)
+                        .HasColumnType("TEXT");
+
+                    b.Property<Guid?>("SpeedBandId")
+                        .HasColumnType("TEXT");
+
+                    b.Property<int?>("SpeedMph")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<Guid?>("ViolationGroupId")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("ViolationSection")
+                        .HasMaxLength(50)
+                        .HasColumnType("TEXT");
+
+                    b.Property<Guid?>("ViolationSourceTypeId")
+                        .HasColumnType("TEXT");
+
+                    b.Property<int?>("ZoneMph")
+                        .HasColumnType("INTEGER");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CitationId")
+                        .IsUnique();
+
+                    b.ToTable("CitationOffenseDetails");
+                });
+
             modelBuilder.Entity("Modules.Records.Domain.Entities.CitationOfficerProfile", b =>
                 {
                     b.Property<Guid>("Id")
@@ -1713,31 +1792,10 @@ namespace Shared.Infrastructure.Persistence.Migrations.Sqlite
                         .ValueGeneratedOnAdd()
                         .HasColumnType("TEXT");
 
-                    b.Property<string>("AcceptedBondNotes")
-                        .HasMaxLength(500)
-                        .HasColumnType("TEXT");
-
-                    b.Property<DateTime?>("AffidavitSignedDate")
-                        .HasColumnType("TEXT");
-
                     b.Property<Guid>("AgencyId")
                         .HasColumnType("TEXT");
 
                     b.Property<Guid>("CitationId")
-                        .HasColumnType("TEXT");
-
-                    b.Property<string>("ComplainantSignatureText")
-                        .HasMaxLength(150)
-                        .HasColumnType("TEXT");
-
-                    b.Property<DateTime?>("CourtAppearanceDateTime")
-                        .HasColumnType("TEXT");
-
-                    b.Property<Guid?>("CourtAppearanceLocationId")
-                        .HasColumnType("TEXT");
-
-                    b.Property<string>("DefendantSignatureText")
-                        .HasMaxLength(150)
                         .HasColumnType("TEXT");
 
                     b.Property<string>("DocketNumber")
@@ -1747,44 +1805,9 @@ namespace Shared.Infrastructure.Persistence.Migrations.Sqlite
                     b.Property<Guid>("JurisdictionId")
                         .HasColumnType("TEXT");
 
-                    b.Property<string>("NarrativeOtherViolations")
-                        .HasMaxLength(1000)
-                        .HasColumnType("TEXT");
-
-                    b.Property<string>("OccurredAtText")
-                        .HasMaxLength(250)
-                        .HasColumnType("TEXT");
-
                     b.Property<string>("PageNumber")
                         .HasMaxLength(25)
                         .HasColumnType("TEXT");
-
-                    b.Property<string>("PrimaryViolationDescription")
-                        .HasMaxLength(250)
-                        .HasColumnType("TEXT");
-
-                    b.Property<string>("ReceiptNumber")
-                        .HasMaxLength(50)
-                        .HasColumnType("TEXT");
-
-                    b.Property<Guid?>("SpeedBandId")
-                        .HasColumnType("TEXT");
-
-                    b.Property<int?>("SpeedMph")
-                        .HasColumnType("INTEGER");
-
-                    b.Property<Guid?>("ViolationGroupId")
-                        .HasColumnType("TEXT");
-
-                    b.Property<string>("ViolationSection")
-                        .HasMaxLength(50)
-                        .HasColumnType("TEXT");
-
-                    b.Property<Guid?>("ViolationSourceTypeId")
-                        .HasColumnType("TEXT");
-
-                    b.Property<int?>("ZoneMph")
-                        .HasColumnType("INTEGER");
 
                     b.HasKey("Id");
 
@@ -1846,6 +1869,46 @@ namespace Shared.Infrastructure.Persistence.Migrations.Sqlite
                         .IsUnique();
 
                     b.ToTable("CitationVehicles");
+                });
+
+            modelBuilder.Entity("Modules.Records.Domain.Entities.CitationViolationFlag", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("TEXT");
+
+                    b.Property<Guid>("AgencyId")
+                        .HasColumnType("TEXT");
+
+                    b.Property<Guid>("CitationId")
+                        .HasColumnType("TEXT");
+
+                    b.Property<Guid>("JurisdictionId")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Key")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Source")
+                        .IsRequired()
+                        .HasMaxLength(16)
+                        .HasColumnType("TEXT");
+
+                    b.Property<Guid?>("SourceChargeLinkId")
+                        .HasColumnType("TEXT");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Key");
+
+                    b.HasIndex("SourceChargeLinkId");
+
+                    b.HasIndex("CitationId", "Key")
+                        .IsUnique();
+
+                    b.ToTable("CitationViolationFlags");
                 });
 
             modelBuilder.Entity("Modules.Records.Domain.Entities.Incident", b =>
@@ -2918,6 +2981,15 @@ namespace Shared.Infrastructure.Persistence.Migrations.Sqlite
                         .IsRequired();
                 });
 
+            modelBuilder.Entity("Modules.Records.Domain.Entities.CitationOffenseDetails", b =>
+                {
+                    b.HasOne("Modules.Records.Domain.Entities.Citation", null)
+                        .WithOne()
+                        .HasForeignKey("Modules.Records.Domain.Entities.CitationOffenseDetails", "CitationId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
             modelBuilder.Entity("Modules.Records.Domain.Entities.CitationOfficerProfile", b =>
                 {
                     b.HasOne("Modules.Records.Domain.Entities.Citation", null)
@@ -2941,6 +3013,15 @@ namespace Shared.Infrastructure.Persistence.Migrations.Sqlite
                     b.HasOne("Modules.Records.Domain.Entities.Citation", null)
                         .WithOne()
                         .HasForeignKey("Modules.Records.Domain.Entities.CitationVehicle", "CitationId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("Modules.Records.Domain.Entities.CitationViolationFlag", b =>
+                {
+                    b.HasOne("Modules.Records.Domain.Entities.Citation", null)
+                        .WithMany()
+                        .HasForeignKey("CitationId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
                 });

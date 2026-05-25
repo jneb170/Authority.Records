@@ -23,4 +23,6 @@ public sealed record CitationDto(
     NameSnapshotDto? AtTimeOfName = null,
     CitationOfficerProfileDto? OfficerProfile = null,
     CitationVehicleDto? Vehicle = null,
-    CitationTexasDetailsDto? TexasDetails = null);
+    CitationTexasDetailsDto? TexasDetails = null,
+    CitationOffenseDetailsDto? OffenseDetails = null,
+    IReadOnlyList<CitationViolationFlagDto>? ViolationFlags = null);
