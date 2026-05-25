@@ -64,6 +64,22 @@ internal static class CitationDtoMapper
                 .ToDictionaryAsync(details => details.CitationId, cancellationToken)
             : new Dictionary<Guid, CitationTexasDetails>();
 
+        var offenseDetails = citationIds.Count > 0
+            ? await dbContext.CitationOffenseDetails
+                .AsNoTracking()
+                .Where(details => citationIds.Contains(details.CitationId))
+                .ToDictionaryAsync(details => details.CitationId, cancellationToken)
+            : new Dictionary<Guid, CitationOffenseDetails>();
+
+        var violationFlags = citationIds.Count > 0
+            ? (await dbContext.CitationViolationFlags
+                .AsNoTracking()
+                .Where(flag => citationIds.Contains(flag.CitationId))
+                .ToListAsync(cancellationToken))
+                .GroupBy(flag => flag.CitationId)
+                .ToDictionary(g => g.Key, g => g.ToList())
+            : new Dictionary<Guid, List<CitationViolationFlag>>();
+
         return citations
             .Select(c =>
             {
@@ -72,6 +88,8 @@ internal static class CitationDtoMapper
                 officerProfiles.TryGetValue(c.Id, out var officerProfile);
                 vehicles.TryGetValue(c.Id, out var vehicle);
                 texasDetails.TryGetValue(c.Id, out var texasDetail);
+                offenseDetails.TryGetValue(c.Id, out var offenseDetail);
+                violationFlags.TryGetValue(c.Id, out var flags);
 
                 return c.ToDto(
                     defendantName: FormatName(name),
@@ -102,23 +120,31 @@ internal static class CitationDtoMapper
                         ? null
                         : new CitationTexasDetailsDto(
                             texasDetail.DocketNumber,
-                            texasDetail.PageNumber,
-                            texasDetail.ViolationSourceTypeId,
-                            texasDetail.ViolationSection,
-                            texasDetail.ViolationGroupId,
-                            texasDetail.PrimaryViolationDescription,
-                            texasDetail.SpeedMph,
-                            texasDetail.ZoneMph,
-                            texasDetail.SpeedBandId,
-                            texasDetail.NarrativeOtherViolations,
-                            texasDetail.OccurredAtText,
-                            texasDetail.CourtAppearanceDateTime,
-                            texasDetail.CourtAppearanceLocationId,
-                            texasDetail.AffidavitSignedDate,
-                            texasDetail.ComplainantSignatureText,
-                            texasDetail.DefendantSignatureText,
-                            texasDetail.AcceptedBondNotes,
-                            texasDetail.ReceiptNumber));
+                            texasDetail.PageNumber),
+                    offenseDetails: offenseDetail is null
+                        ? null
+                        : new CitationOffenseDetailsDto(
+                            offenseDetail.ViolationSourceTypeId,
+                            offenseDetail.ViolationSection,
+                            offenseDetail.ViolationGroupId,
+                            offenseDetail.PrimaryViolationDescription,
+                            offenseDetail.SpeedMph,
+                            offenseDetail.ZoneMph,
+                            offenseDetail.SpeedBandId,
+                            offenseDetail.NarrativeOtherViolations,
+                            offenseDetail.OccurredAtText,
+                            offenseDetail.CourtAppearanceDateTime,
+                            offenseDetail.CourtAppearanceLocationId,
+                            offenseDetail.AffidavitSignedDate,
+                            offenseDetail.ComplainantSignatureText,
+                            offenseDetail.DefendantSignatureText,
+                            offenseDetail.AcceptedBondNotes,
+                            offenseDetail.ReceiptNumber),
+                    violationFlags: flags is null
+                        ? null
+                        : flags
+                            .Select(f => new CitationViolationFlagDto(f.Key, f.Source, f.SourceChargeLinkId))
+                            .ToList());
             })
             .ToList();
     }

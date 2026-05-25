@@ -16,6 +16,8 @@ public interface IApplicationDbContext
     DbSet<CitationNameSnapshot> CitationNameSnapshots { get; }
     DbSet<CitationOfficerProfile> CitationOfficerProfiles { get; }
     DbSet<CitationTexasDetails> CitationTexasDetails { get; }
+    DbSet<CitationOffenseDetails> CitationOffenseDetails { get; }
+    DbSet<CitationViolationFlag> CitationViolationFlags { get; }
     DbSet<CitationVehicle> CitationVehicles { get; }
     DbSet<Charge> Charges { get; }
     DbSet<Name> Names { get; }

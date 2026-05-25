@@ -21,7 +21,9 @@ public sealed class SaveCitationPageCommandValidatorTests
             CitationNum: "CT-100",
             AtTimeOfName: new NameSnapshotInput("Person", "Driver", "Jamie"),
             OfficerProfile: new CitationOfficerProfileInput(Guid.NewGuid(), 1234, "Officer Riley", "Officer", "B-42", "U-7"),
-            TexasDetails: new CitationTexasDetailsInput("DKT-77", "2", Guid.NewGuid(), "545.351", Guid.NewGuid(), "Speeding", 72, 55, Guid.NewGuid(), "Unsafe speed", "IH-35", DateTime.UtcNow.AddDays(14), Guid.NewGuid(), DateTime.UtcNow.Date, "Officer Riley", "Jamie Driver", "Bond accepted", "RCPT-12"),
+            TexasDetails: new CitationTexasDetailsInput("DKT-77", "2"),
+            OffenseDetails: new CitationOffenseDetailsInput(Guid.NewGuid(), "545.351", Guid.NewGuid(), "Speeding", 72, 55, Guid.NewGuid(), "Unsafe speed", "IH-35", DateTime.UtcNow.AddDays(14), Guid.NewGuid(), DateTime.UtcNow.Date, "Officer Riley", "Jamie Driver", "Bond accepted", "RCPT-12"),
+            ViolationFlags: [Modules.Records.Domain.Common.Violations.ViolationFlagKey.NoSignal],
             Vehicle: new CitationVehicleInput("TX-ABC123", Guid.NewGuid(), 2025, 2022, "Ford", "SUV", "Blue", true, false),
             IncidentIdsToAdd: [Guid.NewGuid()],
             IncidentIdsToRemove: [Guid.NewGuid()],
@@ -102,5 +104,23 @@ public sealed class SaveCitationPageCommandValidatorTests
 
         Assert.False(result.IsValid);
         Assert.Contains(result.Errors, error => error.PropertyName == "TexasDetails.DocketNumber");
+    }
+
+    [Fact]
+    public void Validate_WithOffenseDetailsOverlongSection_IsInvalid()
+    {
+        var command = new SaveCitationPageCommand(
+            CitationId: Guid.NewGuid(),
+            DefendantNameId: Guid.NewGuid(),
+            Description: "Updated citation",
+            IssueDate: DateTime.UtcNow.AddMinutes(-5),
+            CourtId: null,
+            CitationNum: "CT-100",
+            OffenseDetails: new CitationOffenseDetailsInput(ViolationSection: new string('S', 51)));
+
+        var result = _validator.Validate(command);
+
+        Assert.False(result.IsValid);
+        Assert.Contains(result.Errors, error => error.PropertyName == "OffenseDetails.ViolationSection");
     }
 }

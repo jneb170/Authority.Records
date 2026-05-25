@@ -17,6 +17,7 @@ using Modules.Records.Application.Citations.Queries.GetCitationsByJurisdiction;
 using Modules.Records.Application.Citations.Queries.GetIncidentsByCitation;
 using Modules.Records.Application.DTOs;
 using Modules.Records.Application.Incidents.Queries.GetIncidentById;
+using Modules.Records.Domain.Common.Violations;
 
 namespace Modules.Records.UI.Services;
 
@@ -80,6 +81,8 @@ public sealed class CitationService : ICitationService
         CitationOfficerProfileInput? officerProfile = null,
         CitationTexasDetailsInput? texasDetails = null,
         CitationVehicleInput? vehicle = null,
+        CitationOffenseDetailsInput? offenseDetails = null,
+        IReadOnlyCollection<ViolationFlagKey>? violationFlags = null,
         IReadOnlyCollection<Guid>? incidentIdsToAdd = null,
         IReadOnlyCollection<Guid>? incidentIdsToRemove = null,
         IReadOnlyCollection<Guid>? chargeIdsToAdd = null,
@@ -96,6 +99,8 @@ public sealed class CitationService : ICitationService
             officerProfile,
             texasDetails,
             vehicle,
+            offenseDetails,
+            violationFlags,
             incidentIdsToAdd,
             incidentIdsToRemove,
             chargeIdsToAdd,

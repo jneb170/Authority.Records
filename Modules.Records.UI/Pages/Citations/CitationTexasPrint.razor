@@ -10,6 +10,7 @@
 @using Microsoft.JSInterop
 @using Modules.Records.Application.DTOs
 @using Modules.Records.Domain.Common
+@using Modules.Records.Domain.Common.Violations
 @using Modules.Records.UI.Services
 @using Modules.Records.UI.Shared
 
@@ -124,7 +125,7 @@ else if (_citation is not null)
         </div>
 
         <div class="location-text">
-            UPON A PUBLIC STREET OR HIGHWAY, NAMELY <span class="inline-line long">@Display(_citation.TexasDetails?.OccurredAtText, _citationLocationDisplay)</span>
+            UPON A PUBLIC STREET OR HIGHWAY, NAMELY <span class="inline-line long">@Display(_citation.OffenseDetails?.OccurredAtText, _citationLocationDisplay)</span>
             LOCATED IN THE CITY, VILLAGE, TOWNSHIP, COUNTY AND STATE AFORESAID AND DID THEN AND THERE COMMIT THE FOLLOWING OFFENSE.
         </div>
 
@@ -136,50 +137,50 @@ else if (_citation is not null)
                     <span>@Mark(IsSpeedRange("5-10")) 5-10 m.p.h.</span>
                     <span>@Mark(IsSpeedRange("11-15")) 11-15 m.p.h.</span>
                     <span>@Mark(IsSpeedRange("over_15")) over 15 m.p.h.</span>
-                    <span class="mph-box">MPH @NumberDisplay(_citation.TexasDetails?.SpeedMph)</span>
-                    <span class="mph-box">in @NumberDisplay(_citation.TexasDetails?.ZoneMph) MPH zone</span>
+                    <span class="mph-box">MPH @NumberDisplay(_citation.OffenseDetails?.SpeedMph)</span>
+                    <span class="mph-box">in @NumberDisplay(_citation.OffenseDetails?.ZoneMph) MPH zone</span>
                 </div>
 
                 <div class="checkbox-columns">
                     <div class="checkbox-column">
-                        <div class="checkbox-item">@Mark(HasText("Unreasonable")) Unreasonable for conditions</div>
-                        <div class="checkbox-item">@Mark(HasText("Unable to stop")) Unable to stop in assured clear distance ahead</div>
-                        <div class="checkbox-item">@Mark(HasText("Improper left")) Improper LEFT TURN</div>
-                        <div class="checkbox-item">@Mark(HasText("Improper right")) Improper RIGHT TURN</div>
-                        <div class="checkbox-item">@Mark(HasText("Improper passing")) Improper PASSING AND LANE USAGE</div>
+                        <div class="checkbox-item">@Mark(IsFlagSet(ViolationFlagKey.UnreasonableForConditions)) Unreasonable for conditions</div>
+                        <div class="checkbox-item">@Mark(IsFlagSet(ViolationFlagKey.UnableToStop)) Unable to stop in assured clear distance ahead</div>
+                        <div class="checkbox-item">@Mark(IsFlagSet(ViolationFlagKey.ImproperLeftTurn)) Improper LEFT TURN</div>
+                        <div class="checkbox-item">@Mark(IsFlagSet(ViolationFlagKey.ImproperRightTurn)) Improper RIGHT TURN</div>
+                        <div class="checkbox-item">@Mark(IsFlagSet(ViolationFlagKey.ImproperPassingAndLaneUsage)) Improper PASSING AND LANE USAGE</div>
                     </div>
                     <div class="checkbox-column">
-                        <div class="checkbox-item">@Mark(HasText("No signal")) No Signal</div>
-                        <div class="checkbox-item">@Mark(HasText("Signal")) Signal device disobeyed</div>
-                        <div class="checkbox-item">@Mark(HasText("Wrong place")) Wrong place</div>
-                        <div class="checkbox-item">@Mark(HasText("At intersection")) At intersection</div>
-                        <div class="checkbox-item">@Mark(HasText("Lane")) Lane</div>
-                        <div class="checkbox-item">@Mark(HasText("Straddling")) Straddling</div>
+                        <div class="checkbox-item">@Mark(IsFlagSet(ViolationFlagKey.NoSignal)) No Signal</div>
+                        <div class="checkbox-item">@Mark(IsFlagSet(ViolationFlagKey.SignalDeviceDisobeyed)) Signal device disobeyed</div>
+                        <div class="checkbox-item">@Mark(IsFlagSet(ViolationFlagKey.WrongPlace)) Wrong place</div>
+                        <div class="checkbox-item">@Mark(IsFlagSet(ViolationFlagKey.AtIntersection)) At intersection</div>
+                        <div class="checkbox-item">@Mark(IsFlagSet(ViolationFlagKey.Lane)) Lane</div>
+                        <div class="checkbox-item">@Mark(IsFlagSet(ViolationFlagKey.Straddling)) Straddling</div>
                     </div>
                     <div class="checkbox-column">
-                        <div class="checkbox-item">@Mark(HasText("Cut corner")) Cut corner</div>
-                        <div class="checkbox-item">@Mark(HasText("Into wrong lane")) Into wrong lane</div>
-                        <div class="checkbox-item">@Mark(HasText("Middle of intersection")) Middle of intersection</div>
-                        <div class="checkbox-item">@Mark(HasText("Walk speed")) Walk speed</div>
-                        <div class="checkbox-item">@Mark(HasText("Cut in")) Cut in</div>
-                        <div class="checkbox-item">@Mark(HasText("On right")) On right</div>
-                        <div class="checkbox-item">@Mark(HasText("Wrong lane")) Wrong lane</div>
+                        <div class="checkbox-item">@Mark(IsFlagSet(ViolationFlagKey.CutCorner)) Cut corner</div>
+                        <div class="checkbox-item">@Mark(IsFlagSet(ViolationFlagKey.IntoWrongLane)) Into wrong lane</div>
+                        <div class="checkbox-item">@Mark(IsFlagSet(ViolationFlagKey.MiddleOfIntersection)) Middle of intersection</div>
+                        <div class="checkbox-item">@Mark(IsFlagSet(ViolationFlagKey.WalkSpeed)) Walk speed</div>
+                        <div class="checkbox-item">@Mark(IsFlagSet(ViolationFlagKey.CutIn)) Cut in</div>
+                        <div class="checkbox-item">@Mark(IsFlagSet(ViolationFlagKey.OnRight)) On right</div>
+                        <div class="checkbox-item">@Mark(IsFlagSet(ViolationFlagKey.WrongLane)) Wrong lane</div>
                     </div>
                     <div class="checkbox-column">
-                        <div class="checkbox-item">@Mark(HasText("From wrong lane")) From wrong lane</div>
-                        <div class="checkbox-item">@Mark(HasText("Wrong side")) Wrong side of pavement</div>
-                        <div class="checkbox-item">@Mark(HasText("Faster")) Faster</div>
-                        <div class="checkbox-item">@Mark(HasText("On hill")) On hill</div>
-                        <div class="checkbox-item">@Mark(HasText("On curve")) On curve</div>
+                        <div class="checkbox-item">@Mark(IsFlagSet(ViolationFlagKey.FromWrongLane)) From wrong lane</div>
+                        <div class="checkbox-item">@Mark(IsFlagSet(ViolationFlagKey.WrongSideOfPavement)) Wrong side of pavement</div>
+                        <div class="checkbox-item">@Mark(IsFlagSet(ViolationFlagKey.Faster)) Faster</div>
+                        <div class="checkbox-item">@Mark(IsFlagSet(ViolationFlagKey.OnHill)) On hill</div>
+                        <div class="checkbox-item">@Mark(IsFlagSet(ViolationFlagKey.OnCurve)) On curve</div>
                     </div>
                 </div>
 
                 <div class="other-violations">
-                    <div class="line-field full"><span class="field-label">OTHER VIOLATIONS (describe)</span><span class="field-fill">@Display(_citation.TexasDetails?.NarrativeOtherViolations, _citation.TexasDetails?.PrimaryViolationDescription)</span></div>
+                    <div class="line-field full"><span class="field-label">OTHER VIOLATIONS (describe)</span><span class="field-fill">@Display(_citation.OffenseDetails?.NarrativeOtherViolations, _citation.OffenseDetails?.PrimaryViolationDescription)</span></div>
                     <div class="source-row">
                         <span>@Mark(IsSource("state")) State Statute</span>
                         <span>@Mark(IsSource("local")) Local Ordinance</span>
-                        <span class="section-ref">Sec. @Display(_citation.TexasDetails?.ViolationSection)</span>
+                        <span class="section-ref">Sec. @Display(_citation.OffenseDetails?.ViolationSection)</span>
                     </div>
                 </div>
 
@@ -194,29 +195,29 @@ else if (_citation is not null)
                 <div class="bottom-grid">
                     <div class="mini-panel">
                         <div class="mini-title">CONTRIBUTORS TO LAST VIOLATION</div>
-                        <div class="checkbox-item">@Mark(HasText("Rain")) Rain</div>
-                        <div class="checkbox-item">@Mark(HasText("Snow")) Snow</div>
-                        <div class="checkbox-item">@Mark(HasText("Ice")) Ice</div>
-                        <div class="checkbox-item">@Mark(HasText("Night")) Night</div>
-                        <div class="checkbox-item">@Mark(HasText("Fog")) Fog</div>
+                        <div class="checkbox-item">@Mark(IsFlagSet(ViolationFlagKey.Rain)) Rain</div>
+                        <div class="checkbox-item">@Mark(IsFlagSet(ViolationFlagKey.Snow)) Snow</div>
+                        <div class="checkbox-item">@Mark(IsFlagSet(ViolationFlagKey.Ice)) Ice</div>
+                        <div class="checkbox-item">@Mark(IsFlagSet(ViolationFlagKey.Night)) Night</div>
+                        <div class="checkbox-item">@Mark(IsFlagSet(ViolationFlagKey.Fog)) Fog</div>
                     </div>
                     <div class="mini-panel">
                         <div class="mini-title">CAUSED PERSON TO DODGE</div>
-                        <div class="checkbox-item">@Mark(HasText("Pedestrian")) Pedestrian</div>
-                        <div class="checkbox-item">@Mark(HasText("Driver")) Driver</div>
-                        <div class="checkbox-item">@Mark(HasText("missed")) Just missed accident</div>
+                        <div class="checkbox-item">@Mark(IsFlagSet(ViolationFlagKey.DodgePedestrian)) Pedestrian</div>
+                        <div class="checkbox-item">@Mark(IsFlagSet(ViolationFlagKey.DodgeDriver)) Driver</div>
+                        <div class="checkbox-item">@Mark(IsFlagSet(ViolationFlagKey.JustMissedAccident)) Just missed accident</div>
                     </div>
                     <div class="mini-panel">
                         <div class="mini-title">TYPE OF COLLISION</div>
-                        <div class="checkbox-item">@Mark(HasText("PD")) PD</div>
-                        <div class="checkbox-item">@Mark(HasText("PI")) PI</div>
-                        <div class="checkbox-item">@Mark(HasText("Fatal")) Fatal</div>
-                        <div class="checkbox-item">@Mark(HasText("Vehicle")) Vehicle</div>
-                        <div class="checkbox-item">@Mark(HasText("Fixed")) Hit fixed object</div>
-                        <div class="checkbox-item">@Mark(HasText("Right angle")) Right angle</div>
-                        <div class="checkbox-item">@Mark(HasText("Head on")) Head on</div>
-                        <div class="checkbox-item">@Mark(HasText("Sideswipe")) Sideswipe</div>
-                        <div class="checkbox-item">@Mark(HasText("Rear end")) Rear end</div>
+                        <div class="checkbox-item">@Mark(IsFlagSet(ViolationFlagKey.CollisionPropertyDamage)) PD</div>
+                        <div class="checkbox-item">@Mark(IsFlagSet(ViolationFlagKey.CollisionPersonalInjury)) PI</div>
+                        <div class="checkbox-item">@Mark(IsFlagSet(ViolationFlagKey.CollisionFatal)) Fatal</div>
+                        <div class="checkbox-item">@Mark(IsFlagSet(ViolationFlagKey.CollisionVehicle)) Vehicle</div>
+                        <div class="checkbox-item">@Mark(IsFlagSet(ViolationFlagKey.HitFixedObject)) Hit fixed object</div>
+                        <div class="checkbox-item">@Mark(IsFlagSet(ViolationFlagKey.CollisionRightAngle)) Right angle</div>
+                        <div class="checkbox-item">@Mark(IsFlagSet(ViolationFlagKey.CollisionHeadOn)) Head on</div>
+                        <div class="checkbox-item">@Mark(IsFlagSet(ViolationFlagKey.CollisionSideswipe)) Sideswipe</div>
+                        <div class="checkbox-item">@Mark(IsFlagSet(ViolationFlagKey.CollisionRearEnd)) Rear end</div>
                     </div>
                 </div>
 
@@ -240,11 +241,11 @@ else if (_citation is not null)
             <div class="side-columns">
                 <div class="vertical-box">
                     <div class="vertical-label">Accepted Bond Amt. or Type</div>
-                    <div class="vertical-value">@Display(_citation.TexasDetails?.AcceptedBondNotes)</div>
+                    <div class="vertical-value">@Display(_citation.OffenseDetails?.AcceptedBondNotes)</div>
                 </div>
                 <div class="vertical-box">
                     <div class="vertical-label">Receipt No.</div>
-                    <div class="vertical-value">@Display(_citation.TexasDetails?.ReceiptNumber)</div>
+                    <div class="vertical-value">@Display(_citation.OffenseDetails?.ReceiptNumber)</div>
                 </div>
                 <div class="vertical-box">
                     <div class="vertical-label">Name</div>
@@ -270,8 +271,8 @@ else if (_citation is not null)
         </div>
 
         <div class="signature-row">
-            <div class="line-field grow"><span class="field-label">THIS</span><span class="field-fill">@DateDisplay(_citation.TexasDetails?.AffidavitSignedDate)</span></div>
-            <div class="line-field grow"><span class="field-label">(Signature and identification of officer or other complainant)</span><span class="field-fill">@Display(_citation.TexasDetails?.ComplainantSignatureText, _citation.OfficerProfile?.OfficerName)</span></div>
+            <div class="line-field grow"><span class="field-label">THIS</span><span class="field-fill">@DateDisplay(_citation.OffenseDetails?.AffidavitSignedDate)</span></div>
+            <div class="line-field grow"><span class="field-label">(Signature and identification of officer or other complainant)</span><span class="field-fill">@Display(_citation.OffenseDetails?.ComplainantSignatureText, _citation.OfficerProfile?.OfficerName)</span></div>
         </div>
 
         <div class="signature-row">
@@ -287,7 +288,7 @@ else if (_citation is not null)
 
         <div class="line-field"><span class="field-label">ADDRESS OF COURT</span><span class="field-fill">@Display(_appearanceLocationDisplay)</span></div>
         <div class="promise-line">I PROMISE TO APPEAR IN SAID COURT OR BUREAU AT SAID TIME AND PLACE.</div>
-        <div class="line-field"><span class="field-label">SIGNATURE</span><span class="field-fill">@Display(_citation.TexasDetails?.DefendantSignatureText)</span></div>
+        <div class="line-field"><span class="field-label">SIGNATURE</span><span class="field-fill">@Display(_citation.OffenseDetails?.DefendantSignatureText)</span></div>
         <div class="notice-line">NOTICE, UNDERSTANDING THAT FAILURE TO APPEAR CONSTITUTES A SEPARATE OFFENSE.</div>
     </div>
 }
@@ -624,6 +625,7 @@ else if (_citation is not null)
     private string? _speedBandLabel;
     private string? _citationLocationDisplay;
     private string? _appearanceLocationDisplay;
+    private IReadOnlySet<ViolationFlagKey> _visibleFlagKeys = new HashSet<ViolationFlagKey>();
     private IJSObjectReference? _printModule;
 
     protected override async Task OnInitializedAsync()
@@ -667,9 +669,9 @@ else if (_citation is not null)
                 _citation.AtTimeOfName?.RaceId,
                 _citation.AtTimeOfName?.DriversLicenseStateId,
                 _citation.Vehicle?.PlateStateId,
-                _citation.TexasDetails?.ViolationSourceTypeId,
-                _citation.TexasDetails?.ViolationGroupId,
-                _citation.TexasDetails?.SpeedBandId
+                _citation.OffenseDetails?.ViolationSourceTypeId,
+                _citation.OffenseDetails?.ViolationGroupId,
+                _citation.OffenseDetails?.SpeedBandId
             }
             .Where(id => id.HasValue)
             .Select(id => id!.Value)
@@ -685,12 +687,14 @@ else if (_citation is not null)
             _raceLabel = _citation.AtTimeOfName?.RaceId is Guid raceId ? labels.GetValueOrDefault(raceId) : null;
             _dlStateLabel = _citation.AtTimeOfName?.DriversLicenseStateId is Guid dlStateId ? labels.GetValueOrDefault(dlStateId) : null;
             _vehiclePlateStateLabel = _citation.Vehicle?.PlateStateId is Guid vehicleStateId ? labels.GetValueOrDefault(vehicleStateId) : null;
-            _violationSourceLabel = _citation.TexasDetails?.ViolationSourceTypeId is Guid sourceId ? labels.GetValueOrDefault(sourceId) : null;
-            _violationGroupLabel = _citation.TexasDetails?.ViolationGroupId is Guid groupId ? labels.GetValueOrDefault(groupId) : null;
-            _speedBandLabel = _citation.TexasDetails?.SpeedBandId is Guid speedBandId ? labels.GetValueOrDefault(speedBandId) : null;
+            _violationSourceLabel = _citation.OffenseDetails?.ViolationSourceTypeId is Guid sourceId ? labels.GetValueOrDefault(sourceId) : null;
+            _violationGroupLabel = _citation.OffenseDetails?.ViolationGroupId is Guid groupId ? labels.GetValueOrDefault(groupId) : null;
+            _speedBandLabel = _citation.OffenseDetails?.SpeedBandId is Guid speedBandId ? labels.GetValueOrDefault(speedBandId) : null;
+
+            _visibleFlagKeys = ComputeVisibleFlagKeys(_citation.ViolationFlags);
 
             _citationLocationDisplay = await ResolveLocationDisplayAsync(_citation.LocationId);
-            _appearanceLocationDisplay = await ResolveLocationDisplayAsync(_citation.TexasDetails?.CourtAppearanceLocationId);
+            _appearanceLocationDisplay = await ResolveLocationDisplayAsync(_citation.OffenseDetails?.CourtAppearanceLocationId);
         }
         catch (Exception ex)
         {
@@ -912,10 +916,10 @@ else if (_citation is not null)
         => value.ToLocalTime().ToString("MMMM yyyy");
 
     private string CourtAppearanceDay()
-        => _citation?.TexasDetails?.CourtAppearanceDateTime?.ToLocalTime().ToString("MM/dd/yyyy") ?? string.Empty;
+        => _citation?.OffenseDetails?.CourtAppearanceDateTime?.ToLocalTime().ToString("MM/dd/yyyy") ?? string.Empty;
 
     private string CourtAppearanceTime()
-        => _citation?.TexasDetails?.CourtAppearanceDateTime?.ToLocalTime().ToString("h:mm tt") ?? string.Empty;
+        => _citation?.OffenseDetails?.CourtAppearanceDateTime?.ToLocalTime().ToString("h:mm tt") ?? string.Empty;
 
     private bool IsSpeedRange(string token)
     {
@@ -943,10 +947,30 @@ else if (_citation is not null)
     private bool IsParking()
         => (_violationGroupLabel ?? string.Empty).Contains("Parking", StringComparison.OrdinalIgnoreCase);
 
-    private bool HasText(string text)
+    // A flag prints when it's in the visible set. The visible set is computed once on load from the
+    // structured CitationViolationFlag rows — replacing the old free-text substring inference that
+    // produced false marks (e.g. "Ice" inside "device").
+    private bool IsFlagSet(ViolationFlagKey key) => _visibleFlagKeys.Contains(key);
+
+    // Manual flags always print. Charge-derived flags print only while their originating charge link
+    // is still active — that visibility rule is applied here at read time (per-jurisdiction-tunable
+    // later) without changing storage. Charge derivation isn't implemented yet, so today the citation
+    // carries only manual flags; the charge branch is wired for when it lands.
+    private static IReadOnlySet<ViolationFlagKey> ComputeVisibleFlagKeys(IReadOnlyList<CitationViolationFlagDto>? flags)
     {
-        var source = $"{_citation?.TexasDetails?.PrimaryViolationDescription} {_citation?.TexasDetails?.NarrativeOtherViolations}";
-        return source.Contains(text, StringComparison.OrdinalIgnoreCase);
+        var visible = new HashSet<ViolationFlagKey>();
+        if (flags is null)
+            return visible;
+
+        foreach (var flag in flags)
+        {
+            if (flag.Source == ViolationFlagSource.Manual)
+                visible.Add(flag.Key);
+            // else: charge-derived — show only if flag.SourceChargeLinkId is an active charge link.
+            // No active-link set is loaded yet because charge derivation is not implemented.
+        }
+
+        return visible;
     }
 
     private static bool HasLabel(string? label, string token)

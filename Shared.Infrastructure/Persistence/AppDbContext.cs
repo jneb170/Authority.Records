@@ -64,6 +64,8 @@ public class AppDbContext : DbContext, IApplicationDbContext
     public DbSet<CitationNameSnapshot> CitationNameSnapshots => Set<CitationNameSnapshot>();
     public DbSet<CitationOfficerProfile> CitationOfficerProfiles => Set<CitationOfficerProfile>();
     public DbSet<CitationTexasDetails> CitationTexasDetails => Set<CitationTexasDetails>();
+    public DbSet<CitationOffenseDetails> CitationOffenseDetails => Set<CitationOffenseDetails>();
+    public DbSet<CitationViolationFlag> CitationViolationFlags => Set<CitationViolationFlag>();
     public DbSet<CitationVehicle> CitationVehicles => Set<CitationVehicle>();
     public DbSet<Charge> Charges => Set<Charge>();
     public DbSet<Name> Names => Set<Name>();

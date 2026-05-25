@@ -21,6 +21,8 @@ internal sealed class RecordPageSaveTestDbContext(DbContextOptions<RecordPageSav
     public DbSet<CitationNameSnapshot> CitationNameSnapshots { get; set; } = null!;
     public DbSet<CitationOfficerProfile> CitationOfficerProfiles { get; set; } = null!;
     public DbSet<CitationTexasDetails> CitationTexasDetails { get; set; } = null!;
+    public DbSet<CitationOffenseDetails> CitationOffenseDetails { get; set; } = null!;
+    public DbSet<CitationViolationFlag> CitationViolationFlags { get; set; } = null!;
     public DbSet<CitationVehicle> CitationVehicles { get; set; } = null!;
     public DbSet<Charge> Charges { get; set; } = null!;
     public DbSet<Name> Names { get; set; } = null!;
@@ -72,6 +74,8 @@ internal sealed class RecordPageSaveTestDbContext(DbContextOptions<RecordPageSav
         ConfigureEntity<CitationNameSnapshot>(modelBuilder);
         ConfigureEntity<CitationOfficerProfile>(modelBuilder);
         ConfigureEntity<CitationTexasDetails>(modelBuilder);
+        ConfigureEntity<CitationOffenseDetails>(modelBuilder);
+        ConfigureEntity<CitationViolationFlag>(modelBuilder);
         ConfigureEntity<CitationVehicle>(modelBuilder);
         ConfigureEntity<Charge>(modelBuilder);
         ConfigureEntity<Name>(modelBuilder);

@@ -4,6 +4,7 @@ using Modules.Records.Application.DTOs;
 using Modules.Records.Application.Tests.Infrastructure;
 using Modules.Records.Domain.Common;
 using Modules.Records.Domain.Common.Implementations;
+using Modules.Records.Domain.Common.Violations;
 using Modules.Records.Domain.Entities;
 using Modules.Records.Domain.Factories;
 using Modules.Records.Domain.ValueObjects;
@@ -133,7 +134,18 @@ public sealed class SaveCitationPageHandlerTests
                 "U-7"),
             new CitationTexasDetailsInput(
                 "DKT-77",
-                "12",
+                "12"),
+            new CitationVehicleInput(
+                "TX-ABC123",
+                Guid.NewGuid(),
+                2025,
+                2022,
+                "Ford",
+                "SUV",
+                "Blue",
+                true,
+                false),
+            OffenseDetails: new CitationOffenseDetailsInput(
                 Guid.NewGuid(),
                 "545.351",
                 Guid.NewGuid(),
@@ -150,20 +162,11 @@ public sealed class SaveCitationPageHandlerTests
                 "Jamie Driver",
                 "Bond accepted at window 2",
                 "RCPT-12"),
-            new CitationVehicleInput(
-                "TX-ABC123",
-                Guid.NewGuid(),
-                2025,
-                2022,
-                "Ford",
-                "SUV",
-                "Blue",
-                true,
-                false),
-            [incidentToAdd.Id],
-            [incidentToRemove.Id],
-            [chargeToAdd.Id],
-            [chargeToRemove.Id]);
+            ViolationFlags: [ViolationFlagKey.NoSignal, ViolationFlagKey.Ice],
+            IncidentIdsToAdd: [incidentToAdd.Id],
+            IncidentIdsToRemove: [incidentToRemove.Id],
+            ChargeIdsToAdd: [chargeToAdd.Id],
+            ChargeIdsToRemove: [chargeToRemove.Id]);
 
         await handler.Handle(command, CancellationToken.None);
 
@@ -196,16 +199,23 @@ public sealed class SaveCitationPageHandlerTests
         var texasDetails = await db.CitationTexasDetails.SingleAsync(d => d.CitationId == citation.Id);
         Assert.Equal("DKT-77", texasDetails.DocketNumber);
         Assert.Equal("12", texasDetails.PageNumber);
-        Assert.Equal("545.351", texasDetails.ViolationSection);
-        Assert.Equal("Speeding", texasDetails.PrimaryViolationDescription);
-        Assert.Equal(72, texasDetails.SpeedMph);
-        Assert.Equal(55, texasDetails.ZoneMph);
-        Assert.Equal("Unsafe speed for posted conditions", texasDetails.NarrativeOtherViolations);
-        Assert.Equal("IH-35 frontage road", texasDetails.OccurredAtText);
-        Assert.Equal("Officer Riley", texasDetails.ComplainantSignatureText);
-        Assert.Equal("Jamie Driver", texasDetails.DefendantSignatureText);
-        Assert.Equal("Bond accepted at window 2", texasDetails.AcceptedBondNotes);
-        Assert.Equal("RCPT-12", texasDetails.ReceiptNumber);
+
+        var offenseDetails = await db.CitationOffenseDetails.SingleAsync(d => d.CitationId == citation.Id);
+        Assert.Equal("545.351", offenseDetails.ViolationSection);
+        Assert.Equal("Speeding", offenseDetails.PrimaryViolationDescription);
+        Assert.Equal(72, offenseDetails.SpeedMph);
+        Assert.Equal(55, offenseDetails.ZoneMph);
+        Assert.Equal("Unsafe speed for posted conditions", offenseDetails.NarrativeOtherViolations);
+        Assert.Equal("IH-35 frontage road", offenseDetails.OccurredAtText);
+        Assert.Equal("Officer Riley", offenseDetails.ComplainantSignatureText);
+        Assert.Equal("Jamie Driver", offenseDetails.DefendantSignatureText);
+        Assert.Equal("Bond accepted at window 2", offenseDetails.AcceptedBondNotes);
+        Assert.Equal("RCPT-12", offenseDetails.ReceiptNumber);
+
+        var flags = await db.CitationViolationFlags.Where(f => f.CitationId == citation.Id).ToListAsync();
+        Assert.Equal(2, flags.Count);
+        Assert.Contains(flags, f => f.Key == ViolationFlagKey.NoSignal && f.Source == ViolationFlagSource.Manual);
+        Assert.Contains(flags, f => f.Key == ViolationFlagKey.Ice && f.Source == ViolationFlagSource.Manual);
 
         var vehicle = await db.CitationVehicles.SingleAsync(v => v.CitationId == citation.Id);
         Assert.Equal("TX-ABC123", vehicle.PlateNumber);

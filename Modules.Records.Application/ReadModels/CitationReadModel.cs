@@ -67,11 +67,13 @@ public sealed class CitationReadModel
         NameSnapshotDto? atTimeOfName = null,
         CitationOfficerProfileDto? officerProfile = null,
         CitationVehicleDto? vehicle = null,
-        CitationTexasDetailsDto? texasDetails = null) => new(
+        CitationTexasDetailsDto? texasDetails = null,
+        CitationOffenseDetailsDto? offenseDetails = null,
+        IReadOnlyList<CitationViolationFlagDto>? violationFlags = null) => new(
         Id, RecordNumber, JurisdictionId, AgencyId,
         DefendantNameId, defendantName, defendantNameRecordNumber,
         Description, IssueDate, IsIssued, IsLocked, LockedByUserId,
-        CreatedBy, ModifiedBy, CreatedAtUtc, UpdatedAtUtc, CourtId, CitationNum, LocationId, atTimeOfName, officerProfile, vehicle, texasDetails);
+        CreatedBy, ModifiedBy, CreatedAtUtc, UpdatedAtUtc, CourtId, CitationNum, LocationId, atTimeOfName, officerProfile, vehicle, texasDetails, offenseDetails, violationFlags);
 
     public void ApplyDetailsChanged(string description, DateTime issueDate, Guid? courtId, string citationNum, Guid? defendantNameId)
     {

@@ -80,36 +80,43 @@ public sealed class SaveCitationPageCommandValidator : AbstractValidator<SaveCit
 
             RuleFor(x => x.TexasDetails!.PageNumber)
                 .MaximumLength(25).WithMessage("Page number must not exceed 25 characters.");
+        });
 
-            RuleFor(x => x.TexasDetails!.ViolationSection)
+        When(x => x.OffenseDetails is not null, () =>
+        {
+            RuleFor(x => x.OffenseDetails!.ViolationSection)
                 .MaximumLength(50).WithMessage("Violation section must not exceed 50 characters.");
 
-            RuleFor(x => x.TexasDetails!.PrimaryViolationDescription)
+            RuleFor(x => x.OffenseDetails!.PrimaryViolationDescription)
                 .MaximumLength(250).WithMessage("Primary violation description must not exceed 250 characters.");
 
-            RuleFor(x => x.TexasDetails!.NarrativeOtherViolations)
+            RuleFor(x => x.OffenseDetails!.NarrativeOtherViolations)
                 .MaximumLength(1000).WithMessage("Other violations text must not exceed 1000 characters.");
 
-            RuleFor(x => x.TexasDetails!.OccurredAtText)
+            RuleFor(x => x.OffenseDetails!.OccurredAtText)
                 .MaximumLength(250).WithMessage("Occurred-at text must not exceed 250 characters.");
 
-            RuleFor(x => x.TexasDetails!.ComplainantSignatureText)
+            RuleFor(x => x.OffenseDetails!.ComplainantSignatureText)
                 .MaximumLength(150).WithMessage("Complainant signature text must not exceed 150 characters.");
 
-            RuleFor(x => x.TexasDetails!.DefendantSignatureText)
+            RuleFor(x => x.OffenseDetails!.DefendantSignatureText)
                 .MaximumLength(150).WithMessage("Defendant signature text must not exceed 150 characters.");
 
-            RuleFor(x => x.TexasDetails!.AcceptedBondNotes)
+            RuleFor(x => x.OffenseDetails!.AcceptedBondNotes)
                 .MaximumLength(500).WithMessage("Bond notes must not exceed 500 characters.");
 
-            RuleFor(x => x.TexasDetails!.ReceiptNumber)
+            RuleFor(x => x.OffenseDetails!.ReceiptNumber)
                 .MaximumLength(50).WithMessage("Receipt number must not exceed 50 characters.");
 
-            RuleFor(x => x.TexasDetails!.SpeedMph)
-                .GreaterThanOrEqualTo(0).When(x => x.TexasDetails!.SpeedMph.HasValue);
+            RuleFor(x => x.OffenseDetails!.SpeedMph)
+                .GreaterThanOrEqualTo(0).When(x => x.OffenseDetails!.SpeedMph.HasValue);
 
-            RuleFor(x => x.TexasDetails!.ZoneMph)
-                .GreaterThanOrEqualTo(0).When(x => x.TexasDetails!.ZoneMph.HasValue);
+            RuleFor(x => x.OffenseDetails!.ZoneMph)
+                .GreaterThanOrEqualTo(0).When(x => x.OffenseDetails!.ZoneMph.HasValue);
         });
+
+        RuleFor(x => x.ViolationFlags)
+            .Must(flags => flags is null || flags.All(Enum.IsDefined))
+            .WithMessage("One or more violation flags are not recognized.");
     }
 }

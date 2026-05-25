@@ -19,30 +19,6 @@ internal sealed class CitationTexasDetailsConfiguration : IEntityTypeConfigurati
         builder.Property(x => x.PageNumber)
             .HasMaxLength(25);
 
-        builder.Property(x => x.ViolationSection)
-            .HasMaxLength(50);
-
-        builder.Property(x => x.PrimaryViolationDescription)
-            .HasMaxLength(250);
-
-        builder.Property(x => x.NarrativeOtherViolations)
-            .HasMaxLength(1000);
-
-        builder.Property(x => x.OccurredAtText)
-            .HasMaxLength(250);
-
-        builder.Property(x => x.ComplainantSignatureText)
-            .HasMaxLength(150);
-
-        builder.Property(x => x.DefendantSignatureText)
-            .HasMaxLength(150);
-
-        builder.Property(x => x.AcceptedBondNotes)
-            .HasMaxLength(500);
-
-        builder.Property(x => x.ReceiptNumber)
-            .HasMaxLength(50);
-
         builder.HasOne<Citation>()
             .WithOne()
             .HasForeignKey<CitationTexasDetails>(x => x.CitationId)
