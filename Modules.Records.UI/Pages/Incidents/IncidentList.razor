@@ -10,7 +10,7 @@
 
 <div class="page-header">
     <div>
-        <h2 class="page-header-title"><i class="bi bi-clipboard2-pulse-fill"></i> Incidents</h2>
+        <h1 class="page-header-title"><i class="bi bi-clipboard2-pulse-fill"></i> Incidents</h1>
         <div class="page-header-sub">Incident Reports</div>
     </div>
     <a class="btn btn-primary" href="/incidents/create"><i class="bi bi-plus-lg me-1"></i>New Incident</a>
@@ -18,7 +18,9 @@
 
 <!-- Search / Filter Panel -->
 <div class="card list-filter-card mb-3">
-    <div class="card-header list-filter-card-header" @onclick="() => _filterExpanded = !_filterExpanded">
+    <div class="card-header list-filter-card-header" role="button" tabindex="0"
+         aria-expanded="@_filterExpanded" aria-controls="incident-filter-body"
+         @onclick="ToggleFilter" @onkeydown="HandleFilterKey">
         <span class="list-filter-card-title">
             <i class="bi bi-search me-1"></i>Search / Filter
         </span>
@@ -26,7 +28,7 @@
     </div>
 @if (_filterExpanded)
 {
-    <div class="card-body">
+    <div class="card-body" id="incident-filter-body">
         <div class="row g-2">
             <div class="col-sm-6 col-md-4">
                 <label class="form-label mb-1">Incident # contains</label>
@@ -75,18 +77,18 @@
     </div>
 }
 
+<StatusMessage Kind="error" Message="@_error" OnDismiss="() => _error = null" />
+<StatusMessage Kind="success" Message="@_successMessage" OnDismiss="() => _successMessage = null" />
+
 @if (_loading)
 {
     <LoadingSpinner />
-}
-else if (_error is not null)
-{
-    <div class="alert alert-danger">@_error</div>
 }
 else if (_incidents is not null)
 {
     <div class="table-responsive list-table-shell">
     <table class="table table-hover list-page-table">
+        <caption class="visually-hidden">Incidents, sortable by column. Use the search and filter controls above to narrow results.</caption>
         <thead>
             <tr>
                 <th style="width:3rem"></th>
@@ -106,6 +108,12 @@ else if (_incidents is not null)
             </tr>
         </thead>
         <tbody>
+            @if (!SortedIncidents.Any())
+            {
+                <EmptyState Columns="7"
+                            Message="@(ActiveFilterCount > 0 ? "No incidents match your filters." : "No incidents recorded.")"
+                            SubMessage="@(ActiveFilterCount > 0 ? "Adjust or clear the filters above to see more results." : "Create an incident record to begin tracking public-safety events.")" />
+            }
             @foreach (var i in SortedIncidents)
             {
                 <tr>
@@ -138,6 +146,7 @@ else if (_incidents is not null)
     private Dictionary<Guid, string> _lockUserNames = [];
     private bool _loading = true;
     private string? _error;
+    private string? _successMessage;
 
     // Delete state
     private bool   _showDeleteConfirm;
@@ -221,8 +230,18 @@ else if (_incidents is not null)
         _lockUserNames = await UserLookupService.GetDisplayNamesAsync(ids);
     }
 
+    private void ToggleFilter() => _filterExpanded = !_filterExpanded;
+
+    private void HandleFilterKey(KeyboardEventArgs e)
+    {
+        if (e.Key is "Enter" or " " or "Spacebar")
+            _filterExpanded = !_filterExpanded;
+    }
+
     private void InitiateDelete(Guid id, string name)
     {
+        _error           = null;
+        _successMessage  = null;
         _deleteTargetId    = id;
         _deleteTargetName  = name;
         _showDeleteConfirm = true;
@@ -236,6 +255,9 @@ else if (_incidents is not null)
             await IncidentService.SoftDeleteAsync(_deleteTargetId);
             _incidents = await IncidentService.GetByJurisdictionAsync();
             await ResolveLockedNamesAsync();
+            _successMessage = string.IsNullOrWhiteSpace(_deleteTargetName)
+                ? "Incident deleted."
+                : $"Incident \"{_deleteTargetName}\" deleted.";
         }
         catch (Exception ex) { _error = ex.Message; }
     }
