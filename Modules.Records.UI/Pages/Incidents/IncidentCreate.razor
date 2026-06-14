@@ -12,21 +12,17 @@
 
 <PageTitle>New Incident</PageTitle>
 
+<NavigationLock ConfirmExternalNavigation="@HasEnteredData" />
+
 <div class="page-header record-page-header">
     <div>
-        <h2 class="page-header-title"><i class="bi bi-clipboard2-pulse-fill"></i> New Incident</h2>
+        <h1 class="page-header-title"><i class="bi bi-clipboard2-pulse-fill"></i> New Incident</h1>
         <div class="page-header-sub">Create the initial report and open the incident record for follow-up work.</div>
     </div>
 </div>
 
-@if (_vm.ErrorMessage is not null)
-{
-    <div class="alert alert-danger">@_vm.ErrorMessage</div>
-}
-@if (AgencyBlockingMessage is not null)
-{
-    <div class="alert alert-warning">@AgencyBlockingMessage</div>
-}
+<StatusMessage Kind="error" Message="@_vm.ErrorMessage" OnDismiss="() => _vm.ErrorMessage = null" />
+<StatusMessage Kind="warning" Message="@AgencyBlockingMessage" Dismissible="false" />
 
 <div class="record-form-shell">
 <EditForm Model="_vm" OnValidSubmit="SubmitAsync">

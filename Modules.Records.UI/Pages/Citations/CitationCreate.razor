@@ -12,21 +12,17 @@
 
 <PageTitle>New Citation</PageTitle>
 
+<NavigationLock ConfirmExternalNavigation="@HasEnteredData" />
+
 <div class="page-header record-page-header">
     <div>
-        <h2 class="page-header-title"><i class="bi bi-file-earmark-text-fill"></i> New Citation</h2>
+        <h1 class="page-header-title"><i class="bi bi-file-earmark-text-fill"></i> New Citation</h1>
         <div class="page-header-sub">Create a citation record and connect it to the related incident when applicable.</div>
     </div>
 </div>
 
-@if (_vm.ErrorMessage is not null)
-{
-    <div class="alert alert-danger">@_vm.ErrorMessage</div>
-}
-@if (AgencyBlockingMessage is not null)
-{
-    <div class="alert alert-warning">@AgencyBlockingMessage</div>
-}
+<StatusMessage Kind="error" Message="@_vm.ErrorMessage" OnDismiss="() => _vm.ErrorMessage = null" />
+<StatusMessage Kind="warning" Message="@AgencyBlockingMessage" Dismissible="false" />
 
 <div class="record-form-shell">
 <EditForm Model="_vm" OnValidSubmit="SubmitAsync">
