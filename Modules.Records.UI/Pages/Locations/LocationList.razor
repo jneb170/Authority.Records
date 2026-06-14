@@ -11,17 +11,17 @@
 
 <PageTitle>Locations (MLI)</PageTitle>
 
-<div class="page-header">
-    <div>
-        <h2 class="page-header-title"><i class="bi bi-geo-alt-fill"></i> Locations</h2>
-        <div class="page-header-sub">Master Location Index (MLI)</div>
-    </div>
-    <a class="btn btn-primary" href="/locations/create"><i class="bi bi-plus-lg me-1"></i>New Location</a>
-</div>
+<PageHeader Icon="bi-geo-alt-fill" Title="Locations" Subtitle="Master Location Index (MLI)">
+    <Actions>
+        <a class="btn btn-primary" href="/locations/create"><i class="bi bi-plus-lg me-1"></i>New Location</a>
+    </Actions>
+</PageHeader>
 
 <!-- Search / Filter Panel -->
 <div class="card list-filter-card mb-3">
-    <div class="card-header list-filter-card-header" @onclick="() => _filterExpanded = !_filterExpanded">
+    <div class="card-header list-filter-card-header" role="button" tabindex="0"
+         aria-expanded="@(_filterExpanded ? "true" : "false")" aria-controls="location-filter-body"
+         @onclick="ToggleFilter" @onkeydown="HandleFilterKey">
         <span class="list-filter-card-title">
             <i class="bi bi-search me-1"></i>Search / Filter
         </span>
@@ -29,7 +29,7 @@
     </div>
 @if (_filterExpanded)
 {
-    <div class="card-body">
+    <div class="card-body" id="location-filter-body">
         <div class="row g-2">
             <div class="col-sm-6 col-md-4">
                 <label class="form-label mb-1">Address contains</label>
@@ -78,24 +78,18 @@
     </div>
 }
 
+<StatusMessage Kind="error" Message="@_error" OnDismiss="() => _error = null" />
+<StatusMessage Kind="success" Message="@_successMessage" OnDismiss="() => _successMessage = null" />
+
 @if (_loading)
 {
     <LoadingSpinner />
 }
-else if (_error is not null)
-{
-    <div class="alert alert-danger">@_error</div>
-}
 else if (_locations is not null)
 {
-    @if (!_locations.Any())
-    {
-        <p class="text-muted">No locations found.</p>
-    }
-    else
-    {
         <div class="table-responsive list-table-shell">
         <table class="table table-hover list-page-table">
+            <caption class="visually-hidden">Locations, sortable by column. Use the search and filter controls above to narrow results.</caption>
             <thead>
                 <tr>
                     <th style="width:3rem"></th>
@@ -114,6 +108,12 @@ else if (_locations is not null)
                 </tr>
             </thead>
             <tbody>
+                @if (!SortedLocations.Any())
+                {
+                    <EmptyState Columns="7"
+                                Message="@(ActiveFilterCount > 0 ? "No locations match your filters." : "No locations recorded.")"
+                                SubMessage="@(ActiveFilterCount > 0 ? "Adjust or clear the filters above to see more results." : "Create a location record to build your Master Location Index.")" />
+                }
                 @foreach (var loc in SortedLocations)
                 {
                     <tr>
@@ -132,7 +132,6 @@ else if (_locations is not null)
             </tbody>
         </table>
         </div>
-    }
 }
 
 <ConfirmDialog Visible="_showDeleteConfirm"
@@ -147,6 +146,7 @@ else if (_locations is not null)
     private Dictionary<Guid, string> _lockUserNames = [];
     private bool _loading = true;
     private string? _error;
+    private string? _successMessage;
 
     // Delete state
     private bool   _showDeleteConfirm;
@@ -178,6 +178,14 @@ else if (_locations is not null)
     {
         if (_sortColumn == column) _sortAscending = !_sortAscending;
         else { _sortColumn = column; _sortAscending = true; }
+    }
+
+    private void ToggleFilter() => _filterExpanded = !_filterExpanded;
+
+    private void HandleFilterKey(KeyboardEventArgs e)
+    {
+        if (e.Key is "Enter" or " " or "Spacebar")
+            _filterExpanded = !_filterExpanded;
     }
 
     // Filter state
@@ -229,6 +237,8 @@ else if (_locations is not null)
 
     private void InitiateDelete(Guid id, string address)
     {
+        _error               = null;
+        _successMessage      = null;
         _deleteTargetId      = id;
         _deleteTargetAddress = address;
         _showDeleteConfirm   = true;
@@ -242,6 +252,9 @@ else if (_locations is not null)
             await LocationService.SoftDeleteAsync(_deleteTargetId);
             _locations = await LocationService.GetByJurisdictionAsync();
             await ResolveLockedUsersAsync();
+            _successMessage = string.IsNullOrWhiteSpace(_deleteTargetAddress)
+                ? "Location deleted."
+                : $"Location \"{_deleteTargetAddress}\" deleted.";
         }
         catch (Exception ex) { _error = ex.Message; }
     }

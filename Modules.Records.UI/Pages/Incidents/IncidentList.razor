@@ -8,18 +8,16 @@
 
 <PageTitle>Incidents</PageTitle>
 
-<div class="page-header">
-    <div>
-        <h1 class="page-header-title"><i class="bi bi-clipboard2-pulse-fill"></i> Incidents</h1>
-        <div class="page-header-sub">Incident Reports</div>
-    </div>
-    <a class="btn btn-primary" href="/incidents/create"><i class="bi bi-plus-lg me-1"></i>New Incident</a>
-</div>
+<PageHeader Icon="bi-clipboard2-pulse-fill" Title="Incidents" Subtitle="Incident Reports">
+    <Actions>
+        <a class="btn btn-primary" href="/incidents/create"><i class="bi bi-plus-lg me-1"></i>New Incident</a>
+    </Actions>
+</PageHeader>
 
 <!-- Search / Filter Panel -->
 <div class="card list-filter-card mb-3">
     <div class="card-header list-filter-card-header" role="button" tabindex="0"
-         aria-expanded="@_filterExpanded" aria-controls="incident-filter-body"
+         aria-expanded="@(_filterExpanded ? "true" : "false")" aria-controls="incident-filter-body"
          @onclick="ToggleFilter" @onkeydown="HandleFilterKey">
         <span class="list-filter-card-title">
             <i class="bi bi-search me-1"></i>Search / Filter
