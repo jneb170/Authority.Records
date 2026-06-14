@@ -1,0 +1,45 @@
+@* An inline status banner that announces itself to assistive tech via an
+   ARIA live region. Errors use role="alert"/assertive; success and info use
+   role="status"/polite. Persists until dismissed (no silent auto-hide). *@
+@if (Show)
+{
+    <div class="ar-status-message @AlertClass" role="@Role" aria-live="@AriaLive">
+        <i class="bi @Icon ar-status-icon" aria-hidden="true"></i>
+        <span class="ar-status-text">@Message</span>
+        @if (Dismissible)
+        {
+            <button type="button" class="btn-close ar-status-close" aria-label="Dismiss message" @onclick="OnDismiss"></button>
+        }
+    </div>
+}
+
+@code {
+    [Parameter] public string? Message { get; set; }
+
+    /// <summary>One of: success, error, warning, info.</summary>
+    [Parameter] public string Kind { get; set; } = "info";
+
+    [Parameter] public bool Dismissible { get; set; } = true;
+    [Parameter] public EventCallback OnDismiss { get; set; }
+
+    private bool Show => !string.IsNullOrWhiteSpace(Message);
+
+    private string AlertClass => Kind switch
+    {
+        "success" => "alert alert-success",
+        "error"   => "alert alert-danger",
+        "warning" => "alert alert-warning",
+        _         => "alert alert-info"
+    };
+
+    private string Icon => Kind switch
+    {
+        "success" => "bi-check-circle-fill",
+        "error"   => "bi-exclamation-triangle-fill",
+        "warning" => "bi-exclamation-triangle-fill",
+        _         => "bi-info-circle-fill"
+    };
+
+    private string Role => Kind == "error" ? "alert" : "status";
+    private string AriaLive => Kind == "error" ? "assertive" : "polite";
+}

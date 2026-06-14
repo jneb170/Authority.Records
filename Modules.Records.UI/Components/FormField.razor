@@ -1,0 +1,30 @@
+@* Consistent form-field wrapper: a properly associated label (for/id), an
+   optional required marker, the input (ChildContent), and optional help text.
+   The caller sets a matching id on the input and passes it as For so the
+   label/input association satisfies WCAG 1.3.1. *@
+<div class="ar-form-field">
+    <label class="form-label" for="@For">
+        <span>@Label</span>
+        @if (Required)
+        {
+            <span class="ar-required" title="Required" aria-hidden="true">*</span>
+            <span class="visually-hidden">(required)</span>
+        }
+    </label>
+    @ChildContent
+    @if (!string.IsNullOrWhiteSpace(Help))
+    {
+        <div class="form-text">@Help</div>
+    }
+</div>
+
+@code {
+    [Parameter, EditorRequired] public string Label { get; set; } = string.Empty;
+
+    /// <summary>The id of the input this label is for. Omit for non-input groups.</summary>
+    [Parameter] public string? For { get; set; }
+
+    [Parameter] public bool Required { get; set; }
+    [Parameter] public string? Help { get; set; }
+    [Parameter] public RenderFragment? ChildContent { get; set; }
+}

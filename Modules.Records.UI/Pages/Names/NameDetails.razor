@@ -25,6 +25,8 @@ else if (_error is not null)
 else if (_name is not null)
 {
     <div style="display:contents" @onchange="OnEditActivity">
+    <NavigationLock ConfirmExternalNavigation="@HasPendingChanges"
+                    OnBeforeInternalNavigation="HandleInternalNavigation" />
     <nav aria-label="breadcrumb" class="record-breadcrumb">
         <ol class="breadcrumb">
             <li class="breadcrumb-item"><a href="/names">Names</a></li>
@@ -34,7 +36,7 @@ else if (_name is not null)
 
     <div class="page-header record-page-header">
         <div>
-            <h2 class="page-header-title"><i class="bi bi-people-fill"></i> @(_name.NameType == NameTypes.Person ? "Person Record" : "Business Record")</h2>
+            <h1 class="page-header-title"><i class="bi bi-people-fill"></i> @(_name.NameType == NameTypes.Person ? "Person Record" : "Business Record")</h1>
             <div class="page-header-sub">
                 @if (_name.NameType == NameTypes.Person)
                 {
@@ -79,21 +81,8 @@ else if (_name is not null)
                        RelationshipsUrl="@RelationshipsTabUrl"
                        ActiveTab="Details" />
 
-    @if (_actionError is not null)
-    {
-        <div class="alert alert-danger alert-dismissible">
-            @_actionError
-            <button type="button" class="btn-close" aria-label="Dismiss message" @onclick="() => _actionError = null"></button>
-        </div>
-    }
-
-    @if (_saveSuccessMessage is not null)
-    {
-        <div class="alert alert-success alert-dismissible">
-            @_saveSuccessMessage
-            <button type="button" class="btn-close" aria-label="Dismiss message" @onclick="() => _saveSuccessMessage = null"></button>
-        </div>
-    }
+    <StatusMessage Kind="error" Message="@_actionError" OnDismiss="() => _actionError = null" />
+    <StatusMessage Kind="success" Message="@_saveSuccessMessage" OnDismiss="() => _saveSuccessMessage = null" />
 
     <!-- Modify Mode Bar -->
     <div class="record-toolbar mb-3">
@@ -102,7 +91,9 @@ else if (_name is not null)
             <div class="alert alert-warning d-flex align-items-center gap-3 py-2 mb-2 record-mode-banner">
                 <span><i class="bi bi-pencil-fill me-1"></i><strong>Modify mode</strong> — lock expires in @_lockSecondsRemaining s</span>
                 <div class="record-mode-actions">
-                    <button class="btn btn-sm btn-primary" @onclick="SaveRecordAsync"><i class="bi bi-floppy-fill me-1"></i>Save</button>
+                    <BusyButton Class="btn btn-sm btn-primary" OnClick="SaveRecordAsync" BusyText="Saving…">
+                        <i class="bi bi-floppy-fill me-1"></i>Save
+                    </BusyButton>
                     <button class="btn btn-sm btn-outline-dark" @onclick="RequestReleaseAsync"><i class="bi bi-unlock-fill me-1"></i>Release</button>
                 </div>
             </div>
@@ -180,34 +171,44 @@ else if (_name is not null)
     <div class="card record-content-card mb-4">
         <div class="card-body">
             <h6 class="card-title">Identity</h6>
+            @* The Identity, Identification and Driver's License cards each render their own
+               EditForm but all share this single _editContext. One DataAnnotationsValidator
+               here validates the whole EditNameViewModel (validation is model-wide, not
+               per-<form>), so the other two EditForms intentionally omit a validator — adding
+               a second on the same context would duplicate every message. *@
+            <EditForm EditContext="_editContext">
+            <DataAnnotationsValidator />
             <div class="row g-3">
                 <div class="col-sm-6 col-md-3">
-                    <label class="@LabelClass">@(_editNameType == NameTypes.Person ? "Last Name" : "Business Name")</label>
-                    <input type="text"
-                           class="@(_modifyMode ? "form-control form-control-sm" : "form-control-plaintext form-control-sm ps-0 fw-semibold mb-0")"
-                           readonly="@(!_modifyMode)"
-                           @bind="_editLastOrBusinessName"
-                           @bind:after="() => _editLastOrBusinessName = NameCaseConverter.ToNameCase(_editLastOrBusinessName) ?? string.Empty" />
+                    <FormField Label="@(_editNameType == NameTypes.Person ? "Last Name" : "Business Name")" For="name-last" Required="true">
+                        <InputText id="name-last" maxlength="250" readonly="@(!_modifyMode)"
+                                   class="@(_modifyMode ? "form-control form-control-sm" : "form-control-plaintext form-control-sm ps-0 fw-semibold mb-0")"
+                                   @bind-Value="_editVm.LastOrBusinessName"
+                                   @bind-Value:after="() => _editVm.LastOrBusinessName = NameCaseConverter.ToNameCase(_editVm.LastOrBusinessName) ?? string.Empty" />
+                        <ValidationMessage For="() => _editVm.LastOrBusinessName" />
+                    </FormField>
                 </div>
                 @if (_editNameType == NameTypes.Person)
                 {
                     <div class="col-sm-6 col-md-3">
-                        <label class="@LabelClass">First Name</label>
-                        <input type="text"
-                               class="@(_modifyMode ? "form-control form-control-sm" : "form-control-plaintext form-control-sm ps-0 fw-semibold mb-0")"
-                               readonly="@(!_modifyMode)"
-                               @bind="_editFirstName"
-                               @bind:after="() => _editFirstName = NameCaseConverter.ToNameCase(_editFirstName)"
-                               placeholder="—" />
+                        <FormField Label="First Name" For="name-first">
+                            <InputText id="name-first" maxlength="100" readonly="@(!_modifyMode)"
+                                       class="@(_modifyMode ? "form-control form-control-sm" : "form-control-plaintext form-control-sm ps-0 fw-semibold mb-0")"
+                                       @bind-Value="_editVm.FirstName"
+                                       @bind-Value:after="() => _editVm.FirstName = NameCaseConverter.ToNameCase(_editVm.FirstName)"
+                                       placeholder="—" />
+                            <ValidationMessage For="() => _editVm.FirstName" />
+                        </FormField>
                     </div>
                     <div class="col-sm-6 col-md-3">
-                        <label class="@LabelClass">Middle Name</label>
-                        <input type="text"
-                               class="@(_modifyMode ? "form-control form-control-sm" : "form-control-plaintext form-control-sm ps-0 fw-semibold mb-0")"
-                               readonly="@(!_modifyMode)"
-                               @bind="_editMiddleName"
-                               @bind:after="() => _editMiddleName = NameCaseConverter.ToNameCase(_editMiddleName)"
-                               placeholder="—" />
+                        <FormField Label="Middle Name" For="name-middle">
+                            <InputText id="name-middle" maxlength="100" readonly="@(!_modifyMode)"
+                                       class="@(_modifyMode ? "form-control form-control-sm" : "form-control-plaintext form-control-sm ps-0 fw-semibold mb-0")"
+                                       @bind-Value="_editVm.MiddleName"
+                                       @bind-Value:after="() => _editVm.MiddleName = NameCaseConverter.ToNameCase(_editVm.MiddleName)"
+                                       placeholder="—" />
+                            <ValidationMessage For="() => _editVm.MiddleName" />
+                        </FormField>
                     </div>
                     <div class="col-sm-6 col-md-3">
                         <label class="@LabelClass">Suffix</label>
@@ -221,13 +222,14 @@ else if (_name is not null)
                         }
                     </div>
                     <div class="col-sm-6 col-md-3">
-                        <label class="@LabelClass">Place of Birth</label>
-                        <input type="text"
-                               class="@(_modifyMode ? "form-control form-control-sm" : "form-control-plaintext form-control-sm ps-0 fw-semibold mb-0")"
-                               readonly="@(!_modifyMode)"
-                               @bind="_editPlaceOfBirth"
-                               @bind:after="() => _editPlaceOfBirth = NameCaseConverter.ToNameCase(_editPlaceOfBirth)"
-                               placeholder="—" />
+                        <FormField Label="Place of Birth" For="name-pob">
+                            <InputText id="name-pob" readonly="@(!_modifyMode)"
+                                       class="@(_modifyMode ? "form-control form-control-sm" : "form-control-plaintext form-control-sm ps-0 fw-semibold mb-0")"
+                                       @bind-Value="_editVm.PlaceOfBirth"
+                                       @bind-Value:after="() => _editVm.PlaceOfBirth = NameCaseConverter.ToNameCase(_editVm.PlaceOfBirth)"
+                                       placeholder="—" />
+                            <ValidationMessage For="() => _editVm.PlaceOfBirth" />
+                        </FormField>
                     </div>
                     <div class="col-sm-6 col-md-3">
                         <label class="@LabelClass">Deceased Date</label>
@@ -260,6 +262,7 @@ else if (_name is not null)
                     </div>
                 }
             </div>
+            </EditForm>
         </div>
     </div>
 
@@ -420,13 +423,16 @@ else if (_name is not null)
         <div class="card record-content-card mb-4">
             <div class="card-body">
                 <h6 class="card-title">Identification</h6>
+                @* No DataAnnotationsValidator: shares _editContext with the Identity card's. *@
+                <EditForm EditContext="_editContext">
                 <div class="row g-3">
                     <div class="col-sm-6 col-md-4">
                         <label class="@LabelClass">SSN</label>
                         @if (_modifyMode)
                         {
-                            <input type="text" class="form-control form-control-sm" @bind="_editSsn"
-                                   placeholder="XXX-XX-XXXX" maxlength="11" />
+                            <InputText class="form-control form-control-sm" @bind-Value="_editVm.Ssn"
+                                       placeholder="XXX-XX-XXXX" maxlength="11" />
+                            <ValidationMessage For="() => _editVm.Ssn" />
                         }
                         else
                         {
@@ -434,20 +440,23 @@ else if (_name is not null)
                         }
                     </div>
                     <div class="col-sm-6 col-md-4">
-                        <label class="@LabelClass">FBI #</label>
-                        <input type="text"
-                               class="@(_modifyMode ? "form-control form-control-sm" : "form-control-plaintext form-control-sm ps-0 fw-semibold mb-0")"
-                               readonly="@(!_modifyMode)"
-                               @bind="_editFbiNumber" placeholder="—" />
+                        <FormField Label="FBI #" For="name-fbi">
+                            <InputText id="name-fbi" readonly="@(!_modifyMode)"
+                                       class="@(_modifyMode ? "form-control form-control-sm" : "form-control-plaintext form-control-sm ps-0 fw-semibold mb-0")"
+                                       @bind-Value="_editVm.FbiNumber" placeholder="—" />
+                            <ValidationMessage For="() => _editVm.FbiNumber" />
+                        </FormField>
                     </div>
                     <div class="col-sm-6 col-md-4">
-                        <label class="@LabelClass">Local #</label>
-                        <input type="text"
-                               class="@(_modifyMode ? "form-control form-control-sm" : "form-control-plaintext form-control-sm ps-0 fw-semibold mb-0")"
-                               readonly="@(!_modifyMode)"
-                               @bind="_editLocalNumber" placeholder="—" />
+                        <FormField Label="Local #" For="name-local">
+                            <InputText id="name-local" readonly="@(!_modifyMode)"
+                                       class="@(_modifyMode ? "form-control form-control-sm" : "form-control-plaintext form-control-sm ps-0 fw-semibold mb-0")"
+                                       @bind-Value="_editVm.LocalNumber" placeholder="—" />
+                            <ValidationMessage For="() => _editVm.LocalNumber" />
+                        </FormField>
                     </div>
                 </div>
+                </EditForm>
             </div>
         </div>
 
@@ -455,13 +464,16 @@ else if (_name is not null)
         <div class="card record-content-card mb-4">
             <div class="card-body">
                 <h6 class="card-title">Driver's License</h6>
+                @* No DataAnnotationsValidator: shares _editContext with the Identity card's. *@
+                <EditForm EditContext="_editContext">
                 <div class="row g-3">
                     <div class="col-sm-6">
-                        <label class="@LabelClass">DL Number</label>
-                        <input type="text"
-                               class="@(_modifyMode ? "form-control form-control-sm" : "form-control-plaintext form-control-sm ps-0 fw-semibold mb-0")"
-                               readonly="@(!_modifyMode)"
-                               @bind="_editDlNumber" placeholder="—" />
+                        <FormField Label="DL Number" For="name-dl">
+                            <InputText id="name-dl" maxlength="50" readonly="@(!_modifyMode)"
+                                       class="@(_modifyMode ? "form-control form-control-sm" : "form-control-plaintext form-control-sm ps-0 fw-semibold mb-0")"
+                                       @bind-Value="_editVm.DlNumber" placeholder="—" />
+                            <ValidationMessage For="() => _editVm.DlNumber" />
+                        </FormField>
                     </div>
                     <div class="col-sm-6">
                         <label class="@LabelClass">DL State</label>
@@ -475,6 +487,7 @@ else if (_name is not null)
                         }
                     </div>
                 </div>
+                </EditForm>
             </div>
         </div>
     }
@@ -549,9 +562,9 @@ else if (_name is not null)
     @if (_modifyMode)
     {
         <div class="record-save-row mb-4">
-            <button class="btn btn-sm btn-primary" @onclick="SaveRecordAsync">
+            <BusyButton Class="btn btn-sm btn-primary" OnClick="SaveRecordAsync" BusyText="Saving…">
                 <i class="bi bi-floppy-fill me-1"></i>Save
-            </button>
+            </BusyButton>
         </div>
     }
 
@@ -590,16 +603,15 @@ else if (_name is not null)
     private DateTime _lastServerRenewUtc;
     private bool _renewing;
     private TimeSpan RenewInterval => TimeSpan.FromSeconds(Math.Max(5, _lockTimeout.TotalSeconds / 3));
+    private readonly EditNameViewModel _editVm = new();
+    private EditContext _editContext = null!;
+    private string? _pendingNavUri;
 
     // Edit fields
     private string _editNameType = NameTypes.Person;
-    private string _editLastOrBusinessName = string.Empty;
-    private string? _editFirstName;
-    private string? _editMiddleName;
     private Guid? _editSexId;
     private Guid? _editRaceId;
     private DateTime? _editDateOfBirth;
-    private string? _editDlNumber;
     private Guid? _editDlStateId;
     private int? _editHeightFeet;
     private int? _editHeightInchesRemainder;
@@ -607,16 +619,12 @@ else if (_name is not null)
     private Guid? _editHairColorId;
     private Guid? _editEyeColorId;
     private Guid? _editSuffixId;
-    private string? _editPlaceOfBirth;
-    private string? _editFbiNumber;
-    private string? _editLocalNumber;
     private string? _editPrimaryPhone;
     private string? _editPrimaryPhoneExtension;
     private string? _editWorkPhone;
     private string? _editWorkPhoneExtension;
     private string? _editOtherPhone;
     private string? _editOtherPhoneExtension;
-    private string? _editSsn;
     private bool _editIsCitizen;
     private DateTime? _editDeceasedDate;
     private bool _showSwitchTypeConfirm;
@@ -679,6 +687,7 @@ else if (_name is not null)
 
     protected override async Task OnInitializedAsync()
     {
+        _editContext = new EditContext(_editVm);
         _currentUserId = TenantProvider.GetUserId();
         await LoadAsync();
         await LoadLockTimeoutAsync();
@@ -720,13 +729,13 @@ else if (_name is not null)
     {
         if (_name is null) return;
         _editNameType              = _name.NameType;
-        _editLastOrBusinessName    = _name.LastOrBusinessName;
-        _editFirstName             = _name.FirstName;
-        _editMiddleName            = _name.MiddleName;
+        _editVm.LastOrBusinessName = _name.LastOrBusinessName;
+        _editVm.FirstName          = _name.FirstName;
+        _editVm.MiddleName         = _name.MiddleName;
         _editSexId                 = _name.SexId;
         _editRaceId                = _name.RaceId;
         _editDateOfBirth           = _name.DateOfBirth;
-        _editDlNumber              = _name.DriversLicenseNumber;
+        _editVm.DlNumber           = _name.DriversLicenseNumber;
         _editDlStateId             = _name.DriversLicenseStateId;
         _editHeightFeet            = _name.HeightInches.HasValue ? _name.HeightInches.Value / 12 : null;
         _editHeightInchesRemainder = _name.HeightInches.HasValue ? _name.HeightInches.Value % 12 : null;
@@ -734,16 +743,16 @@ else if (_name is not null)
         _editHairColorId           = _name.HairColorId;
         _editEyeColorId            = _name.EyeColorId;
         _editSuffixId              = _name.SuffixId;
-        _editPlaceOfBirth          = _name.PlaceOfBirth;
-        _editFbiNumber             = _name.FbiNumber;
-        _editLocalNumber           = _name.LocalNumber;
+        _editVm.PlaceOfBirth       = _name.PlaceOfBirth;
+        _editVm.FbiNumber          = _name.FbiNumber;
+        _editVm.LocalNumber        = _name.LocalNumber;
         _editPrimaryPhone          = _name.PrimaryPhone;
         _editPrimaryPhoneExtension = _name.PrimaryPhoneExtension;
         _editWorkPhone             = _name.WorkPhone;
         _editWorkPhoneExtension    = _name.WorkPhoneExtension;
         _editOtherPhone            = _name.OtherPhone;
         _editOtherPhoneExtension   = _name.OtherPhoneExtension;
-        _editSsn                   = _name.SocialSecurityNumber;
+        _editVm.Ssn                = _name.SocialSecurityNumber;
         _editIsCitizen             = _name.IsCitizen;
         _editDeceasedDate          = _name.DeceasedDate;
         _editPrimaryLocationId     = _name.PrimaryLocationId;
@@ -752,13 +761,13 @@ else if (_name is not null)
     }
 
     private string ComputeEditSnapshot() =>
-        string.Join("§", _editNameType, _editLastOrBusinessName, _editFirstName, _editMiddleName,
-            _editSexId, _editRaceId, _editDateOfBirth, _editDlNumber, _editDlStateId,
+        string.Join("§", _editNameType, _editVm.LastOrBusinessName, _editVm.FirstName, _editVm.MiddleName,
+            _editSexId, _editRaceId, _editDateOfBirth, _editVm.DlNumber, _editDlStateId,
             _editHeightFeet, _editHeightInchesRemainder, _editWeightLbs,
-            _editHairColorId, _editEyeColorId, _editSuffixId, _editPlaceOfBirth,
-            _editFbiNumber, _editLocalNumber,
+            _editHairColorId, _editEyeColorId, _editSuffixId, _editVm.PlaceOfBirth,
+            _editVm.FbiNumber, _editVm.LocalNumber,
             _editPrimaryPhone, _editPrimaryPhoneExtension, _editWorkPhone, _editWorkPhoneExtension, _editOtherPhone, _editOtherPhoneExtension,
-            _editSsn, _editIsCitizen, _editDeceasedDate,
+            _editVm.Ssn, _editIsCitizen, _editDeceasedDate,
             _editPrimaryLocationId, _editSecondaryLocationId);
 
     private bool HasPendingChanges =>
@@ -778,6 +787,7 @@ else if (_name is not null)
         {
             if (HasPendingChanges)
             {
+                _pendingNavUri = null;
                 _pendingNewRecord = true;
                 _showReleaseConfirm = true;
             }
@@ -797,6 +807,26 @@ else if (_name is not null)
     {
         _showReleaseConfirm = false;
         _pendingNewRecord = false;
+        _pendingNavUri = null;
+    }
+
+    // Where to go once the unsaved-changes prompt is resolved: an intercepted
+    // navigation target if set, otherwise the create page for "Save & New".
+    private string? PendingReleaseTarget =>
+        _pendingNavUri ?? (_pendingNewRecord ? "/names/create" : null);
+
+    // Intercepts in-app navigation (sidebar links, back) while edits are
+    // pending: cancels the navigation and shows the unsaved-changes prompt,
+    // remembering where the user was trying to go. The browser-level prompt
+    // (tab close / refresh / external links) is handled declaratively by
+    // NavigationLock's ConfirmExternalNavigation.
+    private void HandleInternalNavigation(LocationChangingContext context)
+    {
+        if (!HasPendingChanges) return;
+        context.PreventNavigation();
+        _pendingNewRecord = false;
+        _pendingNavUri = context.TargetLocation;
+        _showReleaseConfirm = true;
     }
 
     private void ConfirmSwitchNameType()
@@ -808,23 +838,24 @@ else if (_name is not null)
     private async Task SaveAndReleaseAsync()
     {
         _showReleaseConfirm = false;
-        var navigateToNew = _pendingNewRecord;
+        var target = PendingReleaseTarget;
         _pendingNewRecord = false;
-        await SaveRecordAsync();
-        if (_actionError is null)
+        _pendingNavUri = null;
+        if (await TrySaveAsync())
         {
             await ExitModifyModeAsync();
-            if (navigateToNew) Nav.NavigateTo("/names/create");
+            if (target is not null) Nav.NavigateTo(target);
         }
     }
 
     private async Task DiscardAndReleaseAsync()
     {
         _showReleaseConfirm = false;
-        var navigateToNew = _pendingNewRecord;
+        var target = PendingReleaseTarget;
         _pendingNewRecord = false;
+        _pendingNavUri = null;
         await ExitModifyModeAsync();
-        if (navigateToNew) Nav.NavigateTo("/names/create");
+        if (target is not null) Nav.NavigateTo(target);
     }
 
     private async Task LoadAsync()
@@ -915,30 +946,38 @@ else if (_name is not null)
         await LoadAsync();
     }
 
-    private async Task SaveRecordAsync()
+    private Task SaveRecordAsync() => TrySaveAsync();
+
+    private async Task<bool> TrySaveAsync()
     {
         _actionError = null;
         _saveSuccessMessage = null;
+
+        // Field-level client validation before the round-trip; invalid fields
+        // show their error inline and the save is aborted.
+        if (!_editContext.Validate())
+            return false;
+
         try
         {
             await NameService.UpdateDetailsAsync(
-                _nameId, _editNameType, _editLastOrBusinessName,
-                _editNameType == NameTypes.Person ? _editFirstName : null,
-                _editNameType == NameTypes.Person ? _editMiddleName : null,
+                _nameId, _editNameType, _editVm.LastOrBusinessName,
+                _editNameType == NameTypes.Person ? _editVm.FirstName : null,
+                _editNameType == NameTypes.Person ? _editVm.MiddleName : null,
                 _editNameType == NameTypes.Person ? _editSexId : null,
                 _editNameType == NameTypes.Person ? _editRaceId : null,
                 _editNameType == NameTypes.Person ? _editDateOfBirth : null,
-                _editNameType == NameTypes.Person ? _editDlNumber : null,
+                _editNameType == NameTypes.Person ? _editVm.DlNumber : null,
                 _editNameType == NameTypes.Person ? _editDlStateId : null,
                 _editNameType == NameTypes.Person ? EditHeightInches : null,
                 _editNameType == NameTypes.Person ? _editWeightLbs : null,
                 _editNameType == NameTypes.Person ? _editHairColorId : null,
                 _editNameType == NameTypes.Person ? _editEyeColorId : null,
                 _editNameType == NameTypes.Person ? _editSuffixId : null,
-                _editNameType == NameTypes.Person ? _editPlaceOfBirth : null,
-                _editNameType == NameTypes.Person ? _editFbiNumber : null,
-                _editNameType == NameTypes.Person ? _editLocalNumber : null,
-                _editNameType == NameTypes.Person ? _editSsn : null,
+                _editNameType == NameTypes.Person ? _editVm.PlaceOfBirth : null,
+                _editNameType == NameTypes.Person ? _editVm.FbiNumber : null,
+                _editNameType == NameTypes.Person ? _editVm.LocalNumber : null,
+                _editNameType == NameTypes.Person ? _editVm.Ssn : null,
                 _editNameType == NameTypes.Person && _editIsCitizen,
                 _editNameType == NameTypes.Person ? _editDeceasedDate : null,
                 _editPrimaryLocationId,
@@ -954,15 +993,13 @@ else if (_name is not null)
             _editSnapshot = ComputeEditSnapshot();
             _createdForeignRecords.Clear();
             _saveSuccessMessage = "Record saved successfully.";
-            _ = Task.Delay(3000).ContinueWith(_ => InvokeAsync(() =>
-            {
-                _saveSuccessMessage = null;
-                StateHasChanged();
-            }));
+            return true;
         }
         catch (Exception ex)
         {
             _actionError = ex.Message;
+            try { await LoadAsync(); } catch { _actionError += " (State may be out of sync — please refresh the page.)"; }
+            return false;
         }
     }
 

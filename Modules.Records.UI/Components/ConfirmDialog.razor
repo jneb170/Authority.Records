@@ -1,6 +1,7 @@
 @if (Visible)
 {
-    <div class="modal d-block ar-modal-backdrop" tabindex="-1" role="dialog" aria-modal="true">
+    <div class="modal d-block ar-modal-backdrop" tabindex="-1" role="dialog" aria-modal="true"
+         aria-labelledby="confirm-dialog-title" @onkeydown="HandleKeyAsync">
         <div class="modal-dialog modal-dialog-centered modal-sm">
             <div class="modal-content ar-modal-content ar-modal-content-danger">
                 <div class="modal-header ar-modal-header">
@@ -9,7 +10,7 @@
                             <i class="bi bi-exclamation-triangle-fill" aria-hidden="true"></i>
                         </span>
                         <div>
-                            <h5 class="modal-title mb-0">@Title</h5>
+                            <h5 class="modal-title mb-0" id="confirm-dialog-title">@Title</h5>
                             <div class="ar-modal-subtitle">Review this action before continuing.</div>
                         </div>
                     </div>
@@ -19,7 +20,7 @@
                 </div>
                 <div class="modal-footer ar-modal-footer">
                     <button class="btn btn-secondary" @onclick="Cancel">Cancel</button>
-                    <button class="btn btn-danger" @onclick="Confirm">Confirm</button>
+                    <button class="btn btn-danger" @ref="_confirmButton" @onclick="Confirm">Confirm</button>
                 </div>
             </div>
         </div>
@@ -32,6 +33,29 @@
     [Parameter] public string Message { get; set; } = "Are you sure?";
     [Parameter] public EventCallback OnConfirm { get; set; }
     [Parameter] public EventCallback OnCancel { get; set; }
+
+    private ElementReference _confirmButton;
+    private bool _focused;
+
+    protected override void OnParametersSet()
+    {
+        if (!Visible) _focused = false;
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (Visible && !_focused)
+        {
+            _focused = true;
+            try { await _confirmButton.FocusAsync(); } catch { /* element gone */ }
+        }
+    }
+
+    private async Task HandleKeyAsync(KeyboardEventArgs e)
+    {
+        if (e.Key == "Escape") await Cancel();
+        else if (e.Key == "Enter") await Confirm();
+    }
 
     private Task Confirm() => OnConfirm.InvokeAsync();
     private Task Cancel() => OnCancel.InvokeAsync();

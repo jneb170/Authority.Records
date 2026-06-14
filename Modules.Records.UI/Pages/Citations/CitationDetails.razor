@@ -32,6 +32,8 @@ else if (_error is not null)
 else if (_citation is not null)
 {
     <div style="display:contents" @onchange="OnEditActivity">
+    <NavigationLock ConfirmExternalNavigation="@HasPendingChanges"
+                    OnBeforeInternalNavigation="HandleInternalNavigation" />
     <nav aria-label="breadcrumb" class="record-breadcrumb">
         <ol class="breadcrumb">
             <li class="breadcrumb-item"><a href="/citations">Citations</a></li>
@@ -45,7 +47,7 @@ else if (_citation is not null)
 
     <div class="page-header record-page-header">
         <div>
-            <h2 class="page-header-title"><i class="bi bi-file-earmark-text-fill"></i> Citation Record</h2>
+            <h1 class="page-header-title"><i class="bi bi-file-earmark-text-fill"></i> Citation Record</h1>
             <div class="page-header-sub">
                 @(string.IsNullOrWhiteSpace(_citation.CitationNum)
                     ? $"Citation #{RecordNumber}"
@@ -83,21 +85,8 @@ else if (_citation is not null)
                        RelationshipsUrl="@RelationshipsTabUrl"
                        ActiveTab="Details" />
 
-    @if (_actionError is not null)
-    {
-        <div class="alert alert-danger alert-dismissible">
-            @_actionError
-            <button type="button" class="btn-close" aria-label="Dismiss message" @onclick="() => _actionError = null"></button>
-        </div>
-    }
-
-    @if (_saveSuccessMessage is not null)
-    {
-        <div class="alert alert-success alert-dismissible">
-            @_saveSuccessMessage
-            <button type="button" class="btn-close" aria-label="Dismiss message" @onclick="() => _saveSuccessMessage = null"></button>
-        </div>
-    }
+    <StatusMessage Kind="error" Message="@_actionError" OnDismiss="() => _actionError = null" />
+    <StatusMessage Kind="success" Message="@_saveSuccessMessage" OnDismiss="() => _saveSuccessMessage = null" />
 
     <!-- Modify Mode Bar -->
     <div class="record-toolbar mb-3">
@@ -106,7 +95,9 @@ else if (_citation is not null)
             <div class="alert alert-warning d-flex align-items-center gap-3 py-2 mb-2 record-mode-banner">
                 <span><i class="bi bi-pencil-fill me-1"></i><strong>Modify mode</strong> — lock expires in @_lockSecondsRemaining s</span>
                 <div class="record-mode-actions">
-                    <button class="btn btn-sm btn-primary" @onclick="SaveRecordAsync"><i class="bi bi-floppy-fill me-1"></i>Save</button>
+                    <BusyButton Class="btn btn-sm btn-primary" OnClick="SaveRecordAsync" BusyText="Saving…">
+                        <i class="bi bi-floppy-fill me-1"></i>Save
+                    </BusyButton>
                     <button class="btn btn-sm btn-outline-dark" @onclick="RequestReleaseAsync"><i class="bi bi-unlock-fill me-1"></i>Release</button>
                 </div>
             </div>
@@ -129,7 +120,7 @@ else if (_citation is not null)
         <div class="action-bar record-action-bar mb-4 d-flex flex-wrap gap-2">
             @if (!_citation.IsIssued)
             {
-                <button class="btn btn-success btn-sm" @onclick="IssueAsync">Issue Citation</button>
+                <BusyButton Class="btn btn-success btn-sm" OnClick="IssueAsync" BusyText="Issuing…">Issue Citation</BusyButton>
             }
             <button class="btn btn-outline-danger btn-sm" @onclick="() => _showDeleteConfirm = true">Delete</button>
         </div>
@@ -154,14 +145,15 @@ else if (_citation is not null)
     <div class="card record-content-card mb-4">
         <div class="card-body">
             <h6 class="card-title">Citation Details</h6>
+            <EditForm EditContext="_editContext">
+                <DataAnnotationsValidator />
             <div class="record-grid-3">
-                <div>
-                    <label class="form-label mb-1">Citation Number</label>
+                <FormField Label="Citation Number" For="cit-num">
                     @if (_modifyMode)
                     {
                         <div class="input-group input-group-sm">
-                            <input type="text" class="form-control form-control-sm"
-                                   @bind="_editCitationNum" placeholder="e.g. CT-2026-000001" />
+                            <InputText id="cit-num" maxlength="50" class="form-control form-control-sm"
+                                       @bind-Value="_editVm.CitationNum" placeholder="e.g. CT-2026-000001" />
                             <button type="button" class="btn btn-outline-secondary btn-sm"
                                     @onclick="GenerateCitationNumAsync" disabled="@_generatingCitationNum">
                                 @(_generatingCitationNum ? "…" : "🔁")
@@ -172,7 +164,8 @@ else if (_citation is not null)
                     {
                         <p class="form-control-plaintext form-control-sm ps-0">@(string.IsNullOrWhiteSpace(_citation.CitationNum) ? "—" : _citation.CitationNum)</p>
                     }
-                </div>
+                    <ValidationMessage For="() => _editVm.CitationNum" />
+                </FormField>
                 <div class="record-field-span-2">
                     <label class="form-label mb-1">Defendant</label>
                     <div class="d-flex align-items-center gap-2">
@@ -201,18 +194,20 @@ else if (_citation is not null)
                     </div>
                 </div>
                 <div class="record-field-span-2">
-                    <label class="form-label mb-1">Description</label>
-                    <input type="text" class="@(_modifyMode ? "form-control form-control-sm" : "form-control-plaintext form-control-sm ps-0")"
-                           readonly="@(!_modifyMode)"
-                           @bind="_editDescription" placeholder="—" />
+                    <FormField Label="Description" For="cit-desc">
+                        <InputText id="cit-desc" maxlength="500" readonly="@(!_modifyMode)"
+                                   class="@(_modifyMode ? "form-control form-control-sm" : "form-control-plaintext form-control-sm ps-0")"
+                                   @bind-Value="_editVm.Description" placeholder="—" />
+                        <ValidationMessage For="() => _editVm.Description" />
+                    </FormField>
                 </div>
-                <div>
-                    <label class="form-label mb-1">Issue Date</label>
-                    <input type="datetime-local" class="@(_modifyMode ? "form-control form-control-sm" : "form-control-plaintext form-control-sm ps-0")"
+                <FormField Label="Issue Date" For="cit-issue">
+                    <input id="cit-issue" type="datetime-local" class="@(_modifyMode ? "form-control form-control-sm" : "form-control-plaintext form-control-sm ps-0")"
                            readonly="@(!_modifyMode)"
-                           value="@DateTimeLocalInputHelper.Format(_editIssueDate)"
+                           value="@DateTimeLocalInputHelper.Format(_editVm.IssueDate)"
                            @onchange="OnIssueDateChanged" />
-                </div>
+                    <ValidationMessage For="() => _editVm.IssueDate" />
+                </FormField>
                 <div>
                     <label class="form-label mb-1">Court</label>
                     @if (_modifyMode)
@@ -255,6 +250,7 @@ else if (_citation is not null)
                     <LocationMiniMap LocationId="_editLocationId" />
                 </div>
             </div>
+            </EditForm>
         </div>
     </div>
 
@@ -885,9 +881,9 @@ else if (_citation is not null)
     @if (_modifyMode)
     {
         <div class="record-save-row mb-4">
-            <button class="btn btn-sm btn-primary" @onclick="SaveRecordAsync">
+            <BusyButton Class="btn btn-sm btn-primary" OnClick="SaveRecordAsync" BusyText="Saving…">
                 <i class="bi bi-floppy-fill me-1"></i>Save
-            </button>
+            </BusyButton>
         </div>
     }
     <NarrativesSection OwnerType="@NarrativeOwnerTypes.Citation" OwnerId="_citation.Id" CanModify="_modifyMode" />
@@ -928,6 +924,7 @@ else if (_citation is not null)
     private bool _modifyMode;
     private bool _showReleaseConfirm;
     private bool _pendingNewRecord;
+    private string? _pendingNavUri;
     private string _editSnapshot = string.Empty;
     private Guid _currentUserId;
     private int _lockSecondsRemaining;
@@ -1013,9 +1010,8 @@ else if (_citation is not null)
     private string? _atTimeOfSexLabel;
     private string? _atTimeOfRaceLabel;
     private string? _atTimeOfDriversLicenseStateLabel;
-    private string _editDescription = string.Empty;
-    private DateTime _editIssueDate = DateTime.Now;
-    private string _editCitationNum = string.Empty;
+    private readonly EditCitationViewModel _editVm = new();
+    private EditContext _editContext = null!;
     private bool _generatingCitationNum;
     private Guid? _editCourtId;
     private string? _courtLabel;
@@ -1049,6 +1045,7 @@ else if (_citation is not null)
 
     protected override async Task OnInitializedAsync()
     {
+        _editContext = new EditContext(_editVm);
         await ActiveAgencyContext.EnsureLoadedAsync();
         _currentUserId = TenantProvider.GetUserId();
         await LoadAsync();
@@ -1086,9 +1083,9 @@ else if (_citation is not null)
             _editNameId = _citation.DefendantNameId;
             _editNameDisplay = _citation.DefendantName;
             _editNameRecordNumber = _citation.DefendantNameRecordNumber;
-            _editDescription = _citation.Description;
-            _editIssueDate   = _citation.IssueDate;
-            _editCitationNum = _citation.CitationNum;
+            _editVm.Description = _citation.Description;
+            _editVm.IssueDate   = _citation.IssueDate;
+            _editVm.CitationNum = _citation.CitationNum;
             _editCourtId     = _citation.CourtId;
             _editLocationId  = _citation.LocationId;
             LoadAtTimeOfName(_citation.AtTimeOfName);
@@ -1118,9 +1115,9 @@ else if (_citation is not null)
                 _editNameId = _citation.DefendantNameId;
                 _editNameDisplay = _citation.DefendantName;
                 _editNameRecordNumber = _citation.DefendantNameRecordNumber;
-                _editDescription = _citation.Description;
-                _editIssueDate   = _citation.IssueDate;
-                _editCitationNum = _citation.CitationNum;
+                _editVm.Description = _citation.Description;
+                _editVm.IssueDate   = _citation.IssueDate;
+                _editVm.CitationNum = _citation.CitationNum;
                 _editCourtId     = _citation.CourtId;
                 _editLocationId  = _citation.LocationId;
                 LoadAtTimeOfName(_citation.AtTimeOfName);
@@ -1200,9 +1197,9 @@ else if (_citation is not null)
             _editNameId = _citation?.DefendantNameId;
             _editNameDisplay = _citation?.DefendantName;
             _editNameRecordNumber = _citation?.DefendantNameRecordNumber;
-            _editDescription = _citation?.Description ?? string.Empty;
-            _editIssueDate   = _citation?.IssueDate ?? DateTime.Now;
-            _editCitationNum = _citation?.CitationNum ?? string.Empty;
+            _editVm.Description = _citation?.Description ?? string.Empty;
+            _editVm.IssueDate   = _citation?.IssueDate ?? DateTime.Now;
+            _editVm.CitationNum = _citation?.CitationNum ?? string.Empty;
             _editCourtId     = _citation?.CourtId;
             _editLocationId  = _citation?.LocationId;
             LoadAtTimeOfName(_citation?.AtTimeOfName);
@@ -1243,9 +1240,9 @@ else if (_citation is not null)
     private string ComputeEditSnapshot() =>
         string.Join("§",
             _editNameId,
-            _editDescription,
-            _editIssueDate,
-            _editCitationNum,
+            _editVm.Description,
+            _editVm.IssueDate,
+            _editVm.CitationNum,
             _editCourtId,
             _editLocationId,
             JsonSerializer.Serialize(BuildAtTimeOfNameInput()),
@@ -1278,6 +1275,7 @@ else if (_citation is not null)
         {
             if (HasPendingChanges)
             {
+                _pendingNavUri = null;
                 _pendingNewRecord = true;
                 _showReleaseConfirm = true;
             }
@@ -1297,34 +1295,55 @@ else if (_citation is not null)
     {
         _showReleaseConfirm = false;
         _pendingNewRecord = false;
+        _pendingNavUri = null;
     }
+
+    // Where to go once the unsaved-changes prompt is resolved: an intercepted
+    // navigation target if set, otherwise the create page for "Save & New".
+    private string? PendingReleaseTarget =>
+        _pendingNavUri ?? (_pendingNewRecord ? "/citations/create" : null);
 
     private async Task SaveAndReleaseAsync()
     {
         _showReleaseConfirm = false;
-        var navigateToNew = _pendingNewRecord;
+        var target = PendingReleaseTarget;
         _pendingNewRecord = false;
-        await SaveRecordAsync();
-        if (_actionError is null)
+        _pendingNavUri = null;
+        if (await TrySaveAsync())
         {
             await ExitModifyModeAsync();
-            if (navigateToNew) Nav.NavigateTo("/citations/create");
+            if (target is not null) Nav.NavigateTo(target);
         }
     }
 
     private async Task DiscardAndReleaseAsync()
     {
         _showReleaseConfirm = false;
-        var navigateToNew = _pendingNewRecord;
+        var target = PendingReleaseTarget;
         _pendingNewRecord = false;
+        _pendingNavUri = null;
         await ExitModifyModeAsync();
-        if (navigateToNew) Nav.NavigateTo("/citations/create");
+        if (target is not null) Nav.NavigateTo(target);
+    }
+
+    // Intercepts in-app navigation (sidebar links, back) while edits are
+    // pending: cancels the navigation and shows the unsaved-changes prompt,
+    // remembering where the user was trying to go. The browser-level prompt
+    // (tab close / refresh / external links) is handled declaratively by
+    // NavigationLock's ConfirmExternalNavigation.
+    private void HandleInternalNavigation(LocationChangingContext context)
+    {
+        if (!HasPendingChanges) return;
+        context.PreventNavigation();
+        _pendingNewRecord = false;
+        _pendingNavUri = context.TargetLocation;
+        _showReleaseConfirm = true;
     }
 
     private async Task GenerateCitationNumAsync()
     {
         _generatingCitationNum = true;
-        try { _editCitationNum = await ConfigService.GenerateCitationNumAsync(); }
+        try { _editVm.CitationNum = await ConfigService.GenerateCitationNumAsync(); }
         catch (Exception ex) { _actionError = ex.Message; }
         finally { _generatingCitationNum = false; }
     }
@@ -1333,23 +1352,31 @@ else if (_citation is not null)
     {
         if (DateTimeLocalInputHelper.TryParse(e.Value?.ToString(), out var issueDate))
         {
-            _editIssueDate = issueDate;
+            _editVm.IssueDate = issueDate;
         }
     }
 
-    private async Task SaveRecordAsync()
+    private Task SaveRecordAsync() => TrySaveAsync();
+
+    private async Task<bool> TrySaveAsync()
     {
         _actionError = null;
         _saveSuccessMessage = null;
+
+        // Field-level client validation before the round-trip; invalid fields
+        // show their error inline and the save is aborted.
+        if (!_editContext.Validate())
+            return false;
+
         try
         {
             await CitationService.SavePageAsync(
                 _citationId,
                 _editNameId,
-                _editDescription,
-                _editIssueDate,
+                _editVm.Description,
+                _editVm.IssueDate,
                 _editCourtId,
-                _editCitationNum,
+                _editVm.CitationNum,
                 _editLocationId,
                 BuildAtTimeOfNameInput(),
                 BuildOfficerProfileInput(),
@@ -1365,16 +1392,13 @@ else if (_citation is not null)
             _editSnapshot = ComputeEditSnapshot();
             ClearPendingChanges();
             _saveSuccessMessage = "Record saved successfully.";
-            _ = Task.Delay(3000).ContinueWith(_ => InvokeAsync(() =>
-            {
-                _saveSuccessMessage = null;
-                StateHasChanged();
-            }));
+            return true;
         }
         catch (Exception ex)
         {
             _actionError = ex.Message;
             try { await LoadAsync(); } catch { _actionError += " (State may be out of sync — please refresh the page.)"; }
+            return false;
         }
     }
 
