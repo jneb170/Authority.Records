@@ -3,6 +3,14 @@
 ###############################################################################
 * text=auto
 
+# Files executed or parsed on Linux hosts/containers must keep LF endings even
+# when checked out on Windows (a CRLF cloud-init script fails on first boot).
+*.sh                  text eol=lf
+Dockerfile            text eol=lf
+deploy/aws/Caddyfile  text eol=lf
+deploy/aws/*.yml      text eol=lf
+deploy/aws/*.example  text eol=lf
+
 ###############################################################################
 # Set default behavior for command prompt diff.
 #

@@ -1,4 +1,5 @@
 using System.Data.Common;
+using Microsoft.AspNetCore.DataProtection;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Modules.Records.Application;
@@ -28,8 +29,21 @@ builder.Services.AddRazorPages();
 builder.Services.AddApplication();
 builder.Services.AddInfrastructure(builder.Configuration);
 
+// Persist Data Protection keys (auth cookies, antiforgery tokens) to a durable
+// directory when one is configured. In the container this is a Docker volume
+// (DataProtection__KeysPath=/data/keys, see Dockerfile); without it the keys live
+// inside the container and every redeploy would sign all users out.
+var dataProtectionKeysPath = builder.Configuration["DataProtection:KeysPath"];
+if (!string.IsNullOrWhiteSpace(dataProtectionKeysPath))
+{
+    builder.Services.AddDataProtection()
+        .SetApplicationName("Authority.Records")
+        .PersistKeysToFileSystem(new DirectoryInfo(dataProtectionKeysPath));
+}
+
 // Demo-account abuse limits (creation rate + per-save size). Defaults live in
-// DemoRateLimitOptions; override in Azure via Demo__RateLimit__* App settings.
+// DemoRateLimitOptions; override in production via Demo__RateLimit__* environment
+// variables (deploy/aws/app.env on the Lightsail host).
 builder.Services.AddOptions<Modules.Records.Application.Common.DemoRateLimitOptions>()
     .BindConfiguration(Modules.Records.Application.Common.DemoRateLimitOptions.SectionName);
 
@@ -93,7 +107,7 @@ var dbProvider = DatabaseProviderResolver.Resolve(app.Configuration);
 if (dbProvider == DatabaseProvider.Sqlite)
 {
     // SQLite migrations always apply on startup because:
-    //  - CI cannot apply them to a file inside Azure App Service.
+    //  - CI cannot apply them to a file on the production host's Docker volume.
     //  - Dev local SQLite files are typically per-developer and ephemeral.
     EnsureSqliteDataDirectoriesExist(app.Configuration);
 
@@ -126,6 +140,13 @@ if (app.Environment.IsDevelopment())
     var maintenanceCoordinator = scope.ServiceProvider.GetRequiredService<ApplicationMaintenanceCoordinator>();
     await maintenanceCoordinator.RunStartupMaintenanceAsync(scope.ServiceProvider);
 }
+
+// First Super user + standard roles on a fresh production database (opt-in via
+// Bootstrap__SuperUserEmail / Bootstrap__SuperUserPassword; no-op once a Super exists).
+await Modules.Records.UI.Setup.SuperUserBootstrapper.RunAsync(
+    app.Services,
+    app.Configuration,
+    app.Services.GetRequiredService<ILoggerFactory>().CreateLogger("SuperUserBootstrapper"));
 
 // Seed the public demo account if enabled (default: enabled).
 // Idempotent and best-effort — failures are logged but do not block startup.
