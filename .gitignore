@@ -367,3 +367,7 @@ MigrationBackup/
 
 # Fody - auto-generated XML schema
 FodyWeavers.xsd
+
+# AWS deploy: generated per-deploy / host-only settings (may contain secrets)
+deploy/aws/.env
+deploy/aws/app.env

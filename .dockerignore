@@ -1,0 +1,19 @@
+**/bin/
+**/obj/
+**/.vs/
+**/*.user
+# Local developer settings for the UI host (Shared.Infrastructure's committed
+# appsettings.Development.json is needed at build time and never published).
+Modules.Records.UI/appsettings.Development.json
+**/appsettings.Local.json
+**/appsettings.*.local.json
+Modules.Records.UI/wwwroot/uploads/
+.git/
+.github/
+Documents/
+deploy/
+scripts/
+tools/
+*Tests/
+Api/
+Dockerfile

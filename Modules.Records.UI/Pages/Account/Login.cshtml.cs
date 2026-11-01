@@ -59,7 +59,7 @@ public class LoginModel : PageModel
 
         // The passwordless login target is configurable so an admin can point
         // "Try the demo" at any curated account (set "Demo:LoginEmail" in app
-        // config / Azure App settings). It is intentionally separate from the
+        // config / the Demo__LoginEmail environment variable). It is intentionally separate from the
         // DemoSeeder's account so the seeder never repairs/stomps the chosen
         // user's agency or roles. Falls back to the seeded demo account.
         var demoEmail = _configuration["Demo:LoginEmail"];

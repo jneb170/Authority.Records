@@ -29,6 +29,10 @@ dotnet test ./Modules.Records.Domain.Tests/Modules.Records.Domain.Tests.csproj -
 
 CI skips integration tests with `--filter "Category!=Integration"`. Check `.github/workflows/deploy.yml` before changing build, migration, publish, or deployment behavior.
 
+## Deployment
+
+Production runs on a single AWS Lightsail instance: the UI host is built into a container image (`Dockerfile`), pushed to GHCR, and run with Docker Compose behind Caddy (`deploy/aws/`). Production uses the SQLite provider; databases, Data Protection keys, and mugshot uploads live on Docker volumes, and migrations apply on app startup. See `Documents/aws-deployment-guide.md`. Configuration that would have been an App Service setting is an environment variable (`deploy/aws/app.env` on the host).
+
 ## Architecture overview
 
 Authority.Records is a law-enforcement records management system (RMS) for incident, arrest, and citation tracking. It is a layered .NET 9 application. Read `ARCHITECTURE.md` before making large cross-cutting changes.
@@ -66,6 +70,7 @@ UI service → MediatR command/query → domain aggregate(s) via IApplicationDbC
 
 - `ARCHITECTURE.md`
 - `.github/workflows/deploy.yml`
+- `Dockerfile` and `deploy/aws/docker-compose.yml`
 - `Modules.Records.UI/Program.cs`
 - `Shared.Infrastructure/DependencyInjection.cs`
 - `Modules.Records.Application/AssemblyReference.cs`

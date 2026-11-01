@@ -1,0 +1,16 @@
+# SITE_ADDRESS comes from .env, e.g.
+#   SITE_ADDRESS=authorityrecords.dev, www.authorityrecords.dev
+# Caddy obtains and renews Let's Encrypt certificates for every listed host once
+# DNS points at the instance. For a first smoke test before DNS is set up, use
+#   SITE_ADDRESS=:80
+# (plain HTTP on the static IP, no certificate).
+#
+# www → apex is handled by the app (CanonicalHostRedirectMiddleware).
+{
+	email {$ACME_EMAIL}
+}
+
+{$SITE_ADDRESS} {
+	encode zstd gzip
+	reverse_proxy app:8080
+}

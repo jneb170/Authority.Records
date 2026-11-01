@@ -1,0 +1,62 @@
+# Production stack on the AWS Lightsail instance (/opt/authority-records).
+#
+#   app    Blazor Server UI host (image built by .github/workflows/deploy.yml)
+#   caddy  Reverse proxy: automatic Let's Encrypt TLS, HTTP→HTTPS, WebSockets
+#
+# The deploy workflow copies this file and the Caddyfile to the server and writes
+# .env (APP_IMAGE, SITE_ADDRESS, ACME_EMAIL) next to them. Optional app settings
+# and secrets go in app.env on the server (see app.env.example); that file is
+# never overwritten by deploys.
+name: authority-records
+
+services:
+  app:
+    image: ${APP_IMAGE:?APP_IMAGE must be set in .env}
+    restart: unless-stopped
+    environment:
+      # Trust X-Forwarded-For/-Proto from Caddy so the app sees the original
+      # scheme (HTTPS redirect, secure cookies) and client IP.
+      ASPNETCORE_FORWARDEDHEADERS_ENABLED: "true"
+    env_file:
+      - path: app.env
+        required: false
+    volumes:
+      - app-db:/data/db
+      - app-keys:/data/keys
+      - app-uploads:/app/wwwroot/uploads
+    expose:
+      - "8080"
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "5"
+
+  caddy:
+    image: public.ecr.aws/docker/library/caddy:2.10-alpine  # official image via ECR Public (no Docker Hub rate limits)
+    restart: unless-stopped
+    depends_on:
+      - app
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+    environment:
+      SITE_ADDRESS: ${SITE_ADDRESS:?SITE_ADDRESS must be set in .env}
+      ACME_EMAIL: ${ACME_EMAIL:?ACME_EMAIL must be set in .env}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data
+      - caddy-config:/config
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "5"
+
+volumes:
+  app-db:
+  app-keys:
+  app-uploads:
+  caddy-data:
+  caddy-config:
