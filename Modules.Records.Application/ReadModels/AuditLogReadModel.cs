@@ -13,6 +13,14 @@ public sealed class AuditLogReadModel
     public string RecordType { get; private set; } = string.Empty;
     public string ActionType { get; private set; } = string.Empty;
     public Guid? UserId { get; private set; }
+
+    /// <summary>
+    /// The actor's display name at the time the row was written, so the log still names the
+    /// user after the account is renamed or deleted (issue #119). Null for system actions and
+    /// for rows written before this column existed.
+    /// </summary>
+    public string? UserDisplayName { get; private set; }
+
     public string Message { get; private set; } = string.Empty;
     public string Payload { get; private set; } = string.Empty;
 
@@ -31,7 +39,8 @@ public sealed class AuditLogReadModel
         string actionType,
         Guid? userId,
         string message,
-        string payload)
+        string payload,
+        string? userDisplayName = null)
     {
         return new AuditLogReadModel
         {
@@ -46,6 +55,7 @@ public sealed class AuditLogReadModel
             RecordType = recordType,
             ActionType = actionType,
             UserId = userId,
+            UserDisplayName = userDisplayName,
             Message = message,
             Payload = payload
         };

@@ -58,12 +58,12 @@ internal static class AuditLogQueryExecutor
                 recordLinks.TryGetValue(x.AggregateId, out var link) ? link.RecordNumber : null,
                 recordLinks.TryGetValue(x.AggregateId, out link) ? link.NavigationUrl : null,
                 x.ActionType,
-                x.EventType,
+                AuditEventTypeFormatter.Format(x.EventType, x.RecordType),
                 x.JurisdictionId,
                 x.AggregateId,
                 x.AggregateVersion,
                 x.UserId,
-                ResolveActorDisplayName(x.UserId, actorNames),
+                ResolveActorDisplayName(x.UserId, x.UserDisplayName, actorNames),
                 x.Message,
                 x.Payload))
             .ToList();
@@ -201,14 +201,22 @@ internal static class AuditLogQueryExecutor
         };
     }
 
-    private static string ResolveActorDisplayName(Guid? userId, IReadOnlyDictionary<Guid, string> actorNames)
+    private static string ResolveActorDisplayName(
+        Guid? userId,
+        string? storedDisplayName,
+        IReadOnlyDictionary<Guid, string> actorNames)
     {
         if (!userId.HasValue || userId.Value == Guid.Empty)
             return "System";
 
-        return actorNames.TryGetValue(userId.Value, out var displayName)
-            ? displayName
-            : userId.Value.ToString();
+        // Current name first; the name stored when the row was written keeps the log readable
+        // after the account is deleted (issue #119).
+        if (actorNames.TryGetValue(userId.Value, out var displayName))
+            return displayName;
+
+        return string.IsNullOrWhiteSpace(storedDisplayName)
+            ? userId.Value.ToString()
+            : storedDisplayName;
     }
 
     private static async Task<Dictionary<Guid, (long RecordNumber, string NavigationUrl)>> LoadRecordLinksAsync(

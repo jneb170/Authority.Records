@@ -35,6 +35,7 @@ public class AppDbContext : DbContext, IApplicationDbContext
     protected readonly ITenantProvider _tenantProvider;
     protected readonly IDomainEventDispatcher _domainEventDispatcher;
     private readonly ILogger<AppDbContext> _logger;
+    private readonly IUserLookupService? _userLookupService;
 
     public Guid CurrentTenantId => _tenantProvider.GetJurisdictionId();
 
@@ -94,12 +95,14 @@ public class AppDbContext : DbContext, IApplicationDbContext
         DbContextOptions<AppDbContext> options, 
         ITenantProvider tenantProvider, 
         IDomainEventDispatcher domainEventDispatcher,
-        ILogger<AppDbContext>? logger = null)
+        ILogger<AppDbContext>? logger = null,
+        IUserLookupService? userLookupService = null)
         : base(options)
     {
         _tenantProvider = tenantProvider;
         _domainEventDispatcher = domainEventDispatcher;
         _logger = logger ?? NullLogger<AppDbContext>.Instance;
+        _userLookupService = userLookupService;
     }
 
     // Protected overload for derived test contexts (e.g. TestAppDbContext)
@@ -107,12 +110,14 @@ public class AppDbContext : DbContext, IApplicationDbContext
         DbContextOptions options,
         ITenantProvider tenantProvider,
         IDomainEventDispatcher domainEventDispatcher,
-        ILogger<AppDbContext>? logger = null)
+        ILogger<AppDbContext>? logger = null,
+        IUserLookupService? userLookupService = null)
         : base(options)
     {
         _tenantProvider = tenantProvider;
         _domainEventDispatcher = domainEventDispatcher;
         _logger = logger ?? NullLogger<AppDbContext>.Instance;
+        _userLookupService = userLookupService;
     }
 
     public override int SaveChanges()
@@ -167,20 +172,22 @@ public class AppDbContext : DbContext, IApplicationDbContext
         {
             tenantId = CurrentTenantId;
 
-            var aggregatesById = domainEntities
-                .Select(x => x.Entity)
-                .GroupBy(x => x.Id)
-                .ToDictionary(x => x.Key, x => x.Last());
+            // The audit row names the user executing this save, never the aggregate's
+            // CreatedBy/ModifiedBy: AuditInterceptor stamps those inside base.SaveChangesAsync,
+            // i.e. after these rows are built, so they still hold the previous modifier (#119).
+            var actorUserId = TryGetCurrentUserId();
+            var actorDisplayNames = await ResolveActorDisplayNamesAsync(
+                domainEvents, actorUserId, cancellationToken);
 
             foreach (var domainEvent in domainEvents)
             {
                 OutboxMessages.Add(new OutboxMessage(domainEvent, tenantId.Value));
 
-                aggregatesById.TryGetValue(domainEvent.AggregateId, out var aggregate);
                 AuditLogReadModels.Add(AuditLogEntryFactory.CreateFromDomainEvent(
                     domainEvent,
-                    aggregate,
-                    tenantId.Value));
+                    tenantId.Value,
+                    actorUserId,
+                    actorDisplayNames));
             }
         }
 
@@ -223,6 +230,52 @@ public class AppDbContext : DbContext, IApplicationDbContext
         }
 
         return result;
+    }
+
+    private Guid? TryGetCurrentUserId()
+    {
+        try
+        {
+            var userId = _tenantProvider.GetUserId();
+            return userId == Guid.Empty ? null : userId;
+        }
+        catch (Exception)
+        {
+            // Background work (startup seeding, maintenance) has no signed-in user, and some
+            // tenant providers throw rather than return Guid.Empty when the claim is missing.
+            return null;
+        }
+    }
+
+    private async Task<IReadOnlyDictionary<Guid, string>?> ResolveActorDisplayNamesAsync(
+        IReadOnlyList<IDomainEvent> domainEvents,
+        Guid? actorUserId,
+        CancellationToken cancellationToken)
+    {
+        if (_userLookupService is null)
+            return null;
+
+        var actorIds = domainEvents
+            .Select(e => AuditLogEntryFactory.ResolveActor(e, actorUserId))
+            .Where(id => id.HasValue)
+            .Select(id => id!.Value)
+            .Distinct()
+            .ToList();
+
+        if (actorIds.Count == 0)
+            return null;
+
+        try
+        {
+            return await _userLookupService.GetDisplayNamesAsync(actorIds, cancellationToken);
+        }
+        catch (Exception ex)
+        {
+            // A display-name lookup failure must never block the write; the row still has the
+            // user ID and the viewer resolves the name at read time.
+            _logger.LogWarning(ex, "Could not resolve audit actor display names; writing audit rows without them.");
+            return null;
+        }
     }
 
     /// <summary>
