@@ -1,4 +1,4 @@
-﻿<CascadingAuthenticationState>
+<CascadingAuthenticationState>
     <Router AppAssembly="typeof(App).Assembly">
         <Found Context="routeData">
             <AuthorizeRouteView RouteData="routeData" DefaultLayout="typeof(Shared.MainLayout)">
@@ -11,7 +11,7 @@
         <NotFound>
             @* Interactive (client-side) navigation to an unknown in-app URL. Full page loads of unknown
                URLs are handled by Pages/Error.cshtml via UseStatusCodePagesWithReExecute. *@
-            <PageTitle>Page not found — Authority Records</PageTitle>
+            <AppPageTitle Title="Page not found" />
             <LayoutView Layout="typeof(Shared.MainLayout)">
                 <div class="empty-state" role="alert">
                     <i class="bi bi-signpost-split" aria-hidden="true"></i>

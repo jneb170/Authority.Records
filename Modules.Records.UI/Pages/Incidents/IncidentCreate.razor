@@ -10,7 +10,7 @@
 @using Modules.Records.UI.Services
 @using IncidentDetailsVo = Modules.Records.Domain.ValueObjects.IncidentDetails
 
-<PageTitle>New Incident</PageTitle>
+<AppPageTitle Title="New Incident" />
 
 <NavigationLock ConfirmExternalNavigation="@HasEnteredData" />
 
@@ -37,14 +37,14 @@
             <div class="record-grid-2">
             <div class="mb-0">
                 <label class="form-label">Incident Number</label>
-                <div class="input-group">
+                <div class="input-group ar-generate-group">
                     <InputText class="form-control" @bind-Value="_vm.IncidentNum"
                                placeholder="@(_hasFormat ? "Leave blank to auto-generate" : "")" />
                     @if (_hasFormat)
                     {
                         <button type="button" class="btn btn-outline-secondary" @onclick="GenerateAsync"
                                 disabled="@(_generating || !CanCreateAgencyOwnedRecord)" title="Generate next incident number">
-                            @(_generating ? "…" : "🔁 Generate")
+                            @if (_generating) { <text>…</text> } else { <i class="bi bi-arrow-repeat" aria-hidden="true"></i><text> Generate</text> }
                         </button>
                     }
                 </div>

@@ -1,11 +1,11 @@
-﻿@page "/admin/charges"
+@page "/admin/charges"
 @attribute [Authorize(Roles = "Admin,Supervisor")]
 @inject IChargeService ChargeService
 @using Microsoft.AspNetCore.Authorization
 @using Modules.Records.Application.DTOs
 @using Modules.Records.UI.Services
 
-<PageTitle>Admin — Charges</PageTitle>
+<AppPageTitle Title="Charges" />
 
 <div class="page-header">
     <div>

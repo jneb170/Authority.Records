@@ -13,7 +13,7 @@
 @using Modules.Records.Domain.Common
 @using Modules.Records.UI.Services
 
-<PageTitle>@(_name is null ? "Name Details" : _name.NameType == NameTypes.Person ? $"👤 {_name.RecordNumber} - {_name.LastOrBusinessName}{(string.IsNullOrWhiteSpace(_name.FirstName) ? "" : ", " + _name.FirstName)}" : $"🏢 {_name.RecordNumber} - {_name.LastOrBusinessName}")</PageTitle>
+<AppPageTitle Title="@(_name is null ? "Name Details" : _name.NameType == NameTypes.Person ? $"👤 {_name.RecordNumber} - {_name.LastOrBusinessName}{(string.IsNullOrWhiteSpace(_name.FirstName) ? "" : ", " + _name.FirstName)}" : $"🏢 {_name.RecordNumber} - {_name.LastOrBusinessName}")" />
 
 @if (_loading)
 {
@@ -44,7 +44,7 @@ else if (_name is not null)
                     @($"{_name.LastOrBusinessName}{(string.IsNullOrEmpty(_name.FirstName) ? "" : ", " + _name.FirstName)}{(string.IsNullOrEmpty(_name.MiddleName) ? "" : " " + _name.MiddleName)}{(!string.IsNullOrEmpty(_suffixLabel) ? " " + _suffixLabel : "")}")
                     @if (ComputeAge(_name.DateOfBirth) is int age)
                     {
-                        <span class="text-muted fs-5 fw-normal ms-2">(Age @age)</span>
+                        <span class="text-muted fw-normal ms-2">(Age @age)</span>
                     }
                     @if (_name.DeceasedDate.HasValue)
                     {

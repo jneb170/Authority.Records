@@ -1,9 +1,11 @@
+@using Microsoft.JSInterop
 @inherits LayoutComponentBase
 @implements IDisposable
 @inject NavigationManager Nav
 @inject AuthenticationStateProvider AuthStateProvider
 @inject IActiveAgencyContext AgencyContext
 @inject IAgencyClock AgencyClock
+@inject IJSRuntime JS
 @inject ICurrentUserContext CurrentUser
 @inject IConfiguration Configuration
 @using System.Security.Claims
@@ -84,7 +86,7 @@
                 <i class="bi bi-exclamation-triangle-fill me-2"></i>@AgencyBannerMessage
             </div>
         }
-        @if (CurrentUser.IsDemoUser)
+        @if (CurrentUser.IsDemoUser && !_demoBannerDismissed)
         {
             <div class="alert alert-info demo-banner" role="status">
                 <span><i class="bi bi-info-circle-fill me-1"></i><strong>Shared demo.</strong>
@@ -95,6 +97,7 @@
                 {
                     <a href="@_sourceUrl" target="_blank" rel="noopener"><i class="bi bi-github me-1"></i>View the source</a>
                 }
+                <button type="button" class="btn-close demo-banner-close" aria-label="Dismiss the demo notice" @onclick="DismissDemoBannerAsync"></button>
             </div>
         }
         <div class="main-content">
@@ -241,10 +244,48 @@
         return "Operations";
     }
 
+    // The demo banner can be dismissed; the choice is remembered in this browser (issue #101).
+    private const string DemoBannerStorageKey = "ar.demoBannerDismissed";
+    private bool _demoBannerDismissed;
+
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
-        if (!firstRender || !_suppressBody) return;
-        Nav.NavigateTo("/super/jurisdictions", replace: true);
+        if (!firstRender) return;
+
+        if (_suppressBody)
+        {
+            Nav.NavigateTo("/super/jurisdictions", replace: true);
+            return;
+        }
+
+        if (CurrentUser.IsDemoUser)
+        {
+            try
+            {
+                if (await JS.InvokeAsync<string?>("localStorage.getItem", DemoBannerStorageKey) == "1")
+                {
+                    _demoBannerDismissed = true;
+                    StateHasChanged();
+                }
+            }
+            catch (Exception)
+            {
+                // Storage blocked (private mode, disabled site data) or circuit gone: keep showing the banner.
+            }
+        }
+    }
+
+    private async Task DismissDemoBannerAsync()
+    {
+        _demoBannerDismissed = true;
+        try
+        {
+            await JS.InvokeVoidAsync("localStorage.setItem", DemoBannerStorageKey, "1");
+        }
+        catch (Exception)
+        {
+            // Not remembered; it is still hidden for this session.
+        }
     }
 
     public void Dispose()

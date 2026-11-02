@@ -379,6 +379,31 @@ html, body {
     font-weight: 600;
 }
 
+.demo-banner {
+    position: relative;
+    padding-right: 2.75rem;
+}
+
+.demo-banner-close {
+    position: absolute;
+    top: 0.65rem;
+    right: 0.85rem;
+    font-size: 0.7rem;
+}
+
+/* Phones: the banner took ~120px on every page. Keep the essentials. */
+@media (max-width: 575.98px) {
+    .demo-banner {
+        font-size: 0.8rem;
+        padding-top: 0.5rem;
+        padding-bottom: 0.5rem;
+    }
+
+    .demo-banner-tip {
+        display: none;
+    }
+}
+
 .mugshot-thumb {
     width: 8rem;
     aspect-ratio: 1 / 1.15;
@@ -540,22 +565,12 @@ button:focus-visible,
 
 /* Routes.razor's <FocusOnNavigate Selector="h1"> focuses the page heading after every navigation
    so screen readers announce the new page. That is programmatic focus, not a user action, so it
-   must not draw the browser's default outline (issue #96). Keyboard users still get a ring that
-   hugs the heading text. */
+   must not draw an outline (issue #96). The heading isn't interactive or in the tab order, and
+   Chrome treats focus after a full page load as :focus-visible, so no ring is drawn at all. */
 h1:focus,
+h1:focus-visible,
 [tabindex="-1"]:focus:not(:focus-visible) {
     outline: none;
-}
-
-h1:focus-visible {
-    outline: 2px solid rgba(201,162,39,.6);
-    outline-offset: 2px;
-    border-radius: 2px;
-}
-
-h1[tabindex="-1"] {
-    width: fit-content;
-    max-width: 100%;
 }
 
 /* ── Layout ─────────────────────────────────────────────────── */
@@ -1704,11 +1719,14 @@ h1[tabindex="-1"] {
 .record-grid-2,
 .record-grid-3 {
     display: grid;
+    grid-template-columns: minmax(0, 1fr);
     gap: 0.9rem;
 }
 
+/* Full width on phones. "span 2" there created an implicit second column, so every record form
+   was two cramped columns at 390px (issue #101). */
 .record-field-span-2 {
-    grid-column: span 2;
+    grid-column: 1 / -1;
 }
 
 .record-field-span-full {
@@ -2017,6 +2035,10 @@ h1[tabindex="-1"] {
 @media (min-width: 768px) {
     .record-grid-2 {
         grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .record-field-span-2 {
+        grid-column: span 2;
     }
 
     .record-grid-3 {
@@ -2471,5 +2493,23 @@ kbd.shortcut-hint {
     .top-header-user {
         flex: 1 1 auto;
         min-width: 0;
+    }
+}
+
+
+/* Record-number input + Generate button (issue #101). On phones the button squeezed the input to a few
+   characters; stack the button under the input instead. */
+@media (max-width: 575.98px) {
+    .ar-generate-group {
+        flex-wrap: wrap;
+        row-gap: 0.5rem;
+    }
+
+    .ar-generate-group > .form-control,
+    .ar-generate-group > .btn {
+        flex: 1 1 100%;
+        width: 100%;
+        margin-left: 0 !important;
+        border-radius: var(--bs-border-radius) !important;
     }
 }

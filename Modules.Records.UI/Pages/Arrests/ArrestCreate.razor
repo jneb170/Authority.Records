@@ -13,7 +13,7 @@
 @using Modules.Records.Domain.Common
 @using Modules.Records.UI.Services
 
-<PageTitle>New Arrest</PageTitle>
+<AppPageTitle Title="New Arrest" />
 
 <NavigationLock ConfirmExternalNavigation="@HasEnteredData" />
 
@@ -60,10 +60,10 @@
             </div>
             <div class="mb-0">
                 <label class="form-label">Arrest Number <span class="text-muted">(auto-generated if blank)</span></label>
-                <div class="input-group">
+                <div class="input-group ar-generate-group">
                     <InputText class="form-control" @bind-Value="_vm.ArrestNum" placeholder="e.g. AR-2026-000001" />
                     <button type="button" class="btn btn-outline-secondary" @onclick="GenerateArrestNumAsync" disabled="@(_generatingNum || !CanCreateAgencyOwnedRecord)">
-                        @(_generatingNum ? "…" : "🔁 Generate")
+                        @if (_generatingNum) { <text>…</text> } else { <i class="bi bi-arrow-repeat" aria-hidden="true"></i><text> Generate</text> }
                     </button>
                 </div>
             </div>

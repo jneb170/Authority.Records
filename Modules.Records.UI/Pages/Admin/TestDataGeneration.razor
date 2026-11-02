@@ -8,14 +8,10 @@
 @inject IWebHostEnvironment HostEnvironment
 @using Modules.Records.Application.Arrests.Commands.GenerateTestArrests
 
-<PageTitle>Test Data Generation</PageTitle>
+<AppPageTitle Title="Test Data Generation" />
 
-<div class="d-flex justify-content-between align-items-center border-bottom pb-3 mb-4">
-    <div>
-        <h2 class="fw-bold mb-0">🧪 Test Data Generation</h2>
-        <small class="text-muted">Seed realistic fake records for testing purposes</small>
-    </div>
-</div>
+<PageHeader Icon="bi-database-fill-gear" Title="Test Data Generation"
+            Subtitle="Seed picklists and the charge catalog, and generate realistic fake records for testing." />
 
 @* ── Step 1: Seed Picklists ──────────────────────────────────────────────── *@
 <h5 class="fw-semibold mb-3">Step 1 — Seed Picklist Defaults</h5>
@@ -45,7 +41,7 @@
                 </button>
                 @if (_mniSeedResult is not null)
                 {
-                    <span class="ms-2 small @(_mniSeedResult.StartsWith("✅") ? "text-success" : "text-danger")">@_mniSeedResult</span>
+                    <span class="ms-2 small @(IsSuccess(_mniSeedResult) ? "text-success" : "text-danger")">@_mniSeedResult</span>
                 }
             </div>
         </div>
@@ -68,7 +64,7 @@
                 </button>
                 @if (_stateSeedResult is not null)
                 {
-                    <span class="ms-2 small @(_stateSeedResult.StartsWith("✅") ? "text-success" : "text-danger")">@_stateSeedResult</span>
+                    <span class="ms-2 small @(IsSuccess(_stateSeedResult) ? "text-success" : "text-danger")">@_stateSeedResult</span>
                 }
             </div>
         </div>
@@ -91,7 +87,7 @@
                 </button>
                 @if (_suffixSeedResult is not null)
                 {
-                    <span class="ms-2 small @(_suffixSeedResult.StartsWith("✅") ? "text-success" : "text-danger")">@_suffixSeedResult</span>
+                    <span class="ms-2 small @(IsSuccess(_suffixSeedResult) ? "text-success" : "text-danger")">@_suffixSeedResult</span>
                 }
             </div>
         </div>
@@ -102,7 +98,7 @@
 <h5 class="fw-semibold mb-3">Step 2 — Seed Charges</h5>
 
 <p class="text-muted small mb-3">
-    Loads the initial charge catalog from <code>Documents\charges.json</code>. Existing entries are updated by offense name and UCR code.
+    Loads the bundled UCR/NIBRS charge catalog. Existing entries are updated by offense name and UCR code.
 </p>
 
 <div class="row g-3 mb-5">
@@ -123,7 +119,7 @@
                 </button>
                 @if (_chargesSeedResult is not null)
                 {
-                    <span class="ms-2 small @(_chargesSeedResult.StartsWith("✅") ? "text-success" : "text-danger")">@_chargesSeedResult</span>
+                    <span class="ms-2 small @(IsSuccess(_chargesSeedResult) ? "text-success" : "text-danger")">@_chargesSeedResult</span>
                 }
             </div>
         </div>
@@ -140,7 +136,7 @@
                 @if (!_canGenerate)
                 {
                     <div class="alert alert-warning">
-                        ⚠️ One or more required picklists are empty (Sex, Race, HairColor, EyeColor, or State). Seed them in Step 1 before generating.
+                        One or more required picklists are empty (Sex, Race, HairColor, EyeColor, or State). Seed them in Step 1 before generating.
                     </div>
                 }
 
@@ -193,7 +189,7 @@
                 @if (!_hasMapsApiKey)
                 {
                     <div class="alert alert-warning mb-4">
-                        ⚠️ No Google Maps API key is configured for this jurisdiction. Set one under
+                        No Google Maps API key is configured for this jurisdiction. Set one under
                         <strong>Administration → Location Settings</strong> before generating location records.
                     </div>
                 }
@@ -262,7 +258,7 @@
 
                 @if (_locResult is not null)
                 {
-                    <div class="alert @(_locErrors == 0 ? "alert-success" : "alert-warning") mt-2">
+                    <div class="alert @(_locErrors == 0 && IsSuccess(_locResult) ? "alert-success" : "alert-warning") mt-2">
                         @_locResult
                     </div>
                 }
@@ -365,7 +361,7 @@
                 @if (ArrestLocationKeywordRequired && !_hasMapsApiKey)
                 {
                     <div class="alert alert-warning mt-2">
-                        ⚠️ A Google Maps API key is required to create new arrest locations from a search keyword.
+                        A Google Maps API key is required to create new arrest locations from a search keyword.
                     </div>
                 }
 
@@ -384,7 +380,7 @@
 
                 @if (_arrestResult is not null)
                 {
-                    <div class="alert @(_arrestErrors == 0 ? "alert-success" : "alert-warning") mt-2">
+                    <div class="alert @(_arrestErrors == 0 && IsSuccess(_arrestResult) ? "alert-success" : "alert-warning") mt-2">
                         <div>@_arrestResult</div>
                         @if (!string.IsNullOrWhiteSpace(_arrestSummary))
                         {
@@ -499,12 +495,12 @@
 
             var json = await File.ReadAllTextAsync(path);
             var result = await ChargeService.SeedFromJsonAsync(json);
-            _chargesSeedResult = $"✅ Inserted {result.Inserted}, updated {result.Updated}.";
+            _chargesSeedResult = $"Inserted {result.Inserted}, updated {result.Updated}.";
             await LoadPicklistCountsAsync();
         }
         catch (Exception ex)
         {
-            _chargesSeedResult = $"❌ {ex.Message}";
+            _chargesSeedResult = $"Error: {ex.Message}";
         }
         finally
         {
@@ -539,12 +535,12 @@
                 Modules.Records.Domain.Common.PicklistTypes.EyeColor,
                 FakeNameData.EyeColorDefaults.Select(d => (d.Value, d.Label, d.SortOrder)).ToArray());
 
-            _mniSeedResult = $"✅ Done — {inserted} new item(s) inserted.";
+            _mniSeedResult = $"Done — {inserted} new item(s) inserted.";
             await LoadPicklistCountsAsync();
         }
         catch (Exception ex)
         {
-            _mniSeedResult = $"❌ Error: {ex.Message}";
+            _mniSeedResult = $"Error: {ex.Message}";
         }
         finally
         {
@@ -575,12 +571,12 @@
                 inserted++;
             }
 
-            _stateSeedResult = $"✅ Done — {inserted} new state(s) inserted.";
+            _stateSeedResult = $"Done — {inserted} new state(s) inserted.";
             await LoadPicklistCountsAsync();
         }
         catch (Exception ex)
         {
-            _stateSeedResult = $"❌ Error: {ex.Message}";
+            _stateSeedResult = $"Error: {ex.Message}";
         }
         finally
         {
@@ -601,12 +597,12 @@
                 Modules.Records.Domain.Common.PicklistTypes.Suffix,
                 FakeNameData.SuffixDefaults.Select(d => (d.Value, d.Label, d.SortOrder)).ToArray());
 
-            _suffixSeedResult = $"✅ Done — {inserted} new suffix(es) inserted.";
+            _suffixSeedResult = $"Done — {inserted} new suffix(es) inserted.";
             await LoadPicklistCountsAsync();
         }
         catch (Exception ex)
         {
-            _suffixSeedResult = $"❌ Error: {ex.Message}";
+            _suffixSeedResult = $"Error: {ex.Message}";
         }
         finally
         {
@@ -637,6 +633,14 @@
         }
         return inserted;
     }
+
+    /// <summary>Result messages are plain text; successful ones start with one of these words.</summary>
+    private static bool IsSuccess(string? message) =>
+        message is not null &&
+        (message.StartsWith("Done", StringComparison.Ordinal) ||
+         message.StartsWith("Inserted", StringComparison.Ordinal) ||
+         message.StartsWith("Successfully", StringComparison.Ordinal) ||
+         message.StartsWith("Created", StringComparison.Ordinal));
 
     // ── Generate Names ───────────────────────────────────────────────────────
 
@@ -769,7 +773,7 @@
             var apiKey = await GoogleMapsConfig.GetApiKeyAsync();
             if (string.IsNullOrWhiteSpace(apiKey))
             {
-                _locResult = "❌ No Google Maps API key configured.";
+                _locResult = "No Google Maps API key configured.";
                 return;
             }
 
@@ -786,16 +790,16 @@
 
             var locStopped = result.Errors.FirstOrDefault(e => e.StartsWith("Stopped after", StringComparison.Ordinal));
             _locResult = locStopped is not null
-                ? $"⚠️ {locStopped}"
+                ? $"{locStopped}"
                 : result.Failed == 0
-                ? $"✅ Successfully created {result.Created} location record(s)."
-                : $"⚠️ Created {result.Created} record(s); {result.Failed} error(s).";
+                ? $"Successfully created {result.Created} location record(s)."
+                : $"Created {result.Created} record(s); {result.Failed} error(s).";
 
             await LoadPicklistCountsAsync();
         }
         catch (Exception ex)
         {
-            _locResult = $"❌ Error: {ex.Message}";
+            _locResult = $"Error: {ex.Message}";
         }
         finally
         {
@@ -822,7 +826,7 @@
 
             if (!TryParseArrestWindow(out var arrestedFrom, out var arrestedTo, out var windowError))
             {
-                _arrestResult = $"❌ {windowError}";
+                _arrestResult = $"{windowError}";
                 return;
             }
 
@@ -832,14 +836,14 @@
             {
                 if (string.IsNullOrWhiteSpace(_arrestLocationKeyword))
                 {
-                    _arrestResult = "❌ Enter a location search keyword before generating arrests that create new locations.";
+                    _arrestResult = "Enter a location search keyword before generating arrests that create new locations.";
                     return;
                 }
 
                 apiKey = await GoogleMapsConfig.GetApiKeyAsync();
                 if (string.IsNullOrWhiteSpace(apiKey))
                 {
-                    _arrestResult = "❌ No Google Maps API key configured.";
+                    _arrestResult = "No Google Maps API key configured.";
                     return;
                 }
             }
@@ -862,16 +866,16 @@
 
             var arrestStopped = result.Errors.FirstOrDefault(e => e.StartsWith("Stopped after", StringComparison.Ordinal));
             _arrestResult = arrestStopped is not null
-                ? $"⚠️ {arrestStopped}"
+                ? $"{arrestStopped}"
                 : result.Failed == 0
-                ? $"✅ Successfully created {result.Created} arrest record(s)."
-                : $"⚠️ Created {result.Created} arrest record(s); {result.Failed} error(s).";
+                ? $"Successfully created {result.Created} arrest record(s)."
+                : $"Created {result.Created} arrest record(s); {result.Failed} error(s).";
 
             await LoadPicklistCountsAsync();
         }
         catch (Exception ex)
         {
-            _arrestResult = $"❌ Error: {ex.Message}";
+            _arrestResult = $"Error: {ex.Message}";
         }
         finally
         {

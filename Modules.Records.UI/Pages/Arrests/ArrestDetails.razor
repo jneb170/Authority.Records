@@ -18,7 +18,7 @@
 @using Modules.Records.Application.DTOs
 @using Modules.Records.UI.Services
 
-<PageTitle>Arrest Details</PageTitle>
+<AppPageTitle Title="Arrest Details" />
 
 @if (_loading)
 {
@@ -281,7 +281,7 @@ else if (_arrest is not null)
                     Last copied @(Clock.Format(_editAtTimeOfCopiedAtUtc.Value, "g"))
                     @if (!string.IsNullOrWhiteSpace(_editAtTimeOfCopiedByName))
                     {
-                        <span>by @_editAtTimeOfCopiedByName</span>
+                        <span>@($" by {_editAtTimeOfCopiedByName}")</span>
                     }
                 </div>
             }
