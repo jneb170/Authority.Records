@@ -33,7 +33,7 @@ public sealed class NarrativeFlowTests : IDisposable
     private readonly Guid _jurisdictionId = Guid.NewGuid();
     private readonly Guid _agencyId = Guid.NewGuid();
     private readonly Guid _userId = Guid.NewGuid();
-    private readonly Guid _incidentId = Guid.NewGuid();
+    private readonly Guid _incidentId;
 
     public NarrativeFlowTests()
     {
@@ -52,7 +52,23 @@ public sealed class NarrativeFlowTests : IDisposable
         _provider = services.BuildServiceProvider();
 
         using var scope = _provider.CreateScope();
-        scope.ServiceProvider.GetRequiredService<AppDbContext>().Database.EnsureCreated();
+        var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+        db.Database.EnsureCreated();
+
+        // Narratives inherit their owner's agency isolation (#118), so the owner must exist.
+        var incident = new Modules.Records.Domain.Factories.IncidentFactory().Create(
+            new Modules.Records.Domain.Factories.CreateIncidentRequest
+            {
+                JurisdictionId = _jurisdictionId,
+                AgencyId = _agencyId,
+                Details = new Modules.Records.Domain.ValueObjects.IncidentDetails
+                {
+                    IncidentNum = "26-000001", Description = "Owner", LocalNum = ""
+                }
+            });
+        db.Incidents.Add(incident);
+        db.SaveChanges();
+        _incidentId = incident.Id;
     }
 
     private async Task<T> Send<T>(IRequest<T> request)

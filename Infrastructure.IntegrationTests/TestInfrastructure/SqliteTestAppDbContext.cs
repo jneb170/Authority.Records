@@ -15,8 +15,9 @@ public sealed class SqliteTestAppDbContext : AppDbContext
     public SqliteTestAppDbContext(
         DbContextOptions<SqliteTestAppDbContext> options,
         ITenantProvider tenantProvider,
-        IDomainEventDispatcher dispatcher)
-        : base(options, tenantProvider, dispatcher)
+        IDomainEventDispatcher dispatcher,
+        Modules.Records.Application.Abstractions.IUserLookupService? userLookupService = null)
+        : base(options, tenantProvider, dispatcher, userLookupService: userLookupService)
     {
     }
 }

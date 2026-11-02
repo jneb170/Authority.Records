@@ -156,7 +156,7 @@ else
                     </td>
                     <td>@u.Email</td>
                     <td>@string.Join(", ", u.Roles)</td>
-                    <td>@(_agencies.FirstOrDefault(a => a.Id == u.PrimaryAgencyId)?.Name ?? "—")</td>
+                    <td>@(_allAgencies.FirstOrDefault(a => a.Id == u.PrimaryAgencyId)?.Name ?? "—")</td>
                     <td>@(u.IsActive ? "✅" : "❌")</td>
                 </tr>
             }
@@ -181,7 +181,8 @@ else
 
 @code {
     private List<UserDto>? _users;
-    private List<Agency> _agencies = [];
+    private List<Agency> _agencies = [];      // agencies this admin may grant
+    private List<Agency> _allAgencies = [];   // for display only
     private List<string> _availableRoles = [];
     private Guid _jurisdictionId;
     private string? _error;
@@ -239,7 +240,12 @@ else
         if (claim is not null && Guid.TryParse(claim.Value, out var jid))
             _jurisdictionId = jid;
 
-        _agencies = await AgencyService.GetByJurisdictionAsync(_jurisdictionId);
+        // Admins can only grant agencies they belong to (issue #118).
+        var manageable = await UserService.GetManageableAgencyIdsAsync();
+        _allAgencies = await AgencyService.GetByJurisdictionAsync(_jurisdictionId);
+        _agencies = _allAgencies
+            .Where(a => manageable is null || manageable.Contains(a.Id))
+            .ToList();
         _availableRoles = await UserService.GetAvailableRolesAsync();
         await LoadAsync();
     }
@@ -262,7 +268,7 @@ else
     private async Task LoadAsync()
     {
         _error = null;
-        _users = await UserService.GetByJurisdictionAsync(_jurisdictionId);
+        _users = await UserService.GetManageableUsersAsync(_jurisdictionId);
     }
 
     private void ShowCreateForm()

@@ -17,7 +17,7 @@ namespace Shared.Infrastructure.Persistence.Migrations.SqlServer
         {
 #pragma warning disable 612, 618
             modelBuilder
-                .HasAnnotation("ProductVersion", "10.0.8")
+                .HasAnnotation("ProductVersion", "10.0.14")
                 .HasAnnotation("Relational:MaxIdentifierLength", 128);
 
             SqlServerModelBuilderExtensions.UseIdentityColumns(modelBuilder);
@@ -106,6 +106,9 @@ namespace Shared.Infrastructure.Persistence.Migrations.SqlServer
                         .HasMaxLength(64)
                         .HasColumnType("nvarchar(64)");
 
+                    b.Property<Guid?>("AgencyId")
+                        .HasColumnType("uniqueidentifier");
+
                     b.Property<Guid>("AggregateId")
                         .HasColumnType("uniqueidentifier");
 
@@ -144,6 +147,10 @@ namespace Shared.Infrastructure.Persistence.Migrations.SqlServer
                         .HasMaxLength(32)
                         .HasColumnType("nvarchar(32)");
 
+                    b.Property<string>("UserDisplayName")
+                        .HasMaxLength(256)
+                        .HasColumnType("nvarchar(256)");
+
                     b.Property<Guid?>("UserId")
                         .HasColumnType("uniqueidentifier");
 
@@ -164,6 +171,8 @@ namespace Shared.Infrastructure.Persistence.Migrations.SqlServer
                     b.HasIndex("UserId");
 
                     b.HasIndex("JurisdictionId", "OccurredOnUtc");
+
+                    b.HasIndex("JurisdictionId", "AgencyId", "OccurredOnUtc");
 
                     b.ToTable("AuditTrailEntries", (string)null);
                 });

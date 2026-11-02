@@ -18,6 +18,7 @@ public sealed class AuditLogReadModelConfiguration : IEntityTypeConfiguration<Au
         builder.Property(x => x.ActionType).IsRequired().HasMaxLength(64);
         builder.Property(x => x.Message).IsRequired().HasMaxLength(512);
         builder.Property(x => x.Payload).IsRequired();
+        builder.Property(x => x.UserDisplayName).HasMaxLength(256);
 
         builder.HasIndex(x => x.JurisdictionId);
         builder.HasIndex(x => x.OccurredOnUtc);
@@ -27,5 +28,6 @@ public sealed class AuditLogReadModelConfiguration : IEntityTypeConfiguration<Au
         builder.HasIndex(x => x.ActionType);
         builder.HasIndex(x => x.UserId);
         builder.HasIndex(x => new { x.JurisdictionId, x.OccurredOnUtc });
+        builder.HasIndex(x => new { x.JurisdictionId, x.AgencyId, x.OccurredOnUtc });
     }
 }

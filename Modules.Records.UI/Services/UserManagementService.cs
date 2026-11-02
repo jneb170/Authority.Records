@@ -1,5 +1,7 @@
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
+using System.Security.Claims;
+using Microsoft.AspNetCore.Components.Authorization;
 using Modules.Records.Application.Common;
 using Shared.Infrastructure.Identity;
 using Shared.Infrastructure.Persistence;
@@ -10,8 +12,13 @@ public sealed class UserManagementService(
     UserManager<ApplicationUser> userManager,
     AuthDbContext authDb,
     IServiceScopeFactory serviceScopeFactory,
-    IConfiguration configuration) : IUserManagementService
+    IConfiguration configuration,
+    AuthenticationStateProvider authStateProvider) : IUserManagementService
 {
+    /// <summary>Returned when an agency admin acts on a user or agency outside their own agencies (#118).</summary>
+    public const string OutsideYourAgencies =
+        "You can only manage users and agencies in your own agencies.";
+
     private readonly string _demoEmail = DemoUserMatching.ResolveDemoEmail(configuration[DemoUserMatching.LoginEmailConfigKey]);
 
     /// <summary>Shown when someone tries to change a demo account's password (issue #91).</summary>
@@ -56,6 +63,52 @@ public sealed class UserManagementService(
         return await BuildUserDtosAsync(readDb, users);
     }
 
+    public async Task<List<UserDto>> GetManageableUsersAsync(Guid jurisdictionId)
+    {
+        var callerAgencies = await GetCallerAgencyIdsAsync();
+        if (callerAgencies is null)
+            return await GetByJurisdictionAsync(jurisdictionId);
+
+        using var scope = serviceScopeFactory.CreateScope();
+        var readDb = scope.ServiceProvider.GetRequiredService<AuthDbContext>();
+
+        var assignedUserIds = readDb.UserAgencies
+            .Where(ua => callerAgencies.Contains(ua.AgencyId))
+            .Select(ua => ua.UserId);
+
+        var users = await readDb.Users
+            .AsNoTracking()
+            .Where(u => u.JurisdictionId == jurisdictionId)
+            .Where(u => callerAgencies.Contains(u.AgencyId) || assignedUserIds.Contains(u.Id))
+            .OrderBy(u => u.LastName).ThenBy(u => u.FirstName)
+            .ToListAsync();
+
+        return await BuildUserDtosAsync(readDb, users);
+    }
+
+    public async Task<IReadOnlySet<Guid>?> GetManageableAgencyIdsAsync() => await GetCallerAgencyIdsAsync();
+
+    /// <summary>
+    /// The caller's agencies, or null when the caller is a Super user, who manages every
+    /// jurisdiction and is not limited to agencies.
+    /// </summary>
+    private async Task<HashSet<Guid>?> GetCallerAgencyIdsAsync()
+    {
+        // Read from the auth state directly: ITenantProvider depends on ActiveAgencyContext,
+        // which depends on this service, so injecting it would be a dependency cycle.
+        var caller = (await authStateProvider.GetAuthenticationStateAsync()).User;
+        if (caller.IsInRole(AgencyMembership.SuperRole))
+            return null;
+
+        var callerId = caller.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+        return string.IsNullOrEmpty(callerId)
+            ? []
+            : await AgencyMembership.GetAgencyIdsAsync(authDb, callerId);
+    }
+
+    private static IdentityResult Refused() =>
+        IdentityResult.Failed(new IdentityError { Code = "OutsideAgency", Description = OutsideYourAgencies });
+
     public async Task<UserDto?> GetByIdAsync(string userId)
     {
         using var scope = serviceScopeFactory.CreateScope();
@@ -90,6 +143,11 @@ public sealed class UserManagementService(
         Guid jurisdictionId, Guid primaryAgencyId,
         IEnumerable<string> roles, IEnumerable<Guid> agencyIds)
     {
+        var callerAgencies = await GetCallerAgencyIdsAsync();
+        if (callerAgencies is not null &&
+            (!callerAgencies.Contains(primaryAgencyId) || agencyIds.Any(a => !callerAgencies.Contains(a))))
+            return (Refused(), null);
+
         var user = new ApplicationUser
         {
             UserName = email,
@@ -128,6 +186,34 @@ public sealed class UserManagementService(
         if (user is null)
             return IdentityResult.Failed(new IdentityError { Description = "User not found." });
 
+        var requestedAgencies = agencyIds.ToList();
+        var callerAgencies = await GetCallerAgencyIdsAsync();
+        if (callerAgencies is not null)
+        {
+            var targetAgencies = await AgencyMembership.GetAgencyIdsAsync(authDb, userId);
+            if (!targetAgencies.Overlaps(callerAgencies))
+                return Refused();
+
+            // Only agencies the caller belongs to can be granted or removed. Assignments to
+            // other agencies are kept as they are, and so is a primary agency outside them.
+            if (requestedAgencies.Any(a => !callerAgencies.Contains(a)))
+                return Refused();
+
+            var existingAssignments = await authDb.UserAgencies
+                .Where(ua => ua.UserId == userId)
+                .Select(ua => ua.AgencyId)
+                .ToListAsync();
+            requestedAgencies = requestedAgencies
+                .Concat(existingAssignments.Where(a => !callerAgencies.Contains(a)))
+                .Distinct()
+                .ToList();
+
+            if (!callerAgencies.Contains(user.AgencyId))
+                primaryAgencyId = user.AgencyId;
+            else if (!callerAgencies.Contains(primaryAgencyId))
+                return Refused();
+        }
+
         user.FirstName = firstName;
         user.LastName = lastName;
         user.Email = email;
@@ -156,7 +242,7 @@ public sealed class UserManagementService(
         // Sync agency assignments
         var existing = await authDb.UserAgencies.Where(ua => ua.UserId == userId).ToListAsync();
         authDb.UserAgencies.RemoveRange(existing);
-        var desiredAgencies = agencyIds.ToList();
+        var desiredAgencies = requestedAgencies;
         if (desiredAgencies.Count > 0)
             authDb.UserAgencies.AddRange(desiredAgencies.Select(aId => ApplicationUserAgency.Create(userId, aId)));
         await authDb.SaveChangesAsync();
@@ -169,6 +255,9 @@ public sealed class UserManagementService(
         var user = await userManager.FindByIdAsync(userId);
         if (user is null)
             return IdentityResult.Failed(new IdentityError { Description = "User not found." });
+
+        if (!await CanManageUserAsync(userId))
+            return Refused();
 
         var token = await userManager.GeneratePasswordResetTokenAsync(user);
         return await userManager.ResetPasswordAsync(user, token, newPassword);
@@ -194,11 +283,24 @@ public sealed class UserManagementService(
         if (user is null)
             return IdentityResult.Failed(new IdentityError { Description = "User not found." });
 
+        if (!await CanManageUserAsync(userId))
+            return Refused();
+
         var agencies = await authDb.UserAgencies.Where(ua => ua.UserId == userId).ToListAsync();
         authDb.UserAgencies.RemoveRange(agencies);
         await authDb.SaveChangesAsync();
 
         return await userManager.DeleteAsync(user);
+    }
+
+    private async Task<bool> CanManageUserAsync(string userId)
+    {
+        var callerAgencies = await GetCallerAgencyIdsAsync();
+        if (callerAgencies is null)
+            return true;
+
+        var targetAgencies = await AgencyMembership.GetAgencyIdsAsync(authDb, userId);
+        return targetAgencies.Overlaps(callerAgencies);
     }
 
     public async Task<List<string>> GetAvailableRolesAsync()

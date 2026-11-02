@@ -1,3 +1,4 @@
+using Modules.Records.Application.Common;
 using MediatR;
 using Microsoft.EntityFrameworkCore;
 using Modules.Records.Application.Abstractions;
@@ -15,6 +16,9 @@ public sealed class SetPrimaryMugshotHandler : IRequestHandler<SetPrimaryMugshot
 
     public async Task Handle(SetPrimaryMugshotCommand request, CancellationToken cancellationToken)
     {
+        await AgencyRecordAccess.EnsureCanAccessOwnerAsync(
+            _dbContext, request.OwnerType, request.OwnerId, cancellationToken);
+
         var links = await _dbContext.MugshotLinks
             .Where(l => l.OwnerType == request.OwnerType && l.OwnerId == request.OwnerId)
             .ToListAsync(cancellationToken);

@@ -393,10 +393,8 @@ else if (_citation is not null)
                         </div>
                         <div class="col-sm-6 col-md-3">
                             <label class="form-label mb-1">SSN</label>
-                            <input type="text" class="@(_modifyMode ? "form-control form-control-sm" : "form-control-plaintext form-control-sm ps-0")"
-                                   readonly="@(!_modifyMode)"
-                                   @bind="_editAtTimeOfSocialSecurityNumber"
-                                   placeholder="—" />
+                            <SsnField @bind-Value="_editAtTimeOfSocialSecurityNumber" Editable="_modifyMode"
+                                      ReadOnlyClass="form-control-plaintext form-control-sm ps-0 mb-0" />
                         </div>
                     }
                     <div class="col-12">

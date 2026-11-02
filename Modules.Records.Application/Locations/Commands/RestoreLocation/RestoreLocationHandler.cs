@@ -19,7 +19,7 @@ public sealed class RestoreLocationHandler : IRequestHandler<RestoreLocationComm
     public async Task Handle(RestoreLocationCommand request, CancellationToken cancellationToken)
     {
         var location = await _dbContext.Locations
-            .IgnoreQueryFilters()
+            .IgnoreQueryFilters([QueryFilterNames.SoftDelete])
             .FirstOrDefaultAsync(l =>
                 l.Id == request.LocationId &&
                 l.JurisdictionId == _tenantProvider.GetJurisdictionId(),

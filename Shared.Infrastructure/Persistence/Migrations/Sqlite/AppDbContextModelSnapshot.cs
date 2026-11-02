@@ -16,7 +16,7 @@ namespace Shared.Infrastructure.Persistence.Migrations.Sqlite
         protected override void BuildModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
-            modelBuilder.HasAnnotation("ProductVersion", "10.0.8");
+            modelBuilder.HasAnnotation("ProductVersion", "10.0.14");
 
             modelBuilder.Entity("Modules.Records.Application.ReadModels.ArrestReadModel", b =>
                 {
@@ -102,6 +102,9 @@ namespace Shared.Infrastructure.Persistence.Migrations.Sqlite
                         .HasMaxLength(64)
                         .HasColumnType("TEXT");
 
+                    b.Property<Guid?>("AgencyId")
+                        .HasColumnType("TEXT");
+
                     b.Property<Guid>("AggregateId")
                         .HasColumnType("TEXT");
 
@@ -140,6 +143,10 @@ namespace Shared.Infrastructure.Persistence.Migrations.Sqlite
                         .HasMaxLength(32)
                         .HasColumnType("TEXT");
 
+                    b.Property<string>("UserDisplayName")
+                        .HasMaxLength(256)
+                        .HasColumnType("TEXT");
+
                     b.Property<Guid?>("UserId")
                         .HasColumnType("TEXT");
 
@@ -160,6 +167,8 @@ namespace Shared.Infrastructure.Persistence.Migrations.Sqlite
                     b.HasIndex("UserId");
 
                     b.HasIndex("JurisdictionId", "OccurredOnUtc");
+
+                    b.HasIndex("JurisdictionId", "AgencyId", "OccurredOnUtc");
 
                     b.ToTable("AuditTrailEntries", (string)null);
                 });

@@ -8,7 +8,7 @@ using Modules.Records.Domain.DomainEvents;
 
 namespace Modules.Records.Domain.Entities
 {
-    public sealed class Arrest : LockableAggregateRoot<Arrest>, IMultiTenant
+    public sealed class Arrest : LockableAggregateRoot<Arrest>, IMultiTenant, IAgencyOwned
     {
         public Guid JurisdictionId { get; private set; }
         public Guid AgencyId { get; private set; }

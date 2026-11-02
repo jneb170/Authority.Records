@@ -19,6 +19,15 @@ public interface IUserManagementService
 {
     Task<List<UserDto>> GetAllAsync();
     Task<List<UserDto>> GetByJurisdictionAsync(Guid jurisdictionId);
+
+    /// <summary>
+    /// Users the signed-in admin may manage: those sharing at least one of the admin's agencies.
+    /// A Super user gets every user in the jurisdiction (issue #118).
+    /// </summary>
+    Task<List<UserDto>> GetManageableUsersAsync(Guid jurisdictionId);
+
+    /// <summary>The agencies the signed-in admin may grant, or null for a Super user (no limit).</summary>
+    Task<IReadOnlySet<Guid>?> GetManageableAgencyIdsAsync();
     Task<UserDto?> GetByIdAsync(string userId);
     Task<(IdentityResult Result, string? UserId)> CreateAsync(
         string firstName, string lastName, string email, string password,

@@ -64,7 +64,8 @@ public sealed class DemoPasswordChangeTests : IDisposable
             scope.ServiceProvider.GetRequiredService<UserManager<ApplicationUser>>(),
             scope.ServiceProvider.GetRequiredService<AuthDbContext>(),
             scope.ServiceProvider.GetRequiredService<IServiceScopeFactory>(),
-            _host.Configuration);
+            _host.Configuration,
+            new AnonymousAuthState());
         return await service.ChangePasswordAsync(userId, IdentityTestHost.Password, "N3w-Passw0rd!");
     }
 
@@ -83,4 +84,11 @@ public sealed class DemoPasswordChangeTests : IDisposable
     }
 
     public void Dispose() => _host.Dispose();
+
+    private sealed class AnonymousAuthState : Microsoft.AspNetCore.Components.Authorization.AuthenticationStateProvider
+    {
+        public override Task<Microsoft.AspNetCore.Components.Authorization.AuthenticationState> GetAuthenticationStateAsync() =>
+            Task.FromResult(new Microsoft.AspNetCore.Components.Authorization.AuthenticationState(
+                new System.Security.Claims.ClaimsPrincipal(new System.Security.Claims.ClaimsIdentity())));
+    }
 }

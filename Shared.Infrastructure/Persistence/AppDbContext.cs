@@ -35,8 +35,24 @@ public class AppDbContext : DbContext, IApplicationDbContext
     protected readonly ITenantProvider _tenantProvider;
     protected readonly IDomainEventDispatcher _domainEventDispatcher;
     private readonly ILogger<AppDbContext> _logger;
+    private readonly IUserLookupService? _userLookupService;
 
     public Guid CurrentTenantId => _tenantProvider.GetJurisdictionId();
+
+    /// <summary>
+    /// True when a signed-in user is executing this context's work, so agency-owned aggregates
+    /// are limited to <see cref="CurrentAgencyId"/>. False for background work with no user
+    /// (startup seeding, lock cleanup, the outbox processor), which is jurisdiction-wide.
+    /// </summary>
+    public bool IsAgencyScoped => ResolveAgencyScope().IsScoped;
+
+    /// <summary>
+    /// The signed-in user's active agency. <see cref="Guid.Empty"/> for a signed-in user with no
+    /// agency, which matches no agency-owned record.
+    /// </summary>
+    public Guid CurrentAgencyId => ResolveAgencyScope().AgencyId;
+
+    private (bool IsScoped, Guid AgencyId)? _agencyScope;
 
     public DbSet<OutboxMessage> OutboxMessages => Set<OutboxMessage>();
     public DbSet<DeadLetterMessage> DeadLetterMessages => Set<DeadLetterMessage>();
@@ -94,12 +110,14 @@ public class AppDbContext : DbContext, IApplicationDbContext
         DbContextOptions<AppDbContext> options, 
         ITenantProvider tenantProvider, 
         IDomainEventDispatcher domainEventDispatcher,
-        ILogger<AppDbContext>? logger = null)
+        ILogger<AppDbContext>? logger = null,
+        IUserLookupService? userLookupService = null)
         : base(options)
     {
         _tenantProvider = tenantProvider;
         _domainEventDispatcher = domainEventDispatcher;
         _logger = logger ?? NullLogger<AppDbContext>.Instance;
+        _userLookupService = userLookupService;
     }
 
     // Protected overload for derived test contexts (e.g. TestAppDbContext)
@@ -107,12 +125,14 @@ public class AppDbContext : DbContext, IApplicationDbContext
         DbContextOptions options,
         ITenantProvider tenantProvider,
         IDomainEventDispatcher domainEventDispatcher,
-        ILogger<AppDbContext>? logger = null)
+        ILogger<AppDbContext>? logger = null,
+        IUserLookupService? userLookupService = null)
         : base(options)
     {
         _tenantProvider = tenantProvider;
         _domainEventDispatcher = domainEventDispatcher;
         _logger = logger ?? NullLogger<AppDbContext>.Instance;
+        _userLookupService = userLookupService;
     }
 
     public override int SaveChanges()
@@ -167,10 +187,18 @@ public class AppDbContext : DbContext, IApplicationDbContext
         {
             tenantId = CurrentTenantId;
 
+            // The audit row names the user executing this save, never the aggregate's
+            // CreatedBy/ModifiedBy: AuditInterceptor stamps those inside base.SaveChangesAsync,
+            // i.e. after these rows are built, so they still hold the previous modifier (#119).
+            var actorUserId = TryGetCurrentUserId();
+            var actorDisplayNames = await ResolveActorDisplayNamesAsync(
+                domainEvents, actorUserId, cancellationToken);
+
             var aggregatesById = domainEntities
                 .Select(x => x.Entity)
                 .GroupBy(x => x.Id)
                 .ToDictionary(x => x.Key, x => x.Last());
+            var actorAgencyId = TryGetActorAgencyId();
 
             foreach (var domainEvent in domainEvents)
             {
@@ -179,8 +207,10 @@ public class AppDbContext : DbContext, IApplicationDbContext
                 aggregatesById.TryGetValue(domainEvent.AggregateId, out var aggregate);
                 AuditLogReadModels.Add(AuditLogEntryFactory.CreateFromDomainEvent(
                     domainEvent,
-                    aggregate,
-                    tenantId.Value));
+                    tenantId.Value,
+                    actorUserId,
+                    actorDisplayNames,
+                    ResolveAuditAgencyId(aggregate, actorAgencyId)));
             }
         }
 
@@ -223,6 +253,95 @@ public class AppDbContext : DbContext, IApplicationDbContext
         }
 
         return result;
+    }
+
+    /// <summary>
+    /// Which agency's audit trail a row belongs to (issue #118): the owner of an agency-owned
+    /// aggregate; none for the shared master index (names, locations), whose history every
+    /// agency in the jurisdiction can see; otherwise the acting user's agency, so that e.g.
+    /// narratives and links written while working an incident stay with that agency.
+    /// </summary>
+    private static Guid? ResolveAuditAgencyId(AggregateRoot? aggregate, Guid? actorAgencyId) => aggregate switch
+    {
+        IAgencyOwned owned => owned.AgencyId,
+        Name or Location => null,
+        _ => actorAgencyId
+    };
+
+    private Guid? TryGetActorAgencyId()
+    {
+        var scope = ResolveAgencyScope();
+        return scope.IsScoped && scope.AgencyId != Guid.Empty ? scope.AgencyId : null;
+    }
+
+    private (bool IsScoped, Guid AgencyId) ResolveAgencyScope()
+    {
+        if (_agencyScope.HasValue)
+            return _agencyScope.Value;
+
+        // Not cached until a user is known: a context created before sign-in state is
+        // available must not stay unscoped for the rest of its life.
+        if (TryGetCurrentUserId() is null)
+            return (false, Guid.Empty);
+
+        Guid agencyId;
+        try
+        {
+            agencyId = _tenantProvider.GetAgencyId();
+        }
+        catch (Exception)
+        {
+            agencyId = Guid.Empty;
+        }
+
+        _agencyScope = (true, agencyId);
+        return _agencyScope.Value;
+    }
+
+    private Guid? TryGetCurrentUserId()
+    {
+        try
+        {
+            var userId = _tenantProvider.GetUserId();
+            return userId == Guid.Empty ? null : userId;
+        }
+        catch (Exception)
+        {
+            // Background work (startup seeding, maintenance) has no signed-in user, and some
+            // tenant providers throw rather than return Guid.Empty when the claim is missing.
+            return null;
+        }
+    }
+
+    private async Task<IReadOnlyDictionary<Guid, string>?> ResolveActorDisplayNamesAsync(
+        IReadOnlyList<IDomainEvent> domainEvents,
+        Guid? actorUserId,
+        CancellationToken cancellationToken)
+    {
+        if (_userLookupService is null)
+            return null;
+
+        var actorIds = domainEvents
+            .Select(e => AuditLogEntryFactory.ResolveActor(e, actorUserId))
+            .Where(id => id.HasValue)
+            .Select(id => id!.Value)
+            .Distinct()
+            .ToList();
+
+        if (actorIds.Count == 0)
+            return null;
+
+        try
+        {
+            return await _userLookupService.GetDisplayNamesAsync(actorIds, cancellationToken);
+        }
+        catch (Exception ex)
+        {
+            // A display-name lookup failure must never block the write; the row still has the
+            // user ID and the viewer resolves the name at read time.
+            _logger.LogWarning(ex, "Could not resolve audit actor display names; writing audit rows without them.");
+            return null;
+        }
     }
 
     /// <summary>
@@ -360,42 +479,53 @@ public class AppDbContext : DbContext, IApplicationDbContext
     }
 
 
+    /// <summary>
+    /// Global query filters, named so a query can switch one off and keep the rest
+    /// (see <see cref="QueryFilterNames"/>). <c>IgnoreQueryFilters()</c> with no names still
+    /// switches all of them off.
+    /// </summary>
     private void ApplyGlobalFilters(ModelBuilder modelBuilder)
     {
         foreach (var entityType in modelBuilder.Model.GetEntityTypes())
         {
             var clrType = entityType.ClrType;
-            var parameter = Expression.Parameter(clrType, "e");
-            Expression? filterExpression = null;
+            if (!typeof(AggregateRoot).IsAssignableFrom(clrType))
+                continue;
 
-            //Soft Delete Filter (IsDeleted): AggregateRoot
-            if (typeof(AggregateRoot).IsAssignableFrom(clrType))
+            var entity = modelBuilder.Entity(clrType);
+            var context = Expression.Constant(this);
+
+            // Soft delete (IsDeleted)
             {
-                var isDeletedProperty = Expression.Property(parameter, nameof(AggregateRoot.IsDeleted));
-                var notDeleted = Expression.Equal(isDeletedProperty, Expression.Constant(false));
-
-                filterExpression = AppendFilterExpression(filterExpression, notDeleted);
+                var e = Expression.Parameter(clrType, "e");
+                var notDeleted = Expression.Equal(
+                    Expression.Property(e, nameof(AggregateRoot.IsDeleted)),
+                    Expression.Constant(false));
+                entity.HasQueryFilter(QueryFilterNames.SoftDelete, Expression.Lambda(notDeleted, e));
             }
 
-            //Multi-Tenant Filter (JurisdictionId): IMultiTenant
-            if (typeof(AggregateRoot).IsAssignableFrom(clrType))
+            // Jurisdiction (tenant)
             {
-                var jurisdictionProperty = Expression.Property(parameter, nameof(IMultiTenant.JurisdictionId));
-
-                var currentTenantProperty = Expression.Property(
-                    Expression.Constant(this),
-                    nameof(CurrentTenantId));
-
-                var tenantMatch = Expression.Equal(jurisdictionProperty, currentTenantProperty);
-
-                filterExpression = AppendFilterExpression(filterExpression, tenantMatch);
+                var e = Expression.Parameter(clrType, "e");
+                var tenantMatch = Expression.Equal(
+                    Expression.Property(e, nameof(IMultiTenant.JurisdictionId)),
+                    Expression.Property(context, nameof(CurrentTenantId)));
+                entity.HasQueryFilter(QueryFilterNames.Jurisdiction, Expression.Lambda(tenantMatch, e));
             }
 
-            // Apply combined query filters
-            if (filterExpression != null)
+            // Agency: incidents, arrests and citations belong to one agency. Names and
+            // locations are a shared master index and are visible to every agency in the
+            // jurisdiction (issue #118).
+            if (typeof(IAgencyOwned).IsAssignableFrom(clrType))
             {
-                var lamda = Expression.Lambda(filterExpression, parameter);
-                modelBuilder.Entity(clrType).HasQueryFilter(lamda);
+                var e = Expression.Parameter(clrType, "e");
+                var unscoped = Expression.Not(Expression.Property(context, nameof(IsAgencyScoped)));
+                var agencyMatch = Expression.Equal(
+                    Expression.Property(e, nameof(IAgencyOwned.AgencyId)),
+                    Expression.Property(context, nameof(CurrentAgencyId)));
+                entity.HasQueryFilter(
+                    QueryFilterNames.Agency,
+                    Expression.Lambda(Expression.OrElse(unscoped, agencyMatch), e));
             }
         }
     }

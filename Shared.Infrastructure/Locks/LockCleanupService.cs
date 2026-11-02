@@ -321,7 +321,10 @@ public sealed class LockCleanupService
                 aggregateType,
                 expiredAtUtc,
                 r.LockedByUserId,
-                r.LockedAtUtc));
+                r.LockedAtUtc,
+                // Incidents, arrests and citations are agency-owned; name and location locks
+                // are on the shared master index, so their rows stay jurisdiction-wide (#118).
+                agencyId: aggregateType is "Incident" or "Arrest" or "Citation" ? r.AgencyId : null));
 
     // -----------------------------------------------------------------------
     // Internal projection for query results

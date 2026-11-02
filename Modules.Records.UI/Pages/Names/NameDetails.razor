@@ -431,13 +431,12 @@ else if (_name is not null)
                         <label class="@LabelClass">SSN</label>
                         @if (_modifyMode)
                         {
-                            <InputText class="form-control form-control-sm" @bind-Value="_editVm.Ssn"
-                                       placeholder="XXX-XX-XXXX" maxlength="11" />
+                            <SsnField @bind-Value="_editVm.Ssn" Editable="true" />
                             <ValidationMessage For="() => _editVm.Ssn" />
                         }
                         else
                         {
-                            <p class="form-control-plaintext form-control-sm ps-0 fw-semibold mb-0">@SsnDisplay</p>
+                            <SsnField Value="@_name?.SocialSecurityNumber" Editable="false" />
                         }
                     </div>
                     <div class="col-sm-6 col-md-4">
@@ -673,18 +672,6 @@ else if (_name is not null)
         : "form-label mb-0 small text-muted d-block";
 
     private string WorkPhoneLabel => _editNameType == NameTypes.Business ? "Secondary Phone" : "Work Phone";
-
-    /// <summary>Masks SSN as ***-**-XXXX in view mode. Returns "—" when null.</summary>
-    private string SsnDisplay
-    {
-        get
-        {
-            if (string.IsNullOrWhiteSpace(_name?.SocialSecurityNumber)) return "—";
-            var ssn = _name.SocialSecurityNumber.Replace("-", "");
-            if (ssn.Length < 4) return "***-**-??";
-            return $"***-**-{ssn[^4..]}";
-        }
-    }
 
     protected override async Task OnInitializedAsync()
     {

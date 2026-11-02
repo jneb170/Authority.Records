@@ -33,9 +33,15 @@ public sealed class GetJurisdictionAuditLogsHandler : IRequestHandler<GetJurisdi
             JurisdictionId = jurisdictionId
         };
 
+        // An agency admin sees their active agency's trail plus jurisdiction-wide rows (shared
+        // names and locations, system work), never another agency's incidents, arrests or
+        // citations (issue #118).
+        var agencyId = _tenantProvider.GetAgencyId();
+
         var query = _db.AuditLogReadModels
             .AsNoTracking()
-            .Where(x => x.JurisdictionId == jurisdictionId);
+            .Where(x => x.JurisdictionId == jurisdictionId)
+            .Where(x => x.AgencyId == null || x.AgencyId == agencyId);
 
         return AuditLogQueryExecutor.ExecuteAsync(_db, query, scopedRequest, _userLookupService, cancellationToken);
     }

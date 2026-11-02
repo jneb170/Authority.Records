@@ -19,7 +19,7 @@ public sealed class RestoreNameHandler : IRequestHandler<RestoreNameCommand>
     public async Task Handle(RestoreNameCommand request, CancellationToken cancellationToken)
     {
         var name = await _dbContext.Names
-            .IgnoreQueryFilters()
+            .IgnoreQueryFilters([QueryFilterNames.SoftDelete])
             .FirstOrDefaultAsync(n =>
                 n.Id == request.NameId &&
                 n.JurisdictionId == _tenantProvider.GetJurisdictionId(),

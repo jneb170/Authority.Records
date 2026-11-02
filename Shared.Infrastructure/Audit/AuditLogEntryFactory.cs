@@ -1,4 +1,5 @@
 using System.Text.Json;
+using Modules.Records.Application.Admin.Queries.GetAuditLogs;
 using Modules.Records.Application.ReadModels;
 using Modules.Records.Domain.Common;
 using Modules.Records.Domain.Common.Primitives;
@@ -8,17 +9,49 @@ namespace Shared.Infrastructure.Audit;
 
 internal static class AuditLogEntryFactory
 {
+    /// <summary>
+    /// Event properties that name the user who performed the action, checked in order.
+    /// Lock and lifecycle events carry the actor here; so do delete/restore/link events.
+    /// </summary>
+    private static readonly string[] ActorPropertyNames =
+    [
+        "UserId",
+        "ChangedByUserId",
+        "DeletedByUserId",
+        "RestoredByUserId",
+        "IssuedByUserId",
+        "LinkedByUserId",
+        "UnlinkedByUserId"
+    ];
+
+    /// <summary>
+    /// Builds the audit row for a domain event.
+    /// </summary>
+    /// <param name="actorUserId">
+    /// The user executing the current save (from the request's claims), used when the event
+    /// itself does not name its actor. The row is never attributed from the aggregate's
+    /// CreatedBy/ModifiedBy stamps: those are only written by the save interceptor after this
+    /// row is built, so they still hold the <em>previous</em> modifier (issue #119).
+    /// </param>
+    /// <param name="actorDisplayNames">Display names for the actors in this save, keyed by user ID.</param>
     public static AuditLogReadModel CreateFromDomainEvent(
         IDomainEvent domainEvent,
-        AggregateRoot? aggregate,
-        Guid jurisdictionId)
+        Guid jurisdictionId,
+        Guid? actorUserId,
+        IReadOnlyDictionary<Guid, string>? actorDisplayNames = null,
+        Guid? agencyId = null)
     {
-        var metadata = DescribeDomainEvent(domainEvent, aggregate);
+        var metadata = DescribeDomainEvent(domainEvent);
+        var userId = ResolveActor(domainEvent, actorUserId);
+
+        string? displayName = null;
+        if (userId.HasValue && actorDisplayNames is not null)
+            actorDisplayNames.TryGetValue(userId.Value, out displayName);
 
         return AuditLogReadModel.Create(
             id: Guid.NewGuid(),
             eventId: domainEvent.EventId,
-            eventType: domainEvent.GetType().Name,
+            eventType: AuditEventTypeFormatter.FromType(domainEvent.GetType()),
             severity: metadata.Severity,
             occurredOnUtc: domainEvent.OccurredOnUtc,
             jurisdictionId: jurisdictionId,
@@ -26,9 +59,27 @@ internal static class AuditLogEntryFactory
             aggregateVersion: domainEvent.AggregateVersion,
             recordType: metadata.RecordType,
             actionType: metadata.ActionType,
-            userId: metadata.UserId,
+            userId: userId,
             message: metadata.Message,
-            payload: JsonSerializer.Serialize(domainEvent, domainEvent.GetType()));
+            payload: JsonSerializer.Serialize(domainEvent, domainEvent.GetType()),
+            userDisplayName: displayName,
+            agencyId: agencyId);
+    }
+
+    /// <summary>
+    /// The actor for an event: the user the event names, else the user executing the save,
+    /// else null (a genuine system action, shown as "System").
+    /// </summary>
+    public static Guid? ResolveActor(IDomainEvent domainEvent, Guid? actorUserId)
+    {
+        foreach (var propertyName in ActorPropertyNames)
+        {
+            var explicitActor = ReadGuidProperty(domainEvent, propertyName);
+            if (explicitActor.HasValue)
+                return explicitActor;
+        }
+
+        return actorUserId.HasValue && actorUserId.Value != Guid.Empty ? actorUserId : null;
     }
 
     public static AuditLogReadModel CreateSystemLockExpired(
@@ -38,7 +89,8 @@ internal static class AuditLogEntryFactory
         string recordType,
         DateTime occurredOnUtc,
         Guid lockedByUserId,
-        DateTime lockedAtUtc)
+        DateTime lockedAtUtc,
+        Guid? agencyId = null)
     {
         var payload = JsonSerializer.Serialize(new
         {
@@ -61,38 +113,35 @@ internal static class AuditLogEntryFactory
             actionType: "LockExpired",
             userId: null,
             message: $"System released an expired {recordType.ToLowerInvariant()} lock.",
-            payload: payload);
+            payload: payload,
+            agencyId: agencyId);
     }
 
-    private static AuditLogMetadata DescribeDomainEvent(IDomainEvent domainEvent, AggregateRoot? aggregate)
+    private static AuditLogMetadata DescribeDomainEvent(IDomainEvent domainEvent)
     {
         var type = domainEvent.GetType();
 
         if (type.IsGenericType && type.GetGenericTypeDefinition() == typeof(LockAcquiredDomainEvent<>))
         {
             var recordType = type.GenericTypeArguments[0].Name;
-            var userId = ReadGuidProperty(domainEvent, "UserId");
-            return new AuditLogMetadata("Information", recordType, "LockAcquired", userId, $"{recordType} lock acquired.");
+            return new AuditLogMetadata("Information", recordType, "LockAcquired", $"{recordType} lock acquired.");
         }
 
         if (type.IsGenericType && type.GetGenericTypeDefinition() == typeof(LockReleasedDomainEvent<>))
         {
             var recordType = type.GenericTypeArguments[0].Name;
-            var userId = ReadGuidProperty(domainEvent, "UserId");
-            return new AuditLogMetadata("Information", recordType, "LockReleased", userId, $"{recordType} lock released.");
+            return new AuditLogMetadata("Information", recordType, "LockReleased", $"{recordType} lock released.");
         }
 
         if (type.IsGenericType && type.GetGenericTypeDefinition() == typeof(LifecycleStatusChangedDomainEvent<>))
         {
             var recordType = type.GenericTypeArguments[0].Name;
-            var userId = ReadGuidProperty(domainEvent, "ChangedByUserId");
             var previous = ReadProperty(domainEvent, "PreviousStatus")?.ToString() ?? "Unknown";
             var next = ReadProperty(domainEvent, "NewStatus")?.ToString() ?? "Unknown";
             return new AuditLogMetadata(
                 "Information",
                 recordType,
                 "StatusChanged",
-                userId,
                 $"{recordType} status changed from {previous} to {next}.");
         }
 
@@ -109,21 +158,17 @@ internal static class AuditLogEntryFactory
             if (string.IsNullOrWhiteSpace(recordType))
                 break;
 
-            var userId = aggregate?.ModifiedBy ?? aggregate?.CreatedBy;
             return new AuditLogMetadata(
                 suffix.Value.Severity,
                 recordType,
                 suffix.Value.ActionType,
-                userId == Guid.Empty ? null : userId,
                 $"{recordType} {suffix.Value.MessageVerb}.");
         }
 
-        var fallbackUserId = aggregate?.ModifiedBy ?? aggregate?.CreatedBy;
         return new AuditLogMetadata(
             "Information",
             "System",
             eventName,
-            fallbackUserId == Guid.Empty ? null : fallbackUserId,
             eventName);
     }
 
@@ -157,6 +202,5 @@ internal static class AuditLogEntryFactory
         string Severity,
         string RecordType,
         string ActionType,
-        Guid? UserId,
         string Message);
 }

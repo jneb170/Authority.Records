@@ -76,6 +76,18 @@ public sealed class NameProjectionHandler :
             .FirstOrDefaultAsync(n => n.Id == notification.NameId, cancellationToken);
         if (readModel is null) return;
 
+        // The event carries no SSN (#121); take the current value from the Name. Skip the
+        // lookup when it didn't change, so a replayed event never clobbers a newer value.
+        var socialSecurityNumber = readModel.SocialSecurityNumber;
+        if (notification.SocialSecurityNumberChanged)
+        {
+            socialSecurityNumber = await _dbContext.Names
+                .AsNoTracking()
+                .Where(n => n.Id == notification.NameId)
+                .Select(n => n.SocialSecurityNumber)
+                .FirstOrDefaultAsync(cancellationToken);
+        }
+
         readModel.ApplyDetailsChanged(
             notification.NameType,
             notification.LastOrBusinessName,
@@ -94,7 +106,7 @@ public sealed class NameProjectionHandler :
             notification.PlaceOfBirth,
             notification.FbiNumber,
             notification.LocalNumber,
-            notification.SocialSecurityNumber,
+            socialSecurityNumber,
             notification.IsCitizen,
             notification.DeceasedDate,
             notification.PrimaryPhone,

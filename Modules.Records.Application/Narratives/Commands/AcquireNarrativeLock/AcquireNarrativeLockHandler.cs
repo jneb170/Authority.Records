@@ -32,6 +32,8 @@ public sealed class AcquireNarrativeLockHandler : IRequestHandler<AcquireNarrati
                 cancellationToken)
             ?? throw new InvalidOperationException("Narrative record not found.");
 
+        await AgencyRecordAccess.EnsureCanAccessNarrativeAsync(_dbContext, narrative.Id, cancellationToken);
+
         var lockingAgencyId = _tenantProvider.GetAgencyId();
         // Narratives use a deliberately long timeout so a long-form composer isn't timed out.
         var lockTimeout = await LockTimeoutResolver.ResolveAsync(
