@@ -38,7 +38,7 @@ Lightsail snapshots.
 1. **AWS account** with permission to use Lightsail.
 2. **AWS CLI v2** — https://docs.aws.amazon.com/cli/latest/userguide/getting-started-install.html
    — then sign in: `aws configure` (access key) or `aws configure sso`.
-3. **OpenSSH client** (`ssh`, `ssh-keygen`, `ssh-keyscan`) — built into Windows 10+, macOS, Linux.
+3. **OpenSSH client** (`ssh`, `ssh-keygen`) — built into Windows 10+, macOS, Linux.
 4. **PowerShell** — Windows PowerShell 5.1 or PowerShell 7+.
 
 ---
@@ -124,7 +124,25 @@ In **Settings → Environments → production** (create the environment if neede
 |------|-------|
 | `LIGHTSAIL_HOST` | The static IP |
 | `LIGHTSAIL_SSH_KEY` | Full contents of `~/.ssh/authority-records-deploy` (the private key) |
-| `LIGHTSAIL_KNOWN_HOSTS` | Output of `ssh-keyscan -t ed25519,rsa <STATIC_IP>` (pins the host key) |
+| `LIGHTSAIL_KNOWN_HOSTS` | The server's SSH host keys (pins the host key; see below) |
+
+Generate `LIGHTSAIL_KNOWN_HOSTS` by reading the host keys over your (already verified) SSH
+connection. Copying commands from a browser or chat overwrites the clipboard, so this saves
+to a file instead:
+
+```powershell
+$ip = "<STATIC_IP>"   # exactly the value of LIGHTSAIL_HOST
+ssh -i ~/.ssh/authority-records-deploy ubuntu@$ip "cat /etc/ssh/ssh_host_ed25519_key.pub /etc/ssh/ssh_host_rsa_key.pub" |
+  ForEach-Object { "$ip " + (($_ -split ' ')[0..1] -join ' ') } |
+  Tee-Object -FilePath "$HOME\lightsail-known-hosts.txt"
+notepad "$HOME\lightsail-known-hosts.txt"   # Ctrl+A, Ctrl+C, paste into the secret
+```
+
+It should print two lines, `<STATIC_IP> ssh-ed25519 AAAA…` and `<STATIC_IP> ssh-rsa AAAA…`.
+
+> Avoid `ssh-keyscan` on Windows: the built-in OpenSSH's `ssh-keyscan` fails against
+> Ubuntu 24.04 with `choose_kex: unsupported KEX method sntrup761x25519-sha512@openssh.com`.
+> (On macOS/Linux, `ssh-keyscan -t ed25519,rsa <STATIC_IP>` works too.)
 
 **Variables**
 

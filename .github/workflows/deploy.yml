@@ -90,7 +90,7 @@ jobs:
   # Requires (production environment):
   #   secrets.LIGHTSAIL_HOST         static IP or hostname of the instance
   #   secrets.LIGHTSAIL_SSH_KEY      private key from provision-lightsail.ps1
-  #   secrets.LIGHTSAIL_KNOWN_HOSTS  ssh-keyscan output for the host (pins host key)
+  #   secrets.LIGHTSAIL_KNOWN_HOSTS  "<host> <keytype> <key>" lines (pins host key; see guide, Step 3)
   #   vars.SITE_ADDRESS              e.g. "authorityrecords.dev, www.authorityrecords.dev"
   #   vars.ACME_EMAIL                Let's Encrypt account email
   # ─────────────────────────────────────────────
@@ -129,7 +129,7 @@ jobs:
           printf '%s\n' "$KNOWN_HOSTS" > ~/.ssh/known_hosts
           # Fail early with a clear message if the pinned host key doesn't match the host.
           if ! ssh-keygen -F "$HOST" -f ~/.ssh/known_hosts > /dev/null; then
-            echo "::error::LIGHTSAIL_KNOWN_HOSTS has no entry for LIGHTSAIL_HOST. Each line must start with the same IP/hostname as LIGHTSAIL_HOST. Regenerate with: ssh-keyscan -t ed25519,rsa <LIGHTSAIL_HOST>"
+            echo "::error::LIGHTSAIL_KNOWN_HOSTS has no entry for LIGHTSAIL_HOST. Each line must start with the same IP/hostname as LIGHTSAIL_HOST. See Documents/aws-deployment-guide.md, Step 3, to regenerate it."
             exit 1
           fi
           printf 'Host *\n  IdentityFile ~/.ssh/id_deploy\n  IdentitiesOnly yes\n  StrictHostKeyChecking yes\n' > ~/.ssh/config
