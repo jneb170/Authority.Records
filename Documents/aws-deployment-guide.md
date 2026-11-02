@@ -12,7 +12,7 @@ GitHub push (master)
                                         └── app    :8080     Blazor Server UI (Modules.Records.UI)
                                               ├── volume app-db       → /data/db       (app.db, auth.db — SQLite)
                                               ├── volume app-keys     → /data/keys     (Data Protection keys)
-                                              └── volume app-uploads  → /app/wwwroot/uploads (mugshots)
+                                              └── volume app-uploads  → /data/uploads  (mugshots; served only via /mugshots/{id})
 ```
 
 | File | Purpose |

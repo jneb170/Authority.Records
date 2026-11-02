@@ -8,6 +8,7 @@ Modules.Records.UI/appsettings.Development.json
 **/appsettings.Local.json
 **/appsettings.*.local.json
 Modules.Records.UI/wwwroot/uploads/
+Modules.Records.UI/App_Data/
 .git/
 .github/
 # Docs stay out of the image, except the charge catalog the demo seeder loads.

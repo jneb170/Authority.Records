@@ -23,7 +23,10 @@ services:
     volumes:
       - app-db:/data/db
       - app-keys:/data/keys
-      - app-uploads:/app/wwwroot/uploads
+      # Mugshots. Previously mounted at /app/wwwroot/uploads (served as public static
+      # files); the same volume is now mounted outside the web root, so existing files
+      # keep their relative paths under Mugshots__StoragePath (/data/uploads/mugshots).
+      - app-uploads:/data/uploads
     expose:
       - "8080"
     logging:

@@ -209,6 +209,7 @@ public static class DependencyInjection
         // User Lookup (display names for audit info)
         // -------------------------------------------------------
         services.AddScoped<IUserLookupService, UserLookupService>();
+        services.Configure<MugshotStorageOptions>(configuration.GetSection(MugshotStorageOptions.SectionName));
         services.AddScoped<IMugshotStorageService, LocalMugshotStorageService>();
 
         // -------------------------------------------------------

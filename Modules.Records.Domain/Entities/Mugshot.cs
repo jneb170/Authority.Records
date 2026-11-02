@@ -20,6 +20,7 @@ public sealed class Mugshot : AggregateRoot, IMultiTenant
     }
 
     public Mugshot(
+        Guid id,
         Guid jurisdictionId,
         Guid agencyId,
         string fileName,
@@ -29,7 +30,12 @@ public sealed class Mugshot : AggregateRoot, IMultiTenant
         string publicUrl,
         DateTime capturedAtUtc)
     {
-        Id = Guid.NewGuid();
+        if (id == Guid.Empty)
+            throw new ArgumentException("A mugshot id is required.", nameof(id));
+
+        // The id is chosen by the caller so the image can be stored, and its URL built,
+        // before the aggregate is created.
+        Id = id;
         JurisdictionId = jurisdictionId;
         AgencyId = agencyId;
         FileName = fileName;

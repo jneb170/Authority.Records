@@ -18,6 +18,7 @@ public sealed class MugshotTests
         string? publicUrl = null,
         DateTime? capturedAtUtc = null) =>
         new Mugshot(
+            Guid.NewGuid(),
             TestJurisdictionId,
             TestAgencyId,
             fileName ?? "mugshot.jpg",
@@ -33,8 +34,10 @@ public sealed class MugshotTests
     public void Constructor_WithRequiredFields_SetsProperties()
     {
         var capturedAt = new DateTime(2026, 1, 15, 10, 30, 0, DateTimeKind.Utc);
+        var id = Guid.NewGuid();
 
         var mugshot = new Mugshot(
+            id,
             TestJurisdictionId,
             TestAgencyId,
             "photo.jpg",
@@ -44,7 +47,7 @@ public sealed class MugshotTests
             "https://example.com/photo.jpg",
             capturedAt);
 
-        Assert.NotEqual(Guid.Empty, mugshot.Id);
+        Assert.Equal(id, mugshot.Id);
         Assert.Equal(TestJurisdictionId, mugshot.JurisdictionId);
         Assert.Equal(TestAgencyId, mugshot.AgencyId);
         Assert.Equal("photo.jpg", mugshot.FileName);
@@ -53,6 +56,21 @@ public sealed class MugshotTests
         Assert.Equal("storage/photo.jpg", mugshot.StoragePath);
         Assert.Equal("https://example.com/photo.jpg", mugshot.PublicUrl);
         Assert.Equal(capturedAt, mugshot.CapturedAtUtc);
+    }
+
+    [Fact]
+    public void Constructor_WithEmptyId_Throws()
+    {
+        Assert.Throws<ArgumentException>(() => new Mugshot(
+            Guid.Empty,
+            TestJurisdictionId,
+            TestAgencyId,
+            "photo.jpg",
+            "image/jpeg",
+            2048,
+            "storage/photo.jpg",
+            "/mugshots/photo",
+            DateTime.UtcNow));
     }
 
     [Fact]
@@ -68,6 +86,7 @@ public sealed class MugshotTests
     {
         var capturedAt = DateTime.UtcNow;
         var mugshot = new Mugshot(
+            Guid.NewGuid(),
             TestJurisdictionId,
             TestAgencyId,
             "photo.jpg",

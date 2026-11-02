@@ -8,6 +8,7 @@ appsettings.Development.json
 appsettings.Local.json
 appsettings.*.local.json
 Modules.Records.UI/wwwroot/uploads/
+Modules.Records.UI/App_Data/
 
 # User-specific files
 *.rsuser
