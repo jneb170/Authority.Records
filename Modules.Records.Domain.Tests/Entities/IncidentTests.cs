@@ -523,4 +523,66 @@ public sealed class IncidentTests
     }
 
     #endregion
+
+    #region Delete (issue #122)
+
+    [Fact]
+    public void Delete_DraftIncident_SoftDeletesAndRaisesEvent()
+    {
+        var incident = CreateIncident();
+        incident.ClearDomainEvents();
+
+        incident.Delete(CreateContext(), TimeSpan.FromMinutes(10));
+
+        Assert.True(incident.IsDeleted);
+        Assert.Single(incident.DomainEvents.OfType<IncidentSoftDeletedDomainEvent>());
+    }
+
+    [Fact]
+    public void Delete_OpenIncident_Throws()
+    {
+        var incident = CreateIncident();
+        incident.Open(CreateContext(), DefaultPolicy());
+
+        var ex = Assert.Throws<DomainException>(() => incident.Delete(CreateContext(), TimeSpan.FromMinutes(10)));
+        Assert.Equal("incident.delete.not-draft", ex.Code);
+        Assert.False(incident.IsDeleted);
+    }
+
+    [Fact]
+    public void Delete_WhileAnotherUserHoldsActiveLock_Throws()
+    {
+        var incident = CreateIncident();
+        incident.AcquireLock(CreateContext(Guid.NewGuid()), TimeSpan.FromMinutes(10));
+
+        var ex = Assert.Throws<DomainException>(() => incident.Delete(CreateContext(), TimeSpan.FromMinutes(10)));
+        Assert.Equal("record.locked", ex.Code);
+        Assert.False(incident.IsDeleted);
+    }
+
+    [Fact]
+    public void Delete_WhenAnotherUsersLockHasExpired_Succeeds()
+    {
+        var incident = CreateIncident();
+        incident.AcquireLock(CreateContext(Guid.NewGuid()), TimeSpan.FromMinutes(10));
+
+        incident.Delete(CreateContext(), TimeSpan.Zero);
+
+        Assert.True(incident.IsDeleted);
+    }
+
+    [Fact]
+    public void Delete_ByLockOwner_ReleasesTheLock()
+    {
+        var incident = CreateIncident();
+        var owner = CreateContext();
+        incident.AcquireLock(owner, TimeSpan.FromMinutes(10));
+
+        incident.Delete(owner, TimeSpan.FromMinutes(10));
+
+        Assert.True(incident.IsDeleted);
+        Assert.False(incident.IsLocked);
+    }
+
+    #endregion
 }

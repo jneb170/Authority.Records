@@ -117,6 +117,44 @@ public sealed class Incident
     }
 
     // -------------------------------------------------------
+    // Delete (issue #122)
+    // -------------------------------------------------------
+
+    /// <summary>
+    /// Deletes a draft incident. Once an incident is opened it is part of the record and can't
+    /// be deleted. Deleting also respects another user's active lock, as editing does, so a
+    /// record can't disappear from under someone who is working on it.
+    /// </summary>
+    public void Delete(IModificationContext context, TimeSpan lockTimeout)
+    {
+        if (IsDeleted)
+            return;
+
+        if (Status != RecordStatus.Draft)
+        {
+            throw new DomainException(
+                "incident.delete.not-draft",
+                "Only draft incidents can be deleted. Open, closed and archived incidents are part of the record.");
+        }
+
+        if (IsLocked &&
+            LockedByUserId != context.UserId &&
+            !context.CanOverrideLocks &&
+            LockExpirationStrategy.IsLockActive(this, lockTimeout, Clock))
+        {
+            throw new DomainException(
+                "record.locked",
+                "This incident is being edited by another user. It can't be deleted until they release it.");
+        }
+
+        // Don't leave the deleter's own lock behind on the deleted record.
+        if (IsLocked && LockedByUserId == context.UserId)
+            ReleaseLock(context);
+
+        SoftDelete(context.UserId);
+    }
+
+    // -------------------------------------------------------
     // Soft delete overrides
     // -------------------------------------------------------
     public override void SoftDelete(Guid userId)
