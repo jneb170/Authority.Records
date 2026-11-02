@@ -1,4 +1,4 @@
-﻿using Modules.Records.Domain.Abstractions;
+using Modules.Records.Domain.Abstractions;
 using Modules.Records.Domain.Common.Exceptions;
 using Modules.Records.Domain.DomainEvents;
 
@@ -36,11 +36,11 @@ public abstract class StatefulAggregateRoot<TAggregate>
         Status = newStatus;
 
         AddDomainEvent(new LifecycleStatusChangedDomainEvent<TAggregate>(
-            AggregateId: Id,
-            PreviousStatus: previous,
-            NewStatus: newStatus,
-            ChangedByUserId: context.UserId,
-            IsForced: isForced));
+            aggregateId: Id,
+            previousStatus: previous,
+            newStatus: newStatus,
+            changedByUserId: context.UserId,
+            isForced: isForced));
     }
 
     protected void EnsureNotArchived()
