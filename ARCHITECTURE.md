@@ -2,7 +2,7 @@
 
 ## Overview
 
-Authority.Records is a law-enforcement records management system built with **.NET 9**, **SQL Server**, and a server-hosted **Blazor UI implemented with Razor Components using Interactive Server render mode**. It follows a **Domain-Driven Design (DDD)** architecture with clean-layer separation, **CQRS** (Command/Query Responsibility Segregation) via MediatR, and an **Outbox pattern** for reliable domain event delivery.
+Authority.Records is a law-enforcement records management system built with **.NET 10**, **EF Core** (SQLite in production, SQL Server supported), and a server-hosted **Blazor UI implemented with Razor Components using Interactive Server render mode**. It follows a **Domain-Driven Design (DDD)** architecture with clean-layer separation, **CQRS** (Command/Query Responsibility Segregation) via MediatR, and an **Outbox pattern** for reliable domain event delivery.
 
 The system manages three core record types — **Incidents**, **Arrests**, and **Citations** — all of which support a multi-jurisdiction tenancy model, a lifecycle state machine, pessimistic record locking, and soft deletes.
 

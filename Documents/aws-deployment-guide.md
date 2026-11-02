@@ -231,6 +231,21 @@ nested keys, e.g. `Demo__RateLimit__WindowMinutes=60`. Deploys never overwrite t
 The database provider and paths are fixed in the image (`DefaultDatabaseProvider=Sqlite`,
 `/data/db/app.db`, `/data/db/auth.db`, `DataProtection__KeysPath=/data/keys`).
 
+### Public demo
+
+On first start the app seeds the **Demo Police Department**: a demo admin
+(`admin@demo.authorityrecords.dev`), the public demo account that the sign-in page's
+**Explore the live demo** button uses (Supervisor role), and a curated sample dataset.
+The dataset is seeded once and skipped once any Name exists in the demo jurisdiction.
+
+- **Demo admin password:** set `Demo__AdminPassword` in `app.env`. It is re-applied on
+  every start. Without it, the account has a random password and can't be used.
+- **About panel links:** `About__AuthorName`, `About__LinkedInUrl`, `About__WebsiteUrl`
+  and `About__GitHubUrl`. Set `About__Enabled=false` to hide the panel.
+- **Turn the demo off:** `Demo__Enabled=false`.
+- **Re-seed after visitors have changed the data:** stop the app, delete the demo
+  agency's records, and restart. The simplest way is to restore an instance snapshot.
+
 ### Backups
 
 - **Automatic:** Lightsail takes a daily instance snapshot (last 7 kept). Restore by

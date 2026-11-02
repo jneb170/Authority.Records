@@ -35,7 +35,7 @@ Production runs on a single AWS Lightsail instance: the UI host is built into a 
 
 ## Architecture overview
 
-Authority.Records is a law-enforcement records management system (RMS) for incident, arrest, and citation tracking. It is a layered .NET 9 application. Read `ARCHITECTURE.md` before making large cross-cutting changes.
+Authority.Records is a law-enforcement records management system (RMS) for incident, arrest, and citation tracking. It is a layered .NET 10 application. Read `ARCHITECTURE.md` before making large cross-cutting changes.
 
 **Projects:**
 - `Modules.Records.UI` — Blazor Server main host; registers `AddApplication()` and `AddInfrastructure(...)`, overrides `ITenantProvider` with the Blazor-aware implementation, uses scoped UI services as thin wrappers over MediatR.
