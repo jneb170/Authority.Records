@@ -51,6 +51,11 @@ builder.Services.AddOptions<Modules.Records.Application.Common.DemoRateLimitOpti
 // IHttpContextAccessor.HttpContext is null during Blazor Server SignalR interactions;
 // BlazorTenantProvider falls back to AuthenticationStateProvider for claims.
 builder.Services.AddScoped<ITenantProvider, BlazorTenantProvider>();
+
+// Re-checks open circuits so a deactivated user's live session ends without a page reload.
+builder.Services.AddScoped<
+    Microsoft.AspNetCore.Components.Authorization.AuthenticationStateProvider,
+    RevalidatingIdentityAuthenticationStateProvider>();
 builder.Services.AddScoped<Modules.Records.Application.Abstractions.ICurrentUserContext, BlazorCurrentUserContext>();
 
 builder.Services.AddScoped<IIncidentService, IncidentService>();

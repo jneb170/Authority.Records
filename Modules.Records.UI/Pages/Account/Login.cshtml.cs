@@ -58,6 +58,9 @@ public class LoginModel : PageModel
         if (result.Succeeded)
             return LocalRedirect(returnUrl);
 
+        // Deactivated accounts come back as NotAllowed (see ActiveUserConfirmation). Identity
+        // returns that before checking the password, so report it with the same generic
+        // message as a bad password rather than revealing which accounts are deactivated.
         ModelState.AddModelError(string.Empty, "Invalid email or password.");
         return Page();
     }
@@ -76,7 +79,9 @@ public class LoginModel : PageModel
             demoEmail = DemoUserDefaults.Email;
 
         var demoUser = await _userManager.FindByEmailAsync(demoEmail);
-        if (demoUser is null)
+        // SignInAsync skips the pre-sign-in checks PasswordSignInAsync performs, so apply
+        // them here: a deactivated demo account must not be usable either.
+        if (demoUser is null || !await _signInManager.CanSignInAsync(demoUser))
         {
             ModelState.AddModelError(string.Empty, "Demo account is not available.");
             return Page();

@@ -115,10 +115,15 @@ public sealed class UserManagementService(
         user.UserName = email;
         user.NormalizedEmail = email.ToUpperInvariant();
         user.NormalizedUserName = email.ToUpperInvariant();
+        var deactivating = user.IsActive && !isActive;
         user.IsActive = isActive;
         user.AgencyId = primaryAgencyId;
 
-        var result = await userManager.UpdateAsync(user);
+        // Deactivation rotates the security stamp (saving the other changes in the same
+        // write) so the user's existing auth cookies fail validation on their next check.
+        var result = deactivating
+            ? await userManager.UpdateSecurityStampAsync(user)
+            : await userManager.UpdateAsync(user);
         if (!result.Succeeded) return result;
 
         // Sync roles
