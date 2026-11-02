@@ -16,12 +16,30 @@ public static class DemoUserDefaults
     public const string LastName  = "User";
 
     /// <summary>
+    /// Role the public demo account is given when it is created (or when it is
+    /// found with no roles at all). Supervisor shows the full records workflow
+    /// plus the agency tools, without user/agency management.
+    /// </summary>
+    public const string Role = "Supervisor";
+
+    /// <summary>
     /// Admin account scoped to the Demo Police Department. Use this to fix
     /// data, update settings, or manage the demo agency. Not surfaced on the
-    /// login screen — sign in manually with these credentials.
+    /// login screen. Its password comes from configuration
+    /// (<see cref="AdminPasswordConfigKey"/>); when unset, the account gets a
+    /// random password nobody knows and can only be used after a reset.
     /// </summary>
     public const string AdminEmail = "admin@demo.authorityrecords.dev";
-    public const string AdminPassword = "DemoAdmin@1234";
+
+    /// <summary>Config key (env var <c>Demo__AdminPassword</c>) holding the demo admin password.</summary>
+    public const string AdminPasswordConfigKey = "Demo:AdminPassword";
+
+    /// <summary>
+    /// Password older builds hard-coded for the demo admin. It is public (it is
+    /// in the repository history), so the seeder replaces it wherever it is
+    /// still in effect. Never assign it.
+    /// </summary>
+    public const string LegacyAdminPassword = "DemoAdmin@1234";
     public const string AdminFirstName = "Demo";
     public const string AdminLastName = "Admin";
 

@@ -20,6 +20,12 @@
     <EmbeddedResource Include="Fonts\Arimo\Arimo-Bold.ttf" />
   </ItemGroup>
 
+  <!-- Charge catalog used by the demo seeder and the Test Data page; shipped next to the app
+       so it is available in the published output / container (see ChargeSeedFile). -->
+  <ItemGroup>
+    <None Include="..\Documents\charges.json" Link="SeedData\charges.json" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
+  </ItemGroup>
+
   <ItemGroup>
     <ProjectReference Include="..\Modules.Records.Application\Modules.Records.Application.csproj" />
     <ProjectReference Include="..\Shared.Infrastructure\Shared.Infrastructure.csproj" />

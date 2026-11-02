@@ -10,7 +10,9 @@ Modules.Records.UI/appsettings.Development.json
 Modules.Records.UI/wwwroot/uploads/
 .git/
 .github/
-Documents/
+# Docs stay out of the image, except the charge catalog the demo seeder loads.
+Documents/*
+!Documents/charges.json
 deploy/
 scripts/
 tools/
