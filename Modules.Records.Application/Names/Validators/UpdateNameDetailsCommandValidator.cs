@@ -47,6 +47,8 @@ public sealed class UpdateNameDetailsCommandValidator : AbstractValidator<Update
             .MaximumLength(10).WithMessage("Other phone extension must not exceed 10 characters.")
             .When(x => x.OtherPhoneExtension != null);
 
+        RuleFor(x => x.SocialSecurityNumber).ValidSocialSecurityNumber();
+
         RuleFor(x => x.HeightInches)
             .InclusiveBetween(1, 120).WithMessage("Height must be between 1 and 120 inches.")
             .When(x => x.HeightInches.HasValue);

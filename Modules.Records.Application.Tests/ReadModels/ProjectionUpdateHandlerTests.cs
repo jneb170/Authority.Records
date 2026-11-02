@@ -347,7 +347,7 @@ public sealed class ProjectionUpdateHandlerTests
                 "34",
                 "555-3000",
                 "56",
-                "111-22-3333",
+                false,
                 true,
                 null,
                 primaryLocationId,

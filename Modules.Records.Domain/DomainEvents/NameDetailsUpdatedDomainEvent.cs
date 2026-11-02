@@ -2,6 +2,12 @@ using Modules.Records.Domain.Common.Primitives;
 
 namespace Modules.Records.Domain.DomainEvents;
 
+/// <summary>
+/// Raised when a name's details change. Deliberately carries no SSN: events are stored in the
+/// outbox and copied into the audit log payload, so the value would end up in plain text in
+/// both (issue #121). <see cref="SocialSecurityNumberChanged"/> records that it changed;
+/// projections read the value from the Name itself.
+/// </summary>
 public sealed record NameDetailsUpdatedDomainEvent(
     Guid NameId,
     string NameType,
@@ -27,7 +33,7 @@ public sealed record NameDetailsUpdatedDomainEvent(
     string? WorkPhoneExtension,
     string? OtherPhone,
     string? OtherPhoneExtension,
-    string? SocialSecurityNumber,
+    bool SocialSecurityNumberChanged,
     bool IsCitizen,
     DateTime? DeceasedDate,
     Guid? PrimaryLocationId,

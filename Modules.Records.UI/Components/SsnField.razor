@@ -1,0 +1,81 @@
+@*
+    SSN input that never renders a stored number in full (issue #121).
+    - Read-only: shows ***-**-1234.
+    - Editable with a stored value: shows the masked value and a Replace button. The stored value
+      is kept unless the user replaces it. Blazor Server renders on the server, so the full
+      number never reaches the browser.
+    - Editable with no stored value: a normal input.
+*@
+
+@if (!Editable)
+{
+    <p class="@ReadOnlyClass">@SsnMask.Mask(Value)</p>
+}
+else if (HasStoredValue && !_replacing)
+{
+    <div class="d-flex align-items-center gap-2">
+        <span class="form-control-plaintext form-control-sm ps-0 fw-semibold" aria-label="SSN (masked)">@SsnMask.Mask(_stored)</span>
+        <button type="button" class="btn btn-outline-secondary btn-sm" @onclick="StartReplace">Replace</button>
+    </div>
+}
+else
+{
+    <div class="d-flex align-items-center gap-2">
+        <input type="text" class="form-control form-control-sm" placeholder="XXX-XX-XXXX" maxlength="11"
+               autocomplete="off" aria-label="SSN" value="@_draft" @onchange="OnDraftChanged" />
+        @if (HasStoredValue)
+        {
+            <button type="button" class="btn btn-outline-secondary btn-sm text-nowrap" @onclick="CancelReplace">Keep current</button>
+        }
+    </div>
+}
+
+@code {
+    [Parameter] public string? Value { get; set; }
+    [Parameter] public EventCallback<string?> ValueChanged { get; set; }
+    [Parameter] public bool Editable { get; set; }
+    [Parameter] public string ReadOnlyClass { get; set; } = "form-control-plaintext form-control-sm ps-0 fw-semibold mb-0";
+
+    private string? _stored;
+    private string? _draft;
+    private bool _replacing;
+    private bool _wasEditable;
+
+    private bool HasStoredValue => !string.IsNullOrWhiteSpace(_stored);
+
+    protected override void OnParametersSet()
+    {
+        // Capture the stored value each time editing starts, and whenever the parent reloads
+        // the record while no replacement is in progress.
+        if (!Editable || !_wasEditable || !_replacing)
+        {
+            _stored = Value;
+            if (!Editable || !_wasEditable)
+            {
+                _replacing = false;
+                _draft = null;
+            }
+        }
+
+        _wasEditable = Editable;
+    }
+
+    private void StartReplace()
+    {
+        _replacing = true;
+        _draft = null;
+    }
+
+    private async Task CancelReplace()
+    {
+        _replacing = false;
+        _draft = null;
+        await ValueChanged.InvokeAsync(_stored);
+    }
+
+    private async Task OnDraftChanged(ChangeEventArgs e)
+    {
+        _draft = e.Value?.ToString();
+        await ValueChanged.InvokeAsync(_draft);
+    }
+}
