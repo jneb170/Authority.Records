@@ -21,6 +21,9 @@ COPY Modules.Records.Domain/      Modules.Records.Domain/
 COPY Modules.Records.Application/ Modules.Records.Application/
 COPY Shared.Infrastructure/       Shared.Infrastructure/
 COPY Modules.Records.UI/          Modules.Records.UI/
+# Charge catalog the UI project links into its output (SeedData/charges.json)
+# for the demo seeder and the Test Data page.
+COPY Documents/charges.json       Documents/
 RUN dotnet publish Modules.Records.UI/Modules.Records.UI.csproj \
       -c Release -o /app/publish --no-restore /p:UseAppHost=false
 
