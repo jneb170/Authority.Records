@@ -185,16 +185,25 @@ Bootstrap one once:
 ```bash
 cd /opt/authority-records
 cat >> app.env <<'EOF'
-Bootstrap__SuperUserEmail=you@example.com
-Bootstrap__SuperUserPassword=<strong password: 8+ chars, at least one digit>
+Bootstrap__SuperUserEmail='you@example.com'
+Bootstrap__SuperUserPassword='<password>'
 EOF
 chmod 600 app.env
 docker compose up -d
+docker compose logs app | grep -i bootstrap
 ```
+
+The password must be at least 8 characters with an uppercase letter, a lowercase letter, a
+digit and a symbol (ASP.NET Identity's rules). Keep the single quotes: they make Compose
+take the value literally, so a `$` in the password isn't treated as a variable. The
+password itself can't contain a `'`. If the log shows `Super user bootstrap failed: …`, it
+names the rule that wasn't met; fix the value with `nano app.env` and run
+`docker compose up -d` again.
 
 On startup the app creates the standard roles (Super, Admin, Supervisor, Officer,
 Dispatcher) and the Super user. It logs `Bootstrapped Super user …`. Sign in, then
-**delete those two lines** from `app.env` and run `docker compose up -d` again. The step is
+**delete those two lines** (`sed -i '/^Bootstrap__/d' app.env`) and run
+`docker compose up -d` again. The step is
 a no-op once any Super user exists, so it never resets a password.
 
 ---
