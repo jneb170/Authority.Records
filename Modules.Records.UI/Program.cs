@@ -1,4 +1,4 @@
-using System.Data.Common;
+﻿using System.Data.Common;
 using Microsoft.AspNetCore.DataProtection;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
@@ -91,10 +91,15 @@ var app = builder.Build();
 
 if (!app.Environment.IsDevelopment())
 {
+    // Pages/Error.cshtml renders a friendly page with the request id (issue #94).
     app.UseExceptionHandler("/Error");
     app.UseHsts();
     app.UseMiddleware<CanonicalHostRedirectMiddleware>();
 }
+
+// Unknown URLs never reach the Blazor Router under MapRazorComponents, so without this they rendered
+// as a blank, untitled 404. Re-execute empty-bodied error responses through Pages/Error.cshtml (issue #94).
+app.UseStatusCodePagesWithReExecute("/Error/{0}");
 
 app.UseHttpsRedirection();
 
