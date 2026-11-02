@@ -10,27 +10,28 @@ namespace Modules.Records.UI.Printing;
 /// labels and location IDs to display strings, then applies the same display formatting the printed
 /// form has always used. This logic was lifted verbatim from <c>CitationTexasPrint.razor</c> when the
 /// form moved from browser-rendered HTML to a server-generated PDF — behavior is intentionally
-/// unchanged, including the known audit items (e.g. B-8 state abbreviation). Audit item B-6 is fixed
-/// here: instant fields render in the agency's configured time zone (Central default) instead of
-/// server-local time, which was UTC on the Linux App Service. See <see cref="AgencyTimeZone"/>.
+/// unchanged, including the known audit items (e.g. B-8 state abbreviation).
+/// <para>
+/// Issue date/time and court appearance date/time are stored as the agency's local wall-clock time,
+/// exactly as entered on the citation screens (see <c>Citation.IssueDate</c>), so they are printed as
+/// stored. They used to be converted from UTC to the agency zone, which printed a citation issued at
+/// 2:30 PM as 9:30 AM and a date-only issue date as the previous day.
+/// </para>
 /// </summary>
 public sealed class CitationTexasPrintModelBuilder : ICitationTexasPrintModelBuilder
 {
     private readonly ICitationService _citationService;
     private readonly IPicklistService _picklistService;
     private readonly ILocationService _locationService;
-    private readonly IAgencyConfigurationService _configService;
 
     public CitationTexasPrintModelBuilder(
         ICitationService citationService,
         IPicklistService picklistService,
-        ILocationService locationService,
-        IAgencyConfigurationService configService)
+        ILocationService locationService)
     {
         _citationService = citationService;
         _picklistService = picklistService;
         _locationService = locationService;
-        _configService = configService;
     }
 
     public async Task<CitationTexasPrintModel?> BuildAsync(long recordNumber, CancellationToken cancellationToken = default)
@@ -38,11 +39,6 @@ public sealed class CitationTexasPrintModelBuilder : ICitationTexasPrintModelBui
         var citation = await _citationService.GetByRecordNumberAsync(recordNumber);
         if (citation is null)
             return null;
-
-        // Stored timestamps are UTC; render them in the agency's configured zone (Central by default).
-        // This is the Texas UTC form — a legal document — so it must show local wall-clock time, B-6.
-        var timeZoneConfig = await _configService.GetAsync(ConfigurationKeys.TimeZoneId);
-        var timeZone = AgencyTimeZone.FromConfigValue(timeZoneConfig?.Value);
 
         var picklistIds = new[]
         {
@@ -98,11 +94,11 @@ public sealed class CitationTexasPrintModelBuilder : ICitationTexasPrintModelBui
             AffidavitCourtName = affidavitCourtName,
             AffidavitCourtOf = Display(courtOfFromLabel, appearanceLocation?.City),
 
-            IssueDate = DateDisplay(citation.IssueDate, timeZone),
-            IssueDayOfMonth = DayOfMonthDisplay(citation.IssueDate, timeZone),
-            IssueMonthYear = MonthYearDisplay(citation.IssueDate, timeZone),
-            IssueTime = TimeDisplay(citation.IssueDate, timeZone),
-            IssueAmPm = AmPmDisplay(citation.IssueDate, timeZone),
+            IssueDate = DateDisplay(citation.IssueDate),
+            IssueDayOfMonth = DayOfMonthDisplay(citation.IssueDate),
+            IssueMonthYear = MonthYearDisplay(citation.IssueDate),
+            IssueTime = TimeDisplay(citation.IssueDate),
+            IssueAmPm = AmPmDisplay(citation.IssueDate),
 
             LastName = Display(name?.LastOrBusinessName),
             FirstName = Display(name?.FirstName),
@@ -164,8 +160,8 @@ public sealed class CitationTexasPrintModelBuilder : ICitationTexasPrintModelBui
             ComplainantSignature = OfficerIdentification(citation.OfficerProfile, offense?.ComplainantSignatureText),
             OfficerNameAndTitle = OfficerNameAndTitle(citation.OfficerProfile),
             UnitNumber = Display(citation.OfficerProfile?.UnitNumber),
-            CourtAppearanceDay = CourtAppearanceDay(offense?.CourtAppearanceDateTime, timeZone),
-            CourtAppearanceTime = CourtAppearanceTime(offense?.CourtAppearanceDateTime, timeZone),
+            CourtAppearanceDay = CourtAppearanceDay(offense?.CourtAppearanceDateTime),
+            CourtAppearanceTime = CourtAppearanceTime(offense?.CourtAppearanceDateTime),
             CourtAddress = Display(appearanceLocationDisplay),
             DefendantSignature = Display(offense?.DefendantSignatureText),
 
@@ -432,37 +428,32 @@ public sealed class CitationTexasPrintModelBuilder : ICitationTexasPrintModelBui
     private static string NumberDisplay(int? value)
         => value.HasValue ? value.Value.ToString() : string.Empty;
 
-    // Converts a stored UTC instant into the agency's print zone. Stored timestamps are UTC but may
-    // come back from the store with Kind=Unspecified (SQLite/SQL Server), so normalize to UTC before
-    // converting — ConvertTimeFromUtc throws on Kind=Local. (B-6: was ToLocalTime, i.e. UTC on prod.)
-    private static DateTime ToZone(DateTime value, TimeZoneInfo timeZone)
-        => TimeZoneInfo.ConvertTimeFromUtc(DateTime.SpecifyKind(value, DateTimeKind.Utc), timeZone);
-
-    private static string DateDisplay(DateTime? value, TimeZoneInfo timeZone)
-        => value.HasValue ? ToZone(value.Value, timeZone).ToString("MM/dd/yyyy") : string.Empty;
+    // Issue and court-appearance values are agency wall-clock times (as entered), printed as stored.
+    private static string DateDisplay(DateTime? value)
+        => value.HasValue ? value.Value.ToString("MM/dd/yyyy") : string.Empty;
 
     // Calendar dates (date of birth, affidavit signed date) are not instants — printing them in a
     // different zone could roll a midnight-stored date back a day, so they are rendered as stored.
     private static string DateOnlyDisplay(DateTime? value)
         => value.HasValue ? value.Value.ToString("MM/dd/yyyy") : string.Empty;
 
-    private static string TimeDisplay(DateTime value, TimeZoneInfo timeZone)
-        => ToZone(value, timeZone).ToString("h:mm");
+    private static string TimeDisplay(DateTime value)
+        => value.ToString("h:mm");
 
-    private static string AmPmDisplay(DateTime value, TimeZoneInfo timeZone)
-        => ToZone(value, timeZone).ToString("tt");
+    private static string AmPmDisplay(DateTime value)
+        => value.ToString("tt");
 
-    private static string DayOfMonthDisplay(DateTime value, TimeZoneInfo timeZone)
-        => ToZone(value, timeZone).Day.ToString();
+    private static string DayOfMonthDisplay(DateTime value)
+        => value.Day.ToString();
 
-    private static string MonthYearDisplay(DateTime value, TimeZoneInfo timeZone)
-        => ToZone(value, timeZone).ToString("MMMM yyyy");
+    private static string MonthYearDisplay(DateTime value)
+        => value.ToString("MMMM yyyy");
 
-    private static string CourtAppearanceDay(DateTime? value, TimeZoneInfo timeZone)
-        => value.HasValue ? ToZone(value.Value, timeZone).ToString("MM/dd/yyyy") : string.Empty;
+    private static string CourtAppearanceDay(DateTime? value)
+        => value.HasValue ? value.Value.ToString("MM/dd/yyyy") : string.Empty;
 
-    private static string CourtAppearanceTime(DateTime? value, TimeZoneInfo timeZone)
-        => value.HasValue ? ToZone(value.Value, timeZone).ToString("h:mm tt") : string.Empty;
+    private static string CourtAppearanceTime(DateTime? value)
+        => value.HasValue ? value.Value.ToString("h:mm tt") : string.Empty;
 
     private static bool IsSpeedRange(string? speedBandLabel, string token)
     {

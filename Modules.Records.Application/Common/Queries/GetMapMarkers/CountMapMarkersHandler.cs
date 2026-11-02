@@ -24,6 +24,7 @@ public sealed class CountMapMarkersHandler
     {
         var jurisdictionId = request.JurisdictionId;
         var since          = request.Since;
+        var sinceLocal     = request.SinceAgencyLocal ?? request.Since;
         var agencyId       = _tenantProvider.GetAgencyId();
 
         // Collect location IDs that have parseable coordinates for the jurisdiction.
@@ -56,7 +57,7 @@ public sealed class CountMapMarkersHandler
             .Where(r => r.JurisdictionId == jurisdictionId
                      && r.LocationId != null
                      && validLocationIds.Contains(r.LocationId.Value)
-                     && (since == null || r.ArrestedAt >= since))
+                     && (sinceLocal == null || r.ArrestedAt >= sinceLocal))
             .CountAsync(cancellationToken);
 
         var citationCount = await _dbContext.CitationReadModels
@@ -65,7 +66,7 @@ public sealed class CountMapMarkersHandler
             .Where(r => r.JurisdictionId == jurisdictionId
                      && r.LocationId != null
                      && validLocationIds.Contains(r.LocationId.Value)
-                     && (since == null || r.IssueDate >= since))
+                     && (sinceLocal == null || r.IssueDate >= sinceLocal))
             .CountAsync(cancellationToken);
 
         return incidentCount + arrestCount + citationCount;

@@ -13,6 +13,7 @@ namespace Modules.Records.Domain.Entities
         public Guid JurisdictionId { get; private set; }
         public Guid AgencyId { get; private set; }
         public Guid? NameId { get; private set; }
+        /// <summary>When the arrest was made, in the agency's local wall-clock time, as entered on the record screens (not UTC, unlike <c>CreatedAt</c>/<c>ModifiedAt</c>). Display and print it as stored; do not convert it with the agency time zone.</summary>
         public DateTime ArrestedAt { get; private set; }
         public bool IsFinalized { get; private set; }
 

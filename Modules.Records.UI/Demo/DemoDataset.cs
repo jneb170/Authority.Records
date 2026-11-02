@@ -495,6 +495,13 @@ internal static class DemoDataset
 
         private DateTime Ago(TimeSpan ago) => _now - ago;
 
+        // Arrest and issue times are stored as agency wall-clock time, the way the record screens enter
+        // them (see Citation.IssueDate); the demo agency is seeded with the default (Central) zone.
+        private static readonly TimeZoneInfo DemoZone = AgencyTimeZone.FromConfigValue(ConfigurationKeys.DefaultTimeZoneId);
+
+        private DateTime AgoAgencyLocal(TimeSpan ago)
+            => DateTime.SpecifyKind(TimeZoneInfo.ConvertTimeFromUtc(Ago(ago), DemoZone), DateTimeKind.Unspecified);
+
         // ---- Records ----
 
         private async Task CreateLocationAsync(PlaceSeed p)
@@ -604,7 +611,7 @@ internal static class DemoDataset
             var incident = Incidents[s.IncidentKey];
             var nameId = Names[s.PersonKey];
             var locationId = Locations[s.PlaceKey];
-            var arrestedAt = Ago(s.Ago);
+            var arrestedAt = AgoAgencyLocal(s.Ago);
 
             var recordNumber = await _sender.Send(new CreateArrestCommand(
                 NameId: nameId,
@@ -633,7 +640,7 @@ internal static class DemoDataset
 
         private async Task CreateCitationAsync(CitationSeed s)
         {
-            var issuedAt = Ago(s.Ago);
+            var issuedAt = AgoAgencyLocal(s.Ago);
             var incidentNumbers = s.IncidentKey is null ? new List<long>() : [Incidents[s.IncidentKey].RecordNumber];
 
             var recordNumber = await _sender.Send(new CreateCitationCommand(s.Description, issuedAt, incidentNumbers));

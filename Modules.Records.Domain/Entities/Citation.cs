@@ -14,6 +14,7 @@ namespace Modules.Records.Domain.Entities
         public string Description { get; private set; }
         public bool IsFinalized { get; private set; }
 
+        /// <summary>When the citation was issued, in the agency's local wall-clock time, as entered on the record screens (not UTC, unlike <c>CreatedAt</c>/<c>ModifiedAt</c>). Display and print it as stored; do not convert it with the agency time zone.</summary>
         public DateTime IssueDate { get; private set; }
 
         /// <summary>DB-generated auto-increment number. Use this in URLs and display; the GUID is for internal identity.</summary>

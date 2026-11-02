@@ -122,6 +122,33 @@ public sealed class GetMapMarkersHandlerTests
         Assert.Equal(1001, result[0].RecordNumber);
     }
 
+    [Fact]
+    public async Task Handle_FiltersArrestsAndCitations_ByAgencyLocalSince()
+    {
+        // ArrestedAt / IssueDate are agency wall-clock times. Window start: 20:00 UTC = 15:00 CDT.
+        // A 16:00 local arrest is inside the window even though 16:00 < 20:00 numerically.
+        await using var db = MapMarkersTestDbContext.Create();
+        var jurisdictionId = Guid.NewGuid();
+        var agencyId       = Guid.NewGuid();
+        var locationId     = Guid.NewGuid();
+
+        db.LocationReadModels.Add(CreateLocation(locationId, jurisdictionId, "39.0,-95.0"));
+        db.ArrestReadModels.Add(CreateArrest(Guid.NewGuid(), 2001, jurisdictionId, agencyId, locationId, new DateTime(2026, 5, 24, 16, 0, 0)));
+        db.ArrestReadModels.Add(CreateArrest(Guid.NewGuid(), 2002, jurisdictionId, agencyId, locationId, new DateTime(2026, 5, 24, 14, 0, 0)));
+        db.CitationReadModels.Add(CreateCitation(Guid.NewGuid(), 3001, jurisdictionId, agencyId, locationId, new DateTime(2026, 5, 24, 16, 0, 0)));
+        await db.SaveChangesAsync();
+
+        var handler = new GetMapMarkersHandler(db, new FakeTenantProvider(jurisdictionId, agencyId));
+        var query = new GetMapMarkersQuery(
+            jurisdictionId,
+            Since: new DateTime(2026, 5, 24, 20, 0, 0, DateTimeKind.Utc),
+            SinceAgencyLocal: new DateTime(2026, 5, 24, 15, 0, 0));
+
+        var result = await handler.Handle(query, CancellationToken.None);
+
+        Assert.Equal(new long[] { 2001, 3001 }, result.Select(r => r.RecordNumber).OrderBy(n => n));
+    }
+
     private static LocationReadModel CreateLocation(Guid id, Guid jurisdictionId, string? coordinates) =>
         LocationReadModel.Create(
             id, 6000, jurisdictionId,
@@ -145,22 +172,22 @@ public sealed class GetMapMarkersHandlerTests
     }
 
     private static ArrestReadModel CreateArrest(
-        Guid id, long recordNumber, Guid jurisdictionId, Guid agencyId, Guid locationId)
+        Guid id, long recordNumber, Guid jurisdictionId, Guid agencyId, Guid locationId, DateTime? arrestedAt = null)
     {
         var model = ArrestReadModel.Create(
             id, recordNumber, jurisdictionId, agencyId,
-            null, DateTime.UtcNow, DateTime.UtcNow, Guid.NewGuid(),
+            null, arrestedAt ?? DateTime.UtcNow, DateTime.UtcNow, Guid.NewGuid(),
             $"AR-{recordNumber}");
         model.ApplyLocationChanged(locationId);
         return model;
     }
 
     private static CitationReadModel CreateCitation(
-        Guid id, long recordNumber, Guid jurisdictionId, Guid agencyId, Guid locationId)
+        Guid id, long recordNumber, Guid jurisdictionId, Guid agencyId, Guid locationId, DateTime? issueDate = null)
     {
         var model = CitationReadModel.Create(
             id, recordNumber, jurisdictionId, agencyId,
-            "Test violation", DateTime.UtcNow, DateTime.UtcNow, Guid.NewGuid(),
+            "Test violation", issueDate ?? DateTime.UtcNow, DateTime.UtcNow, Guid.NewGuid(),
             $"CT-{recordNumber}");
         model.ApplyLocationChanged(locationId);
         return model;
