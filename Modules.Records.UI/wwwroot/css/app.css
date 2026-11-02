@@ -29,6 +29,7 @@ html, body {
 }
 
 .ar-auth-body {
+    height: auto;
     min-height: 100vh;
     margin: 0;
     background:
@@ -206,6 +207,152 @@ html, body {
 
 .ar-auth-divider span {
     padding: 0 0.85rem;
+}
+
+/* ── Login: project panel (portfolio deployments) ───────────── */
+.ar-auth-layout {
+    width: 100%;
+    display: flex;
+    justify-content: center;
+}
+
+.ar-auth-layout-split {
+    max-width: 72rem;
+    display: grid;
+    grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr);
+    gap: 3rem;
+    align-items: center;
+}
+
+.ar-auth-about {
+    color: #dbe3ee;
+}
+
+.ar-auth-about-eyebrow {
+    display: inline-block;
+    color: var(--ar-gold-light);
+    font-size: 0.75rem;
+    font-weight: 700;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+}
+
+.ar-auth-about-title {
+    margin: 0.5rem 0 0.75rem;
+    font-size: clamp(2rem, 4vw, 2.75rem);
+    font-weight: 800;
+    color: #fff;
+    letter-spacing: -0.01em;
+}
+
+.ar-auth-about-lead {
+    font-size: 1.08rem;
+    line-height: 1.6;
+    color: #c5d0de;
+    max-width: 38rem;
+}
+
+.ar-auth-about-list {
+    list-style: none;
+    padding: 0;
+    margin: 1.5rem 0;
+    display: grid;
+    gap: 0.7rem;
+}
+
+.ar-auth-about-list li {
+    display: flex;
+    gap: 0.75rem;
+    line-height: 1.5;
+    font-size: 0.95rem;
+}
+
+.ar-auth-about-list i {
+    color: var(--ar-gold-light);
+    font-size: 1.1rem;
+    flex: 0 0 auto;
+}
+
+.ar-auth-about-stack {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.45rem;
+    margin-bottom: 1.75rem;
+}
+
+.ar-auth-about-stack span {
+    padding: 0.28rem 0.7rem;
+    border-radius: 999px;
+    border: 1px solid rgba(255,255,255,.16);
+    background: rgba(255,255,255,.06);
+    font-size: 0.8rem;
+    font-weight: 600;
+    color: #e8edf5;
+}
+
+.ar-auth-about-cta {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.6rem 1rem;
+}
+
+.ar-auth-about-cta-note {
+    font-size: 0.85rem;
+    color: #9fb0c4;
+    max-width: 22rem;
+}
+
+.ar-auth-about-links {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.5rem 1.25rem;
+    margin-top: 1.75rem;
+    padding-top: 1.25rem;
+    border-top: 1px solid rgba(255,255,255,.1);
+    font-size: 0.9rem;
+}
+
+.ar-auth-about-links a {
+    color: #e8edf5;
+    text-decoration: none;
+    font-weight: 600;
+}
+
+.ar-auth-about-links a:hover,
+.ar-auth-about-links a:focus-visible {
+    color: var(--ar-gold-light);
+    text-decoration: underline;
+}
+
+.ar-auth-about-author {
+    color: #9fb0c4;
+}
+
+@media (max-width: 991.98px) {
+    .ar-auth-layout-split {
+        grid-template-columns: minmax(0, 1fr);
+        gap: 2rem;
+        max-width: 34rem;
+    }
+}
+
+/* ── Demo session banner ──────────────────────────────────── */
+.demo-banner {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.25rem 0.75rem;
+    margin: 0;
+    border-radius: 0;
+    border-left: 0;
+    border-right: 0;
+    font-size: 0.88rem;
+}
+
+.demo-banner a {
+    font-weight: 600;
 }
 
 .mugshot-thumb {
@@ -2171,3 +2318,31 @@ kbd.shortcut-hint {
     }
 }
 
+
+/* Phones: the agency picker already names the agency, so drop the duplicate
+   context name and the picker's label/note, and let the picker shrink instead
+   of overlapping its neighbours. */
+@media (max-width: 575.98px) {
+    .top-header-context:has(+ .top-header-user .top-header-agency) {
+        display: none;
+    }
+
+    .top-header-agency,
+    .top-header-agency-select {
+        min-width: 0;
+    }
+
+    .top-header-agency {
+        flex: 1 1 auto;
+    }
+
+    .top-header-agency-label,
+    .top-header-agency-note {
+        display: none;
+    }
+
+    .top-header-user {
+        flex: 1 1 auto;
+        min-width: 0;
+    }
+}

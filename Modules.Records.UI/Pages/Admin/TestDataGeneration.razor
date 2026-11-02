@@ -493,9 +493,8 @@
 
         try
         {
-            var path = Path.GetFullPath(Path.Combine(HostEnvironment.ContentRootPath, "..", "Documents", "charges.json"));
-            if (!File.Exists(path))
-                throw new InvalidOperationException($"Could not find charge seed file at '{path}'.");
+            var path = Modules.Records.UI.Demo.ChargeSeedFile.Locate(HostEnvironment)
+                ?? throw new InvalidOperationException("Could not find the charges.json seed file.");
 
             var json = await File.ReadAllTextAsync(path);
             var result = await ChargeService.SeedFromJsonAsync(json);

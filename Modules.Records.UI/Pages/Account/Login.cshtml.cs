@@ -31,6 +31,15 @@ public class LoginModel : PageModel
 
     public string? ReturnUrl { get; set; }
 
+    /// <summary>Project panel shown beside the sign-in card (portfolio deployments).</summary>
+    public AboutPanel About { get; private set; } = AboutPanel.Disabled;
+
+    public override void OnPageHandlerExecuting(Microsoft.AspNetCore.Mvc.Filters.PageHandlerExecutingContext context)
+    {
+        About = AboutPanel.FromConfiguration(_configuration);
+        base.OnPageHandlerExecuting(context);
+    }
+
     public void OnGet(string? returnUrl = null)
     {
         ReturnUrl = returnUrl ?? Url.Content("~/");
@@ -85,6 +94,37 @@ public class LoginModel : PageModel
 
         await _signInManager.SignInAsync(demoUser, properties);
         return LocalRedirect(returnUrl);
+    }
+
+    /// <summary>
+    /// Settings for the "About this project" panel, bound from the <c>About</c>
+    /// configuration section (env vars <c>About__AuthorName</c>, <c>About__GitHubUrl</c>,
+    /// <c>About__LinkedInUrl</c>, <c>About__WebsiteUrl</c>; <c>About__Enabled=false</c> hides it).
+    /// </summary>
+    public sealed record AboutPanel(bool Enabled, string? AuthorName, string? GitHubUrl, string? LinkedInUrl, string? WebsiteUrl)
+    {
+        public const string DefaultGitHubUrl = "https://github.com/jneb170/Authority.Records";
+
+        public static readonly AboutPanel Disabled = new(false, null, null, null, null);
+
+        public static AboutPanel FromConfiguration(IConfiguration configuration)
+        {
+            var section = configuration.GetSection("About");
+            return new AboutPanel(
+                Enabled: section.GetValue("Enabled", true),
+                AuthorName: Clean(section["AuthorName"]),
+                GitHubUrl: section["GitHubUrl"] is null ? DefaultGitHubUrl : SafeUrl(section["GitHubUrl"]),
+                LinkedInUrl: SafeUrl(section["LinkedInUrl"]),
+                WebsiteUrl: SafeUrl(section["WebsiteUrl"]));
+        }
+
+        private static string? Clean(string? value) => string.IsNullOrWhiteSpace(value) ? null : value.Trim();
+
+        // Only absolute http(s) links are rendered; anything else is ignored.
+        private static string? SafeUrl(string? value)
+            => Uri.TryCreate(Clean(value), UriKind.Absolute, out var uri) && (uri.Scheme == Uri.UriSchemeHttps || uri.Scheme == Uri.UriSchemeHttp)
+                ? uri.ToString()
+                : null;
     }
 
     public class InputModel

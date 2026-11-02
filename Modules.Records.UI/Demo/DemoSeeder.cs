@@ -1,10 +1,6 @@
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
-using Modules.Records.Domain.Abstractions;
-using Modules.Records.Domain.Entities;
-using Modules.Records.Domain.Factories;
-using Modules.Records.Domain.ValueObjects;
 using Shared.Infrastructure.Identity;
 using Shared.Infrastructure.Persistence;
 
@@ -12,12 +8,11 @@ namespace Modules.Records.UI.Demo;
 
 /// <summary>
 /// Idempotent startup seeder for the public demo account.
-/// Creates the demo jurisdiction, agency, a credentialed admin user, the
-/// passwordless demo user, and a small set of sample incidents/arrests/
-/// citations so the "Try the demo" landing experience has something to look
-/// at. The demo user is seeded with NO role — an administrator assigns its
-/// permissions in /admin/users, so the demo agency behaves like any other.
-/// Safe to run on every boot — every step checks for existence before writing.
+/// Creates the demo jurisdiction, agency, the demo admin, the passwordless
+/// public demo user (Supervisor by default), and a curated sample dataset
+/// (<see cref="DemoDataset"/>) so the "Try the demo" experience has realistic
+/// records to explore. Safe to run on every boot: every step checks for
+/// existence before writing.
 /// </summary>
 public static class DemoSeeder
 {
@@ -31,48 +26,59 @@ public static class DemoSeeder
             var authDb = sp.GetRequiredService<AuthDbContext>();
             var roleMgr = sp.GetRequiredService<RoleManager<IdentityRole>>();
             var userMgr = sp.GetRequiredService<UserManager<ApplicationUser>>();
+            var configuration = sp.GetRequiredService<IConfiguration>();
 
             await EnsureRoleAsync(roleMgr, "Admin");
+            await EnsureRoleAsync(roleMgr, DemoUserDefaults.Role);
 
             // One-time cleanup: the demo user used to carry a read-only "Demo"
-            // role enforced by a write guard. That concept is gone — the demo
-            // user is now an ordinary account whose permissions an admin sets in
-            // /admin/users. Strip any lingering "Demo" assignments and drop the
-            // role so it no longer appears as assignable. Idempotent: no-ops once
-            // the role is gone.
+            // role enforced by a write guard. That concept is gone. Strip any
+            // lingering "Demo" assignments and drop the role so it no longer
+            // appears as assignable. Idempotent: no-ops once the role is gone.
             await RemoveLegacyDemoRoleAsync(roleMgr, userMgr);
 
             var jurisdiction = await EnsureJurisdictionAsync(authDb);
             var agency = await EnsureAgencyAsync(authDb, jurisdiction.Id);
 
-            // Seeded with no role on purpose — an admin assigns permissions later.
+            // The public demo account gets the Supervisor role when it is created,
+            // or when it has no role at all (older builds seeded it role-less, which
+            // left visitors on an empty screen). Any role an admin has since chosen
+            // in /admin/users is left alone.
             var demoUser = await EnsureUserAsync(
                 userMgr,
                 email: DemoUserDefaults.Email,
                 password: DemoUserDefaults.Password,
                 firstName: DemoUserDefaults.FirstName,
                 lastName: DemoUserDefaults.LastName,
-                role: null,
+                role: DemoUserDefaults.Role,
+                roleOnlyIfNone: true,
                 jurisdictionId: jurisdiction.Id,
                 agencyId: agency.Id);
             await EnsureUserAgencyAsync(authDb, demoUser.Id, agency.Id);
 
+            var configuredAdminPassword = configuration[DemoUserDefaults.AdminPasswordConfigKey];
+            var adminPassword = string.IsNullOrWhiteSpace(configuredAdminPassword)
+                ? GenerateUnguessablePassword()
+                : configuredAdminPassword;
+
             var adminUser = await EnsureUserAsync(
                 userMgr,
                 email: DemoUserDefaults.AdminEmail,
-                password: DemoUserDefaults.AdminPassword,
+                password: adminPassword,
                 firstName: DemoUserDefaults.AdminFirstName,
                 lastName: DemoUserDefaults.AdminLastName,
                 role: "Admin",
+                roleOnlyIfNone: false,
                 jurisdictionId: jurisdiction.Id,
                 agencyId: agency.Id);
             await EnsureUserAgencyAsync(authDb, adminUser.Id, agency.Id);
+            await SyncAdminPasswordAsync(userMgr, adminUser, configuredAdminPassword, logger);
 
             // Sample data is best-effort and isolated from identity setup —
             // failures here must not block sign-in.
             try
             {
-                await EnsureSampleRecordsAsync(sp, jurisdiction.Id, agency.Id);
+                await DemoDataset.SeedAsync(sp, adminUser, jurisdiction.Id, agency.Id, logger);
             }
             catch (Exception ex)
             {
@@ -148,6 +154,7 @@ public static class DemoSeeder
         string firstName,
         string lastName,
         string? role,
+        bool roleOnlyIfNone,
         Guid jurisdictionId,
         Guid agencyId)
     {
@@ -163,9 +170,14 @@ public static class DemoSeeder
                 await userMgr.UpdateAsync(existing);
             }
             // Roles are only ensured, never removed — an admin may have changed
-            // them in /admin/users. A null role means "leave permissions alone".
+            // them in /admin/users. With roleOnlyIfNone the role is a default for
+            // an account that has no role at all, not a requirement.
             if (role is not null && !await userMgr.IsInRoleAsync(existing, role))
-                await userMgr.AddToRoleAsync(existing, role);
+            {
+                var hasAnyRole = (await userMgr.GetRolesAsync(existing)).Count > 0;
+                if (!roleOnlyIfNone || !hasAnyRole)
+                    await userMgr.AddToRoleAsync(existing, role);
+            }
             return existing;
         }
 
@@ -200,87 +212,57 @@ public static class DemoSeeder
         await authDb.SaveChangesAsync();
     }
 
-    private static async Task EnsureSampleRecordsAsync(IServiceProvider sp, Guid jurisdictionId, Guid agencyId)
+    /// <summary>
+    /// Keeps the demo admin's password out of source control. When
+    /// <c>Demo:AdminPassword</c> is configured, the account's password follows
+    /// it (checked on every start). When it is not, any account still using the
+    /// old, publicly known default gets a random password instead, so the
+    /// account can only be used after an operator sets the config value.
+    /// </summary>
+    private static async Task SyncAdminPasswordAsync(
+        UserManager<ApplicationUser> userMgr,
+        ApplicationUser admin,
+        string? configuredPassword,
+        ILogger logger)
     {
-        var appDb = sp.GetRequiredService<AppDbContext>();
-        var tenantProvider = sp.GetRequiredService<ITenantProvider>();
-
-        // Domain-event projection handlers resolve their own AppDbContext,
-        // which uses this scoped tenant provider for global query filters.
-        tenantProvider.SetJurisdictionId(jurisdictionId);
-
-        // Already seeded? Skip the lot.
-        var alreadySeeded = await appDb.Incidents
-            .AnyAsync(i => i.AgencyId == agencyId);
-        if (alreadySeeded) return;
-
-        var incidentFactory = sp.GetRequiredService<IncidentFactory>();
-        var arrestFactory = sp.GetRequiredService<ArrestFactory>();
-
-        // ---- Incidents ----
-        var incidents = new[]
+        string? target = null;
+        if (!string.IsNullOrWhiteSpace(configuredPassword))
         {
-            BuildIncident(incidentFactory, jurisdictionId, agencyId, "DEMO-2026-001", "ALARM-001",
-                "Burglar alarm activation at 4521 Maple Ave. Patrol responded; building secure on arrival."),
-            BuildIncident(incidentFactory, jurisdictionId, agencyId, "DEMO-2026-002", "TRAFFIC-001",
-                "Two-vehicle collision at the intersection of 5th and Main. No injuries reported."),
-            BuildIncident(incidentFactory, jurisdictionId, agencyId, "DEMO-2026-003", "TRESPASS-001",
-                "Trespass complaint at the public library. Subject identified and trespass-warned."),
-            BuildIncident(incidentFactory, jurisdictionId, agencyId, "DEMO-2026-004", "WELFARE-001",
-                "Welfare check on elderly resident at 22 Oak Street. Subject contacted and well."),
-        };
-        appDb.Incidents.AddRange(incidents);
-
-        // ---- Arrests ----
-        var arrests = new[]
+            if (!await userMgr.CheckPasswordAsync(admin, configuredPassword))
+                target = configuredPassword;
+        }
+        else if (await userMgr.CheckPasswordAsync(admin, DemoUserDefaults.LegacyAdminPassword))
         {
-            arrestFactory.Create(jurisdictionId, agencyId, nameId: null,
-                arrestedAt: DateTime.UtcNow.AddDays(-3),
-                arrestNum: "DEMO-AR-2026-001",
-                primaryIncidentId: null),
-            arrestFactory.Create(jurisdictionId, agencyId, nameId: null,
-                arrestedAt: DateTime.UtcNow.AddDays(-1),
-                arrestNum: "DEMO-AR-2026-002",
-                primaryIncidentId: null),
-        };
-        appDb.Arrests.AddRange(arrests);
+            target = GenerateUnguessablePassword();
+        }
 
-        // ---- Citations ----
-        var citations = new[]
+        if (target is null) return;
+
+        // Validate first so a bad configured password can't strip the existing one.
+        foreach (var validator in userMgr.PasswordValidators)
         {
-            new Citation(jurisdictionId, agencyId,
-                description: "Speeding 45 in a 35 zone — issued at Main & 3rd.",
-                issueDate: DateTime.UtcNow.AddDays(-2),
-                citationNum: "DEMO-CT-2026-001"),
-            new Citation(jurisdictionId, agencyId,
-                description: "Failure to yield at posted stop sign — Oak & Center.",
-                issueDate: DateTime.UtcNow.AddDays(-1),
-                citationNum: "DEMO-CT-2026-002"),
-        };
-        appDb.Citations.AddRange(citations);
-
-        await appDb.SaveChangesAsync();
-    }
-
-    private static Incident BuildIncident(
-        IncidentFactory factory,
-        Guid jurisdictionId,
-        Guid agencyId,
-        string incidentNum,
-        string localNum,
-        string description)
-    {
-        return factory.Create(new CreateIncidentRequest
-        {
-            JurisdictionId = jurisdictionId,
-            AgencyId = agencyId,
-            Details = new IncidentDetails
+            var check = await validator.ValidateAsync(userMgr, admin, target);
+            if (!check.Succeeded)
             {
-                IncidentNum = incidentNum,
-                LocalNum = localNum,
-                Description = description,
-                CFSNum = string.Empty,
-            },
-        });
+                logger.LogWarning(
+                    "Demo:AdminPassword does not meet the password rules ({Errors}); the demo admin password was not changed.",
+                    string.Join("; ", check.Errors.Select(e => e.Description)));
+                return;
+            }
+        }
+
+        await userMgr.RemovePasswordAsync(admin);
+        var result = await userMgr.AddPasswordAsync(admin, target);
+        if (!result.Succeeded)
+            throw new InvalidOperationException(
+                "Could not set the demo admin password: " + string.Join("; ", result.Errors.Select(e => e.Description)));
+
+        logger.LogInformation(string.IsNullOrWhiteSpace(configuredPassword)
+            ? "Replaced the demo admin's legacy default password with a random one. Set Demo__AdminPassword to sign in as {Email}."
+            : "Demo admin password for {Email} updated from Demo:AdminPassword.", admin.Email);
     }
+
+    /// <summary>Random password that satisfies the Identity password rules.</summary>
+    private static string GenerateUnguessablePassword()
+        => Convert.ToBase64String(System.Security.Cryptography.RandomNumberGenerator.GetBytes(24)) + "aA1!";
 }

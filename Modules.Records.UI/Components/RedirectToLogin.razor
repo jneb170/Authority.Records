@@ -1,0 +1,37 @@
+@* Rendered by Routes.razor when a page's [Authorize] requirements are not met.
+   Signed-out visitors are sent to the login page (returning here afterwards);
+   signed-in users whose role doesn't allow the page get an explanation instead
+   of a blank screen. *@
+@inject NavigationManager Nav
+
+@if (_signedIn)
+{
+    <div class="card border-0 shadow-sm mx-auto mt-4" style="max-width: 36rem;">
+        <div class="card-body p-4 text-center">
+            <i class="bi bi-shield-lock fs-1 text-secondary"></i>
+            <h1 class="h4 mt-3">You don't have access to this page</h1>
+            <p class="text-muted mb-4">
+                Your role doesn't include this area. An administrator can change your permissions in User Management.
+            </p>
+            <a href="/" class="btn btn-primary">Back to the dashboard</a>
+        </div>
+    </div>
+}
+
+@code {
+    [CascadingParameter] private Task<AuthenticationState>? AuthState { get; set; }
+
+    private bool _signedIn;
+
+    protected override async Task OnInitializedAsync()
+    {
+        var user = AuthState is null ? null : (await AuthState).User;
+        _signedIn = user?.Identity?.IsAuthenticated == true;
+
+        if (!_signedIn)
+        {
+            var returnUrl = Uri.EscapeDataString(Nav.ToBaseRelativePath(Nav.Uri) is { Length: > 0 } path ? "/" + path : "/");
+            Nav.NavigateTo($"/account/login?returnUrl={returnUrl}", forceLoad: true);
+        }
+    }
+}

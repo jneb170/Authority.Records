@@ -23,6 +23,7 @@ public sealed class GetRecentActivityHandler
         CancellationToken cancellationToken)
     {
         var userId         = request.UserId;
+        var allUsers       = request.IncludeAllUsers;
         var jurisdictionId = request.JurisdictionId;
         var agencyId       = _tenantProvider.GetAgencyId();
 
@@ -32,7 +33,7 @@ public sealed class GetRecentActivityHandler
             .WhereAgencyScoped(agencyId)
             .Where(r => r.JurisdictionId == jurisdictionId
                      && !r.IsDeleted
-                     && (r.CreatedBy == userId || r.ModifiedBy == userId))
+                     && (allUsers || r.CreatedBy == userId || r.ModifiedBy == userId))
             .OrderByDescending(r => r.UpdatedAtUtc)
             .Take(request.Take)
             .ToListAsync(cancellationToken);
@@ -41,7 +42,7 @@ public sealed class GetRecentActivityHandler
             .AsNoTracking()
             .WhereAgencyScoped(agencyId)
             .Where(r => r.JurisdictionId == jurisdictionId
-                     && (r.CreatedBy == userId || r.ModifiedBy == userId))
+                     && (allUsers || r.CreatedBy == userId || r.ModifiedBy == userId))
             .OrderByDescending(r => r.UpdatedAtUtc)
             .Take(request.Take)
             .ToListAsync(cancellationToken);
@@ -50,7 +51,7 @@ public sealed class GetRecentActivityHandler
             .AsNoTracking()
             .WhereAgencyScoped(agencyId)
             .Where(r => r.JurisdictionId == jurisdictionId
-                     && (r.CreatedBy == userId || r.ModifiedBy == userId))
+                     && (allUsers || r.CreatedBy == userId || r.ModifiedBy == userId))
             .OrderByDescending(r => r.UpdatedAtUtc)
             .Take(request.Take)
             .ToListAsync(cancellationToken);
@@ -58,7 +59,7 @@ public sealed class GetRecentActivityHandler
         var names = await _dbContext.NameReadModels
             .AsNoTracking()
             .Where(r => r.JurisdictionId == jurisdictionId
-                     && (r.CreatedBy == userId || r.ModifiedBy == userId))
+                     && (allUsers || r.CreatedBy == userId || r.ModifiedBy == userId))
             .OrderByDescending(r => r.UpdatedAtUtc)
             .Take(request.Take)
             .ToListAsync(cancellationToken);
