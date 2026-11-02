@@ -32,18 +32,20 @@ COPY --from=build /app/publish .
 # Persistent state lives on Docker volumes mounted at these paths:
 #   /data/db              SQLite databases (app.db, auth.db)
 #   /data/keys            ASP.NET Core Data Protection keys (auth cookies, antiforgery)
-#   /app/wwwroot/uploads  Mugshot uploads (LocalMugshotStorageService)
+#   /data/uploads         Mugshot uploads (LocalMugshotStorageService). Outside the web
+#                         root: images are only served by the authorized /mugshots endpoint.
 # Creating them here, owned by the non-root user, means new named volumes inherit
 # that ownership on first mount.
-RUN mkdir -p /data/db /data/keys /app/wwwroot/uploads \
- && chown -R "$APP_UID" /data /app/wwwroot/uploads
+RUN mkdir -p /data/db /data/keys /data/uploads/mugshots \
+ && chown -R "$APP_UID" /data
 
 ENV ASPNETCORE_ENVIRONMENT=Production \
     ASPNETCORE_HTTP_PORTS=8080 \
     DefaultDatabaseProvider=Sqlite \
     ConnectionStrings__SqliteAppConnection="Data Source=/data/db/app.db;Cache=Shared;Foreign Keys=True" \
     ConnectionStrings__SqliteAuthConnection="Data Source=/data/db/auth.db;Cache=Shared;Foreign Keys=True" \
-    DataProtection__KeysPath=/data/keys
+    DataProtection__KeysPath=/data/keys \
+    Mugshots__StoragePath=/data/uploads/mugshots
 
 USER $APP_UID
 EXPOSE 8080

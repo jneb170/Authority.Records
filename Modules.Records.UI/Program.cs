@@ -6,12 +6,14 @@ using Modules.Records.Application;
 using Modules.Records.Domain.Abstractions;
 using Modules.Records.UI.Authorization;
 using Modules.Records.UI.Demo;
+using Modules.Records.UI.Endpoints;
 using Modules.Records.UI.Interop;
 using Modules.Records.UI.Middleware;
 using Modules.Records.UI.Services;
 using Shared.Infrastructure;
 using Shared.Infrastructure.Identity;
 using Shared.Infrastructure.Maintenance;
+using Shared.Infrastructure.Mugshots;
 using Shared.Infrastructure.Persistence;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -95,6 +97,8 @@ if (!app.Environment.IsDevelopment())
 }
 
 app.UseHttpsRedirection();
+
+app.BlockLegacyUploadPaths(); // must precede UseStaticFiles
 app.UseStaticFiles();
 app.MapStaticAssets();
 
@@ -104,6 +108,7 @@ app.UseAuthorization();
 app.UseAntiforgery();
 
 app.MapRazorPages();
+app.MapMugshotEndpoints();
 app.MapRazorComponents<Modules.Records.UI.App>()
     .AddInteractiveServerRenderMode();
 
@@ -131,6 +136,12 @@ else if (app.Environment.IsDevelopment())
 {
     await EnsureAppDbMigrationsAppliedAsync(app.Services);
 }
+
+// One-time, idempotent: point mugshots uploaded while images were public static files
+// (/uploads/mugshots/...) at the authorized /mugshots/{id} endpoint. No-op once clean.
+await LegacyMugshotUrlRepair.RepairAsync(
+    app.Services,
+    app.Services.GetRequiredService<ILoggerFactory>().CreateLogger(nameof(LegacyMugshotUrlRepair)));
 
 if (app.Environment.IsDevelopment())
 {

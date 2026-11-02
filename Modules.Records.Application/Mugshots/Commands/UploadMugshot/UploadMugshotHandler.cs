@@ -29,8 +29,10 @@ public sealed class UploadMugshotHandler : IRequestHandler<UploadMugshotCommand,
 
         var jurisdictionId = _tenantProvider.GetJurisdictionId();
         var agencyId = _tenantProvider.GetAgencyId();
+        var mugshotId = Guid.NewGuid();
         var saveResult = await _storageService.SaveAsync(
             jurisdictionId,
+            mugshotId,
             request.Content,
             request.FileName,
             request.ContentType,
@@ -39,13 +41,14 @@ public sealed class UploadMugshotHandler : IRequestHandler<UploadMugshotCommand,
         try
         {
             var mugshot = new Mugshot(
+                mugshotId,
                 jurisdictionId,
                 agencyId,
                 request.FileName,
                 request.ContentType,
                 saveResult.FileSizeBytes,
                 saveResult.StoragePath,
-                saveResult.PublicUrl,
+                MugshotUrls.For(mugshotId),
                 request.CapturedAtUtc ?? DateTime.UtcNow);
 
             _dbContext.Mugshots.Add(mugshot);
