@@ -1,4 +1,4 @@
-/* ============================================================
+﻿/* ============================================================
    Authority Records — Design System
    ============================================================ */
 :root {
@@ -536,6 +536,26 @@ button:focus-visible,
 .page-link:focus-visible {
     outline: none;
     box-shadow: 0 0 0 0.16rem rgba(30,45,69,.18), 0 0 0 0.32rem rgba(201,162,39,.32);
+}
+
+/* Routes.razor's <FocusOnNavigate Selector="h1"> focuses the page heading after every navigation
+   so screen readers announce the new page. That is programmatic focus, not a user action, so it
+   must not draw the browser's default outline (issue #96). Keyboard users still get a ring that
+   hugs the heading text. */
+h1:focus,
+[tabindex="-1"]:focus:not(:focus-visible) {
+    outline: none;
+}
+
+h1:focus-visible {
+    outline: 2px solid rgba(201,162,39,.6);
+    outline-offset: 2px;
+    border-radius: 2px;
+}
+
+h1[tabindex="-1"] {
+    width: fit-content;
+    max-width: 100%;
 }
 
 /* ── Layout ─────────────────────────────────────────────────── */
