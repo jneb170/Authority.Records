@@ -12,7 +12,7 @@ using System.ComponentModel.DataAnnotations.Schema;
 namespace Modules.Records.Domain.Entities;
 
 public sealed class Incident
-    : LockableAggregateRoot<Incident>, IMultiTenant
+    : LockableAggregateRoot<Incident>, IMultiTenant, IAgencyOwned
 {
     public Guid JurisdictionId { get; private set; }
     public Guid AgencyId { get; private set; }

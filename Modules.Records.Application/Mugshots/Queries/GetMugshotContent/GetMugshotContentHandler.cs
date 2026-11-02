@@ -1,3 +1,4 @@
+using Modules.Records.Application.Common;
 using MediatR;
 using Microsoft.EntityFrameworkCore;
 using Modules.Records.Application.Abstractions;
@@ -31,6 +32,10 @@ public sealed class GetMugshotContentHandler : IRequestHandler<GetMugshotContent
             .FirstOrDefaultAsync(cancellationToken);
 
         if (mugshot is null)
+            return null;
+
+        // An arrest mugshot belongs to the arrest's agency; a name mugshot is shared (#118).
+        if (!await AgencyRecordAccess.CanAccessMugshotAsync(_dbContext, request.MugshotId, cancellationToken))
             return null;
 
         var content = await _storageService.OpenReadAsync(mugshot.StoragePath, cancellationToken);

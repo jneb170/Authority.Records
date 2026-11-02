@@ -1,3 +1,4 @@
+using Modules.Records.Application.Common;
 using MediatR;
 using Microsoft.EntityFrameworkCore;
 using Modules.Records.Application.Abstractions;
@@ -20,6 +21,9 @@ public sealed class GetMugshotsByOwnerHandler : IRequestHandler<GetMugshotsByOwn
     public async Task<IReadOnlyList<MugshotDto>> Handle(GetMugshotsByOwnerQuery request, CancellationToken cancellationToken)
     {
         var jurisdictionId = _tenantProvider.GetJurisdictionId();
+
+        if (!await AgencyRecordAccess.CanAccessOwnerAsync(_dbContext, request.OwnerType, request.OwnerId, cancellationToken))
+            return [];
 
         var links = await _dbContext.MugshotLinkReadModels
             .AsNoTracking()

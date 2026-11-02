@@ -106,6 +106,9 @@ namespace Shared.Infrastructure.Persistence.Migrations.SqlServer
                         .HasMaxLength(64)
                         .HasColumnType("nvarchar(64)");
 
+                    b.Property<Guid?>("AgencyId")
+                        .HasColumnType("uniqueidentifier");
+
                     b.Property<Guid>("AggregateId")
                         .HasColumnType("uniqueidentifier");
 
@@ -168,6 +171,8 @@ namespace Shared.Infrastructure.Persistence.Migrations.SqlServer
                     b.HasIndex("UserId");
 
                     b.HasIndex("JurisdictionId", "OccurredOnUtc");
+
+                    b.HasIndex("JurisdictionId", "AgencyId", "OccurredOnUtc");
 
                     b.ToTable("AuditTrailEntries", (string)null);
                 });

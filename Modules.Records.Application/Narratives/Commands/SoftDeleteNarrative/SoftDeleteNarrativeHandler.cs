@@ -1,3 +1,4 @@
+using Modules.Records.Application.Common;
 using MediatR;
 using Microsoft.EntityFrameworkCore;
 using Modules.Records.Application.Abstractions;
@@ -24,6 +25,8 @@ public sealed class SoftDeleteNarrativeHandler : IRequestHandler<SoftDeleteNarra
                 n.JurisdictionId == _tenantProvider.GetJurisdictionId(),
                 cancellationToken)
             ?? throw new InvalidOperationException("Narrative record not found.");
+
+        await AgencyRecordAccess.EnsureCanAccessNarrativeAsync(_dbContext, narrative.Id, cancellationToken);
 
         narrative.SoftDelete(_tenantProvider.GetUserId());
 

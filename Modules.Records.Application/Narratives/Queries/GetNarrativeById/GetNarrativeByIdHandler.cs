@@ -1,3 +1,4 @@
+using Modules.Records.Application.Common;
 using MediatR;
 using Microsoft.EntityFrameworkCore;
 using Modules.Records.Application.Abstractions;
@@ -26,6 +27,9 @@ public sealed class GetNarrativeByIdHandler : IRequestHandler<GetNarrativeByIdQu
                 n.JurisdictionId == _tenantProvider.GetJurisdictionId(),
                 cancellationToken);
 
-        return rm?.ToDto();
+        if (rm is null || !await AgencyRecordAccess.CanAccessNarrativeAsync(_dbContext, rm.Id, cancellationToken))
+            return null;
+
+        return rm.ToDto();
     }
 }

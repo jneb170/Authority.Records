@@ -111,7 +111,10 @@ public sealed class RebuildReadModelsHandler
         await _db.SaveChangesAsync(cancellationToken);
 
         // ── 3. Rebuild Arrests ───────────────────────────────────────────────
+        // The rebuild clears every agency's read models for the jurisdiction above, so it must
+        // reload every agency's aggregates too, even when a signed-in user triggered it (#118).
         var arrests = await _db.Arrests
+            .IgnoreQueryFilters([QueryFilterNames.Agency])
             .AsNoTracking()
             .Where(a => a.JurisdictionId == jid)
             .ToListAsync(cancellationToken);
@@ -142,6 +145,7 @@ public sealed class RebuildReadModelsHandler
 
         // ── 4. Rebuild Citations ─────────────────────────────────────────────
         var citations = await _db.Citations
+            .IgnoreQueryFilters([QueryFilterNames.Agency])
             .AsNoTracking()
             .Where(c => c.JurisdictionId == jid)
             .ToListAsync(cancellationToken);

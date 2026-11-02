@@ -1,3 +1,4 @@
+using Modules.Records.Application.Common;
 using MediatR;
 using Microsoft.EntityFrameworkCore;
 using Modules.Records.Application.Abstractions;
@@ -22,6 +23,9 @@ public sealed class GetNarrativesByOwnerHandler
         GetNarrativesByOwnerQuery request, CancellationToken cancellationToken)
     {
         var jurisdictionId = _tenantProvider.GetJurisdictionId();
+
+        if (!await AgencyRecordAccess.CanAccessOwnerAsync(_dbContext, request.OwnerType, request.OwnerId, cancellationToken))
+            return [];
 
         var query =
             from link in _dbContext.NarrativeLinkReadModels.AsNoTracking()

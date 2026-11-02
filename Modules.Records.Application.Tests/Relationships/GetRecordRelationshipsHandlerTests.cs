@@ -124,16 +124,20 @@ public sealed class GetRecordRelationshipsHandlerTests
     }
 
     [Fact]
-    public async Task NameQuery_Returns_Null_When_Name_Belongs_To_Different_Agency()
+    public async Task NameQuery_Shares_Name_Across_Agencies_But_Hides_Other_Agency_Arrests()
     {
+        // Names are the jurisdiction's shared master index (#118): another agency can open the
+        // name, but only its own arrests and citations appear under it.
         await using var db = RelationshipTestDbContext.Create();
         var jurisdictionId = Guid.NewGuid();
         var tenantAgencyId = Guid.NewGuid();
         var otherAgencyId = Guid.NewGuid();
         var nameId = Guid.NewGuid();
 
-        // Name belongs to a different agency in the same jurisdiction
         db.NameReadModels.Add(CreateName(nameId, 3001, jurisdictionId, "Jordan", "Alex", agencyId: otherAgencyId));
+        db.ArrestReadModels.AddRange(
+            CreateArrest(Guid.NewGuid(), 2001, jurisdictionId, otherAgencyId, nameId, "AR-2001"),
+            CreateArrest(Guid.NewGuid(), 2002, jurisdictionId, tenantAgencyId, nameId, "AR-2002"));
         await db.SaveChangesAsync(CancellationToken.None);
 
         var handler = new GetRecordRelationshipsHandler(db, new FakeTenantProvider(jurisdictionId, tenantAgencyId));
@@ -142,7 +146,10 @@ public sealed class GetRecordRelationshipsHandlerTests
             new GetRecordRelationshipsQuery(RecordRelationshipRecordTypes.Name, 3001),
             CancellationToken.None);
 
-        Assert.Null(result);
+        Assert.NotNull(result);
+        var arrests = Assert.Single(result!.Groups, g => g.Title == "Related Arrests");
+        var arrest = Assert.Single(arrests.Items);
+        Assert.Equal(2002, arrest.RecordNumber);
     }
 
     [Fact]

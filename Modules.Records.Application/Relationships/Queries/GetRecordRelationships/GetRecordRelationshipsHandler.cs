@@ -241,9 +241,10 @@ public sealed class GetRecordRelationshipsHandler(
         long recordNumber,
         CancellationToken cancellationToken)
     {
+        // Names are the jurisdiction's shared master index, so any agency can see the name;
+        // only the arrests and citations below are limited to the active agency (#118).
         var name = await dbContext.NameReadModels
             .AsNoTracking()
-            .WhereAgencyScoped(activeAgencyId)
             .FirstOrDefaultAsync(
                 x => x.JurisdictionId == jurisdictionId && x.RecordNumber == recordNumber,
                 cancellationToken);

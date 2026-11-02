@@ -28,5 +28,6 @@ public sealed class AuditLogReadModelConfiguration : IEntityTypeConfiguration<Au
         builder.HasIndex(x => x.ActionType);
         builder.HasIndex(x => x.UserId);
         builder.HasIndex(x => new { x.JurisdictionId, x.OccurredOnUtc });
+        builder.HasIndex(x => new { x.JurisdictionId, x.AgencyId, x.OccurredOnUtc });
     }
 }

@@ -102,6 +102,9 @@ namespace Shared.Infrastructure.Persistence.Migrations.Sqlite
                         .HasMaxLength(64)
                         .HasColumnType("TEXT");
 
+                    b.Property<Guid?>("AgencyId")
+                        .HasColumnType("TEXT");
+
                     b.Property<Guid>("AggregateId")
                         .HasColumnType("TEXT");
 
@@ -164,6 +167,8 @@ namespace Shared.Infrastructure.Persistence.Migrations.Sqlite
                     b.HasIndex("UserId");
 
                     b.HasIndex("JurisdictionId", "OccurredOnUtc");
+
+                    b.HasIndex("JurisdictionId", "AgencyId", "OccurredOnUtc");
 
                     b.ToTable("AuditTrailEntries", (string)null);
                 });

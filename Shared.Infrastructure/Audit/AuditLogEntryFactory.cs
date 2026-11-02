@@ -38,7 +38,8 @@ internal static class AuditLogEntryFactory
         IDomainEvent domainEvent,
         Guid jurisdictionId,
         Guid? actorUserId,
-        IReadOnlyDictionary<Guid, string>? actorDisplayNames = null)
+        IReadOnlyDictionary<Guid, string>? actorDisplayNames = null,
+        Guid? agencyId = null)
     {
         var metadata = DescribeDomainEvent(domainEvent);
         var userId = ResolveActor(domainEvent, actorUserId);
@@ -61,7 +62,8 @@ internal static class AuditLogEntryFactory
             userId: userId,
             message: metadata.Message,
             payload: JsonSerializer.Serialize(domainEvent, domainEvent.GetType()),
-            userDisplayName: displayName);
+            userDisplayName: displayName,
+            agencyId: agencyId);
     }
 
     /// <summary>
@@ -87,7 +89,8 @@ internal static class AuditLogEntryFactory
         string recordType,
         DateTime occurredOnUtc,
         Guid lockedByUserId,
-        DateTime lockedAtUtc)
+        DateTime lockedAtUtc,
+        Guid? agencyId = null)
     {
         var payload = JsonSerializer.Serialize(new
         {
@@ -110,7 +113,8 @@ internal static class AuditLogEntryFactory
             actionType: "LockExpired",
             userId: null,
             message: $"System released an expired {recordType.ToLowerInvariant()} lock.",
-            payload: payload);
+            payload: payload,
+            agencyId: agencyId);
     }
 
     private static AuditLogMetadata DescribeDomainEvent(IDomainEvent domainEvent)

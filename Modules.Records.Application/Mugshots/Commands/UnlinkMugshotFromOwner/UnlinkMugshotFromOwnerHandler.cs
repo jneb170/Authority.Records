@@ -1,3 +1,4 @@
+using Modules.Records.Application.Common;
 using MediatR;
 using Microsoft.EntityFrameworkCore;
 using Modules.Records.Application.Abstractions;
@@ -24,6 +25,9 @@ public sealed class UnlinkMugshotFromOwnerHandler : IRequestHandler<UnlinkMugsho
     public async Task Handle(UnlinkMugshotFromOwnerCommand request, CancellationToken cancellationToken)
     {
         var userId = _tenantProvider.GetUserId();
+
+        await AgencyRecordAccess.EnsureCanAccessOwnerAsync(
+            _dbContext, request.OwnerType, request.OwnerId, cancellationToken);
 
         var link = await _dbContext.MugshotLinks
             .FirstOrDefaultAsync(l =>

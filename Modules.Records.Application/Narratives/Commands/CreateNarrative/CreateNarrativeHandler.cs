@@ -1,3 +1,4 @@
+using Modules.Records.Application.Common;
 using MediatR;
 using Microsoft.EntityFrameworkCore;
 using Modules.Records.Application.Abstractions;
@@ -21,6 +22,9 @@ public sealed class CreateNarrativeHandler : IRequestHandler<CreateNarrativeComm
     {
         var jurisdictionId = _tenantProvider.GetJurisdictionId();
         var userId         = _tenantProvider.GetUserId();
+
+        await AgencyRecordAccess.EnsureCanAccessOwnerAsync(
+            _dbContext, request.OwnerType, request.OwnerId, cancellationToken);
 
         var narrative = new Narrative(jurisdictionId, request.Title, request.Content);
         _dbContext.Narratives.Add(narrative);

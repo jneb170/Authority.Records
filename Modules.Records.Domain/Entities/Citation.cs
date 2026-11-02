@@ -7,7 +7,7 @@ using Modules.Records.Domain.DomainEvents;
 
 namespace Modules.Records.Domain.Entities
 {
-    public sealed class Citation : LockableAggregateRoot<Citation>, IMultiTenant
+    public sealed class Citation : LockableAggregateRoot<Citation>, IMultiTenant, IAgencyOwned
     {
         public Guid JurisdictionId { get; private set; }
         public Guid AgencyId { get; private set; }

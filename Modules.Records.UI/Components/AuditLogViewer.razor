@@ -332,7 +332,7 @@ else if (_result is not null)
             else
             {
                 var jurisdictionId = TenantProvider.GetJurisdictionId();
-                _users = await UserService.GetByJurisdictionAsync(jurisdictionId);
+                _users = await UserService.GetManageableUsersAsync(jurisdictionId);
                 _scope = AuditLogScopes.Jurisdiction;
             }
 

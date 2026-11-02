@@ -8,6 +8,14 @@ public sealed class AuditLogReadModel
     public string Severity { get; private set; } = string.Empty;
     public DateTime OccurredOnUtc { get; private set; }
     public Guid? JurisdictionId { get; private set; }
+
+    /// <summary>
+    /// The agency whose audit trail this row belongs to: the owning agency of an incident,
+    /// arrest or citation, otherwise the acting user's agency. Null for jurisdiction-wide rows
+    /// — activity on the shared master index (names, locations) and system work — which every
+    /// agency admin in the jurisdiction can see (issue #118).
+    /// </summary>
+    public Guid? AgencyId { get; private set; }
     public Guid AggregateId { get; private set; }
     public long AggregateVersion { get; private set; }
     public string RecordType { get; private set; } = string.Empty;
@@ -40,7 +48,8 @@ public sealed class AuditLogReadModel
         Guid? userId,
         string message,
         string payload,
-        string? userDisplayName = null)
+        string? userDisplayName = null,
+        Guid? agencyId = null)
     {
         return new AuditLogReadModel
         {
@@ -50,6 +59,7 @@ public sealed class AuditLogReadModel
             Severity = severity,
             OccurredOnUtc = occurredOnUtc,
             JurisdictionId = jurisdictionId,
+            AgencyId = agencyId,
             AggregateId = aggregateId,
             AggregateVersion = aggregateVersion,
             RecordType = recordType,
