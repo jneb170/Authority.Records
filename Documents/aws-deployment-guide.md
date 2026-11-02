@@ -75,6 +75,22 @@ It prints the static IP and the values for the next steps. Docker installation f
 ssh -i ~/.ssh/authority-records-deploy ubuntu@<STATIC_IP> "cloud-init status --wait && docker compose version"
 ```
 
+**If it reports `status: error`**, see what failed:
+
+```powershell
+ssh -i ~/.ssh/authority-records-deploy ubuntu@<STATIC_IP> "cloud-init status --long; sudo tail -n 40 /var/log/cloud-init-output.log"
+```
+
+then rerun the setup by hand (it's safe to run more than once; the `-replace` strips any
+Windows line endings):
+
+```powershell
+((Get-Content deploy\aws\cloud-init.sh -Raw) -replace "`r","") | ssh -i ~/.ssh/authority-records-deploy ubuntu@<STATIC_IP> "sudo sh -s"
+```
+
+> Lightsail prepends its own `#!/bin/sh` lines to the user data, so `cloud-init.sh` runs
+> under `sh` (dash), not bash. Keep it POSIX: no `pipefail`, `[[ ]]` or arrays.
+
 ---
 
 ## Step 2 — DNS
