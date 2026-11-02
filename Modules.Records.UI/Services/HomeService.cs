@@ -26,6 +26,13 @@ public sealed class HomeService : IHomeService
         return await _mediator.Send(query);
     }
 
+    public Task<IReadOnlyList<RecentActivityDto>> GetAgencyRecentActivityAsync(int take = 20) =>
+        _mediator.Send(new GetRecentActivityQuery(
+            _tenantProvider.GetUserId(),
+            _tenantProvider.GetJurisdictionId(),
+            take,
+            IncludeAllUsers: true));
+
     public Task<IReadOnlyList<MapMarkerDto>> GetMapMarkersAsync(DateTime? since) =>
         _mediator.Send(new GetMapMarkersQuery(_tenantProvider.GetJurisdictionId(), since));
 

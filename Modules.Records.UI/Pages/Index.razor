@@ -35,17 +35,17 @@
         <div class="dashboard-metric-card">
             <span class="dashboard-metric-label">Recent incidents</span>
             <strong>@RecentIncidentCount</strong>
-            <span class="dashboard-metric-detail">in the latest activity feed</span>
+            <span class="dashboard-metric-detail">@ActivityFeedLabel</span>
         </div>
         <div class="dashboard-metric-card">
             <span class="dashboard-metric-label">Recent arrests</span>
             <strong>@RecentArrestCount</strong>
-            <span class="dashboard-metric-detail">in the latest activity feed</span>
+            <span class="dashboard-metric-detail">@ActivityFeedLabel</span>
         </div>
         <div class="dashboard-metric-card">
             <span class="dashboard-metric-label">Recent citations</span>
             <strong>@RecentCitationCount</strong>
-            <span class="dashboard-metric-detail">in the latest activity feed</span>
+            <span class="dashboard-metric-detail">@ActivityFeedLabel</span>
         </div>
         <div class="dashboard-metric-card">
             <span class="dashboard-metric-label">Mapped events</span>
@@ -131,7 +131,7 @@
                 </button>
             </h5>
         </div>
-        <small class="dashboard-section-meta">Your last 20 records</small>
+        <small class="dashboard-section-meta">@(_activityIsAgencyWide ? "Latest 20 records in your agency" : "Your last 20 records")</small>
     </div>
 
     @if (_activityExpanded)
@@ -286,6 +286,7 @@
     private bool _loading = true;
     private string _displayName = "Officer";
     private IReadOnlyList<RecentActivityDto>? _activity;
+    private bool _activityIsAgencyWide;
     private IReadOnlyList<MapMarkerDto>? _mapMarkers;
     private string? _mapsApiKey;
     private bool _mapExpanded      = true;
@@ -299,6 +300,7 @@
     private int RecentIncidentCount => _activity?.Count(a => string.Equals(a.RecordType, "Incident", StringComparison.OrdinalIgnoreCase)) ?? 0;
     private int RecentArrestCount => _activity?.Count(a => string.Equals(a.RecordType, "Arrest", StringComparison.OrdinalIgnoreCase)) ?? 0;
     private int RecentCitationCount => _activity?.Count(a => string.Equals(a.RecordType, "Citation", StringComparison.OrdinalIgnoreCase)) ?? 0;
+    private string ActivityFeedLabel => _activityIsAgencyWide ? "in the agency activity feed" : "in the latest activity feed";
     private string MapWindowLabel => _mapWindowHours switch
     {
         24 => "past 24 hours",
@@ -325,6 +327,14 @@
 
             await Task.WhenAll(activityTask, mapStateTask);
             _activity    = activityTask.Result;
+
+            // Nothing of your own yet (a new user, or the shared demo account):
+            // show what the agency has been working on instead of an empty feed.
+            if (_activity.Count == 0)
+            {
+                _activity = await HomeService.GetAgencyRecentActivityAsync(20);
+                _activityIsAgencyWide = _activity.Count > 0;
+            }
             _mapWindowHours = mapStateTask.Result.WindowHours;
             _mapMarkers  = mapStateTask.Result.Markers;
         }
