@@ -114,10 +114,11 @@ jobs:
 
       - name: Configure SSH
         env:
+          HOST: ${{ secrets.LIGHTSAIL_HOST }}
           SSH_KEY: ${{ secrets.LIGHTSAIL_SSH_KEY }}
           KNOWN_HOSTS: ${{ secrets.LIGHTSAIL_KNOWN_HOSTS }}
         run: |
-          for v in SSH_KEY KNOWN_HOSTS; do
+          for v in HOST SSH_KEY KNOWN_HOSTS; do
             if [ -z "${!v}" ]; then
               echo "::error::Missing LIGHTSAIL_${v} secret (see Documents/aws-deployment-guide.md)"; exit 1
             fi
@@ -126,6 +127,11 @@ jobs:
           printf '%s\n' "$SSH_KEY" > ~/.ssh/id_deploy
           chmod 600 ~/.ssh/id_deploy
           printf '%s\n' "$KNOWN_HOSTS" > ~/.ssh/known_hosts
+          # Fail early with a clear message if the pinned host key doesn't match the host.
+          if ! ssh-keygen -F "$HOST" -f ~/.ssh/known_hosts > /dev/null; then
+            echo "::error::LIGHTSAIL_KNOWN_HOSTS has no entry for LIGHTSAIL_HOST. Each line must start with the same IP/hostname as LIGHTSAIL_HOST. Regenerate with: ssh-keyscan -t ed25519,rsa <LIGHTSAIL_HOST>"
+            exit 1
+          fi
           printf 'Host *\n  IdentityFile ~/.ssh/id_deploy\n  IdentitiesOnly yes\n  StrictHostKeyChecking yes\n' > ~/.ssh/config
 
       - name: Upload compose stack
