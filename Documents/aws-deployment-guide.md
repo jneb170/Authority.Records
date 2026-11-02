@@ -38,7 +38,7 @@ Lightsail snapshots.
 1. **AWS account** with permission to use Lightsail.
 2. **AWS CLI v2** — https://docs.aws.amazon.com/cli/latest/userguide/getting-started-install.html
    — then sign in: `aws configure` (access key) or `aws configure sso`.
-3. **OpenSSH client** (`ssh`, `ssh-keygen`, `ssh-keyscan`) — built into Windows 10+, macOS, Linux.
+3. **OpenSSH client** (`ssh`, `ssh-keygen`) — built into Windows 10+, macOS, Linux.
 4. **PowerShell** — Windows PowerShell 5.1 or PowerShell 7+.
 
 ---
@@ -75,6 +75,22 @@ It prints the static IP and the values for the next steps. Docker installation f
 ssh -i ~/.ssh/authority-records-deploy ubuntu@<STATIC_IP> "cloud-init status --wait && docker compose version"
 ```
 
+**If it reports `status: error`**, see what failed:
+
+```powershell
+ssh -i ~/.ssh/authority-records-deploy ubuntu@<STATIC_IP> "cloud-init status --long; sudo tail -n 40 /var/log/cloud-init-output.log"
+```
+
+then rerun the setup by hand (it's safe to run more than once; the `-replace` strips any
+Windows line endings):
+
+```powershell
+((Get-Content deploy\aws\cloud-init.sh -Raw) -replace "`r","") | ssh -i ~/.ssh/authority-records-deploy ubuntu@<STATIC_IP> "sudo sh -s"
+```
+
+> Lightsail prepends its own `#!/bin/sh` lines to the user data, so `cloud-init.sh` runs
+> under `sh` (dash), not bash. Keep it POSIX: no `pipefail`, `[[ ]]` or arrays.
+
 ---
 
 ## Step 2 — DNS
@@ -108,7 +124,25 @@ In **Settings → Environments → production** (create the environment if neede
 |------|-------|
 | `LIGHTSAIL_HOST` | The static IP |
 | `LIGHTSAIL_SSH_KEY` | Full contents of `~/.ssh/authority-records-deploy` (the private key) |
-| `LIGHTSAIL_KNOWN_HOSTS` | Output of `ssh-keyscan -t ed25519,rsa <STATIC_IP>` (pins the host key) |
+| `LIGHTSAIL_KNOWN_HOSTS` | The server's SSH host keys (pins the host key; see below) |
+
+Generate `LIGHTSAIL_KNOWN_HOSTS` by reading the host keys over your (already verified) SSH
+connection. Copying commands from a browser or chat overwrites the clipboard, so this saves
+to a file instead:
+
+```powershell
+$ip = "<STATIC_IP>"   # exactly the value of LIGHTSAIL_HOST
+ssh -i ~/.ssh/authority-records-deploy ubuntu@$ip "cat /etc/ssh/ssh_host_ed25519_key.pub /etc/ssh/ssh_host_rsa_key.pub" |
+  ForEach-Object { "$ip " + (($_ -split ' ')[0..1] -join ' ') } |
+  Tee-Object -FilePath "$HOME\lightsail-known-hosts.txt"
+notepad "$HOME\lightsail-known-hosts.txt"   # Ctrl+A, Ctrl+C, paste into the secret
+```
+
+It should print two lines, `<STATIC_IP> ssh-ed25519 AAAA…` and `<STATIC_IP> ssh-rsa AAAA…`.
+
+> Avoid `ssh-keyscan` on Windows: the built-in OpenSSH's `ssh-keyscan` fails against
+> Ubuntu 24.04 with `choose_kex: unsupported KEX method sntrup761x25519-sha512@openssh.com`.
+> (On macOS/Linux, `ssh-keyscan -t ed25519,rsa <STATIC_IP>` works too.)
 
 **Variables**
 
@@ -151,16 +185,25 @@ Bootstrap one once:
 ```bash
 cd /opt/authority-records
 cat >> app.env <<'EOF'
-Bootstrap__SuperUserEmail=you@example.com
-Bootstrap__SuperUserPassword=<strong password: 8+ chars, at least one digit>
+Bootstrap__SuperUserEmail='you@example.com'
+Bootstrap__SuperUserPassword='<password>'
 EOF
 chmod 600 app.env
 docker compose up -d
+docker compose logs app | grep -i bootstrap
 ```
+
+The password must be at least 8 characters with an uppercase letter, a lowercase letter, a
+digit and a symbol (ASP.NET Identity's rules). Keep the single quotes: they make Compose
+take the value literally, so a `$` in the password isn't treated as a variable. The
+password itself can't contain a `'`. If the log shows `Super user bootstrap failed: …`, it
+names the rule that wasn't met; fix the value with `nano app.env` and run
+`docker compose up -d` again.
 
 On startup the app creates the standard roles (Super, Admin, Supervisor, Officer,
 Dispatcher) and the Super user. It logs `Bootstrapped Super user …`. Sign in, then
-**delete those two lines** from `app.env` and run `docker compose up -d` again. The step is
+**delete those two lines** (`sed -i '/^Bootstrap__/d' app.env`) and run
+`docker compose up -d` again. The step is
 a no-op once any Super user exists, so it never resets a password.
 
 ---
@@ -187,6 +230,21 @@ nested keys, e.g. `Demo__RateLimit__WindowMinutes=60`. Deploys never overwrite t
 
 The database provider and paths are fixed in the image (`DefaultDatabaseProvider=Sqlite`,
 `/data/db/app.db`, `/data/db/auth.db`, `DataProtection__KeysPath=/data/keys`).
+
+### Public demo
+
+On first start the app seeds the **Demo Police Department**: a demo admin
+(`admin@demo.authorityrecords.dev`), the public demo account that the sign-in page's
+**Explore the live demo** button uses (Supervisor role), and a curated sample dataset.
+The dataset is seeded once and skipped once any Name exists in the demo jurisdiction.
+
+- **Demo admin password:** set `Demo__AdminPassword` in `app.env`. It is re-applied on
+  every start. Without it, the account has a random password and can't be used.
+- **About panel links:** `About__AuthorName`, `About__LinkedInUrl`, `About__WebsiteUrl`
+  and `About__GitHubUrl`. Set `About__Enabled=false` to hide the panel.
+- **Turn the demo off:** `Demo__Enabled=false`.
+- **Re-seed after visitors have changed the data:** stop the app, delete the demo
+  agency's records, and restart. The simplest way is to restore an instance snapshot.
 
 ### Backups
 

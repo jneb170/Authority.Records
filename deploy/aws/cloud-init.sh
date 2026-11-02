@@ -1,8 +1,13 @@
-#!/usr/bin/env bash
+#!/bin/sh
 # First-boot setup for the Authority.Records Lightsail instance (Ubuntu 24.04).
 # Passed as --user-data by provision-lightsail.ps1; runs once, as root.
 # Progress: /var/log/cloud-init-output.log on the instance.
-set -euxo pipefail
+#
+# Must stay POSIX sh: Lightsail prepends its own "#!/bin/sh" initialization lines
+# to user data, so this shebang is ignored and the script runs under dash. No
+# bash-isms (pipefail, [[ ]], arrays, ...). Safe to rerun by hand:
+#   ssh ubuntu@<ip> "sudo sh -s" < cloud-init.sh
+set -eux
 
 # 2 GB swap: headroom for .NET + SQLite on small instance bundles.
 if [ ! -f /swapfile ]; then

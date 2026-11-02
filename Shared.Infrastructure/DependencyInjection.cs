@@ -291,7 +291,7 @@ public static class DependencyInjection
             {
                 options.LoginPath = "/account/login";
                 options.LogoutPath = "/account/logout";
-                options.AccessDeniedPath = "/account/login";
+                options.AccessDeniedPath = "/account/access-denied";
                 options.SlidingExpiration = true;
                 options.ExpireTimeSpan = TimeSpan.FromHours(8);
             }));

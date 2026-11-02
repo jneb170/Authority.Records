@@ -146,7 +146,80 @@ public sealed class GetRecordRelationshipsHandlerTests
     }
 
     [Fact]
-    public async Task NameQuery_Returns_Arrests_And_Locations()
+    public async Task NameQuery_Returns_Citations_Where_Name_Is_Defendant()
+    {
+        await using var db = RelationshipTestDbContext.Create();
+        var jurisdictionId = Guid.NewGuid();
+        var agencyId = Guid.NewGuid();
+        var otherAgencyId = Guid.NewGuid();
+        var otherJurisdictionId = Guid.NewGuid();
+        var nameId = Guid.NewGuid();
+        var otherNameId = Guid.NewGuid();
+
+        db.NameReadModels.AddRange(
+            CreateName(nameId, 3001, jurisdictionId, "Simmons", "Tyler", agencyId: agencyId),
+            CreateName(otherNameId, 3002, jurisdictionId, "Other", "Person", agencyId: agencyId));
+        db.CitationReadModels.AddRange(
+            CreateCitation(Guid.NewGuid(), 4002, jurisdictionId, agencyId, "Public intoxication", "CT-4002", defendantNameId: nameId),
+            CreateCitation(Guid.NewGuid(), 4001, jurisdictionId, agencyId, "Speeding", "CT-4001", defendantNameId: nameId),
+            // Excluded: different defendant, no defendant, other agency, other jurisdiction.
+            CreateCitation(Guid.NewGuid(), 4003, jurisdictionId, agencyId, "Noise", "CT-4003", defendantNameId: otherNameId),
+            CreateCitation(Guid.NewGuid(), 4004, jurisdictionId, agencyId, "Parking", "CT-4004"),
+            CreateCitation(Guid.NewGuid(), 4005, jurisdictionId, otherAgencyId, "Littering", "CT-4005", defendantNameId: nameId),
+            CreateCitation(Guid.NewGuid(), 4006, otherJurisdictionId, agencyId, "Loitering", "CT-4006", defendantNameId: nameId));
+        await db.SaveChangesAsync(CancellationToken.None);
+
+        var handler = new GetRecordRelationshipsHandler(db, new FakeTenantProvider(jurisdictionId, agencyId));
+
+        var result = await handler.Handle(
+            new GetRecordRelationshipsQuery(RecordRelationshipRecordTypes.Name, 3001),
+            CancellationToken.None);
+
+        Assert.NotNull(result);
+        var group = Assert.Single(result.Groups, g => g.Title == "Related Citations");
+        Assert.Collection(
+            group.Items,
+            item =>
+            {
+                Assert.Equal(RecordRelationshipRecordTypes.Citation, item.RecordType);
+                Assert.Equal(4001, item.RecordNumber);
+                Assert.Equal("CT-4001", item.Title);
+                Assert.Equal("Speeding", item.Subtitle);
+                Assert.Equal("/citations/4001", item.NavigationUrl);
+                Assert.Equal("Defendant named in citation", item.RelationshipLabel);
+            },
+            item =>
+            {
+                Assert.Equal(4002, item.RecordNumber);
+                Assert.Equal("/citations/4002", item.NavigationUrl);
+                Assert.Equal("Defendant named in citation", item.RelationshipLabel);
+            });
+    }
+
+    [Fact]
+    public async Task NameQuery_Omits_Citations_Group_When_Name_Has_No_Citations()
+    {
+        await using var db = RelationshipTestDbContext.Create();
+        var jurisdictionId = Guid.NewGuid();
+        var agencyId = Guid.NewGuid();
+        var nameId = Guid.NewGuid();
+
+        db.NameReadModels.Add(CreateName(nameId, 3001, jurisdictionId, "Jordan", "Alex", agencyId: agencyId));
+        db.CitationReadModels.Add(CreateCitation(Guid.NewGuid(), 4001, jurisdictionId, agencyId, "Speeding", "CT-4001"));
+        await db.SaveChangesAsync(CancellationToken.None);
+
+        var handler = new GetRecordRelationshipsHandler(db, new FakeTenantProvider(jurisdictionId, agencyId));
+
+        var result = await handler.Handle(
+            new GetRecordRelationshipsQuery(RecordRelationshipRecordTypes.Name, 3001),
+            CancellationToken.None);
+
+        Assert.NotNull(result);
+        Assert.DoesNotContain(result.Groups, g => g.Title == "Related Citations");
+    }
+
+    [Fact]
+    public async Task NameQuery_Returns_Arrests_Citations_And_Locations()
     {
         await using var db = RelationshipTestDbContext.Create();
         var jurisdictionId = Guid.NewGuid();
@@ -161,6 +234,7 @@ public sealed class GetRecordRelationshipsHandlerTests
 
         db.NameReadModels.Add(CreateName(nameId, 3001, jurisdictionId, "Jordan", "Alex", primaryLocationId, secondaryLocationId, agencyId));
         db.ArrestReadModels.Add(CreateArrest(Guid.NewGuid(), 2001, jurisdictionId, agencyId, nameId, "AR-2001"));
+        db.CitationReadModels.Add(CreateCitation(Guid.NewGuid(), 4001, jurisdictionId, agencyId, "Public intoxication", "CT-4001", defendantNameId: nameId));
         await db.SaveChangesAsync(CancellationToken.None);
 
         var handler = new GetRecordRelationshipsHandler(db, new FakeTenantProvider(jurisdictionId, agencyId));
@@ -171,6 +245,7 @@ public sealed class GetRecordRelationshipsHandlerTests
 
         Assert.NotNull(result);
         Assert.Contains(result.Groups, g => g.Title == "Related Arrests" && g.Items.Single().NavigationUrl == "/arrests/2001");
+        Assert.Contains(result.Groups, g => g.Title == "Related Citations" && g.Items.Single().NavigationUrl == "/citations/4001");
         Assert.Contains(result.Groups, g => g.Title == "Primary Location" && g.Items.Single().NavigationUrl == "/locations/7001");
         Assert.Contains(result.Groups, g => g.Title == "Secondary Location" && g.Items.Single().NavigationUrl == "/locations/7002");
     }
@@ -279,7 +354,8 @@ public sealed class GetRecordRelationshipsHandlerTests
         Guid agencyId,
         string description,
         string citationNumber,
-        Guid? locationId = null)
+        Guid? locationId = null,
+        Guid? defendantNameId = null)
     {
         var model = CitationReadModel.Create(
             id,
@@ -291,6 +367,11 @@ public sealed class GetRecordRelationshipsHandlerTests
             DateTime.UtcNow,
             Guid.NewGuid(),
             citationNumber);
+
+        if (defendantNameId.HasValue)
+        {
+            model.ApplyDetailsChanged(description, model.IssueDate, null, citationNumber, defendantNameId);
+        }
 
         if (locationId.HasValue)
         {

@@ -90,7 +90,7 @@ jobs:
   # Requires (production environment):
   #   secrets.LIGHTSAIL_HOST         static IP or hostname of the instance
   #   secrets.LIGHTSAIL_SSH_KEY      private key from provision-lightsail.ps1
-  #   secrets.LIGHTSAIL_KNOWN_HOSTS  ssh-keyscan output for the host (pins host key)
+  #   secrets.LIGHTSAIL_KNOWN_HOSTS  "<host> <keytype> <key>" lines (pins host key; see guide, Step 3)
   #   vars.SITE_ADDRESS              e.g. "authorityrecords.dev, www.authorityrecords.dev"
   #   vars.ACME_EMAIL                Let's Encrypt account email
   # ─────────────────────────────────────────────
@@ -114,18 +114,39 @@ jobs:
 
       - name: Configure SSH
         env:
+          HOST: ${{ secrets.LIGHTSAIL_HOST }}
           SSH_KEY: ${{ secrets.LIGHTSAIL_SSH_KEY }}
           KNOWN_HOSTS: ${{ secrets.LIGHTSAIL_KNOWN_HOSTS }}
         run: |
-          for v in SSH_KEY KNOWN_HOSTS; do
+          for v in HOST SSH_KEY KNOWN_HOSTS; do
             if [ -z "${!v}" ]; then
               echo "::error::Missing LIGHTSAIL_${v} secret (see Documents/aws-deployment-guide.md)"; exit 1
             fi
           done
           install -m 700 -d ~/.ssh
-          printf '%s\n' "$SSH_KEY" > ~/.ssh/id_deploy
+          # Pasting into the GitHub secret form can add CRLF line endings or stray
+          # whitespace, either of which makes OpenSSH reject the key ("error in
+          # libcrypto"). Normalize, then validate with a specific message.
+          printf '%s\n' "$SSH_KEY" | tr -d '\r' | sed 's/^[[:space:]]*//; s/[[:space:]]*$//' > ~/.ssh/id_deploy
           chmod 600 ~/.ssh/id_deploy
-          printf '%s\n' "$KNOWN_HOSTS" > ~/.ssh/known_hosts
+          if ! ssh-keygen -y -f ~/.ssh/id_deploy > /dev/null 2>&1; then
+            if grep -q '^ssh-' ~/.ssh/id_deploy; then
+              echo "::error::LIGHTSAIL_SSH_KEY contains a PUBLIC key. Use the private key file (the one WITHOUT .pub)."
+            elif ! grep -q -- '-----BEGIN .*PRIVATE KEY-----' ~/.ssh/id_deploy; then
+              echo "::error::LIGHTSAIL_SSH_KEY is missing the '-----BEGIN ... PRIVATE KEY-----' line. Paste the entire private key file."
+            elif ! grep -q -- '-----END .*PRIVATE KEY-----' ~/.ssh/id_deploy; then
+              echo "::error::LIGHTSAIL_SSH_KEY is missing the '-----END ... PRIVATE KEY-----' line (truncated paste?). Paste the entire private key file."
+            else
+              echo "::error::LIGHTSAIL_SSH_KEY is not a valid unencrypted private key. Paste the entire private key file (see Documents/aws-deployment-guide.md, Step 3)."
+            fi
+            exit 1
+          fi
+          printf '%s\n' "$KNOWN_HOSTS" | tr -d '\r' > ~/.ssh/known_hosts
+          # Fail early with a clear message if the pinned host key doesn't match the host.
+          if ! ssh-keygen -F "$HOST" -f ~/.ssh/known_hosts > /dev/null; then
+            echo "::error::LIGHTSAIL_KNOWN_HOSTS has no entry for LIGHTSAIL_HOST. Each line must start with the same IP/hostname as LIGHTSAIL_HOST. See Documents/aws-deployment-guide.md, Step 3, to regenerate it."
+            exit 1
+          fi
           printf 'Host *\n  IdentityFile ~/.ssh/id_deploy\n  IdentitiesOnly yes\n  StrictHostKeyChecking yes\n' > ~/.ssh/config
 
       - name: Upload compose stack
