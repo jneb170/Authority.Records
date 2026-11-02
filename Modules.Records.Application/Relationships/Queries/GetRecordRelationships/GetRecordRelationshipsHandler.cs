@@ -264,6 +264,17 @@ public sealed class GetRecordRelationshipsHandler(
             .Select(x => CreateArrestItem(x, FormatName(name), "Suspect named in arrest"))
             .ToList());
 
+        var citations = await dbContext.CitationReadModels
+            .AsNoTracking()
+            .WhereAgencyScoped(activeAgencyId)
+            .Where(x => x.JurisdictionId == jurisdictionId && x.DefendantNameId == name.Id)
+            .OrderBy(x => x.RecordNumber)
+            .ToListAsync(cancellationToken);
+
+        AddGroup(groups, "Related Citations", citations
+            .Select(x => CreateCitationItem(x, "Defendant named in citation"))
+            .ToList());
+
         if (name.PrimaryLocationId.HasValue)
         {
             var primaryLocation = await dbContext.LocationReadModels
