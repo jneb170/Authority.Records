@@ -1,5 +1,6 @@
 @page "/arrests/create"
 @page "/incidents/{IncidentRecordNumber:long}/arrests/create"
+@inject IAgencyClock Clock
 @implements IAsyncDisposable
 @inject IArrestService ArrestService
 @inject IChargeService ChargeService
@@ -202,6 +203,8 @@
 
     protected override Task OnInitializedAsync()
     {
+        // The view model defaults to the server's date (UTC in production); use the agency's (issue #95).
+        _vm.ArrestedAt = Clock.Today;
         ShortcutService.OnRelease += HandleShortcutRelease;
         ShortcutService.OnSave    += HandleShortcutSave;
         return Task.CompletedTask;

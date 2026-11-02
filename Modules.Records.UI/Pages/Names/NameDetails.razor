@@ -1,4 +1,5 @@
 @page "/names/{RecordNumber:long}"
+@inject IAgencyClock Clock
 @implements IAsyncDisposable
 @inject INameService NameService
 @inject IPicklistService PicklistService
@@ -345,7 +346,7 @@ else if (_name is not null)
                         {
                             <input type="date" class="form-control form-control-sm"
                                    value="@(_editDateOfBirth.HasValue ? _editDateOfBirth.Value.ToString("yyyy-MM-dd") : "")"
-                                   max="@DateTime.Today.ToString("yyyy-MM-dd")"
+                                   max="@Clock.Today.ToString("yyyy-MM-dd")"
                                    @onchange="@(e => _editDateOfBirth = DateTime.TryParse(e.Value?.ToString(), out var d) ? d : null)" />
                         }
                         else
@@ -1174,10 +1175,10 @@ else if (_name is not null)
         return ValueTask.CompletedTask;
     }
 
-    private static int? ComputeAge(DateTime? dob)
+    private int? ComputeAge(DateTime? dob)
     {
         if (!dob.HasValue) return null;
-        var today = DateTime.Today;
+        var today = Clock.Today;
         var age   = today.Year - dob.Value.Year;
         if (dob.Value.AddYears(age) > today) age--;
         return age;

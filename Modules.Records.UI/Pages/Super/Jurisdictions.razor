@@ -1,4 +1,5 @@
 @page "/super/jurisdictions"
+@inject IAgencyClock Clock
 @attribute [Authorize(Roles = "Super")]
 @using Microsoft.AspNetCore.Authorization
 @inject IJurisdictionManagementService JurisdictionService
@@ -72,7 +73,7 @@ else
                     <td>@j.State</td>
                     <td>@j.Code</td>
                     <td>@(j.IsActive ? "✅" : "❌")</td>
-                    <td>@j.CreatedAtUtc.ToLocalTime().ToString("MM/dd/yyyy")</td>
+                    <td>@Clock.Format(j.CreatedAtUtc.UtcDateTime, "MM/dd/yyyy")</td>
                     <td class="text-end">
                         <button class="btn btn-sm btn-outline-primary me-1" @onclick="() => EditJurisdiction(j)">✏ Edit</button>
                         <button class="btn btn-sm btn-outline-secondary me-1"

@@ -1,4 +1,5 @@
 @page "/"
+@inject IAgencyClock Clock
 @using System.Security.Claims
 @using Microsoft.JSInterop
 @using Modules.Records.Application.Common.Queries.GetMapMarkers
@@ -17,7 +18,7 @@
     <div>
         <div class="dashboard-eyebrow">Operations dashboard</div>
         <h2 class="page-header-title"><i class="bi bi-house-fill"></i> Home</h2>
-        <div class="page-header-sub">Welcome back, <strong>@_displayName</strong> &mdash; @DateTime.Today.ToString("dddd, MMMM d, yyyy")</div>
+        <div class="page-header-sub">Welcome back, <strong>@_displayName</strong> &mdash; @Clock.Today.ToString("dddd, MMMM d, yyyy")</div>
     </div>
     <div class="dashboard-header-chip">
         <i class="bi bi-shield-check"></i>
@@ -191,7 +192,7 @@
                                             <span class="text-primary fw-semibold">Modified</span>
                                         }
                                     </td>
-                                    <td class="text-nowrap">@item.LastActivityAt.ToLocalTime().ToString("MM/dd/yyyy h:mm tt")</td>
+                                    <td class="text-nowrap">@Clock.Format(item.LastActivityAt, "MM/dd/yyyy h:mm tt", withZone: true)</td>
                                 </tr>
                             }
                         </tbody>

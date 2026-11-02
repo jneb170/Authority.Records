@@ -1,3 +1,4 @@
+@inject IAgencyClock Clock
 @using Modules.Records.Application.Admin.Queries.GetAuditLogs
 @using Modules.Records.Domain.Abstractions
 @using Modules.Records.UI.Services
@@ -171,7 +172,7 @@ else if (_result is not null)
                     @foreach (var item in _result.Items)
                     {
                         <tr>
-                            <td>@item.OccurredOnUtc.ToLocalTime().ToString("g")</td>
+                            <td>@Clock.Format(item.OccurredOnUtc, "g", withZone: true)</td>
                             <td>
                                 <span class="badge @(item.Severity == AuditLogSeverities.Warning ? "text-bg-warning" : "text-bg-info")">
                                     @item.Severity
@@ -233,7 +234,7 @@ else if (_result is not null)
                         <div class="small text-muted">
                             @_selectedLogEntry.RecordType @(_selectedLogEntry.RecordNumber?.ToString() ?? string.Empty)
                             &middot; @_selectedLogEntry.ActionType
-                            &middot; @_selectedLogEntry.OccurredOnUtc.ToLocalTime().ToString("g")
+                            &middot; @Clock.Format(_selectedLogEntry.OccurredOnUtc, "g", withZone: true)
                         </div>
                     </div>
                     <button type="button" class="btn-close" aria-label="Close" @onclick="ClosePayloadModal"></button>

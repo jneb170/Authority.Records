@@ -1,5 +1,6 @@
 @page "/citations/{RecordNumber:long}"
 @page "/incidents/{IncidentRecordNumber:long}/citations/{RecordNumber:long}"
+@inject IAgencyClock Clock
 @implements IAsyncDisposable
 @inject ICitationService CitationService
 @inject IIncidentService IncidentService
@@ -277,7 +278,7 @@ else if (_citation is not null)
             @if (_editAtTimeOfCopiedAtUtc.HasValue)
             {
                 <div class="text-muted small mb-3">
-                    Last copied @(_editAtTimeOfCopiedAtUtc.Value.ToLocalTime().ToString("g"))
+                    Last copied @(Clock.Format(_editAtTimeOfCopiedAtUtc.Value, "g"))
                     @if (!string.IsNullOrWhiteSpace(_editAtTimeOfCopiedByName))
                     {
                         <span>by @_editAtTimeOfCopiedByName</span>
@@ -1198,7 +1199,7 @@ else if (_citation is not null)
             _editNameDisplay = _citation?.DefendantName;
             _editNameRecordNumber = _citation?.DefendantNameRecordNumber;
             _editVm.Description = _citation?.Description ?? string.Empty;
-            _editVm.IssueDate   = _citation?.IssueDate ?? DateTime.Now;
+            _editVm.IssueDate   = _citation?.IssueDate ?? Clock.Now;
             _editVm.CitationNum = _citation?.CitationNum ?? string.Empty;
             _editCourtId     = _citation?.CourtId;
             _editLocationId  = _citation?.LocationId;

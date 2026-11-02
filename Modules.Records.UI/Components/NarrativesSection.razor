@@ -1,3 +1,4 @@
+@inject IAgencyClock Clock
 @inject INarrativeService NarrativeService
 @using Modules.Records.Application.DTOs
 @using Modules.Records.UI.Services
@@ -60,7 +61,7 @@
                             <div class="flex-grow-1">
                                 <div class="fw-semibold">@n.Title</div>
                                 <div class="small text-muted" style="white-space: pre-wrap;">@n.Content</div>
-                                <div class="small text-muted mt-1">#@n.RecordNumber · updated @n.UpdatedAtUtc.ToLocalTime().ToString("g")</div>
+                                <div class="small text-muted mt-1">#@n.RecordNumber · updated @Clock.Format(n.UpdatedAtUtc, "g")</div>
                             </div>
                             @if (CanModify && _editingId is null && !_adding)
                             {

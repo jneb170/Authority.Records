@@ -1,4 +1,5 @@
 @page "/names"
+@inject IAgencyClock Clock
 @implements IDisposable
 @inject INameService NameService
 @inject IPicklistService PicklistService
@@ -329,7 +330,7 @@ else if (_names is not null)
         _error = null;
         try
         {
-            var today      = DateTime.Today;
+            var today      = Clock.Today;
             var dobFrom    = _filterDobFrom;
             var dobTo      = _filterDobTo;
 
@@ -391,10 +392,10 @@ else if (_names is not null)
         }
     }
 
-    private static int? ComputeAge(DateTime? dob)
+    private int? ComputeAge(DateTime? dob)
     {
         if (!dob.HasValue) return null;
-        var today = DateTime.Today;
+        var today = Clock.Today;
         var age   = today.Year - dob.Value.Year;
         if (dob.Value.AddYears(age) > today) age--;
         return age;

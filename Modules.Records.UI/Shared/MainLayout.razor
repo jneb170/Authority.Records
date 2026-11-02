@@ -3,6 +3,7 @@
 @inject NavigationManager Nav
 @inject AuthenticationStateProvider AuthStateProvider
 @inject IActiveAgencyContext AgencyContext
+@inject IAgencyClock AgencyClock
 @inject ICurrentUserContext CurrentUser
 @inject IConfiguration Configuration
 @using System.Security.Claims
@@ -97,7 +98,8 @@
             </div>
         }
         <div class="main-content">
-            @if (!_suppressBody)
+            @* Wait for the agency time zone so pages can format timestamps synchronously (issue #95). *@
+            @if (!_suppressBody && _clockReady)
             {
                 @Body
             }
@@ -119,6 +121,7 @@
     private string? _sourceUrl;
 
     private bool _suppressBody;
+    private bool _clockReady;
     private bool _isSuper;
     private bool _sidebarOpen;
     private string? _displayName;
@@ -151,6 +154,14 @@
         _isSuper = user.IsInRole("Super");
         UpdateSuppressBody();
         await AgencyContext.EnsureLoadedAsync();
+        try
+        {
+            await AgencyClock.EnsureLoadedAsync();
+        }
+        finally
+        {
+            _clockReady = true;
+        }
 
         _displayName = user.FindFirst("fullname")?.Value
                     ?? user.FindFirst(ClaimTypes.Name)?.Value
@@ -197,9 +208,12 @@
     }
 
     private void HandleAgencyContextChanged()
-        => _ = InvokeAsync(() =>
+        => _ = InvokeAsync(async () =>
         {
             _agencyName = AgencyContext.ActiveAgencyName;
+            // Agencies can have different time zones.
+            AgencyClock.Reset();
+            await AgencyClock.EnsureLoadedAsync();
             StateHasChanged();
         });
 
