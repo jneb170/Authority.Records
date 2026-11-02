@@ -1,9 +1,12 @@
 @page "/admin/agencies"
+@inject IAgencyClock Clock
 @attribute [Authorize(Roles = "Admin")]
 @using Microsoft.AspNetCore.Authorization
 @using Microsoft.AspNetCore.Components.Authorization
 @inject IAgencyManagementService AgencyService
 @inject AuthenticationStateProvider AuthStateProvider
+
+<AppPageTitle Title="Agencies" />
 
 <div class="page-header">
     <div>
@@ -67,7 +70,7 @@ else
                     <td>@a.Name</td>
                     <td>@a.Code</td>
                     <td>@(a.IsActive ? "✅" : "❌")</td>
-                    <td>@a.CreatedAtUtc.ToLocalTime().ToString("MM/dd/yyyy")</td>
+                    <td>@Clock.Format(a.CreatedAtUtc.UtcDateTime, "MM/dd/yyyy")</td>
                     <td class="text-end">
                         <button class="btn btn-sm btn-outline-primary me-1" @onclick="() => EditAgency(a)">✏ Edit</button>
                         <button class="btn btn-sm btn-outline-danger" @onclick="() => InitiateDelete(a)">🗑</button>

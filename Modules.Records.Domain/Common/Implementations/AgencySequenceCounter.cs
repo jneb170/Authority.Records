@@ -27,6 +27,18 @@ public sealed class AgencySequenceCounter
         NextValue = 0;
     }
 
+    /// <summary>
+    /// Moves the counter forward so the next value is greater than <paramref name="lastUsed"/>. Never moves it
+    /// back. Used when records numbered outside the generator (imports, demo data) already exist.
+    /// </summary>
+    public bool EnsureAtLeast(long lastUsed)
+    {
+        if (NextValue >= lastUsed)
+            return false;
+        NextValue = lastUsed;
+        return true;
+    }
+
     /// <summary>Increments the counter and returns the new value.</summary>
     public long Increment()
     {

@@ -19,7 +19,7 @@
 @using Modules.Records.UI.Interop
 @using Modules.Records.UI.Services
 
-<PageTitle>@(_location is null ? "Location Details" : $"📍 {_location.RecordNumber} - {FormatAddressTitle(_location)}")</PageTitle>
+<AppPageTitle Title="@(_location is null ? "Location Details" : $"📍 {_location.RecordNumber} - {FormatAddressTitle(_location)}")" />
 
 @if (_loading)
 {

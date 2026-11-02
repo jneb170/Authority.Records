@@ -1,5 +1,6 @@
 @page "/arrests/{RecordNumber:long}"
 @page "/incidents/{IncidentRecordNumber:long}/arrests/{RecordNumber:long}"
+@inject IAgencyClock Clock
 @implements IAsyncDisposable
 @inject IArrestService ArrestService
 @inject IIncidentService IncidentService
@@ -17,7 +18,7 @@
 @using Modules.Records.Application.DTOs
 @using Modules.Records.UI.Services
 
-<PageTitle>Arrest Details</PageTitle>
+<AppPageTitle Title="Arrest Details" />
 
 @if (_loading)
 {
@@ -277,10 +278,10 @@ else if (_arrest is not null)
             @if (_editAtTimeOfCopiedAtUtc.HasValue)
             {
                 <div class="text-muted small mb-3">
-                    Last copied @(_editAtTimeOfCopiedAtUtc.Value.ToLocalTime().ToString("g"))
+                    Last copied @(Clock.Format(_editAtTimeOfCopiedAtUtc.Value, "g"))
                     @if (!string.IsNullOrWhiteSpace(_editAtTimeOfCopiedByName))
                     {
-                        <span>by @_editAtTimeOfCopiedByName</span>
+                        <span>@($" by {_editAtTimeOfCopiedByName}")</span>
                     }
                 </div>
             }
@@ -786,7 +787,7 @@ else if (_arrest is not null)
     private string? _atTimeOfHairColorLabel;
     private string? _atTimeOfEyeColorLabel;
     private string? _atTimeOfDriversLicenseStateLabel;
-    private DateTime _editArrestedAt = DateTime.Now;
+    private DateTime _editArrestedAt = DateTime.Now; // overwritten with the record value when it loads
     private string _editArrestNum = string.Empty;
     private bool _generatingArrestNum;
     private Guid? _editArrestTypeId;
@@ -966,7 +967,7 @@ else if (_arrest is not null)
             _editNameId                    = _arrest?.NameId;
             _editNameDisplay               = _arrest?.SuspectName;
             _editNameRecordNumber          = _arrest?.NameRecordNumber;
-            _editArrestedAt                = _arrest?.ArrestedAt ?? DateTime.Now;
+            _editArrestedAt                = _arrest?.ArrestedAt ?? Clock.Now;
             _editArrestNum                 = _arrest?.ArrestNum ?? string.Empty;
             _editArrestTypeId              = _arrest?.ArrestTypeId;
             _editPrimaryIncidentId         = _arrest?.PrimaryIncidentId;

@@ -1,4 +1,5 @@
 @page "/incidents/{RecordNumber:long}"
+@inject IAgencyClock Clock
 @implements IAsyncDisposable
 @using IncidentDetailsVo = Modules.Records.Domain.ValueObjects.IncidentDetails
 @using Modules.Records.Application.Abstractions
@@ -17,7 +18,7 @@
 @using Modules.Records.UI.Services
 @using Modules.Records.Domain.Common.Exceptions
 
-<PageTitle>Incident Details</PageTitle>
+<AppPageTitle Title="Incident Details" />
 
 @if (_loading)
 {
@@ -166,13 +167,13 @@ else if (_incident is not null)
                         @if (_modifyMode)
                         {
                             <input id="inc-occurred" type="datetime-local" class="form-control form-control-sm"
-                                   value="@DateTimeLocalInputHelper.FormatLocal(_editOccurredOn)"
+                                   value="@DateTimeLocalInputHelper.FormatLocal(_editOccurredOn, Clock)"
                                    @onchange="OnOccurredOnChanged" />
                         }
                         else
                         {
                             <div class="form-control-plaintext form-control-sm ps-0">
-                                @(_editOccurredOn.HasValue ? _editOccurredOn.Value.ToLocalTime().ToString("MM/dd/yyyy HH:mm") : "—")
+                                @(_editOccurredOn.HasValue ? Clock.Format(_editOccurredOn.Value, "MM/dd/yyyy HH:mm") : "—")
                             </div>
                         }
                     </FormField>
@@ -735,7 +736,7 @@ else if (_incident is not null)
 
     private void OnOccurredOnChanged(ChangeEventArgs e)
     {
-        if (DateTimeLocalInputHelper.TryParseUtcFromLocal(e.Value?.ToString(), out var occurredOn))
+        if (DateTimeLocalInputHelper.TryParseUtcFromLocal(e.Value?.ToString(), Clock, out var occurredOn))
         {
             _editOccurredOn = occurredOn;
         }

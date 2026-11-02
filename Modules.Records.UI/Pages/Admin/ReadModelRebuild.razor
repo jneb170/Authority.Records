@@ -4,13 +4,10 @@
 @using Microsoft.AspNetCore.Authorization
 @using Modules.Records.Application.Admin.Commands.RebuildReadModels
 
-<PageTitle>Read Model Rebuild</PageTitle>
+<AppPageTitle Title="Read Model Rebuild" />
 
-<h1>🔄 Read Model Rebuild</h1>
-<p class="text-muted">
-    Synchronise the read (projection) tables from the authoritative aggregate tables.
-    Use this if records appear out of sync or after recovering from a failed projection.
-</p>
+<PageHeader Icon="bi-arrow-repeat" Title="Read Model Rebuild"
+            Subtitle="Synchronize the read (projection) tables with the authoritative record tables. Use it if lists or search results look out of date." />
 
 @if (_error is not null)
 {
@@ -22,7 +19,7 @@
     <!-- Automatic Rebuild Card -->
     <div class="col-12 col-md-5">
         <div class="card">
-            <div class="card-header"><strong>⚙ Automatic Rebuilds</strong></div>
+            <div class="card-header"><strong><i class="bi bi-clock-history me-1" aria-hidden="true"></i> Automatic rebuilds</strong></div>
             <div class="card-body">
                 @if (_loading)
                 {
@@ -31,8 +28,7 @@
                 else
                 {
                     <p class="small text-muted">
-                        Automatic rebuilds no longer use a polling background worker.
-                        Instead, rebuilds can occur on the first tenant request after:
+                        A rebuild runs automatically on the first request for a jurisdiction after:
                     </p>
                     <ul class="small mb-3">
                         <li>an app startup or redeploy</li>
@@ -49,13 +45,13 @@
     <!-- Run Now Card -->
     <div class="col-12 col-md-7">
         <div class="card">
-            <div class="card-header"><strong>▶ Manual Rebuild</strong></div>
+            <div class="card-header"><strong><i class="bi bi-play-circle me-1" aria-hidden="true"></i> Manual rebuild</strong></div>
             <div class="card-body">
                 @if (!_confirming && !_running && _result is null)
                 {
                     <p class="text-muted small">
                         Clears all read-model rows for this jurisdiction and repopulates them
-                        from the aggregate tables. This may take a few seconds.
+                        from the record tables. This takes a few seconds.
                     </p>
                     <button class="btn btn-primary" @onclick="RequestConfirm">Run Now</button>
                 }

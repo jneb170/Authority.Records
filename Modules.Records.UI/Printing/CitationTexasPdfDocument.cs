@@ -1,4 +1,4 @@
-using Modules.Records.Domain.Common.Violations;
+﻿using Modules.Records.Domain.Common.Violations;
 using QuestPDF.Fluent;
 using QuestPDF.Helpers;
 using QuestPDF.Infrastructure;
@@ -48,6 +48,7 @@ public sealed class CitationTexasPdfDocument : IDocument
     private const float FillSize = 6.6f;
     private const float BodySize = 5.9f;
     private const float CheckSize = 5.6f;
+    private const float GridCheckSize = 4.9f;
     private const float SubLabelSize = 4.4f;
     private const float VLabelSize = 5f;
     private const float LineThickness = 0.7f;
@@ -161,9 +162,9 @@ public sealed class CitationTexasPdfDocument : IDocument
         {
             text.DefaultTextStyle(t => t.FontSize(BodySize));
             text.Span("IN THE ");
-            text.Span(_model.CourtLabel).Underline();
+            text.Span(Blank(_model.AffidavitCourtName)).Underline();
             text.Span(" COURT OF ");
-            text.Span(_model.AppearanceOrCitationLocation).Underline();
+            text.Span(Blank(_model.AffidavitCourtOf)).Underline();
         });
 
         col.Item().Text("THE UNDERSIGNED, BEING DULY SWORN, UPON HIS OATH DEPOSES AND SAYS:")
@@ -175,10 +176,11 @@ public sealed class CitationTexasPdfDocument : IDocument
         col.Item().Row(row =>
         {
             row.Spacing(6);
-            row.RelativeItem(1.4f).Element(c => Field(c, "ON", _model.IssueDate));
-            row.RelativeItem(0.7f).Element(c => Field(c, "THE", _model.IssueDayOfMonth));
-            row.RelativeItem(1.1f).Element(c => Field(c, "DAY OF", _model.IssueMonthYear));
-            row.RelativeItem(0.9f).Element(c => Field(c, "AT", _model.IssueTime));
+            // DAY OF gets the most room: "September 2026" was cut off as "October …" (issue #98).
+            row.RelativeItem(1.15f).Element(c => Field(c, "ON", _model.IssueDate));
+            row.RelativeItem(0.5f).Element(c => Field(c, "THE", _model.IssueDayOfMonth));
+            row.RelativeItem(1.75f).Element(c => Field(c, "DAY OF", _model.IssueMonthYear));
+            row.RelativeItem(0.7f).Element(c => Field(c, "AT", _model.IssueTime));
             row.AutoItem().AlignBottom().PaddingLeft(2).Text(_model.IssueAmPm).FontSize(6);
         });
     }
@@ -367,55 +369,58 @@ public sealed class CitationTexasPdfDocument : IDocument
             row.RelativeItem(1.6f).Element(c => Field(c, "in ____ MPH zone", _model.ZoneMph));
         });
 
-        // Four-column checkbox grid (mirrors the printed form's panels 1:1).
+        // Four-column checkbox grid (mirrors the printed form's panels 1:1). The first column holds the
+        // longest captions, so it is wider; captions use GridCheck's smaller type so words don't break
+        // mid-word ("Unreasona / ble") and boxes line up with the first line of their caption (issue #98).
         panel.Item().Row(row =>
         {
-            row.Spacing(4);
+            row.Spacing(3);
 
-            row.RelativeItem().Column(c =>
+            row.RelativeItem(1.3f).Column(c =>
             {
-                Check(c.Item(), _model.Flag(ViolationFlagKey.UnreasonableForConditions), "Unreasonable for conditions");
-                Check(c.Item(), _model.Flag(ViolationFlagKey.UnableToStop), "Unable to stop in assured clear distance ahead");
-                Check(c.Item(), _model.Flag(ViolationFlagKey.ImproperLeftTurn), "Improper LEFT TURN");
-                Check(c.Item(), _model.Flag(ViolationFlagKey.ImproperRightTurn), "Improper RIGHT TURN");
-                Check(c.Item(), _model.Flag(ViolationFlagKey.ImproperPassingAndLaneUsage), "Improper PASSING AND LANE USAGE");
+                GridCheck(c.Item(), _model.Flag(ViolationFlagKey.UnreasonableForConditions), "Unreasonable for conditions");
+                GridCheck(c.Item(), _model.Flag(ViolationFlagKey.UnableToStop), "Unable to stop in assured clear distance ahead");
+                GridCheck(c.Item(), _model.Flag(ViolationFlagKey.ImproperLeftTurn), "Improper LEFT TURN");
+                GridCheck(c.Item(), _model.Flag(ViolationFlagKey.ImproperRightTurn), "Improper RIGHT TURN");
+                GridCheck(c.Item(), _model.Flag(ViolationFlagKey.ImproperPassingAndLaneUsage), "Improper PASSING AND LANE USAGE");
             });
 
-            row.RelativeItem().Column(c =>
+            row.RelativeItem(0.95f).Column(c =>
             {
-                Check(c.Item(), _model.Flag(ViolationFlagKey.NoSignal), "No Signal");
-                Check(c.Item(), _model.Flag(ViolationFlagKey.SignalDeviceDisobeyed), "Signal device disobeyed");
-                Check(c.Item(), _model.Flag(ViolationFlagKey.WrongPlace), "Wrong place");
-                Check(c.Item(), _model.Flag(ViolationFlagKey.AtIntersection), "At intersection");
-                Check(c.Item(), _model.Flag(ViolationFlagKey.Lane), "Lane");
-                Check(c.Item(), _model.Flag(ViolationFlagKey.Straddling), "Straddling");
+                GridCheck(c.Item(), _model.Flag(ViolationFlagKey.NoSignal), "No Signal");
+                GridCheck(c.Item(), _model.Flag(ViolationFlagKey.SignalDeviceDisobeyed), "Signal device disobeyed");
+                GridCheck(c.Item(), _model.Flag(ViolationFlagKey.WrongPlace), "Wrong place");
+                GridCheck(c.Item(), _model.Flag(ViolationFlagKey.AtIntersection), "At intersection");
+                GridCheck(c.Item(), _model.Flag(ViolationFlagKey.Lane), "Lane");
+                GridCheck(c.Item(), _model.Flag(ViolationFlagKey.Straddling), "Straddling");
             });
 
-            row.RelativeItem().Column(c =>
+            row.RelativeItem(1f).Column(c =>
             {
-                Check(c.Item(), _model.Flag(ViolationFlagKey.CutCorner), "Cut corner");
-                Check(c.Item(), _model.Flag(ViolationFlagKey.IntoWrongLane), "Into wrong lane");
-                Check(c.Item(), _model.Flag(ViolationFlagKey.MiddleOfIntersection), "Middle of intersection");
-                Check(c.Item(), _model.Flag(ViolationFlagKey.WalkSpeed), "Walk speed");
-                Check(c.Item(), _model.Flag(ViolationFlagKey.CutIn), "Cut in");
-                Check(c.Item(), _model.Flag(ViolationFlagKey.OnRight), "On right");
-                Check(c.Item(), _model.Flag(ViolationFlagKey.WrongLane), "Wrong lane");
+                GridCheck(c.Item(), _model.Flag(ViolationFlagKey.CutCorner), "Cut corner");
+                GridCheck(c.Item(), _model.Flag(ViolationFlagKey.IntoWrongLane), "Into wrong lane");
+                GridCheck(c.Item(), _model.Flag(ViolationFlagKey.MiddleOfIntersection), "Middle of intersection");
+                GridCheck(c.Item(), _model.Flag(ViolationFlagKey.WalkSpeed), "Walk speed");
+                GridCheck(c.Item(), _model.Flag(ViolationFlagKey.CutIn), "Cut in");
+                GridCheck(c.Item(), _model.Flag(ViolationFlagKey.OnRight), "On right");
+                GridCheck(c.Item(), _model.Flag(ViolationFlagKey.WrongLane), "Wrong lane");
             });
 
-            row.RelativeItem().Column(c =>
+            row.RelativeItem(1f).Column(c =>
             {
-                Check(c.Item(), _model.Flag(ViolationFlagKey.FromWrongLane), "From wrong lane");
-                Check(c.Item(), _model.Flag(ViolationFlagKey.WrongSideOfPavement), "Wrong side of pavement");
-                Check(c.Item(), _model.Flag(ViolationFlagKey.Faster), "Faster");
-                Check(c.Item(), _model.Flag(ViolationFlagKey.OnHill), "On hill");
-                Check(c.Item(), _model.Flag(ViolationFlagKey.OnCurve), "On curve");
+                GridCheck(c.Item(), _model.Flag(ViolationFlagKey.FromWrongLane), "From wrong lane");
+                GridCheck(c.Item(), _model.Flag(ViolationFlagKey.WrongSideOfPavement), "Wrong side of pavement");
+                GridCheck(c.Item(), _model.Flag(ViolationFlagKey.Faster), "Faster");
+                GridCheck(c.Item(), _model.Flag(ViolationFlagKey.OnHill), "On hill");
+                GridCheck(c.Item(), _model.Flag(ViolationFlagKey.OnCurve), "On curve");
             });
         });
 
         // Other violations
         panel.Item().PaddingTop(2).BorderTop(0.6f).PaddingTop(3).Column(c =>
         {
-            c.Item().Element(x => Field(x, "OTHER VIOLATIONS (describe)", _model.OtherViolations));
+            // Two lines: a typical offense description ("Open container of alcohol in a vehicle…") doesn't fit one.
+            c.Item().Element(x => Field(x, "OTHER VIOLATIONS (describe)", _model.OtherViolations, maxLines: 2));
             c.Item().PaddingTop(2).Row(row =>
             {
                 row.Spacing(8);
@@ -571,7 +576,7 @@ public sealed class CitationTexasPdfDocument : IDocument
     }
 
     /// <summary>A labeled field: small caption followed by an underlined fill carrying the value.</summary>
-    private static void Field(IContainer container, string label, string value)
+    private static void Field(IContainer container, string label, string value, int maxLines = 1)
     {
         container.Row(row =>
         {
@@ -579,7 +584,7 @@ public sealed class CitationTexasPdfDocument : IDocument
                 row.AutoItem().PaddingRight(2).AlignBottom().Text(label).FontSize(LabelSize);
 
             row.RelativeItem().BorderBottom(LineThickness).MinHeight(9).PaddingBottom(1).PaddingHorizontal(1)
-                .AlignBottom().Element(c => Fill(c, value));
+                .AlignBottom().Element(c => Fill(c, value, maxLines));
         });
     }
 
@@ -621,11 +626,11 @@ public sealed class CitationTexasPdfDocument : IDocument
 
     /// <summary>A single-line, single-size data fill that truncates rather than wrapping or expanding —
     /// a long value must never grow a row and shift its neighbours.</summary>
-    private static void Fill(IContainer container, string? value)
+    private static void Fill(IContainer container, string? value, int maxLines = 1)
     {
         container.Text(t =>
         {
-            t.ClampLines(1);
+            t.ClampLines(maxLines);
             t.Span(value ?? string.Empty).FontSize(FillSize);
         });
     }
@@ -639,6 +644,23 @@ public sealed class CitationTexasPdfDocument : IDocument
             // LineHeight < 1 compresses captions that wrap to 2-3 lines in the narrow grid columns,
             // keeping the form short enough that the Letter front fits on a single page.
             row.RelativeItem().PaddingLeft(2).AlignBottom().Text(caption).FontSize(CheckSize).LineHeight(0.95f);
+        });
+    }
+
+    /// <summary>An inline underlined blank: the value, or non-breaking spaces so an empty blank still shows its line.</summary>
+    private static string Blank(string value)
+        => string.IsNullOrWhiteSpace(value) ? new string('\u00A0', 18) : value;
+
+    /// <summary>
+    /// A checkbox in the dense offense grid: slightly smaller caption type than <see cref="Check"/>, and the box
+    /// aligned with the caption's first line rather than its last, so multi-line captions read as one item.
+    /// </summary>
+    private static void GridCheck(IContainer container, bool on, string caption)
+    {
+        container.PaddingBottom(0.6f).Row(row =>
+        {
+            row.ConstantItem(8).AlignTop().Element(c => Box(c, on));
+            row.RelativeItem().PaddingLeft(1.5f).AlignTop().Text(caption).FontSize(GridCheckSize).LineHeight(0.95f);
         });
     }
 

@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
+using Modules.Records.Application.Common;
 using Shared.Infrastructure.Identity;
 using Shared.Infrastructure.Persistence;
 
@@ -8,8 +9,26 @@ namespace Modules.Records.UI.Services;
 public sealed class UserManagementService(
     UserManager<ApplicationUser> userManager,
     AuthDbContext authDb,
-    IServiceScopeFactory serviceScopeFactory) : IUserManagementService
+    IServiceScopeFactory serviceScopeFactory,
+    IConfiguration configuration) : IUserManagementService
 {
+    private readonly string _demoEmail = DemoUserMatching.ResolveDemoEmail(configuration[DemoUserMatching.LoginEmailConfigKey]);
+
+    /// <summary>Shown when someone tries to change a demo account's password (issue #91).</summary>
+    public const string DemoPasswordChangeRefused =
+        "Demo accounts can't change their password. Sign in with your own account to manage a password.";
+
+    public async Task<bool> IsDemoAccountAsync(string userId)
+    {
+        var user = await userManager.FindByIdAsync(userId);
+        return user is not null && await IsDemoAccountAsync(user);
+    }
+
+    private async Task<bool> IsDemoAccountAsync(ApplicationUser user)
+        => DemoUserMatching.IsDemoEmail(user.Email, _demoEmail)
+           || DemoUserMatching.IsDemoEmail(user.UserName, _demoEmail)
+           || (await userManager.GetClaimsAsync(user)).Any(c => c.Type == DemoUserMatching.DemoVisitorClaimType);
+
     public async Task<List<UserDto>> GetAllAsync()
     {
         using var scope = serviceScopeFactory.CreateScope();
@@ -160,6 +179,11 @@ public sealed class UserManagementService(
         var user = await userManager.FindByIdAsync(userId);
         if (user is null)
             return IdentityResult.Failed(new IdentityError { Description = "User not found." });
+
+        // The shared demo account's password is public, and changing it rotates the security stamp,
+        // which signs every other visitor out within a minute (issue #91). Enforced here, not only in the UI.
+        if (await IsDemoAccountAsync(user))
+            return IdentityResult.Failed(new IdentityError { Code = "DemoAccount", Description = DemoPasswordChangeRefused });
 
         return await userManager.ChangePasswordAsync(user, currentPassword, newPassword);
     }

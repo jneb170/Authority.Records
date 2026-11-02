@@ -1,3 +1,4 @@
+using Modules.Records.Application.Common.Exceptions;
 using MediatR;
 using Modules.Records.Application.Abstractions;
 using Modules.Records.Application.Locations;
@@ -62,6 +63,12 @@ public sealed class GenerateTestLocationsHandler
                     cancellationToken);
 
                 created++;
+            }
+            catch (DemoLimitExceededException ex)
+            {
+                // Every further create would fail the same way: stop and say why (issue #90).
+                errors.Add($"Stopped after {created} record(s): {ex.Message}");
+                break;
             }
             catch (Exception ex)
             {

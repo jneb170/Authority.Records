@@ -1,4 +1,5 @@
 using MediatR;
+using Modules.Records.Application.Common.Queries.GetDashboardCounts;
 using Modules.Records.Application.Common.Queries.GetMapMarkers;
 using Modules.Records.Application.Common.Queries.GetRecentActivity;
 using Modules.Records.Domain.Abstractions;
@@ -32,6 +33,9 @@ public sealed class HomeService : IHomeService
             _tenantProvider.GetJurisdictionId(),
             take,
             IncludeAllUsers: true));
+
+    public Task<DashboardCountsDto> GetDashboardCountsAsync(int days) =>
+        _mediator.Send(new GetDashboardCountsQuery(DateTime.UtcNow.AddDays(-days)));
 
     public Task<IReadOnlyList<MapMarkerDto>> GetMapMarkersAsync(DateTime? since) =>
         _mediator.Send(new GetMapMarkersQuery(_tenantProvider.GetJurisdictionId(), since));

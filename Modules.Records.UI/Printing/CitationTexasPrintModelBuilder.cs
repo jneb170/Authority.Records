@@ -73,8 +73,11 @@ public sealed class CitationTexasPrintModelBuilder : ICitationTexasPrintModelBui
         var violationGroupLabel = citation.OffenseDetails?.ViolationGroupId is Guid groupId ? labels.GetValueOrDefault(groupId) : null;
         var speedBandLabel = citation.OffenseDetails?.SpeedBandId is Guid speedBandId ? labels.GetValueOrDefault(speedBandId) : null;
 
-        var citationLocationDisplay = await ResolveLocationDisplayAsync(citation.LocationId);
-        var appearanceLocationDisplay = await ResolveLocationDisplayAsync(citation.OffenseDetails?.CourtAppearanceLocationId);
+        var citationLocation = await ResolveLocationAsync(citation.LocationId);
+        var appearanceLocation = await ResolveLocationAsync(citation.OffenseDetails?.CourtAppearanceLocationId);
+        var citationLocationDisplay = citationLocation is null ? null : FormatLocation(citationLocation);
+        var appearanceLocationDisplay = appearanceLocation is null ? null : FormatLocation(appearanceLocation);
+        var (affidavitCourtName, courtOfFromLabel) = SplitCourtLabel(courtLabel);
 
         var name = citation.AtTimeOfName;
         var offense = citation.OffenseDetails;
@@ -91,7 +94,9 @@ public sealed class CitationTexasPrintModelBuilder : ICitationTexasPrintModelBui
             DocketNo = Display(citation.TexasDetails?.DocketNumber),
             PageNo = Display(citation.TexasDetails?.PageNumber),
             CourtLabel = Display(courtLabel),
-            AppearanceOrCitationLocation = Display(appearanceLocationDisplay, citationLocationDisplay),
+            // The court line used to fall back to the offense location ("COURT OF 77, Center, Riverbend").
+            AffidavitCourtName = affidavitCourtName,
+            AffidavitCourtOf = Display(courtOfFromLabel, appearanceLocation?.City),
 
             IssueDate = DateDisplay(citation.IssueDate, timeZone),
             IssueDayOfMonth = DayOfMonthDisplay(citation.IssueDate, timeZone),
@@ -135,7 +140,7 @@ public sealed class CitationTexasPrintModelBuilder : ICitationTexasPrintModelBui
             SpeedMph = NumberDisplay(offense?.SpeedMph),
             ZoneMph = NumberDisplay(offense?.ZoneMph),
 
-            OtherViolations = Display(offense?.NarrativeOtherViolations, offense?.PrimaryViolationDescription),
+            OtherViolations = OtherViolationsDisplay(citation, offense, speedBandLabel),
             SourceStateStatute = IsSource(violationSourceLabel, "state"),
             SourceLocalOrdinance = IsSource(violationSourceLabel, "local"),
             ViolationSection = Display(offense?.ViolationSection),
@@ -168,13 +173,49 @@ public sealed class CitationTexasPrintModelBuilder : ICitationTexasPrintModelBui
         };
     }
 
-    private async Task<string?> ResolveLocationDisplayAsync(Guid? locationId)
-    {
-        if (!locationId.HasValue)
-            return null;
+    private async Task<LocationDto?> ResolveLocationAsync(Guid? locationId)
+        => locationId.HasValue ? await _locationService.GetByIdAsync(locationId.Value) : null;
 
-        var location = await _locationService.GetByIdAsync(locationId.Value);
-        return location is null ? null : FormatLocation(location);
+    /// <summary>
+    /// Splits a court picklist label for the "IN THE ___ COURT OF ___" line: "Municipal Court of Riverbend"
+    /// gives ("Municipal", "Riverbend"); "Municipal Court" gives ("Municipal", null); "Justice" stays as is.
+    /// </summary>
+    internal static (string Name, string? Of) SplitCourtLabel(string? label)
+    {
+        if (string.IsNullOrWhiteSpace(label))
+            return (string.Empty, null);
+
+        var text = label.Trim();
+        string? of = null;
+        var ofIndex = text.IndexOf(" Court of ", StringComparison.OrdinalIgnoreCase);
+        if (ofIndex >= 0)
+        {
+            of = text[(ofIndex + " Court of ".Length)..].Trim();
+            text = text[..ofIndex];
+        }
+        else if (text.EndsWith(" Court", StringComparison.OrdinalIgnoreCase))
+        {
+            text = text[..^" Court".Length];
+        }
+
+        return (text.Trim(), string.IsNullOrWhiteSpace(of) ? null : of);
+    }
+
+    /// <summary>
+    /// OTHER VIOLATIONS: the officer's narrative, else the primary violation description. When nothing on the
+    /// offense panel is filled in at all (no boxes, no speed), fall back to the citation description so the
+    /// ticket still states an offense (issue #98).
+    /// </summary>
+    private static string OtherViolationsDisplay(CitationDto citation, CitationOffenseDetailsDto? offense, string? speedBandLabel)
+    {
+        var text = Display(offense?.NarrativeOtherViolations, offense?.PrimaryViolationDescription);
+        if (!string.IsNullOrWhiteSpace(text))
+            return text;
+
+        var panelIsEmpty = (citation.ViolationFlags?.Count ?? 0) == 0
+                           && offense?.SpeedMph is null
+                           && string.IsNullOrWhiteSpace(speedBandLabel);
+        return panelIsEmpty ? Display(citation.Description) : string.Empty;
     }
 
     // --- Flag visibility ---------------------------------------------------------------------
@@ -449,12 +490,32 @@ public sealed class CitationTexasPrintModelBuilder : ICitationTexasPrintModelBui
     private static bool HasLabel(string? label, string token)
         => !string.IsNullOrWhiteSpace(label) && label.Contains(token, StringComparison.OrdinalIgnoreCase);
 
-    private static string FormatLocation(LocationDto location)
+    /// <summary>
+    /// Prints a location as a postal address. <see cref="LocationDto.Address"/> is the canonical formatted
+    /// address ("88 Lakeview Ct, Riverbend, TX 78640"); the parts are only a fallback. The old version joined the
+    /// parts with commas and dropped the street type ("77, Center, Riverbend"), issue #98.
+    /// </summary>
+    internal static string FormatLocation(LocationDto location)
     {
-        var parts = new List<string>();
-        if (!string.IsNullOrWhiteSpace(location.StreetNumber)) parts.Add(location.StreetNumber);
-        if (!string.IsNullOrWhiteSpace(location.StreetAddress)) parts.Add(location.StreetAddress);
-        if (!string.IsNullOrWhiteSpace(location.City)) parts.Add(location.City);
-        return parts.Count == 0 ? location.Address ?? string.Empty : string.Join(", ", parts);
+        if (!string.IsNullOrWhiteSpace(location.Address))
+            return TrimCountry(location.Address.Trim());
+
+        var street = string.Join(' ', new[] { location.StreetNumber, location.StreetAddress }
+            .Where(p => !string.IsNullOrWhiteSpace(p))
+            .Select(p => p!.Trim()));
+        if (!string.IsNullOrWhiteSpace(location.AptSuite))
+            street = $"{street} {location.AptSuite.Trim()}".Trim();
+
+        return string.Join(", ", new[] { street, location.City }.Where(p => !string.IsNullOrWhiteSpace(p)));
+    }
+
+    private static string TrimCountry(string address)
+    {
+        foreach (var suffix in new[] { ", USA", ", United States", ", US" })
+        {
+            if (address.EndsWith(suffix, StringComparison.OrdinalIgnoreCase))
+                return address[..^suffix.Length].TrimEnd();
+        }
+        return address;
     }
 }

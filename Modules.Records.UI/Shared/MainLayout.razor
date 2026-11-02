@@ -1,8 +1,11 @@
+@using Microsoft.JSInterop
 @inherits LayoutComponentBase
 @implements IDisposable
 @inject NavigationManager Nav
 @inject AuthenticationStateProvider AuthStateProvider
 @inject IActiveAgencyContext AgencyContext
+@inject IAgencyClock AgencyClock
+@inject IJSRuntime JS
 @inject ICurrentUserContext CurrentUser
 @inject IConfiguration Configuration
 @using System.Security.Claims
@@ -66,9 +69,12 @@
                             {
                                 <span class="top-header-role-pill">@_role</span>
                             }
-                            <a href="/account/change-password" title="Change Password" class="top-header-pwd-link">
-                                <i class="bi bi-key"></i>
-                            </a>
+                            @if (!CurrentUser.IsDemoUser)
+                            {
+                                <a href="/account/change-password" title="Change Password" class="top-header-pwd-link">
+                                    <i class="bi bi-key"></i>
+                                </a>
+                            }
                         </div>
                     </div>
                 }
@@ -80,19 +86,23 @@
                 <i class="bi bi-exclamation-triangle-fill me-2"></i>@AgencyBannerMessage
             </div>
         }
-        @if (CurrentUser.IsDemoUser)
+        @if (CurrentUser.IsDemoUser && !_demoBannerDismissed)
         {
             <div class="alert alert-info demo-banner" role="status">
                 <span><i class="bi bi-info-circle-fill me-1"></i><strong>Shared demo.</strong>
-                    You're signed in as a supervisor at a fictional agency. All people and records are made up, and other visitors see the same data.</span>
+                    You're signed in as @(string.IsNullOrWhiteSpace(_displayName) ? "a demo user" : _displayName), a supervisor at a fictional agency.
+                    All people and records are made up, and other visitors see the same records.
+                    <span class="demo-banner-tip">Tip: open a record in a second browser and press Modify in both to see record locking.</span></span>
                 @if (_sourceUrl is not null)
                 {
                     <a href="@_sourceUrl" target="_blank" rel="noopener"><i class="bi bi-github me-1"></i>View the source</a>
                 }
+                <button type="button" class="btn-close demo-banner-close" aria-label="Dismiss the demo notice" @onclick="DismissDemoBannerAsync"></button>
             </div>
         }
         <div class="main-content">
-            @if (!_suppressBody)
+            @* Wait for the agency time zone so pages can format timestamps synchronously (issue #95). *@
+            @if (!_suppressBody && _clockReady)
             {
                 @Body
             }
@@ -114,6 +124,7 @@
     private string? _sourceUrl;
 
     private bool _suppressBody;
+    private bool _clockReady;
     private bool _isSuper;
     private bool _sidebarOpen;
     private string? _displayName;
@@ -146,6 +157,14 @@
         _isSuper = user.IsInRole("Super");
         UpdateSuppressBody();
         await AgencyContext.EnsureLoadedAsync();
+        try
+        {
+            await AgencyClock.EnsureLoadedAsync();
+        }
+        finally
+        {
+            _clockReady = true;
+        }
 
         _displayName = user.FindFirst("fullname")?.Value
                     ?? user.FindFirst(ClaimTypes.Name)?.Value
@@ -157,7 +176,9 @@
 
         if (!string.IsNullOrWhiteSpace(_displayName))
         {
-            var parts = _displayName.Trim().Split(' ', StringSplitOptions.RemoveEmptyEntries);
+            // Letters only, so "Demo Visitor 4821" gives "DV" rather than "D4".
+            var parts = _displayName.Trim().Split(' ', StringSplitOptions.RemoveEmptyEntries)
+                .Where(p => char.IsLetter(p[0])).DefaultIfEmpty(_displayName.Trim()).ToArray();
             _initials = parts.Length >= 2
                 ? $"{char.ToUpper(parts[0][0])}{char.ToUpper(parts[^1][0])}"
                 : _displayName[..Math.Min(2, _displayName.Length)].ToUpper();
@@ -192,9 +213,12 @@
     }
 
     private void HandleAgencyContextChanged()
-        => _ = InvokeAsync(() =>
+        => _ = InvokeAsync(async () =>
         {
             _agencyName = AgencyContext.ActiveAgencyName;
+            // Agencies can have different time zones.
+            AgencyClock.Reset();
+            await AgencyClock.EnsureLoadedAsync();
             StateHasChanged();
         });
 
@@ -220,10 +244,48 @@
         return "Operations";
     }
 
+    // The demo banner can be dismissed; the choice is remembered in this browser (issue #101).
+    private const string DemoBannerStorageKey = "ar.demoBannerDismissed";
+    private bool _demoBannerDismissed;
+
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
-        if (!firstRender || !_suppressBody) return;
-        Nav.NavigateTo("/super/jurisdictions", replace: true);
+        if (!firstRender) return;
+
+        if (_suppressBody)
+        {
+            Nav.NavigateTo("/super/jurisdictions", replace: true);
+            return;
+        }
+
+        if (CurrentUser.IsDemoUser)
+        {
+            try
+            {
+                if (await JS.InvokeAsync<string?>("localStorage.getItem", DemoBannerStorageKey) == "1")
+                {
+                    _demoBannerDismissed = true;
+                    StateHasChanged();
+                }
+            }
+            catch (Exception)
+            {
+                // Storage blocked (private mode, disabled site data) or circuit gone: keep showing the banner.
+            }
+        }
+    }
+
+    private async Task DismissDemoBannerAsync()
+    {
+        _demoBannerDismissed = true;
+        try
+        {
+            await JS.InvokeVoidAsync("localStorage.setItem", DemoBannerStorageKey, "1");
+        }
+        catch (Exception)
+        {
+            // Not remembered; it is still hidden for this session.
+        }
     }
 
     public void Dispose()

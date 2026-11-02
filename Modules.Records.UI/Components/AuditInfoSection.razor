@@ -1,8 +1,9 @@
 @* Reusable audit info section — drop at the bottom of any record detail page *@
+@inject IAgencyClock Clock
 <div class="mt-4 pt-3 border-top text-muted small">
     <div>
         <span>Created</span>
-        <strong>@CreatedAt.ToLocalTime().ToString("g")</strong>
+        <strong>@Clock.Format(CreatedAt, "g", withZone: true)</strong>
         @if (!string.IsNullOrWhiteSpace(CreatedByName))
         {
             <span> by <strong>@CreatedByName</strong></span>
@@ -12,7 +13,7 @@
     {
         <div class="mt-1">
             <span>Last modified</span>
-            <strong>@ModifiedAt.Value.ToLocalTime().ToString("g")</strong>
+            <strong>@Clock.Format(ModifiedAt.Value, "g", withZone: true)</strong>
             @if (!string.IsNullOrWhiteSpace(ModifiedByName))
             {
                 <span> by <strong>@ModifiedByName</strong></span>

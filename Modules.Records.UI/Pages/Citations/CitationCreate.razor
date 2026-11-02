@@ -1,5 +1,6 @@
 @page "/citations/create"
 @page "/incidents/{IncidentRecordNumber:long}/citations/create"
+@inject IAgencyClock Clock
 @implements IAsyncDisposable
 @inject ICitationService CitationService
 @inject IChargeService ChargeService
@@ -10,7 +11,7 @@
 @inject NavigationManager Nav
 @using Modules.Records.UI.Services
 
-<PageTitle>New Citation</PageTitle>
+<AppPageTitle Title="New Citation" />
 
 <NavigationLock ConfirmExternalNavigation="@HasEnteredData" />
 
@@ -47,10 +48,10 @@
                 </div>
                 <div class="mb-0">
                     <label class="form-label">Citation Number <span class="text-muted">(auto-generated if blank)</span></label>
-                    <div class="input-group">
+                    <div class="input-group ar-generate-group">
                         <InputText class="form-control" @bind-Value="_vm.CitationNum" placeholder="e.g. CT-2026-000001" />
                         <button type="button" class="btn btn-outline-secondary" @onclick="GenerateCitationNumAsync" disabled="@(_generatingNum || !CanCreateAgencyOwnedRecord)">
-                            @(_generatingNum ? "…" : "🔁 Generate")
+                            @if (_generatingNum) { <text>…</text> } else { <i class="bi bi-arrow-repeat" aria-hidden="true"></i><text> Generate</text> }
                         </button>
                     </div>
                 </div>
@@ -158,6 +159,8 @@
 
     protected override Task OnInitializedAsync()
     {
+        // The view model defaults to the server's date (UTC in production); use the agency's (issue #95).
+        _vm.IssueDate = Clock.Today;
         ShortcutService.OnRelease += HandleShortcutRelease;
         ShortcutService.OnSave    += HandleShortcutSave;
         return Task.CompletedTask;

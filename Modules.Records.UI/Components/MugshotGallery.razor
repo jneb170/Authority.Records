@@ -1,3 +1,4 @@
+@inject IAgencyClock Clock
 @using FluentValidation
 @inject IMugshotService MugshotService
 
@@ -104,7 +105,7 @@
                                 <div class="mugshot-card-meta">
                                     <span>@mugshot.ContentType</span>
                                     <span>@FormatFileSize(mugshot.FileSizeBytes)</span>
-                                    <span>@mugshot.CapturedAtUtc.ToLocalTime().ToString("g")</span>
+                                    <span>@Clock.Format(mugshot.CapturedAtUtc, "g")</span>
                                 </div>
 
                                 @if (CanModify)

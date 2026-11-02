@@ -16,7 +16,7 @@ else if (_result is null)
 }
 else
 {
-    <PageTitle>@($"{_result.Source.Title} Relationships")</PageTitle>
+    <AppPageTitle Title="@($"{_result.Source.Title} Relationships")" />
 
     <nav aria-label="breadcrumb" class="record-breadcrumb">
         <ol class="breadcrumb">
@@ -93,7 +93,7 @@ else
                                         Record #@item.RecordNumber
                                         @if (!string.IsNullOrWhiteSpace(item.Subtitle))
                                         {
-                                            <span>&middot; @item.Subtitle</span>
+                                            <span>@($" · {item.Subtitle}")</span>
                                         }
                                     </div>
                                 </div>

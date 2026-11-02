@@ -55,10 +55,12 @@ arrests `10000-10003`, citations `10000-10005`, names `10000-10013`, locations `
 Routes: `/incidents/{n}`, `/arrests/{n}`, `/citations/{n}`, `/names/{n}`, `/locations/{n}`, plus
 `/relationships` on each; `/citations/{n}/texas-pdf`, `/citations/{n}/texas-print`, `/names/{n}/print`.
 
-**Every demo visitor is the same user.** The demo create limit (30 per hour) is per user, so it is
-shared. Test Data → "Generate 50 Name Records" uses all of it, and later creates then fail with
-"Demo accounts are limited to 30 new records…". For create-heavy testing start with
-`DEMO_CREATE_LIMIT=1000 scripts/run-local-demo.sh --fresh`. Leave the default when you are testing the limit itself.
+**Each "Explore the live demo" click creates a separate visitor account** ("Demo Visitor NNNN", Supervisor,
+claim `ar:demo-visitor`; see `Demo/DemoVisitorAccounts.cs`), so two `start()` calls are two different users
+and locking works between them. The create limit (30 per hour) is per visitor; all visitors together are
+capped at 600 per hour. Test Data → "Generate 50 Name Records" stops at 30 with "Stopped after 30 of 50
+records: demo limit reached". Signing in with the `demo@…` password form still uses the shared account.
+For create-heavy testing start with `DEMO_CREATE_LIMIT=1000 scripts/run-local-demo.sh --fresh`.
 
 ## Lessons learned (cloud sessions)
 

@@ -1,4 +1,4 @@
-using Modules.Records.Domain.Common.Violations;
+﻿using Modules.Records.Domain.Common.Violations;
 using Modules.Records.UI.Printing;
 using QuestPDF.Fluent;
 using QuestPDF.Infrastructure;
@@ -21,7 +21,8 @@ public class CitationTexasPdfDocumentTests
         DocketNo = "DK-99",
         PageNo = "8-8",
         CourtLabel = "Municipal",
-        AppearanceOrCitationLocation = "Plano Municipal Court, 1400 Ave K, Plano",
+        AffidavitCourtName = "Municipal",
+        AffidavitCourtOf = "Plano",
         IssueDate = "05/24/2026",
         IssueDayOfMonth = "24",
         IssueMonthYear = "May 2026",

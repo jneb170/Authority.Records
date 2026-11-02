@@ -1,4 +1,5 @@
 @page "/names/{RecordNumber:long}/print"
+@inject IAgencyClock Clock
 @layout PrintLayout
 @attribute [Authorize(Roles = "Admin,Supervisor,Dispatcher,Officer")]
 @inject INameService NameService
@@ -12,7 +13,7 @@
 @using Modules.Records.UI.Services
 @using Modules.Records.UI.Shared
 
-<PageTitle>Name Record Report</PageTitle>
+<AppPageTitle Title="Name Record Report" />
 
 <!-- Screen-only action bar -->
 @if (!_loading && _error is null && _name is not null)
@@ -43,7 +44,7 @@ else if (_name is not null)
                 <span class="separator">|</span>
                 <span>@_name.NameType</span>
                 <span class="separator">|</span>
-                <span>Generated @DateTime.Now.ToString("MM/dd/yyyy h:mm tt")</span>
+                <span>Generated @Clock.Now.ToString("MM/dd/yyyy h:mm tt")</span>
             </div>
         </div>
 
@@ -183,13 +184,13 @@ else if (_name is not null)
             <div class="field-grid">
                 <div class="field-item">
                     <div class="field-label">Created</div>
-                    <div class="field-value">@_name.CreatedAtUtc.ToLocalTime().ToString("MM/dd/yyyy h:mm tt")</div>
+                    <div class="field-value">@Clock.Format(_name.CreatedAtUtc, "MM/dd/yyyy h:mm tt")</div>
                 </div>
                 <div class="field-item">
                     <div class="field-label">Last Modified</div>
                     <div class="field-value">
                         @(_name.ModifiedBy.HasValue
-                            ? _name.UpdatedAtUtc.ToLocalTime().ToString("MM/dd/yyyy h:mm tt")
+                            ? Clock.Format(_name.UpdatedAtUtc, "MM/dd/yyyy h:mm tt")
                             : "—")
                     </div>
                 </div>
@@ -329,6 +330,8 @@ else if (_name is not null)
 
     protected override async Task OnInitializedAsync()
     {
+        // PrintLayout doesn't load the agency time zone the way MainLayout does.
+        await Clock.EnsureLoadedAsync();
         try
         {
             _name = await NameService.GetByRecordNumberAsync(RecordNumber);
@@ -414,10 +417,10 @@ else if (_name is not null)
         }
     }
 
-    private static int? ComputeAge(DateTime? dob)
+    private int? ComputeAge(DateTime? dob)
     {
         if (!dob.HasValue) return null;
-        var today = DateTime.Today;
+        var today = Clock.Today;
         var age   = today.Year - dob.Value.Year;
         if (dob.Value.Date > today.AddYears(-age)) age--;
         return age;

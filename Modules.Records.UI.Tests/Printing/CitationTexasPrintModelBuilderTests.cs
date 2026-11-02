@@ -304,6 +304,96 @@ public class CitationTexasPrintModelBuilderTests
         var model = await builder.BuildAsync(recordNumber);
 
         Assert.NotNull(model);
-        Assert.Equal("5445, Legacy Dr, Plano", model!.OccurredAt); // FormatLocation joins parts
+        // The location's formatted address, without the country (issue #98: was "5445, Legacy Dr, Plano").
+        Assert.Equal("5445 Legacy Dr, Plano, TX 75024", model!.OccurredAt);
+    }
+
+    // --- Issue #98 -----------------------------------------------------------------------------------
+
+    private static LocationDto NewLocation(Guid id, string streetNumber, string street, string city, string? address)
+        => new(
+            Id: id, RecordNumber: 7, JurisdictionId: Guid.NewGuid(),
+            StreetNumber: streetNumber, PreDirectionId: null, StreetAddress: street,
+            StreetTypeId: null, PostDirectionId: null, City: city, StateId: null,
+            CountryId: null, Zip: null, AptSuite: null, Coordinates: null,
+            CommonPlaceName: null, Comments: null, Address: address,
+            IsLocked: false, LockedByUserId: null, CreatedBy: Guid.NewGuid(), ModifiedBy: null,
+            CreatedAtUtc: DateTime.UtcNow, UpdatedAtUtc: DateTime.UtcNow);
+
+    [Fact]
+    public async Task CourtLine_NeverFallsBackToTheOffenseLocation()
+    {
+        var location = NewLocation(CitationLocationId, "77", "Center", "Riverbend", "77 Center St, Riverbend, TX 78640");
+        var citation = NewCitation(offense: new CitationOffenseDetailsDto(), locationId: CitationLocationId);
+
+        var (builder, recordNumber) = Build(citation, locations: new() { [CitationLocationId] = location });
+        var model = await builder.BuildAsync(recordNumber);
+
+        Assert.Equal(string.Empty, model!.AffidavitCourtName);
+        Assert.Equal(string.Empty, model.AffidavitCourtOf);
+        Assert.Equal("77 Center St, Riverbend, TX 78640", model.OccurredAt);
+    }
+
+    [Fact]
+    public async Task CourtLine_UsesTheCourtLabel_AndTheAppearanceLocationCity()
+    {
+        var courtId = Guid.NewGuid();
+        var appearanceId = Guid.NewGuid();
+        var appearance = NewLocation(appearanceId, "100", "Main", "Riverbend", "100 Main St, Riverbend, TX 78640");
+        var citation = NewCitation(offense: new CitationOffenseDetailsDto(CourtAppearanceLocationId: appearanceId)) with { CourtId = courtId };
+
+        var (builder, recordNumber) = Build(
+            citation,
+            labels: new() { [courtId] = "Municipal Court" },
+            locations: new() { [appearanceId] = appearance });
+        var model = await builder.BuildAsync(recordNumber);
+
+        Assert.Equal("Municipal", model!.AffidavitCourtName); // not "Municipal Court COURT OF"
+        Assert.Equal("Riverbend", model.AffidavitCourtOf);
+        Assert.Equal("Municipal Court", model.CourtLabel);   // the COURT APPEARANCE field keeps the full label
+    }
+
+    [Theory]
+    [InlineData("Municipal Court of Riverbend", "Municipal", "Riverbend")]
+    [InlineData("Municipal Court", "Municipal", null)]
+    [InlineData("Justice", "Justice", null)]
+    [InlineData("", "", null)]
+    public void SplitCourtLabel_SeparatesCourtTypeAndPlace(string label, string name, string? of)
+    {
+        var (actualName, actualOf) = CitationTexasPrintModelBuilder.SplitCourtLabel(label);
+
+        Assert.Equal(name, actualName);
+        Assert.Equal(of, actualOf);
+    }
+
+    [Fact]
+    public void FormatLocation_FallsBackToParts_WithSpacesNotCommas()
+    {
+        var location = NewLocation(Guid.NewGuid(), "77", "Center St", "Riverbend", address: null);
+
+        Assert.Equal("77 Center St, Riverbend", CitationTexasPrintModelBuilder.FormatLocation(location));
+    }
+
+    [Fact]
+    public async Task OtherViolations_FallsBackToTheCitationDescription_WhenTheOffensePanelIsEmpty()
+    {
+        var citation = NewCitation(offense: new CitationOffenseDetailsDto()) with { Description = "Open container of alcohol in a vehicle" };
+
+        var (builder, recordNumber) = Build(citation);
+        var model = await builder.BuildAsync(recordNumber);
+
+        Assert.Equal("Open container of alcohol in a vehicle", model!.OtherViolations);
+    }
+
+    [Fact]
+    public async Task OtherViolations_DoesNotRepeatTheDescription_WhenBoxesAreTicked()
+    {
+        var flags = new List<CitationViolationFlagDto> { new(ViolationFlagKey.ImproperLeftTurn, ViolationFlagSource.Manual, null) };
+        var citation = NewCitation(offense: new CitationOffenseDetailsDto(), flags: flags) with { Description = "Turned left from the right lane" };
+
+        var (builder, recordNumber) = Build(citation);
+        var model = await builder.BuildAsync(recordNumber);
+
+        Assert.Equal(string.Empty, model!.OtherViolations);
     }
 }

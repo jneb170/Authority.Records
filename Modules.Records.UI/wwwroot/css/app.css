@@ -1,4 +1,4 @@
-/* ============================================================
+﻿/* ============================================================
    Authority Records — Design System
    ============================================================ */
 :root {
@@ -379,6 +379,31 @@ html, body {
     font-weight: 600;
 }
 
+.demo-banner {
+    position: relative;
+    padding-right: 2.75rem;
+}
+
+.demo-banner-close {
+    position: absolute;
+    top: 0.65rem;
+    right: 0.85rem;
+    font-size: 0.7rem;
+}
+
+/* Phones: the banner took ~120px on every page. Keep the essentials. */
+@media (max-width: 575.98px) {
+    .demo-banner {
+        font-size: 0.8rem;
+        padding-top: 0.5rem;
+        padding-bottom: 0.5rem;
+    }
+
+    .demo-banner-tip {
+        display: none;
+    }
+}
+
 .mugshot-thumb {
     width: 8rem;
     aspect-ratio: 1 / 1.15;
@@ -536,6 +561,16 @@ button:focus-visible,
 .page-link:focus-visible {
     outline: none;
     box-shadow: 0 0 0 0.16rem rgba(30,45,69,.18), 0 0 0 0.32rem rgba(201,162,39,.32);
+}
+
+/* Routes.razor's <FocusOnNavigate Selector="h1"> focuses the page heading after every navigation
+   so screen readers announce the new page. That is programmatic focus, not a user action, so it
+   must not draw an outline (issue #96). The heading isn't interactive or in the tab order, and
+   Chrome treats focus after a full page load as :focus-visible, so no ring is drawn at all. */
+h1:focus,
+h1:focus-visible,
+[tabindex="-1"]:focus:not(:focus-visible) {
+    outline: none;
 }
 
 /* ── Layout ─────────────────────────────────────────────────── */
@@ -993,23 +1028,11 @@ button:focus-visible,
     text-transform: uppercase;
 }
 
-.dashboard-header-chip {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.5rem;
-    padding: 0.7rem 0.95rem;
-    border-radius: 999px;
-    background: linear-gradient(180deg, rgba(255,255,255,.95), rgba(245,247,251,.95));
-    border: 1px solid rgba(30,45,69,.08);
-    box-shadow: 0 8px 24px rgba(15, 23, 42, 0.06);
-    color: var(--ar-navy);
-    font-size: 0.8rem;
-    font-weight: 700;
-}
 
 .dashboard-hero {
     display: grid;
-    grid-template-columns: minmax(0, 1.6fr) minmax(280px, 1fr);
+    /* The metric tiles get enough room for one- or two-line captions (issue #100). */
+    grid-template-columns: minmax(0, 1.2fr) minmax(280px, 1.25fr);
     gap: 1rem;
     padding: 1.4rem 1.5rem;
     background:
@@ -1696,11 +1719,14 @@ button:focus-visible,
 .record-grid-2,
 .record-grid-3 {
     display: grid;
+    grid-template-columns: minmax(0, 1fr);
     gap: 0.9rem;
 }
 
+/* Full width on phones. "span 2" there created an implicit second column, so every record form
+   was two cramped columns at 390px (issue #101). */
 .record-field-span-2 {
-    grid-column: span 2;
+    grid-column: 1 / -1;
 }
 
 .record-field-span-full {
@@ -2009,6 +2035,10 @@ button:focus-visible,
 @media (min-width: 768px) {
     .record-grid-2 {
         grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .record-field-span-2 {
+        grid-column: span 2;
     }
 
     .record-grid-3 {
@@ -2464,4 +2494,35 @@ kbd.shortcut-hint {
         flex: 1 1 auto;
         min-width: 0;
     }
+}
+
+
+/* Record-number input + Generate button (issue #101). On phones the button squeezed the input to a few
+   characters; stack the button under the input instead. */
+@media (max-width: 575.98px) {
+    .ar-generate-group {
+        flex-wrap: wrap;
+        row-gap: 0.5rem;
+    }
+
+    .ar-generate-group > .form-control,
+    .ar-generate-group > .btn {
+        flex: 1 1 100%;
+        width: 100%;
+        margin-left: 0 !important;
+        border-radius: var(--bs-border-radius) !important;
+    }
+}
+
+.location-mini-map-placeholder {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.35rem 0.6rem;
+    max-width: 300px;
+    margin-top: 0.5rem;
+    padding: 0.5rem 0.75rem;
+    border: 1px dashed rgba(30,45,69,.2);
+    border-radius: 6px;
+    background: rgba(247,248,251,.8);
 }

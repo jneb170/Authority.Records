@@ -1,0 +1,12 @@
+@* Browser tab title with the app name appended ("Incidents — Authority Records"), so every page reads the
+   same way (issue #101). Use instead of <PageTitle>. *@
+<PageTitle>@FullTitle</PageTitle>
+
+@code {
+    public const string AppName = "Authority Records";
+
+    /// <summary>The page-specific part of the title. Empty gives just the app name.</summary>
+    [Parameter] public string? Title { get; set; }
+
+    private string FullTitle => string.IsNullOrWhiteSpace(Title) ? AppName : $"{Title} — {AppName}";
+}

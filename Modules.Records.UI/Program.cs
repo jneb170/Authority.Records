@@ -1,3 +1,4 @@
+using Microsoft.Extensions.DependencyInjection.Extensions;
 using System.Data.Common;
 using Microsoft.AspNetCore.DataProtection;
 using Microsoft.AspNetCore.Identity;
@@ -49,6 +50,13 @@ if (!string.IsNullOrWhiteSpace(dataProtectionKeysPath))
 builder.Services.AddOptions<Modules.Records.Application.Common.DemoRateLimitOptions>()
     .BindConfiguration(Modules.Records.Application.Common.DemoRateLimitOptions.SectionName);
 
+// Per-visitor demo accounts (issues #90-#92): each "Explore the live demo" click gets its own user.
+builder.Services.AddOptions<DemoVisitorOptions>().BindConfiguration(DemoVisitorOptions.SectionName);
+builder.Services.TryAddSingleton(TimeProvider.System);
+builder.Services.AddScoped<DemoVisitorAccounts>();
+if (builder.Configuration.GetValue("Demo:Enabled", true))
+    builder.Services.AddHostedService<DemoVisitorCleanupService>();
+
 // Override ITenantProvider with Blazor-aware implementation.
 // IHttpContextAccessor.HttpContext is null during Blazor Server SignalR interactions;
 // BlazorTenantProvider falls back to AuthenticationStateProvider for claims.
@@ -64,6 +72,7 @@ builder.Services.AddScoped<IIncidentService, IncidentService>();
 builder.Services.AddScoped<IArrestService, ArrestService>();
 builder.Services.AddScoped<ICitationService, CitationService>();
 builder.Services.AddScoped<IActiveAgencyContext, ActiveAgencyContext>();
+builder.Services.AddScoped<IAgencyClock, AgencyClock>();
 builder.Services.AddScoped<IAgencyConfigurationService, AgencyConfigurationService>();
 builder.Services.AddScoped<IPicklistService, PicklistService>();
 builder.Services.AddScoped<IChargeService, ChargeService>();
@@ -91,10 +100,15 @@ var app = builder.Build();
 
 if (!app.Environment.IsDevelopment())
 {
+    // Pages/Error.cshtml renders a friendly page with the request id (issue #94).
     app.UseExceptionHandler("/Error");
     app.UseHsts();
     app.UseMiddleware<CanonicalHostRedirectMiddleware>();
 }
+
+// Unknown URLs never reach the Blazor Router under MapRazorComponents, so without this they rendered
+// as a blank, untitled 404. Re-execute empty-bodied error responses through Pages/Error.cshtml (issue #94).
+app.UseStatusCodePagesWithReExecute("/Error/{0}");
 
 app.UseHttpsRedirection();
 

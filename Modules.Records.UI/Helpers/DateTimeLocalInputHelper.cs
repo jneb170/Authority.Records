@@ -1,4 +1,5 @@
 using System.Globalization;
+using Modules.Records.UI.Services;
 
 namespace Modules.Records.UI.Helpers;
 
@@ -9,9 +10,10 @@ public static class DateTimeLocalInputHelper
     public static string Format(DateTime value) =>
         value.ToString(DateTimeLocalFormat, CultureInfo.InvariantCulture);
 
-    public static string FormatLocal(DateTime? value) =>
-        value.HasValue
-            ? value.Value.ToLocalTime().ToString(DateTimeLocalFormat, CultureInfo.InvariantCulture)
+    /// <summary>Formats a stored UTC value for a datetime-local input, in the agency's time zone (issue #95).</summary>
+    public static string FormatLocal(DateTime? utcValue, IAgencyClock clock) =>
+        utcValue.HasValue
+            ? clock.ToAgencyTime(utcValue.Value).ToString(DateTimeLocalFormat, CultureInfo.InvariantCulture)
             : string.Empty;
 
     public static bool TryParse(string? value, out DateTime parsed) =>
@@ -40,7 +42,8 @@ public static class DateTimeLocalInputHelper
         return false;
     }
 
-    public static bool TryParseUtcFromLocal(string? value, out DateTime? parsedUtc)
+    /// <summary>Parses a datetime-local input entered in the agency's time zone and converts it to UTC.</summary>
+    public static bool TryParseUtcFromLocal(string? value, IAgencyClock clock, out DateTime? parsedUtc)
     {
         if (!TryParseNullable(value, out var parsedLocal))
         {
@@ -49,7 +52,7 @@ public static class DateTimeLocalInputHelper
         }
 
         parsedUtc = parsedLocal.HasValue
-            ? DateTime.SpecifyKind(parsedLocal.Value, DateTimeKind.Local).ToUniversalTime()
+            ? DateTime.SpecifyKind(clock.ToUtc(parsedLocal.Value), DateTimeKind.Utc)
             : null;
 
         return true;

@@ -19,7 +19,12 @@ public sealed record CitationTexasPrintModel
     public string DocketNo { get; init; } = string.Empty;
     public string PageNo { get; init; } = string.Empty;
     public string CourtLabel { get; init; } = string.Empty;
-    public string AppearanceOrCitationLocation { get; init; } = string.Empty;
+
+    /// <summary>"IN THE <b>MUNICIPAL</b> COURT OF …": the court picklist label without a trailing "Court".</summary>
+    public string AffidavitCourtName { get; init; } = string.Empty;
+
+    /// <summary>"… COURT OF <b>RIVERBEND</b>": the court's city. Never the offense location (issue #98).</summary>
+    public string AffidavitCourtOf { get; init; } = string.Empty;
 
     // Issue date / time row
     public string IssueDate { get; init; } = string.Empty;

@@ -13,8 +13,8 @@
 #   DEMO_WORK_DIR       working dir for publish output, data, logs (default /tmp/authority-demo)
 #   DEMO_PORT           HTTP port (default 8080)
 #   DEMO_ADMIN_PASSWORD password for admin@demo.authorityrecords.dev (default Local-Admin-1!)
-#   DEMO_CREATE_LIMIT   Demo__RateLimit__MaxCreatesPerWindow (default: production default, 30/hour,
-#                       shared by every demo visitor; raise it for heavy create testing)
+#   DEMO_CREATE_LIMIT   Demo__RateLimit__MaxCreatesPerWindow (default: production default, 30/hour
+#                       per demo visitor account; raise it for heavy create testing)
 #   DEMO_LOG_LEVEL      Logging__LogLevel__Default (default Warning, as in production)
 set -euo pipefail
 

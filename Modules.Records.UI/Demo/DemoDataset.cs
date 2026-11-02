@@ -14,6 +14,9 @@ using Modules.Records.Application.Citations.Commands.CreateCitation;
 using Modules.Records.Application.Citations.Commands.IssueCitation;
 using Modules.Records.Application.Citations.Commands.SaveCitationPage;
 using Modules.Records.Application.Citations.Commands.SoftDeleteCitation;
+using Modules.Records.Application.Admin.Commands.RebuildReadModels;
+using Modules.Records.Application.Configurations.Commands.SetAgencyConfiguration;
+using Modules.Records.Domain.Common.Implementations;
 using Modules.Records.Application.Incidents.Commands.CloseIncident;
 using Modules.Records.Application.Incidents.Commands.CreateIncident;
 using Modules.Records.Application.Incidents.Commands.OpenIncident;
@@ -77,16 +80,105 @@ internal static class DemoDataset
         hostAuth.SetAuthenticationState(Task.FromResult(new AuthenticationState(principal)));
 
         var db = sp.GetRequiredService<AppDbContext>();
+
+        // Runs on every start (idempotent), so existing demo databases get it too.
+        try
+        {
+            await EnsureAgencyConfigurationAsync(sp, db, jurisdictionId, agencyId);
+        }
+        catch (Exception ex)
+        {
+            logger.LogWarning(ex, "Demo dataset: could not apply the demo agency configuration.");
+        }
+
         if (await db.Names.IgnoreQueryFilters().AnyAsync(n => n.JurisdictionId == jurisdictionId))
             return;
 
         var seeder = new Seeder(sp, db, logger);
         await seeder.RunAsync();
 
+        // On a fresh database the configuration step above ran before any incidents existed.
+        try
+        {
+            await EnsureIncidentCounterAsync(db, jurisdictionId, agencyId);
+        }
+        catch (Exception ex)
+        {
+            logger.LogWarning(ex, "Demo dataset: could not continue the incident number sequence.");
+        }
+
         logger.LogInformation(
             "Demo dataset seeded for agency {AgencyId}: {Locations} locations, {Names} names, {Incidents} incidents, {Arrests} arrests, {Citations} citations ({Failures} step(s) failed).",
             agencyId, seeder.Locations.Count, seeder.Names.Count, seeder.Incidents.Count,
             seeder.Arrests.Count, seeder.Citations.Count, seeder.Failures);
+    }
+
+    // ------------------------------------------------------------------
+    // Agency configuration (issue #99)
+    // ------------------------------------------------------------------
+
+    /// <summary>
+    /// Settings a working department would have. Without them the Configurations page was empty and
+    /// Generate produced "2026-000001" next to seeded numbers like "26-004102". Only keys that are missing are
+    /// written, so an admin's later changes are kept.
+    /// </summary>
+    internal static readonly (string Key, string Value)[] AgencyConfiguration =
+    [
+        (ConfigurationKeys.IncidentFormat, "yy-xxxxxx"),
+        (ConfigurationKeys.TimeZoneId, ConfigurationKeys.DefaultTimeZoneId),
+        (ConfigurationKeys.LockTimeoutSeconds, "600"),
+        (ConfigurationKeys.NarrativeLockTimeoutSeconds, "3600"),
+        (ConfigurationKeys.MapStartCoordinates, "30.0680,-97.9400"),
+    ];
+
+    private static async Task EnsureAgencyConfigurationAsync(IServiceProvider sp, AppDbContext db, Guid jurisdictionId, Guid agencyId)
+    {
+        var sender = sp.GetRequiredService<ISender>();
+        var existing = await db.AgencyConfigurations.IgnoreQueryFilters()
+            .Where(c => c.AgencyId == agencyId)
+            .Select(c => c.Key)
+            .ToListAsync();
+
+        foreach (var (key, value) in AgencyConfiguration)
+        {
+            if (!existing.Contains(key))
+                await sender.Send(new SetAgencyConfigurationCommand(key, value));
+        }
+
+        await EnsureIncidentCounterAsync(db, jurisdictionId, agencyId);
+    }
+
+    /// <summary>
+    /// Continues the incident sequence after the highest "yy-NNNNNN" number already in the agency, so the
+    /// next generated number follows the seeded ones (26-004596 after 26-004595) instead of 26-000001.
+    /// </summary>
+    private static async Task EnsureIncidentCounterAsync(AppDbContext db, Guid jurisdictionId, Guid agencyId)
+    {
+        var year = DateTime.UtcNow.Year;
+        var prefix = $"{year % 100:00}-";
+        var numbers = await db.Incidents.IgnoreQueryFilters()
+            .Where(i => i.AgencyId == agencyId && i.IncidentNum.StartsWith(prefix))
+            .Select(i => i.IncidentNum)
+            .ToListAsync();
+
+        var highest = numbers
+            .Select(n => long.TryParse(n.AsSpan(prefix.Length), out var seq) && n.Length == prefix.Length + 6 ? seq : 0)
+            .DefaultIfEmpty(0)
+            .Max();
+        if (highest == 0)
+            return;
+
+        var counter = await db.AgencySequenceCounters.FirstOrDefaultAsync(c =>
+            c.JurisdictionId == jurisdictionId && c.AgencyId == agencyId &&
+            c.CounterKey == ConfigurationKeys.IncidentFormat && c.Year == year);
+        if (counter is null)
+        {
+            counter = new AgencySequenceCounter(jurisdictionId, agencyId, ConfigurationKeys.IncidentFormat, year);
+            db.AgencySequenceCounters.Add(counter);
+        }
+
+        if (counter.EnsureAtLeast(highest) || db.Entry(counter).State == EntityState.Added)
+            await db.SaveChangesAsync();
     }
 
     // ------------------------------------------------------------------
@@ -307,6 +399,7 @@ internal static class DemoDataset
                 await Step($"citation {citation.Key}", () => CreateCitationAsync(citation));
 
             await ApplyLifecycleAsync();
+            await Step("backdate records", BackdateAsync);
             await Step("remove legacy sample records", RemoveLegacySampleRecordsAsync);
         }
 
@@ -582,6 +675,95 @@ internal static class DemoDataset
                 await Step($"open incident {s.Key}", () => _sender.Send(new OpenIncidentCommand(id)));
                 if (s.Status == RecordStatus.Closed)
                     await Step($"close incident {s.Key}", () => _sender.Send(new CloseIncidentCommand(id)));
+            }
+        }
+
+        // ---- Timestamps (issue #99) ----
+
+        /// <summary>
+        /// Every record was stamped with the startup time, so the dashboard feed showed 20 identical
+        /// "Created" timestamps. Spread creation over the weeks the dataset describes: places and people first,
+        /// each report shortly after the event it describes, and later edits for records that were opened,
+        /// closed or followed up. Aggregates are updated (the read-model rebuild repopulates projections from
+        /// them), then the projections are rebuilt so both paths agree.
+        /// </summary>
+        private async Task BackdateAsync()
+        {
+            var places = Places.Where(p => Locations.ContainsKey(p.Key)).ToList();
+            for (var i = 0; i < places.Count; i++)
+            {
+                var created = _now - Days(60) + Hours(9 * i);
+                await Stamp(db.Locations, Locations[places[i].Key], created, modified: null);
+            }
+
+            var people = People.Where(p => Names.ContainsKey(p.Key)).ToList();
+            for (var i = 0; i < people.Count; i++)
+            {
+                var created = _now - Days(45) + Hours(13 * i);
+                await Stamp(db.Names, Names[people[i].Key], created, modified: created.AddMinutes(20));
+            }
+
+            foreach (var s in IncidentSeeds.Where(s => Incidents.ContainsKey(s.Key)))
+            {
+                var created = Ago(s.Ago) + TimeSpan.FromMinutes(50);
+                DateTime? modified = s.Status switch
+                {
+                    RecordStatus.Closed => Earliest(created + Days(2) + Hours(3)),
+                    RecordStatus.Open => Earliest(created + Hours(2)),
+                    _ => null,
+                };
+                var id = Incidents[s.Key].Id;
+                await Stamp(db.Incidents, id, created, modified);
+                await StampNarratives(NarrativeOwnerTypes.Incident, id, created + TimeSpan.FromMinutes(10));
+            }
+
+            foreach (var s in ArrestSeeds.Where(s => Arrests.ContainsKey(s.Key)))
+            {
+                var created = Ago(s.Ago) + TimeSpan.FromMinutes(35);
+                var modified = Earliest(s.Close ? created + Days(1) + Hours(4) : created + Hours(1));
+                await Stamp(db.Arrests, Arrests[s.Key], created, modified);
+                await StampNarratives(NarrativeOwnerTypes.Arrest, Arrests[s.Key], created + TimeSpan.FromMinutes(15));
+            }
+
+            foreach (var s in CitationSeeds.Where(s => Citations.ContainsKey(s.Key)))
+            {
+                var created = Ago(s.Ago) + TimeSpan.FromMinutes(12);
+                await Stamp(db.Citations, Citations[s.Key], created, Earliest(created + TimeSpan.FromMinutes(6)));
+            }
+
+            await _sender.Send(new RebuildReadModelsCommand());
+
+            // The rebuild doesn't cover locations and narratives: align their projections directly.
+            foreach (var id in Locations.Values)
+            {
+                var created = await db.Locations.IgnoreQueryFilters().Where(l => l.Id == id).Select(l => l.CreatedAt).SingleAsync();
+                await db.LocationReadModels.IgnoreQueryFilters().Where(r => r.Id == id)
+                    .ExecuteUpdateAsync(u => u.SetProperty(r => r.CreatedAtUtc, created).SetProperty(r => r.UpdatedAtUtc, created));
+            }
+        }
+
+        /// <summary>Never stamp a time in the future (records created minutes ago keep "now").</summary>
+        private DateTime Earliest(DateTime value) => value < _now ? value : _now;
+
+        private static Task<int> Stamp<T>(DbSet<T> set, Guid id, DateTime created, DateTime? modified)
+            where T : Modules.Records.Domain.Common.Primitives.AggregateRoot
+            => set.IgnoreQueryFilters()
+                .Where(e => e.Id == id)
+                .ExecuteUpdateAsync(u => u
+                    .SetProperty(e => e.CreatedAt, created)
+                    .SetProperty(e => e.ModifiedAt, modified));
+
+        private async Task StampNarratives(string ownerType, Guid ownerId, DateTime when)
+        {
+            var narrativeIds = await db.NarrativeLinks.IgnoreQueryFilters()
+                .Where(l => l.OwnerType == ownerType && l.OwnerId == ownerId)
+                .Select(l => l.NarrativeId)
+                .ToListAsync();
+            foreach (var id in narrativeIds)
+            {
+                await Stamp(db.Narratives, id, when, modified: null);
+                await db.NarrativeReadModels.IgnoreQueryFilters().Where(r => r.Id == id)
+                    .ExecuteUpdateAsync(u => u.SetProperty(r => r.CreatedAtUtc, when).SetProperty(r => r.UpdatedAtUtc, when));
             }
         }
 

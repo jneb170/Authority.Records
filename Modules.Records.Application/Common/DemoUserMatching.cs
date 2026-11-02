@@ -21,17 +21,29 @@ public static class DemoUserMatching
     public static string ResolveDemoEmail(string? configuredValue)
         => string.IsNullOrWhiteSpace(configuredValue) ? DefaultDemoEmail : configuredValue.Trim();
 
+    /// <summary>
+    /// User claim (stored in AspNetUserClaims, so it is part of every principal the claims factory builds)
+    /// marking a per-visitor demo account created by "Explore the live demo".
+    /// </summary>
+    public const string DemoVisitorClaimType = "ar:demo-visitor";
+
     public static bool IsDemoPrincipal(ClaimsPrincipal? principal, string demoEmail)
     {
         if (principal?.Identity?.IsAuthenticated != true)
             return false;
+
+        if (principal.HasClaim(c => c.Type == DemoVisitorClaimType))
+            return true;
 
         // UserName == Email in this app, and the base claims factory puts the
         // username in ClaimTypes.Name; check Email too in case that changes.
         var name = principal.FindFirst(ClaimTypes.Name)?.Value;
         var email = principal.FindFirst(ClaimTypes.Email)?.Value;
 
-        return string.Equals(name, demoEmail, StringComparison.OrdinalIgnoreCase)
-            || string.Equals(email, demoEmail, StringComparison.OrdinalIgnoreCase);
+        return IsDemoEmail(name, demoEmail) || IsDemoEmail(email, demoEmail);
     }
+
+    /// <summary>True when <paramref name="email"/> is the shared demo account's email.</summary>
+    public static bool IsDemoEmail(string? email, string demoEmail)
+        => !string.IsNullOrWhiteSpace(email) && string.Equals(email.Trim(), demoEmail, StringComparison.OrdinalIgnoreCase);
 }

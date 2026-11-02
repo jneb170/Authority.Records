@@ -24,8 +24,10 @@ jobs:
         with:
           dotnet-version: ${{ env.DOTNET_VERSION }}
 
-      - name: Restore dependencies
-        run: dotnet restore
+      # NuGet audit: fail on high (NU1903) or critical (NU1904) advisories, including
+      # transitive packages, so vulnerable dependencies can't ship unnoticed (issue #102).
+      - name: Restore dependencies (fail on high/critical advisories)
+        run: dotnet restore -p:NuGetAuditMode=all -p:WarningsAsErrors="NU1903%3BNU1904"
 
       - name: Build (Release)
         run: dotnet build --no-restore -c Release
