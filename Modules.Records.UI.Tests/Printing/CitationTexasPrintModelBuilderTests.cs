@@ -17,14 +17,12 @@ public class CitationTexasPrintModelBuilderTests
     private static (CitationTexasPrintModelBuilder builder, long recordNumber) Build(
         CitationDto citation,
         Dictionary<Guid, string>? labels = null,
-        Dictionary<Guid, LocationDto>? locations = null,
-        Dictionary<string, string>? config = null)
+        Dictionary<Guid, LocationDto>? locations = null)
     {
         var builder = new CitationTexasPrintModelBuilder(
             new FakeCitationService(citation),
             new FakePicklistService(labels ?? new()),
-            new FakeLocationService(locations),
-            new FakeAgencyConfigurationService(config));
+            new FakeLocationService(locations));
         return (builder, citation.RecordNumber);
     }
 
@@ -43,7 +41,8 @@ public class CitationTexasPrintModelBuilderTests
             DefendantName: "Perez, Mary",
             DefendantNameRecordNumber: null,
             Description: "test",
-            IssueDate: new DateTime(2026, 5, 24, 14, 30, 0, DateTimeKind.Utc),
+            // Agency wall-clock time as entered on the citation screen (stored Kind=Unspecified).
+            IssueDate: new DateTime(2026, 5, 24, 14, 30, 0),
             IsIssued: true,
             IsLocked: false,
             LockedByUserId: null,
@@ -63,8 +62,7 @@ public class CitationTexasPrintModelBuilderTests
         var builder = new CitationTexasPrintModelBuilder(
             new FakeCitationService(null),
             new FakePicklistService(new()),
-            new FakeLocationService(),
-            new FakeAgencyConfigurationService());
+            new FakeLocationService());
 
         Assert.Null(await builder.BuildAsync(999));
     }
@@ -168,49 +166,46 @@ public class CitationTexasPrintModelBuilderTests
     }
 
     [Fact]
-    public async Task BuildAsync_ConvertsIssueInstant_ToCentral_ByDefault()
+    public async Task BuildAsync_PrintsIssueDateTime_AsEntered()
     {
-        // IssueDate is 2026-05-24 14:30 UTC. With no agency TimeZoneId set, the print must render
-        // Central (the default) — 09:30 CDT — NOT the server-local time, which is UTC on the Linux
-        // App Service. This is the B-6 fix: the old code printed 2:30 PM there.
+        // The citation screens store the issue date/time as the agency's wall-clock time. The form
+        // must print what the officer entered (2:30 PM), not shift it as if it were UTC (9:30 AM).
         var (builder, recordNumber) = Build(NewCitation());
         var model = await builder.BuildAsync(recordNumber);
 
         Assert.NotNull(model);
-        Assert.Equal("9:30", model!.IssueTime);
-        Assert.Equal("AM", model.IssueAmPm);
+        Assert.Equal("2:30", model!.IssueTime);
+        Assert.Equal("PM", model.IssueAmPm);
         Assert.Equal("05/24/2026", model.IssueDate);
         Assert.Equal("24", model.IssueDayOfMonth);
         Assert.Equal("May 2026", model.IssueMonthYear);
     }
 
     [Fact]
-    public async Task BuildAsync_HonorsConfiguredTimeZone_ForIssueInstant()
+    public async Task BuildAsync_DateOnlyIssueDate_IsNotRolledBackADay()
     {
-        // Same 14:30 UTC instant, but the agency is configured for Eastern -> 10:30 EDT.
-        var config = new Dictionary<string, string> { [ConfigurationKeys.TimeZoneId] = "America/New_York" };
-        var (builder, recordNumber) = Build(NewCitation(), config: config);
-        var model = await builder.BuildAsync(recordNumber);
-
-        Assert.NotNull(model);
-        Assert.Equal("10:30", model!.IssueTime);
-        Assert.Equal("AM", model.IssueAmPm);
-    }
-
-    [Fact]
-    public async Task BuildAsync_InstantConversion_RollsDateBack_WhenZoneIsBehindUtc()
-    {
-        // 02:00 UTC on the 24th is still 21:00 on the 23rd in Central. Converting the true instant
-        // (not just relabeling) must roll the printed date back a day.
-        var citation = NewCitation() with { IssueDate = new DateTime(2026, 5, 24, 2, 0, 0, DateTimeKind.Utc) };
+        // The create form takes a date only, stored as midnight. Treating that as UTC printed the
+        // previous evening (05/23, 7:00 PM) in Central.
+        var citation = NewCitation() with { IssueDate = new DateTime(2026, 5, 24) };
         var (builder, recordNumber) = Build(citation);
         var model = await builder.BuildAsync(recordNumber);
 
         Assert.NotNull(model);
-        Assert.Equal("05/23/2026", model!.IssueDate);
-        Assert.Equal("23", model.IssueDayOfMonth);
-        Assert.Equal("9:00", model.IssueTime);
-        Assert.Equal("PM", model.IssueAmPm);
+        Assert.Equal("05/24/2026", model!.IssueDate);
+        Assert.Equal("24", model.IssueDayOfMonth);
+        Assert.Equal("May 2026", model.IssueMonthYear);
+    }
+
+    [Fact]
+    public async Task BuildAsync_PrintsCourtAppearance_AsEntered()
+    {
+        var offense = new CitationOffenseDetailsDto(CourtAppearanceDateTime: new DateTime(2026, 6, 15, 9, 0, 0));
+        var (builder, recordNumber) = Build(NewCitation(offense: offense));
+        var model = await builder.BuildAsync(recordNumber);
+
+        Assert.NotNull(model);
+        Assert.Equal("06/15/2026", model!.CourtAppearanceDay);
+        Assert.Equal("9:00 AM", model.CourtAppearanceTime);
     }
 
     [Fact]

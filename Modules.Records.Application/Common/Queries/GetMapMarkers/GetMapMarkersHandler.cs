@@ -24,6 +24,7 @@ public sealed class GetMapMarkersHandler
     {
         var jurisdictionId = request.JurisdictionId;
         var since          = request.Since;
+        var sinceLocal     = request.SinceAgencyLocal ?? request.Since;
         var agencyId       = _tenantProvider.GetAgencyId();
 
         // Load location coordinates indexed by LocationId for fast lookup
@@ -67,7 +68,7 @@ public sealed class GetMapMarkersHandler
             .WhereAgencyScoped(agencyId)
             .Where(r => r.JurisdictionId == jurisdictionId
                      && r.LocationId != null
-                     && (since == null || r.ArrestedAt >= since))
+                     && (sinceLocal == null || r.ArrestedAt >= sinceLocal))
             .ToListAsync(cancellationToken);
 
         foreach (var r in arrests)
@@ -89,7 +90,7 @@ public sealed class GetMapMarkersHandler
             .WhereAgencyScoped(agencyId)
             .Where(r => r.JurisdictionId == jurisdictionId
                      && r.LocationId != null
-                     && (since == null || r.IssueDate >= since))
+                     && (sinceLocal == null || r.IssueDate >= sinceLocal))
             .ToListAsync(cancellationToken);
 
         foreach (var r in citations)

@@ -25,6 +25,7 @@ public sealed class CitationOffenseDetails : IMultiTenant
     public Guid? SpeedBandId { get; private set; }
     public string? NarrativeOtherViolations { get; private set; }
     public string? OccurredAtText { get; private set; }
+    /// <summary>Court appearance date and time, in the agency's local wall-clock time, as entered on the record screens (not UTC, unlike <c>CreatedAt</c>/<c>ModifiedAt</c>). Display and print it as stored; do not convert it with the agency time zone.</summary>
     public DateTime? CourtAppearanceDateTime { get; private set; }
     public Guid? CourtAppearanceLocationId { get; private set; }
     public DateTime? AffidavitSignedDate { get; private set; }
