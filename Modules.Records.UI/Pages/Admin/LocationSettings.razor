@@ -38,10 +38,10 @@ else
         <div class="card-header"><strong>Google Maps API Key</strong></div>
         <div class="card-body">
             <p class="text-muted small mb-3">
-                Required to enable the interactive map picker on the Location Create and Location Details pages.
-                Obtain a key from the
-                <a href="https://console.cloud.google.com/apis/credentials" target="_blank" rel="noopener">Google Cloud Console</a>
-                with the <strong>Maps JavaScript API</strong> and <strong>Places API</strong> enabled.
+                Required for the dashboard map, record mini-maps and the map picker on the Location pages.
+                Obtain a key from
+                <a href="https://console.cloud.google.com/google/maps-apis/credentials" target="_blank" rel="noopener">Google Maps Platform → Keys &amp; Credentials</a>
+                with the <strong>Maps JavaScript API</strong>, <strong>Geocoding API</strong> and <strong>Places API</strong> enabled.
             </p>
 
             <div class="row g-3 align-items-end">
@@ -51,8 +51,16 @@ else
                         <input type="@(_showKey ? "text" : "password")"
                                class="form-control font-monospace"
                                placeholder="AIza…"
+                               aria-label="Google Maps API key"
+                               autocomplete="off"
+                               spellcheck="false"
+                               data-lpignore="true"
+                               data-1p-ignore
+                               data-bwignore
+                               data-form-type="other"
                                @bind="_pendingKey"
-                               @bind:event="oninput" />
+                               @bind:event="oninput"
+                               @bind:after="OnKeyEdited" />
                         <button class="btn btn-outline-secondary" type="button" @onclick="ToggleShow" title="@(_showKey ? "Hide" : "Show")">
                             <i class="bi @(_showKey ? "bi-eye-slash" : "bi-eye")"></i>
                         </button>
@@ -63,13 +71,21 @@ else
                             </button>
                         }
                     </div>
-                    @if (string.IsNullOrWhiteSpace(_pendingKey) && !string.IsNullOrWhiteSpace(_savedKey))
+                    @if (_edited && !_hasChanges && !string.IsNullOrWhiteSpace(_savedKey))
+                    {
+                        <div class="form-text text-info"><i class="bi bi-info-circle-fill me-1"></i>This is the key that's already saved, so there's nothing to change. Paste a different key to replace it.</div>
+                    }
+                    else if (string.IsNullOrWhiteSpace(_pendingKey) && !string.IsNullOrWhiteSpace(_savedKey))
                     {
                         <div class="form-text text-warning"><i class="bi bi-exclamation-triangle-fill me-1"></i>Clearing the key will disable the Google Maps features. Save to confirm.</div>
                     }
+                    else if (_hasChanges && !string.IsNullOrWhiteSpace(_savedKey))
+                    {
+                        <div class="form-text text-primary"><i class="bi bi-pencil-fill me-1"></i>Save Changes to replace the current key.</div>
+                    }
                     else if (!string.IsNullOrWhiteSpace(_savedKey))
                     {
-                        <div class="form-text text-success"><i class="bi bi-check-circle-fill me-1"></i>A key is currently configured.</div>
+                        <div class="form-text text-success"><i class="bi bi-check-circle-fill me-1"></i>A key is currently configured. To replace it, paste the new key over it.</div>
                     }
                     else
                     {
@@ -82,7 +98,8 @@ else
             <button class="btn btn-outline-secondary btn-sm" @onclick="ResetPending" disabled="@(!_hasChanges || _saving)">
                 <i class="bi bi-arrow-counterclockwise me-1"></i>Discard Changes
             </button>
-            <button class="btn btn-primary btn-sm" @onclick="SaveAsync" disabled="@(!_hasChanges || _saving)">
+            <button class="btn btn-primary btn-sm" @onclick="SaveAsync" disabled="@(!_hasChanges || _saving)"
+                    title="@(_hasChanges ? null : "Enter a key that differs from the saved one to enable saving")">
                 @if (_saving)
                 {
                     <span class="spinner-border spinner-border-sm me-1"></span>
@@ -121,7 +138,14 @@ else
     private string? _savedKey;
     private string? _pendingKey;
 
-    private bool _hasChanges => _pendingKey != _savedKey;
+    private bool _edited;
+
+    // Compare trimmed values so stray whitespace from a paste doesn't count as a change (or get saved).
+    private bool _hasChanges => Normalize(_pendingKey) != Normalize(_savedKey);
+
+    private static string? Normalize(string? key) => string.IsNullOrWhiteSpace(key) ? null : key.Trim();
+
+    private void OnKeyEdited() => _edited = true;
 
     protected override async Task OnInitializedAsync()
     {
@@ -136,6 +160,7 @@ else
             GoogleMapsConfig.InvalidateCache();
             _savedKey = await GoogleMapsConfig.GetApiKeyAsync();
             _pendingKey = _savedKey;
+            _edited = false;
         }
         finally
         {
@@ -145,9 +170,17 @@ else
 
     private void ToggleShow() => _showKey = !_showKey;
 
-    private void ClearKey() => _pendingKey = null;
+    private void ClearKey()
+    {
+        _pendingKey = null;
+        _edited = true;
+    }
 
-    private void ResetPending() => _pendingKey = _savedKey;
+    private void ResetPending()
+    {
+        _pendingKey = _savedKey;
+        _edited = false;
+    }
 
     private async Task SaveAsync()
     {
@@ -157,7 +190,7 @@ else
         try
         {
             await Mediator.Send(new UpdateJurisdictionGoogleMapsApiKeyCommand(
-                ApiKey: string.IsNullOrWhiteSpace(_pendingKey) ? null : _pendingKey));
+                ApiKey: Normalize(_pendingKey)));
 
             GoogleMapsConfig.InvalidateCache();
             await LoadAsync();
