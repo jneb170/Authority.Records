@@ -5,6 +5,14 @@
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <UserSecretsId>c7b525e0-89c9-4079-8707-abeb2dd89675</UserSecretsId>
+    <!--
+      The Blazor scripts (_framework/blazor.server.js) come from the
+      Microsoft.AspNetCore.App.Internal.Assets pack, which the SDK only restores when
+      it sees .razor files. The Dockerfile restores from the project files alone, so
+      without this the image shipped no _framework folder: every page rendered, but
+      nothing was interactive (buttons, maps). See the check in the Dockerfile.
+    -->
+    <RequiresAspNetWebAssets>true</RequiresAspNetWebAssets>
   </PropertyGroup>
 
   <ItemGroup>

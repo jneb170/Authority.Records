@@ -26,6 +26,10 @@ COPY Modules.Records.UI/          Modules.Records.UI/
 COPY Documents/charges.json       Documents/
 RUN dotnet publish Modules.Records.UI/Modules.Records.UI.csproj \
       -c Release -o /app/publish --no-restore /p:UseAppHost=false
+# Fail the build if the Blazor script is missing. Without it the site renders but no
+# button, form or map works (see RequiresAspNetWebAssets in Modules.Records.UI.csproj).
+RUN test -f /app/publish/wwwroot/_framework/blazor.server.js \
+ || { echo "ERROR: wwwroot/_framework/blazor.server.js missing from publish output" >&2; exit 1; }
 
 # ── Runtime ──────────────────────────────────────────────────────────────────
 FROM mcr.microsoft.com/dotnet/aspnet:10.0 AS runtime
