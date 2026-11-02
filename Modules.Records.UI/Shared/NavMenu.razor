@@ -1,4 +1,4 @@
-<a href="/" class="sidebar-brand" @onclick="OnNavClicked">
+﻿<a href="/" class="sidebar-brand" @onclick="OnNavClicked">
     <span class="sidebar-brand-icon-wrap">
         <img src="/favicon.svg" width="24" height="24" alt="AR" />
     </span>
@@ -112,13 +112,6 @@
                         <span class="nav-label-short">Rebuild</span>
                     </span>
                 </NavLink>
-                <NavLink class="nav-link" href="admin/logs" @onclick="OnNavClicked" title="Logs">
-                    <i class="bi bi-journal-text"></i>
-                    <span class="nav-link-label">
-                        <span class="nav-label-full">Logs</span>
-                        <span class="nav-label-short">Logs</span>
-                    </span>
-                </NavLink>
 
                 <AuthorizeView Roles="Admin">
                     <NavLink class="nav-link" href="admin/agencies" @onclick="OnNavClicked" title="Agencies">
@@ -147,6 +140,13 @@
                         <span class="nav-link-label">
                             <span class="nav-label-full">Location Settings</span>
                             <span class="nav-label-short">Location</span>
+                        </span>
+                    </NavLink>
+                    <NavLink class="nav-link" href="admin/logs" @onclick="OnNavClicked" title="Logs">
+                        <i class="bi bi-journal-text"></i>
+                        <span class="nav-link-label">
+                            <span class="nav-label-full">Logs</span>
+                            <span class="nav-label-short">Logs</span>
                         </span>
                     </NavLink>
                 </AuthorizeView>

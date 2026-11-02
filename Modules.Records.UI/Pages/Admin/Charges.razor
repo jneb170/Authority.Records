@@ -1,5 +1,5 @@
-@page "/admin/charges"
-@attribute [Authorize(Roles = "Admin")]
+﻿@page "/admin/charges"
+@attribute [Authorize(Roles = "Admin,Supervisor")]
 @inject IChargeService ChargeService
 @using Microsoft.AspNetCore.Authorization
 @using Modules.Records.Application.DTOs
@@ -10,7 +10,16 @@
 <div class="page-header">
     <div>
         <h2 class="page-header-title"><i class="bi bi-exclamation-diamond-fill"></i> Charges</h2>
-        <div class="page-header-sub">Manage the master charge catalog used by incidents, arrests, and citations.</div>
+        <div class="page-header-sub">
+            @if (_canManage)
+            {
+                <text>Manage the master charge catalog used by incidents, arrests, and citations.</text>
+            }
+            else
+            {
+                <text>Browse the master charge catalog used by incidents, arrests, and citations. Only administrators can change it.</text>
+            }
+        </div>
     </div>
 </div>
 
@@ -39,13 +48,16 @@
             </div>
             <div class="col-md-3 text-md-end">
                 <button class="btn btn-sm btn-primary" @onclick="LoadAsync">Refresh</button>
-                <button class="btn btn-sm btn-outline-primary ms-2" @onclick="StartAdd">Add Charge</button>
+                @if (_canManage)
+                {
+                    <button class="btn btn-sm btn-outline-primary ms-2" @onclick="StartAdd">Add Charge</button>
+                }
             </div>
         </div>
     </div>
 </div>
 
-@if (_showEditor)
+@if (_showEditor && _canManage)
 {
     <div class="card mb-3">
         <div class="card-body">
@@ -137,16 +149,19 @@
                             <td>@(charge.IsActive ? "Yes" : "No")</td>
                             <td>@(charge.IsCitationEligible ? "Eligible" : "No")</td>
                             <td class="text-end">
-                                <button class="btn btn-sm btn-outline-secondary me-1" @onclick="() => StartEdit(charge)">Edit</button>
-                                @if (charge.IsActive)
+                                @if (_canManage)
                                 {
-                                    <button class="btn btn-sm btn-outline-warning me-1" @onclick="() => DeactivateAsync(charge.Id)">Deactivate</button>
+                                    <button class="btn btn-sm btn-outline-secondary me-1" @onclick="() => StartEdit(charge)">Edit</button>
+                                    @if (charge.IsActive)
+                                    {
+                                        <button class="btn btn-sm btn-outline-warning me-1" @onclick="() => DeactivateAsync(charge.Id)">Deactivate</button>
+                                    }
+                                    else
+                                    {
+                                        <button class="btn btn-sm btn-outline-success me-1" @onclick="() => ActivateAsync(charge.Id)">Activate</button>
+                                    }
+                                    <button class="btn btn-sm btn-outline-danger" @onclick="() => DeleteAsync(charge.Id)">Delete</button>
                                 }
-                                else
-                                {
-                                    <button class="btn btn-sm btn-outline-success me-1" @onclick="() => ActivateAsync(charge.Id)">Activate</button>
-                                }
-                                <button class="btn btn-sm btn-outline-danger" @onclick="() => DeleteAsync(charge.Id)">Delete</button>
                             </td>
                         </tr>
                     }
@@ -157,6 +172,11 @@
 </div>
 
 @code {
+    [CascadingParameter] private Task<AuthenticationState>? AuthenticationStateTask { get; set; }
+
+    /// <summary>Supervisors can browse the catalog; only Admins can change it (issue #97).</summary>
+    private bool _canManage;
+
     private IReadOnlyList<ChargeDto> _charges = [];
     private bool _loading = true;
     private bool _includeInactive = true;
@@ -175,7 +195,16 @@
     private bool _editCitationEligible;
     private bool _editIsActive = true;
 
-    protected override Task OnInitializedAsync() => LoadAsync();
+    protected override async Task OnInitializedAsync()
+    {
+        if (AuthenticationStateTask is not null)
+        {
+            var user = (await AuthenticationStateTask).User;
+            _canManage = user.IsInRole("Admin");
+        }
+
+        await LoadAsync();
+    }
 
     private async Task LoadAsync()
     {
@@ -198,6 +227,7 @@
 
     private void StartAdd()
     {
+        if (!_canManage) return;
         _editingId = null;
         _editOffenseName = string.Empty;
         _editUcrCategory = string.Empty;
@@ -213,6 +243,7 @@
 
     private void StartEdit(ChargeDto charge)
     {
+        if (!_canManage) return;
         _editingId = charge.Id;
         _editOffenseName = charge.OffenseName;
         _editUcrCategory = charge.UcrCategory;
@@ -281,6 +312,12 @@
     {
         _error = null;
         _successMessage = null;
+
+        if (!_canManage)
+        {
+            _error = "Only administrators can change the charge catalog.";
+            return;
+        }
 
         try
         {
