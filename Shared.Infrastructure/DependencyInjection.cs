@@ -3,6 +3,7 @@ using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Hosting;
 using Microsoft.AspNetCore.Identity;
 using Modules.Records.Application.Abstractions;
@@ -193,30 +194,7 @@ public static class DependencyInjection
         // -------------------------------------------------------
         // Identity / Modification Context
         // -------------------------------------------------------
-        services.AddIdentityCore<ApplicationUser>(options =>
-            {
-                options.Password.RequireDigit = true;
-                options.Password.RequiredLength = 8;
-            })
-            .AddRoles<IdentityRole>()
-            .AddEntityFrameworkStores<AuthDbContext>()
-            .AddSignInManager()
-            .AddDefaultTokenProviders()
-            .AddClaimsPrincipalFactory<RecordsUserClaimsPrincipalFactory>();
-
-        services.AddAuthentication(options =>
-            {
-                options.DefaultScheme = IdentityConstants.ApplicationScheme;
-                options.DefaultSignInScheme = IdentityConstants.ApplicationScheme;
-            })
-            .AddCookie(IdentityConstants.ApplicationScheme, options =>
-            {
-                options.LoginPath = "/account/login";
-                options.LogoutPath = "/account/logout";
-                options.AccessDeniedPath = "/account/login";
-                options.SlidingExpiration = true;
-                options.ExpireTimeSpan = TimeSpan.FromHours(8);
-            });
+        services.AddRecordsIdentity();
 
         services.AddScoped<IModificationContext>(sp =>
         {
@@ -267,6 +245,56 @@ public static class DependencyInjection
                 typeof(IDomainEvent).Assembly
             ));
 
+
+        return services;
+    }
+
+    /// <summary>
+    /// Registers ASP.NET Core Identity (users, roles, sign-in) and the application cookie.
+    /// Requires <see cref="AuthDbContext"/> to be registered. Called by
+    /// <see cref="AddInfrastructure"/>; public so integration tests can wire the same stack.
+    /// </summary>
+    public static IServiceCollection AddRecordsIdentity(this IServiceCollection services)
+    {
+        services.AddIdentityCore<ApplicationUser>(options =>
+            {
+                options.Password.RequireDigit = true;
+                options.Password.RequiredLength = 8;
+
+                // Routes sign-in through ActiveUserConfirmation so deactivated users
+                // (ApplicationUser.IsActive == false) are refused.
+                options.SignIn.RequireConfirmedAccount = true;
+            })
+            .AddRoles<IdentityRole>()
+            .AddEntityFrameworkStores<AuthDbContext>()
+            .AddSignInManager()
+            .AddDefaultTokenProviders()
+            .AddClaimsPrincipalFactory<RecordsUserClaimsPrincipalFactory>()
+            .AddUserConfirmation<ActiveUserConfirmation>();
+
+        // Re-check authenticated cookies against the user store so deactivation (which
+        // rotates the security stamp) ends existing sessions within ValidationInterval.
+        services.Replace(ServiceDescriptor.Scoped<ISecurityStampValidator, ActiveUserSecurityStampValidator>());
+        services.Configure<SecurityStampValidatorOptions>(options =>
+            options.ValidationInterval = ActiveUserSecurityStampValidator.ValidationInterval);
+
+        services.AddAuthentication(options =>
+            {
+                options.DefaultScheme = IdentityConstants.ApplicationScheme;
+                options.DefaultSignInScheme = IdentityConstants.ApplicationScheme;
+            })
+            // Registers all Identity cookie schemes, not just the application cookie: on a
+            // failed stamp check SecurityStampValidator signs out the two-factor schemes too,
+            // which throws if they are missing. The application cookie's OnValidatePrincipal
+            // is wired to SecurityStampValidator.ValidatePrincipalAsync by default.
+            .AddIdentityCookies(cookies => cookies.ApplicationCookie!.Configure(options =>
+            {
+                options.LoginPath = "/account/login";
+                options.LogoutPath = "/account/logout";
+                options.AccessDeniedPath = "/account/login";
+                options.SlidingExpiration = true;
+                options.ExpireTimeSpan = TimeSpan.FromHours(8);
+            }));
 
         return services;
     }
