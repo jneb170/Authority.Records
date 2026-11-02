@@ -8,17 +8,17 @@
 
 <PageTitle>Citations</PageTitle>
 
-<div class="page-header">
-    <div>
-        <h2 class="page-header-title"><i class="bi bi-file-earmark-text-fill"></i> Citations</h2>
-        <div class="page-header-sub">Citation Records</div>
-    </div>
-    <a class="btn btn-primary" href="/citations/create"><i class="bi bi-plus-lg me-1"></i>New Citation</a>
-</div>
+<PageHeader Icon="bi-file-earmark-text-fill" Title="Citations" Subtitle="Citation Records">
+    <Actions>
+        <a class="btn btn-primary" href="/citations/create"><i class="bi bi-plus-lg me-1"></i>New Citation</a>
+    </Actions>
+</PageHeader>
 
 <!-- Search / Filter Panel -->
 <div class="card list-filter-card mb-3">
-    <div class="card-header list-filter-card-header" @onclick="() => _filterExpanded = !_filterExpanded">
+    <div class="card-header list-filter-card-header" role="button" tabindex="0"
+         aria-expanded="@(_filterExpanded ? "true" : "false")" aria-controls="citation-filter-body"
+         @onclick="ToggleFilter" @onkeydown="HandleFilterKey">
         <span class="list-filter-card-title">
             <i class="bi bi-search me-1"></i>Search / Filter
         </span>
@@ -26,7 +26,7 @@
     </div>
 @if (_filterExpanded)
 {
-    <div class="card-body">
+    <div class="card-body" id="citation-filter-body">
         <div class="row g-2">
             <div class="col-sm-6 col-md-4">
                 <label class="form-label mb-1">Description contains</label>
@@ -79,30 +79,18 @@
     </div>
 }
 
+<StatusMessage Kind="error" Message="@_error" OnDismiss="() => _error = null" />
+<StatusMessage Kind="success" Message="@_successMessage" OnDismiss="() => _successMessage = null" />
+
 @if (_loading)
 {
     <LoadingSpinner />
 }
-else if (_error is not null)
-{
-    <div class="alert alert-danger">@_error</div>
-}
 else if (_citations is not null)
 {
-    @if (!_citations.Any())
-    {
-        <div class="table-responsive list-table-shell">
-            <div class="empty-state">
-                <i class="bi bi-file-earmark-minus"></i>
-                <div class="fw-medium">No citations recorded.</div>
-                <div class="small mt-1">Create a citation record to track enforcement activity.</div>
-            </div>
-        </div>
-    }
-    else
-    {
         <div class="table-responsive list-table-shell">
         <table class="table table-hover list-page-table">
+            <caption class="visually-hidden">Citations, sortable by column. Use the search and filter controls above to narrow results.</caption>
             <thead>
                 <tr>
                     <th style="width:3rem"></th>
@@ -122,6 +110,12 @@ else if (_citations is not null)
                 </tr>
             </thead>
             <tbody>
+                @if (!SortedCitations.Any())
+                {
+                    <EmptyState Columns="7"
+                                Message="@(ActiveFilterCount > 0 ? "No citations match your filters." : "No citations recorded.")"
+                                SubMessage="@(ActiveFilterCount > 0 ? "Adjust or clear the filters above to see more results." : "Create a citation record to track enforcement activity.")" />
+                }
                 @foreach (var c in SortedCitations)
                 {
                     <tr>
@@ -145,7 +139,6 @@ else if (_citations is not null)
             </tbody>
         </table>
         </div>
-    }
 }
 
 <ConfirmDialog Visible="_showDeleteConfirm"
@@ -160,6 +153,7 @@ else if (_citations is not null)
     private Dictionary<Guid, string> _lockUserNames = [];
     private bool _loading = true;
     private string? _error;
+    private string? _successMessage;
 
     // Delete state
     private bool   _showDeleteConfirm;
@@ -210,6 +204,14 @@ else if (_citations is not null)
         else { _sortColumn = column; _sortAscending = true; }
     }
 
+    private void ToggleFilter() => _filterExpanded = !_filterExpanded;
+
+    private void HandleFilterKey(KeyboardEventArgs e)
+    {
+        if (e.Key is "Enter" or " " or "Spacebar")
+            _filterExpanded = !_filterExpanded;
+    }
+
     protected override async Task OnInitializedAsync()
     {
         ShortcutService.OnNew += HandleShortcutNew;
@@ -245,6 +247,8 @@ else if (_citations is not null)
 
     private void InitiateDelete(Guid id, string name)
     {
+        _error             = null;
+        _successMessage    = null;
         _deleteTargetId    = id;
         _deleteTargetName  = name;
         _showDeleteConfirm = true;
@@ -258,6 +262,9 @@ else if (_citations is not null)
             await CitationService.SoftDeleteAsync(_deleteTargetId);
             _citations = await CitationService.GetByJurisdictionAsync();
             await ResolveLockedNamesAsync();
+            _successMessage = string.IsNullOrWhiteSpace(_deleteTargetName)
+                ? "Citation deleted."
+                : $"Citation \"{_deleteTargetName}\" deleted.";
         }
         catch (Exception ex) { _error = ex.Message; }
     }

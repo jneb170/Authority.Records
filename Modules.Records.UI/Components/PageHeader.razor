@@ -1,0 +1,33 @@
+@* Standard list/detail page header: leading icon + h1 title + optional subtitle,
+   with an optional right-aligned action area (typically a "New …" button).
+   The <h1> is required by Routes.razor's <FocusOnNavigate Selector="h1"> so the
+   page title receives focus on navigation. Keep the action as a direct child so
+   the mobile rule `.page-header > :last-child { width: 100% }` still applies. *@
+<div class="page-header">
+    <div>
+        <h1 class="page-header-title">
+            @if (!string.IsNullOrWhiteSpace(Icon))
+            {
+                <i class="bi @Icon" aria-hidden="true"></i><text> </text>
+            }
+            @Title
+        </h1>
+        @if (!string.IsNullOrWhiteSpace(Subtitle))
+        {
+            <div class="page-header-sub">@Subtitle</div>
+        }
+    </div>
+    @Actions
+</div>
+
+@code {
+    /// <summary>Bootstrap Icons class without the leading "bi " (e.g. "bi-people-fill").</summary>
+    [Parameter] public string? Icon { get; set; }
+
+    [Parameter, EditorRequired] public string Title { get; set; } = "";
+
+    [Parameter] public string? Subtitle { get; set; }
+
+    /// <summary>Right-aligned action content, rendered as a direct child of the header row.</summary>
+    [Parameter] public RenderFragment? Actions { get; set; }
+}

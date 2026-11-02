@@ -15,6 +15,7 @@
 @inject NavigationManager Nav
 @inject IKeyboardShortcutService ShortcutService
 @using Modules.Records.UI.Services
+@using Modules.Records.Domain.Common.Exceptions
 
 <PageTitle>Incident Details</PageTitle>
 
@@ -29,6 +30,8 @@ else if (_error is not null)
 else if (_incident is not null)
 {
     <div style="display:contents" @onchange="OnEditActivity">
+    <NavigationLock ConfirmExternalNavigation="@HasPendingChanges"
+                    OnBeforeInternalNavigation="HandleInternalNavigation" />
     <nav aria-label="breadcrumb" class="record-breadcrumb">
         <ol class="breadcrumb">
             <li class="breadcrumb-item"><a href="/incidents">Incidents</a></li>
@@ -38,7 +41,7 @@ else if (_incident is not null)
 
     <div class="page-header record-page-header">
         <div>
-            <h2 class="page-header-title"><i class="bi bi-clipboard2-pulse-fill"></i> Incident Report</h2>
+            <h1 class="page-header-title"><i class="bi bi-clipboard2-pulse-fill"></i> Incident Report</h1>
             <div class="page-header-sub">
                 @(string.IsNullOrWhiteSpace(_incident.Details.IncidentNum)
                     ? $"Incident #{RecordNumber}"
@@ -55,21 +58,8 @@ else if (_incident is not null)
                        RelationshipsUrl="@RelationshipsTabUrl"
                        ActiveTab="Details" />
 
-    @if (_actionError is not null)
-    {
-        <div class="alert alert-danger alert-dismissible">
-            @_actionError
-            <button type="button" class="btn-close" aria-label="Dismiss message" @onclick="() => _actionError = null"></button>
-        </div>
-    }
-
-    @if (_saveSuccessMessage is not null)
-    {
-        <div class="alert alert-success alert-dismissible">
-            @_saveSuccessMessage
-            <button type="button" class="btn-close" aria-label="Dismiss message" @onclick="() => _saveSuccessMessage = null"></button>
-        </div>
-    }
+    <StatusMessage Kind="error" Message="@_actionError" OnDismiss="() => _actionError = null" />
+    <StatusMessage Kind="success" Message="@_successMessage" OnDismiss="() => _successMessage = null" />
 
     <!-- Modify Mode Bar -->
     <div class="record-toolbar mb-3">
@@ -78,7 +68,9 @@ else if (_incident is not null)
             <div class="alert alert-warning d-flex align-items-center gap-3 py-2 mb-2 record-mode-banner">
                 <span><i class="bi bi-pencil-fill me-1"></i><strong>Modify mode</strong> — lock expires in @_lockSecondsRemaining s</span>
                 <div class="record-mode-actions">
-                    <button class="btn btn-sm btn-primary" @onclick="SaveRecordAsync"><i class="bi bi-floppy-fill me-1"></i>Save</button>
+                    <BusyButton Class="btn btn-sm btn-primary" OnClick="SaveRecordAsync" BusyText="Saving…">
+                        <i class="bi bi-floppy-fill me-1"></i>Save
+                    </BusyButton>
                     <button class="btn btn-sm btn-outline-dark" @onclick="RequestReleaseAsync"><i class="bi bi-unlock-fill me-1"></i>Release</button>
                 </div>
             </div>
@@ -101,15 +93,15 @@ else if (_incident is not null)
         <div class="action-bar record-action-bar mb-4 d-flex flex-wrap gap-2">
             @if (_incident.Status == "Draft")
             {
-                <button class="btn btn-success btn-sm" @onclick="OpenAsync">Open</button>
+                <BusyButton Class="btn btn-success btn-sm" OnClick="OpenAsync" BusyText="Opening…">Open</BusyButton>
             }
             @if (_incident.Status == "Open")
             {
-                <button class="btn btn-warning btn-sm" @onclick="CloseAsync">Close</button>
+                <BusyButton Class="btn btn-warning btn-sm" OnClick="CloseAsync" BusyText="Closing…">Close</BusyButton>
             }
             @if (_incident.Status is "Closed")
             {
-                <button class="btn btn-secondary btn-sm" @onclick="ArchiveAsync">Archive</button>
+                <BusyButton Class="btn btn-secondary btn-sm" OnClick="ArchiveAsync" BusyText="Archiving…">Archive</BusyButton>
             }
             @if (!_incident.IsDeleted)
             {
@@ -117,7 +109,7 @@ else if (_incident is not null)
             }
             else
             {
-                <button class="btn btn-outline-success btn-sm" @onclick="RestoreAsync">Restore</button>
+                <BusyButton Class="btn btn-outline-success btn-sm" OnClick="RestoreAsync" BusyText="Restoring…">Restore</BusyButton>
             }
         </div>
     }
@@ -141,68 +133,73 @@ else if (_incident is not null)
     <div class="card record-content-card mb-4">
         <div class="card-body">
             <h6 class="card-title">Incident Details</h6>
-            <div class="record-grid-3">
-                <div>
-                    <label class="form-label mb-1">Incident Number</label>
-                    <input type="text" class="@(_modifyMode ? "form-control form-control-sm" : "form-control-plaintext form-control-sm ps-0")"
-                           maxlength="30" readonly="@(!_modifyMode)"
-                           @bind="_editIncidentNum" placeholder="@(_modifyMode ? "(optional)" : "—")" />
-                </div>
-                <div class="record-field-span-2">
-                    <label class="form-label mb-1">Description</label>
-                    <input type="text" class="@(_modifyMode ? "form-control form-control-sm" : "form-control-plaintext form-control-sm ps-0")"
-                           readonly="@(!_modifyMode)"
-                           @bind="_editDescription" placeholder="—" />
-                </div>
-                <div>
-                    <label class="form-label mb-1">CFS Number</label>
-                    <input type="text" class="@(_modifyMode ? "form-control form-control-sm" : "form-control-plaintext form-control-sm ps-0")"
-                           maxlength="30" readonly="@(!_modifyMode)"
-                           @bind="_editCFSNum" placeholder="@(_modifyMode ? "(optional)" : "—")" />
-                </div>
-                <div>
-                    <label class="form-label mb-1">Local Number</label>
-                    <input type="text" class="@(_modifyMode ? "form-control form-control-sm" : "form-control-plaintext form-control-sm ps-0")"
-                           maxlength="30" readonly="@(!_modifyMode)"
-                           @bind="_editLocalNum" placeholder="@(_modifyMode ? "(optional)" : "—")" />
-                </div>
-                <div>
-                    <label class="form-label mb-1">Occurred On</label>
-                    @if (_modifyMode)
-                    {
-                        <input type="datetime-local" class="form-control form-control-sm"
-                               value="@DateTimeLocalInputHelper.FormatLocal(_editOccurredOn)"
-                               @onchange="OnOccurredOnChanged" />
-                    }
-                    else
-                    {
-                        <div class="form-control-plaintext form-control-sm ps-0">
-                            @(_editOccurredOn.HasValue ? _editOccurredOn.Value.ToLocalTime().ToString("MM/dd/yyyy HH:mm") : "—")
-                        </div>
-                    }
-                </div>
-                <div class="record-field-span-full">
-                    <label class="form-label mb-1">Location</label>
-                    <div class="d-flex align-items-center gap-2">
-                        <span class="@(_modifyMode ? "fw-semibold" : "record-reference-display")">@if (!_modifyMode && _editLocationRecordNumber.HasValue) {
-                            <a href="/locations/@_editLocationRecordNumber" class="record-reference-link">@_editLocationDisplay</a>
-                        } else { @(_editLocationDisplay ?? "— None —") }</span>
+            <EditForm EditContext="_editContext">
+                <DataAnnotationsValidator />
+                <div class="record-grid-3">
+                    <FormField Label="Incident Number" For="inc-num" Required="true">
+                        <InputText id="inc-num" maxlength="30" readonly="@(!_modifyMode)"
+                                   class="@(_modifyMode ? "form-control form-control-sm" : "form-control-plaintext form-control-sm ps-0")"
+                                   @bind-Value="_editVm.IncidentNum" placeholder="@(_modifyMode ? "(required)" : "—")" />
+                        <ValidationMessage For="() => _editVm.IncidentNum" />
+                    </FormField>
+                    <div class="record-field-span-2">
+                        <FormField Label="Description" For="inc-desc">
+                            <InputText id="inc-desc" readonly="@(!_modifyMode)"
+                                       class="@(_modifyMode ? "form-control form-control-sm" : "form-control-plaintext form-control-sm ps-0")"
+                                       @bind-Value="_editVm.Description" placeholder="—" />
+                            <ValidationMessage For="() => _editVm.Description" />
+                        </FormField>
+                    </div>
+                    <FormField Label="CFS Number" For="inc-cfs">
+                        <InputText id="inc-cfs" maxlength="30" readonly="@(!_modifyMode)"
+                                   class="@(_modifyMode ? "form-control form-control-sm" : "form-control-plaintext form-control-sm ps-0")"
+                                   @bind-Value="_editVm.CFSNum" placeholder="@(_modifyMode ? "(optional)" : "—")" />
+                        <ValidationMessage For="() => _editVm.CFSNum" />
+                    </FormField>
+                    <FormField Label="Local Number" For="inc-local">
+                        <InputText id="inc-local" maxlength="30" readonly="@(!_modifyMode)"
+                                   class="@(_modifyMode ? "form-control form-control-sm" : "form-control-plaintext form-control-sm ps-0")"
+                                   @bind-Value="_editVm.LocalNum" placeholder="@(_modifyMode ? "(optional)" : "—")" />
+                        <ValidationMessage For="() => _editVm.LocalNum" />
+                    </FormField>
+                    <FormField Label="Occurred On" For="inc-occurred">
                         @if (_modifyMode)
                         {
-                            <button type="button" class="btn btn-sm btn-outline-secondary" @onclick="() => _showLocationModal = true">
-                                <i class="bi bi-geo-alt me-1"></i>@(_editLocationId.HasValue ? "Change" : "Assign") Location
-                            </button>
-                            @if (_editLocationId.HasValue)
-                            {
-                                <button type="button" class="btn btn-sm btn-outline-danger" aria-label="Clear assigned location" title="Clear assigned location" @onclick="ClearLocation">
-                                    <i class="bi bi-x-lg"></i>
-                                </button>
-                            }
+                            <input id="inc-occurred" type="datetime-local" class="form-control form-control-sm"
+                                   value="@DateTimeLocalInputHelper.FormatLocal(_editOccurredOn)"
+                                   @onchange="OnOccurredOnChanged" />
                         }
+                        else
+                        {
+                            <div class="form-control-plaintext form-control-sm ps-0">
+                                @(_editOccurredOn.HasValue ? _editOccurredOn.Value.ToLocalTime().ToString("MM/dd/yyyy HH:mm") : "—")
+                            </div>
+                        }
+                    </FormField>
+                    <div class="record-field-span-full">
+                        <FormField Label="Location">
+                            <div class="d-flex align-items-center gap-2">
+                                <span class="@(_modifyMode ? "fw-semibold" : "record-reference-display")">@if (!_modifyMode && _editLocationRecordNumber.HasValue) {
+                                    <a href="/locations/@_editLocationRecordNumber" class="record-reference-link">@_editLocationDisplay</a>
+                                } else { @(_editLocationDisplay ?? "— None —") }</span>
+                                @if (_modifyMode)
+                                {
+                                    <button type="button" class="btn btn-sm btn-outline-secondary" @onclick="() => _showLocationModal = true">
+                                        <i class="bi bi-geo-alt me-1"></i>@(_editLocationId.HasValue ? "Change" : "Assign") Location
+                                    </button>
+                                    @if (_editLocationId.HasValue)
+                                    {
+                                        <button type="button" class="btn btn-sm btn-outline-danger" aria-label="Clear assigned location" title="Clear assigned location" @onclick="ClearLocation">
+                                            <i class="bi bi-x-lg"></i>
+                                        </button>
+                                    }
+                                }
+                            </div>
+                            <LocationMiniMap LocationId="_editLocationId" />
+                        </FormField>
                     </div>
-                    <LocationMiniMap LocationId="_editLocationId" />
                 </div>
-            </div>
+            </EditForm>
         </div>
     </div>
 
@@ -335,9 +332,9 @@ else if (_incident is not null)
     @if (_modifyMode)
     {
         <div class="record-save-row mb-4">
-            <button class="btn btn-sm btn-primary" @onclick="SaveRecordAsync">
+            <BusyButton Class="btn btn-sm btn-primary" OnClick="SaveRecordAsync" BusyText="Saving…">
                 <i class="bi bi-floppy-fill me-1"></i>Save
-            </button>
+            </BusyButton>
         </div>
     }
 
@@ -377,16 +374,16 @@ else if (_incident is not null)
     private DateTime _lastServerRenewUtc;
     private bool _renewing;
     private TimeSpan RenewInterval => TimeSpan.FromSeconds(Math.Max(5, _lockTimeout.TotalSeconds / 3));
-    private string _editIncidentNum = string.Empty;
-    private string _editLocalNum = string.Empty;
-    private string _editCFSNum = string.Empty;
-    private string _editDescription = string.Empty;
+    private readonly EditIncidentViewModel _editVm = new();
+    private EditContext _editContext = null!;
+    private ValidationMessageStore? _serverMessages;
     private Guid?  _editLocationId;
     private string? _editLocationDisplay;
     private long?  _editLocationRecordNumber;
     private bool   _showLocationModal;
     private DateTime? _editOccurredOn;
-    private string? _saveSuccessMessage;
+    private string? _successMessage;
+    private string? _pendingNavUri;
     private string? _createdByName;
     private string? _modifiedByName;
     private string? _lockedByName;
@@ -401,6 +398,10 @@ else if (_incident is not null)
 
     protected override async Task OnInitializedAsync()
     {
+        _editContext = new EditContext(_editVm);
+        _serverMessages = new ValidationMessageStore(_editContext);
+        _editContext.OnFieldChanged += HandleFieldChanged;
+
         await ActiveAgencyContext.EnsureLoadedAsync();
         _currentUserId = TenantProvider.GetUserId();
         await LoadAsync();
@@ -435,10 +436,10 @@ else if (_incident is not null)
         {
             EnsureAgencySelectionLock();
             _modifyMode = true;
-            _editIncidentNum = _incident.Details.IncidentNum;
-            _editLocalNum = _incident.Details.LocalNum;
-            _editDescription = _incident.Details.Description;
-            _editCFSNum = _incident.Details.CFSNum;
+            _editVm.IncidentNum = _incident.Details.IncidentNum;
+            _editVm.LocalNum = _incident.Details.LocalNum;
+            _editVm.Description = _incident.Details.Description;
+            _editVm.CFSNum = _incident.Details.CFSNum;
             _editLocationId = _incident.LocationId;
             _editOccurredOn = _incident.OccurredOn;
             _editSnapshot = ComputeEditSnapshot();
@@ -468,10 +469,10 @@ else if (_incident is not null)
             // Keep edit fields in sync so the unified card always shows current values
             if (_incident is not null && !_modifyMode)
             {
-                _editIncidentNum = _incident.Details.IncidentNum;
-                _editDescription = _incident.Details.Description;
-                _editCFSNum      = _incident.Details.CFSNum;
-                _editLocalNum    = _incident.Details.LocalNum;
+                _editVm.IncidentNum = _incident.Details.IncidentNum;
+                _editVm.Description = _incident.Details.Description;
+                _editVm.CFSNum      = _incident.Details.CFSNum;
+                _editVm.LocalNum    = _incident.Details.LocalNum;
                 _editLocationId  = _incident.LocationId;
                 _editOccurredOn  = _incident.OccurredOn;
                 await ResolveLocationDisplayAsync();
@@ -507,13 +508,15 @@ else if (_incident is not null)
         }
     }
 
-    private async Task RunActionAsync(Func<Task> action)
+    private async Task RunActionAsync(Func<Task> action, string successMessage)
     {
         _actionError = null;
+        _successMessage = null;
         try
         {
             await action();
             await LoadAsync();
+            _successMessage = successMessage;
         }
         catch (Exception ex)
         {
@@ -529,10 +532,10 @@ else if (_incident is not null)
             await IncidentService.AcquireLockAsync(_incidentId);
             EnsureAgencySelectionLock();
             _modifyMode = true;
-            _editIncidentNum = _incident?.Details.IncidentNum ?? string.Empty;
-            _editDescription = _incident?.Details.Description ?? string.Empty;
-            _editCFSNum = _incident?.Details.CFSNum ?? string.Empty;
-            _editLocalNum = _incident?.Details.LocalNum ?? string.Empty;
+            _editVm.IncidentNum = _incident?.Details.IncidentNum ?? string.Empty;
+            _editVm.Description = _incident?.Details.Description ?? string.Empty;
+            _editVm.CFSNum = _incident?.Details.CFSNum ?? string.Empty;
+            _editVm.LocalNum = _incident?.Details.LocalNum ?? string.Empty;
             _editLocationId = _incident?.LocationId;
             _editOccurredOn = _incident?.OccurredOn;
             _editSnapshot = ComputeEditSnapshot();
@@ -565,7 +568,7 @@ else if (_incident is not null)
     }
 
     private string ComputeEditSnapshot() =>
-        string.Join("§", _editIncidentNum, _editDescription, _editCFSNum, _editLocalNum, _editLocationId, _editOccurredOn);
+        string.Join("§", _editVm.IncidentNum, _editVm.Description, _editVm.CFSNum, _editVm.LocalNum, _editLocationId, _editOccurredOn);
 
     private bool HasPendingChanges =>
         _modifyMode &&
@@ -588,6 +591,7 @@ else if (_incident is not null)
         {
             if (HasPendingChanges)
             {
+                _pendingNavUri = null;
                 _pendingNewRecord = true;
                 _showReleaseConfirm = true;
             }
@@ -607,28 +611,49 @@ else if (_incident is not null)
     {
         _showReleaseConfirm = false;
         _pendingNewRecord = false;
+        _pendingNavUri = null;
     }
+
+    // Where to go once the unsaved-changes prompt is resolved: an intercepted
+    // navigation target if set, otherwise the create page for "Save & New".
+    private string? PendingReleaseTarget =>
+        _pendingNavUri ?? (_pendingNewRecord ? "/incidents/create" : null);
 
     private async Task SaveAndReleaseAsync()
     {
         _showReleaseConfirm = false;
-        var navigateToNew = _pendingNewRecord;
+        var target = PendingReleaseTarget;
         _pendingNewRecord = false;
-        await SaveRecordAsync();
-        if (_actionError is null)
+        _pendingNavUri = null;
+        if (await TrySaveAsync())
         {
             await ExitModifyModeAsync();
-            if (navigateToNew) Nav.NavigateTo("/incidents/create");
+            if (target is not null) Nav.NavigateTo(target);
         }
     }
 
     private async Task DiscardAndReleaseAsync()
     {
         _showReleaseConfirm = false;
-        var navigateToNew = _pendingNewRecord;
+        var target = PendingReleaseTarget;
         _pendingNewRecord = false;
+        _pendingNavUri = null;
         await ExitModifyModeAsync();
-        if (navigateToNew) Nav.NavigateTo("/incidents/create");
+        if (target is not null) Nav.NavigateTo(target);
+    }
+
+    // Intercepts in-app navigation (sidebar links, back) while edits are
+    // pending: cancels the navigation and shows the unsaved-changes prompt,
+    // remembering where the user was trying to go. The browser-level prompt
+    // (tab close / refresh / external links) is handled declaratively by
+    // NavigationLock's ConfirmExternalNavigation.
+    private void HandleInternalNavigation(LocationChangingContext context)
+    {
+        if (!HasPendingChanges) return;
+        context.PreventNavigation();
+        _pendingNewRecord = false;
+        _pendingNavUri = context.TargetLocation;
+        _showReleaseConfirm = true;
     }
 
     private void StartLockTimer()
@@ -682,9 +707,9 @@ else if (_incident is not null)
         _lockTimeout = LockTimeout.FromConfigValue(cfg?.Value);
     }
 
-    private Task OpenAsync()    => RunActionAsync(() => IncidentService.OpenAsync(_incidentId));
-    private Task CloseAsync()   => RunActionAsync(() => IncidentService.CloseAsync(_incidentId));
-    private Task ArchiveAsync() => RunActionAsync(() => IncidentService.ArchiveAsync(_incidentId));
+    private Task OpenAsync()    => RunActionAsync(() => IncidentService.OpenAsync(_incidentId), "Incident opened.");
+    private Task CloseAsync()   => RunActionAsync(() => IncidentService.CloseAsync(_incidentId), "Incident closed.");
+    private Task ArchiveAsync() => RunActionAsync(() => IncidentService.ArchiveAsync(_incidentId), "Incident archived.");
     private Task LinkChargeAsync(ChargeDto charge)
     {
         if (_pendingChargeRemoves.Remove(charge.Id))
@@ -716,20 +741,30 @@ else if (_incident is not null)
         }
     }
 
-    private async Task SaveRecordAsync()
+    private Task SaveRecordAsync() => TrySaveAsync();
+
+    private async Task<bool> TrySaveAsync()
     {
         _actionError = null;
-        _saveSuccessMessage = null;
+        _successMessage = null;
+        _serverMessages?.Clear();
+        _editContext.NotifyValidationStateChanged();
+
+        // Field-level client validation before the round-trip; invalid fields
+        // show their error inline and the save is aborted.
+        if (!_editContext.Validate())
+            return false;
+
         try
         {
             await IncidentService.SavePageAsync(
                 _incidentId,
                 new IncidentDetailsVo
                 {
-                    IncidentNum = _editIncidentNum,
-                    LocalNum = _editLocalNum,
-                    Description = _editDescription,
-                    CFSNum = _editCFSNum
+                    IncidentNum = _editVm.IncidentNum,
+                    LocalNum = _editVm.LocalNum,
+                    Description = _editVm.Description,
+                    CFSNum = _editVm.CFSNum
                 },
                 _editLocationId,
                 _editOccurredOn,
@@ -738,19 +773,55 @@ else if (_incident is not null)
             await LoadAsync();
             _editSnapshot = ComputeEditSnapshot();
             ClearPendingChanges();
-            _saveSuccessMessage = "Record saved successfully.";
-            // Auto-clear after 3 seconds
-            _ = Task.Delay(3000).ContinueWith(_ => InvokeAsync(() =>
-            {
-                _saveSuccessMessage = null;
-                StateHasChanged();
-            }));
+            _successMessage = "Record saved successfully.";
+            return true;
+        }
+        catch (DomainException dex)
+        {
+            if (TryMapDomainErrorToField(dex))
+                return false; // surfaced inline at the field; nothing persisted
+
+            _actionError = dex.Message;
+            try { await LoadAsync(); } catch { _actionError += " (State may be out of sync — please refresh the page.)"; }
+            return false;
         }
         catch (Exception ex)
         {
             _actionError = ex.Message;
             try { await LoadAsync(); } catch { _actionError += " (State may be out of sync — please refresh the page.)"; }
+            return false;
         }
+    }
+
+    // Maps a domain-rule violation (thrown from the IncidentDetails value object)
+    // back onto the field that caused it, so the user sees the error in place
+    // instead of a page-level banner. Returns false for codes that aren't
+    // field-specific (e.g. lock/concurrency), letting the generic handler show them.
+    private bool TryMapDomainErrorToField(DomainException dex)
+    {
+        if (_serverMessages is null) return false;
+
+        var code = dex.Code;
+        var field =
+            code.StartsWith("incident.incidentnum", StringComparison.OrdinalIgnoreCase) ? nameof(EditIncidentViewModel.IncidentNum) :
+            code.StartsWith("incident.cfsnum", StringComparison.OrdinalIgnoreCase)      ? nameof(EditIncidentViewModel.CFSNum) :
+            code.StartsWith("incident.localnum", StringComparison.OrdinalIgnoreCase)    ? nameof(EditIncidentViewModel.LocalNum) :
+            code.StartsWith("incident.description", StringComparison.OrdinalIgnoreCase) ? nameof(EditIncidentViewModel.Description) :
+            null;
+
+        if (field is null) return false;
+
+        _serverMessages.Add(_editContext.Field(field), dex.Message);
+        _editContext.NotifyValidationStateChanged();
+        return true;
+    }
+
+    // Clear stale server-side field errors as soon as the user edits a field.
+    private void HandleFieldChanged(object? sender, FieldChangedEventArgs e)
+    {
+        if (_serverMessages is null) return;
+        _serverMessages.Clear(e.FieldIdentifier);
+        _editContext.NotifyValidationStateChanged();
     }
 
     private IReadOnlyList<RecordChargeDto>? VisibleCharges =>
@@ -778,10 +849,10 @@ else if (_incident is not null)
     private async Task SoftDeleteAsync()
     {
         _showDeleteConfirm = false;
-        await RunActionAsync(() => IncidentService.SoftDeleteAsync(_incidentId));
+        await RunActionAsync(() => IncidentService.SoftDeleteAsync(_incidentId), "Incident deleted.");
     }
 
-    private Task RestoreAsync() => RunActionAsync(() => IncidentService.RestoreAsync(_incidentId));
+    private Task RestoreAsync() => RunActionAsync(() => IncidentService.RestoreAsync(_incidentId), "Incident restored.");
 
     private async Task ResolveLocationDisplayAsync()
     {
@@ -858,6 +929,8 @@ else if (_incident is not null)
         ShortcutService.OnModify  -= HandleShortcutModify;
         ShortcutService.OnRelease -= HandleShortcutRelease;
         ShortcutService.OnSave    -= HandleShortcutSave;
+        if (_editContext is not null)
+            _editContext.OnFieldChanged -= HandleFieldChanged;
         // Only clean up the timer. The lock is intentionally NOT released here because
         // the user may be navigating to a child page (e.g. ArrestCreate) that still
         // requires the lock. The lock is released explicitly via "Release Record" or

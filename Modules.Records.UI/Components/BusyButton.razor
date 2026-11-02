@@ -1,0 +1,53 @@
+@* A button that disables itself and shows an inline spinner while its async
+   OnClick is in flight. Gives round-trip feedback and blocks double-submit —
+   essential on Blazor Server where every action is a network hop. *@
+<button type="@Type"
+        class="@Class"
+        disabled="@(_busy || Disabled)"
+        aria-busy="@(_busy ? "true" : "false")"
+        @onclick="HandleClickAsync"
+        @attributes="AdditionalAttributes">
+    @if (_busy)
+    {
+        <span class="spinner-border spinner-border-sm ar-busy-spinner" role="status" aria-hidden="true"></span>
+    }
+    @if (_busy && BusyText is not null)
+    {
+        <span>@BusyText</span>
+    }
+    else
+    {
+        @ChildContent
+    }
+</button>
+
+@code {
+    [Parameter] public RenderFragment? ChildContent { get; set; }
+    [Parameter] public string Class { get; set; } = "btn btn-primary";
+    [Parameter] public string Type { get; set; } = "button";
+    [Parameter] public bool Disabled { get; set; }
+
+    /// <summary>Optional label shown in place of ChildContent while busy (e.g. "Saving…").</summary>
+    [Parameter] public string? BusyText { get; set; }
+
+    [Parameter] public EventCallback OnClick { get; set; }
+
+    [Parameter(CaptureUnmatchedValues = true)]
+    public IReadOnlyDictionary<string, object>? AdditionalAttributes { get; set; }
+
+    private bool _busy;
+
+    private async Task HandleClickAsync()
+    {
+        if (_busy) return;
+        _busy = true;
+        try
+        {
+            await OnClick.InvokeAsync();
+        }
+        finally
+        {
+            _busy = false;
+        }
+    }
+}

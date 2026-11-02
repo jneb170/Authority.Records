@@ -32,6 +32,8 @@ else if (_error is not null)
 else if (_location is not null)
 {
     <div style="display:contents" @onchange="OnEditActivity">
+    <NavigationLock ConfirmExternalNavigation="@HasPendingChanges"
+                    OnBeforeInternalNavigation="HandleInternalNavigation" />
     <nav aria-label="breadcrumb" class="record-breadcrumb">
         <ol class="breadcrumb">
             <li class="breadcrumb-item"><a href="/locations">Locations</a></li>
@@ -41,7 +43,7 @@ else if (_location is not null)
 
     <div class="page-header record-page-header">
         <div>
-            <h2 class="page-header-title"><i class="bi bi-geo-alt-fill"></i> Location Record</h2>
+            <h1 class="page-header-title"><i class="bi bi-geo-alt-fill"></i> Location Record</h1>
             <div class="page-header-sub">@FormatFullAddress(_location)</div>
         </div>
         <div class="d-flex gap-2 align-items-center record-header-meta">
@@ -53,21 +55,8 @@ else if (_location is not null)
                        RelationshipsUrl="@RelationshipsTabUrl"
                        ActiveTab="Details" />
 
-    @if (_actionError is not null)
-    {
-        <div class="alert alert-danger alert-dismissible">
-            @_actionError
-            <button type="button" class="btn-close" aria-label="Dismiss message" @onclick="() => _actionError = null"></button>
-        </div>
-    }
-
-    @if (_saveSuccessMessage is not null)
-    {
-        <div class="alert alert-success alert-dismissible">
-            @_saveSuccessMessage
-            <button type="button" class="btn-close" aria-label="Dismiss message" @onclick="() => _saveSuccessMessage = null"></button>
-        </div>
-    }
+    <StatusMessage Kind="error" Message="@_actionError" OnDismiss="() => _actionError = null" />
+    <StatusMessage Kind="success" Message="@_saveSuccessMessage" OnDismiss="() => _saveSuccessMessage = null" />
 
     <!-- Modify Mode Bar -->
     <div class="record-toolbar mb-3">
@@ -76,7 +65,9 @@ else if (_location is not null)
             <div class="alert alert-warning d-flex align-items-center gap-3 py-2 mb-2 record-mode-banner">
                 <span><i class="bi bi-pencil-fill me-1"></i><strong>Modify mode</strong> — lock expires in @_lockSecondsRemaining s</span>
                 <div class="record-mode-actions">
-                    <button class="btn btn-sm btn-primary" @onclick="SaveRecordAsync"><i class="bi bi-floppy-fill me-1"></i>Save</button>
+                    <BusyButton Class="btn btn-sm btn-primary" OnClick="SaveRecordAsync" BusyText="Saving…">
+                        <i class="bi bi-floppy-fill me-1"></i>Save
+                    </BusyButton>
                     <button class="btn btn-sm btn-outline-dark" @onclick="RequestReleaseAsync"><i class="bi bi-unlock-fill me-1"></i>Release</button>
                 </div>
             </div>
@@ -119,74 +110,68 @@ else if (_location is not null)
     <div class="card record-content-card mb-3">
         <div class="card-body">
             <h6 class="card-title">Street Address</h6>
-            <div class="row g-3">
-                <div class="col-sm-6 col-md-2">
-                    <label class="@LabelClass">Street #</label>
-                    @if (_modifyMode)
-                    {
-                        <InputText class="form-control" @bind-Value="_editStreetNumber" placeholder="e.g. 123" />
-                    }
-                    else
-                    {
-                        <p class="form-control-plaintext form-control-sm ps-0 fw-semibold mb-0">@(_location.StreetNumber ?? "—")</p>
-                    }
+            <EditForm EditContext="_editContext">
+                <DataAnnotationsValidator />
+                <div class="row g-3">
+                    <div class="col-sm-6 col-md-2">
+                        <FormField Label="Street #" For="loc-streetnumber">
+                            <InputText id="loc-streetnumber" readonly="@(!_modifyMode)"
+                                       class="@(_modifyMode ? "form-control form-control-sm" : "form-control-plaintext form-control-sm ps-0")"
+                                       @bind-Value="_editVm.StreetNumber" placeholder="e.g. 123" />
+                            <ValidationMessage For="() => _editVm.StreetNumber" />
+                        </FormField>
+                    </div>
+                    <div class="col-sm-6 col-md-2">
+                        <label class="@LabelClass">Pre-Direction</label>
+                        @if (_modifyMode)
+                        {
+                            <PicklistSelect PicklistType="@PicklistTypes.Direction" @bind-Value="_editPreDirectionId" />
+                        }
+                        else
+                        {
+                            <p class="form-control-plaintext form-control-sm ps-0 fw-semibold mb-0">@(_preDirectionLabel ?? "—")</p>
+                        }
+                    </div>
+                    <div class="col-sm-6 col-md-4">
+                        <FormField Label="Street Name" For="loc-streetname" Required="true">
+                            <InputText id="loc-streetname" maxlength="200" readonly="@(!_modifyMode)"
+                                       class="@(_modifyMode ? "form-control form-control-sm" : "form-control-plaintext form-control-sm ps-0")"
+                                       @bind-Value="_editVm.StreetAddress" placeholder="e.g. Main" />
+                            <ValidationMessage For="() => _editVm.StreetAddress" />
+                        </FormField>
+                    </div>
+                    <div class="col-sm-6 col-md-2">
+                        <label class="@LabelClass">Street Type</label>
+                        @if (_modifyMode)
+                        {
+                            <PicklistSelect PicklistType="@PicklistTypes.StreetType" @bind-Value="_editStreetTypeId" />
+                        }
+                        else
+                        {
+                            <p class="form-control-plaintext form-control-sm ps-0 fw-semibold mb-0">@(_streetTypeLabel ?? "—")</p>
+                        }
+                    </div>
+                    <div class="col-sm-6 col-md-2">
+                        <label class="@LabelClass">Post-Direction</label>
+                        @if (_modifyMode)
+                        {
+                            <PicklistSelect PicklistType="@PicklistTypes.Direction" @bind-Value="_editPostDirectionId" />
+                        }
+                        else
+                        {
+                            <p class="form-control-plaintext form-control-sm ps-0 fw-semibold mb-0">@(_postDirectionLabel ?? "—")</p>
+                        }
+                    </div>
+                    <div class="col-sm-6 col-md-2">
+                        <FormField Label="Apt / Suite" For="loc-aptsuite">
+                            <InputText id="loc-aptsuite" readonly="@(!_modifyMode)"
+                                       class="@(_modifyMode ? "form-control form-control-sm" : "form-control-plaintext form-control-sm ps-0")"
+                                       @bind-Value="_editVm.AptSuite" placeholder="Apt, Suite…" />
+                            <ValidationMessage For="() => _editVm.AptSuite" />
+                        </FormField>
+                    </div>
                 </div>
-                <div class="col-sm-6 col-md-2">
-                    <label class="@LabelClass">Pre-Direction</label>
-                    @if (_modifyMode)
-                    {
-                        <PicklistSelect PicklistType="@PicklistTypes.Direction" @bind-Value="_editPreDirectionId" />
-                    }
-                    else
-                    {
-                        <p class="form-control-plaintext form-control-sm ps-0 fw-semibold mb-0">@(_preDirectionLabel ?? "—")</p>
-                    }
-                </div>
-                <div class="col-sm-6 col-md-4">
-                    <label class="@LabelClass">Street Name</label>
-                    @if (_modifyMode)
-                    {
-                        <InputText class="form-control" @bind-Value="_editStreetAddress" placeholder="e.g. Main" />
-                    }
-                    else
-                    {
-                        <p class="form-control-plaintext form-control-sm ps-0 fw-semibold mb-0">@_location.StreetAddress</p>
-                    }
-                </div>
-                <div class="col-sm-6 col-md-2">
-                    <label class="@LabelClass">Street Type</label>
-                    @if (_modifyMode)
-                    {
-                        <PicklistSelect PicklistType="@PicklistTypes.StreetType" @bind-Value="_editStreetTypeId" />
-                    }
-                    else
-                    {
-                        <p class="form-control-plaintext form-control-sm ps-0 fw-semibold mb-0">@(_streetTypeLabel ?? "—")</p>
-                    }
-                </div>
-                <div class="col-sm-6 col-md-2">
-                    <label class="@LabelClass">Post-Direction</label>
-                    @if (_modifyMode)
-                    {
-                        <PicklistSelect PicklistType="@PicklistTypes.Direction" @bind-Value="_editPostDirectionId" />
-                    }
-                    else
-                    {
-                        <p class="form-control-plaintext form-control-sm ps-0 fw-semibold mb-0">@(_postDirectionLabel ?? "—")</p>
-                    }
-                </div>
-                <div class="col-sm-6 col-md-2">
-                    <label class="@LabelClass">Apt / Suite</label>
-                    @if (_modifyMode)
-                    {
-                        <InputText class="form-control" @bind-Value="_editAptSuite" placeholder="Apt, Suite…" />
-                    }
-                    else
-                    {
-                        <p class="form-control-plaintext form-control-sm ps-0 fw-semibold mb-0">@(_location.AptSuite ?? "—")</p>
-                    }
-                </div>
-            </div>
+            </EditForm>
         </div>
     </div>
 
@@ -194,52 +179,48 @@ else if (_location is not null)
     <div class="card record-content-card mb-3">
         <div class="card-body">
             <h6 class="card-title">City / State / ZIP</h6>
-            <div class="row g-3">
-                <div class="col-sm-6 col-md-4">
-                    <label class="@LabelClass">City</label>
-                    @if (_modifyMode)
-                    {
-                        <InputText class="form-control" @bind-Value="_editCity" placeholder="City" />
-                    }
-                    else
-                    {
-                        <p class="form-control-plaintext form-control-sm ps-0 fw-semibold mb-0">@_location.City</p>
-                    }
+            <EditForm EditContext="_editContext">
+                <div class="row g-3">
+                    <div class="col-sm-6 col-md-4">
+                        <FormField Label="City" For="loc-city" Required="true">
+                            <InputText id="loc-city" maxlength="100" readonly="@(!_modifyMode)"
+                                       class="@(_modifyMode ? "form-control form-control-sm" : "form-control-plaintext form-control-sm ps-0")"
+                                       @bind-Value="_editVm.City" placeholder="City" />
+                            <ValidationMessage For="() => _editVm.City" />
+                        </FormField>
+                    </div>
+                    <div class="col-sm-6 col-md-2">
+                        <label class="@LabelClass">State</label>
+                        @if (_modifyMode)
+                        {
+                            <StateSelect @bind-Value="_editStateId" />
+                        }
+                        else
+                        {
+                            <p class="form-control-plaintext form-control-sm ps-0 fw-semibold mb-0">@(_stateLabel ?? "—")</p>
+                        }
+                    </div>
+                    <div class="col-sm-6 col-md-2">
+                        <FormField Label="ZIP" For="loc-zip">
+                            <InputText id="loc-zip" maxlength="10" readonly="@(!_modifyMode)"
+                                       class="@(_modifyMode ? "form-control form-control-sm" : "form-control-plaintext form-control-sm ps-0")"
+                                       @bind-Value="_editVm.Zip" placeholder="ZIP" />
+                            <ValidationMessage For="() => _editVm.Zip" />
+                        </FormField>
+                    </div>
+                    <div class="col-sm-6 col-md-2">
+                        <label class="@LabelClass">Country</label>
+                        @if (_modifyMode)
+                        {
+                            <PicklistSelect PicklistType="@PicklistTypes.Country" @bind-Value="_editCountryId" />
+                        }
+                        else
+                        {
+                            <p class="form-control-plaintext form-control-sm ps-0 fw-semibold mb-0">@(_countryLabel ?? "—")</p>
+                        }
+                    </div>
                 </div>
-                <div class="col-sm-6 col-md-2">
-                    <label class="@LabelClass">State</label>
-                    @if (_modifyMode)
-                    {
-                        <StateSelect @bind-Value="_editStateId" />
-                    }
-                    else
-                    {
-                        <p class="form-control-plaintext form-control-sm ps-0 fw-semibold mb-0">@(_stateLabel ?? "—")</p>
-                    }
-                </div>
-                <div class="col-sm-6 col-md-2">
-                    <label class="@LabelClass">ZIP</label>
-                    @if (_modifyMode)
-                    {
-                        <InputText class="form-control" @bind-Value="_editZip" placeholder="ZIP" maxlength="10" />
-                    }
-                    else
-                    {
-                        <p class="form-control-plaintext form-control-sm ps-0 fw-semibold mb-0">@(_location.Zip ?? "—")</p>
-                    }
-                </div>
-                <div class="col-sm-6 col-md-2">
-                    <label class="@LabelClass">Country</label>
-                    @if (_modifyMode)
-                    {
-                        <PicklistSelect PicklistType="@PicklistTypes.Country" @bind-Value="_editCountryId" />
-                    }
-                    else
-                    {
-                        <p class="form-control-plaintext form-control-sm ps-0 fw-semibold mb-0">@(_countryLabel ?? "—")</p>
-                    }
-                </div>
-            </div>
+            </EditForm>
         </div>
     </div>
 
@@ -247,52 +228,42 @@ else if (_location is not null)
     <div class="card record-content-card mb-3">
         <div class="card-body">
             <h6 class="card-title">Additional Info</h6>
-            <div class="row g-3">
-                <div class="col-sm-6 col-md-4">
-                    <label class="@LabelClass">Common Place Name</label>
-                    @if (_modifyMode)
-                    {
-                        <InputText class="form-control" @bind-Value="_editCommonPlaceName" placeholder="Park, school, business…" />
-                    }
-                    else
-                    {
-                        <p class="form-control-plaintext form-control-sm ps-0 fw-semibold mb-0">@(_location.CommonPlaceName ?? "—")</p>
-                    }
+            <EditForm EditContext="_editContext">
+                <div class="row g-3">
+                    <div class="col-sm-6 col-md-4">
+                        <FormField Label="Common Place Name" For="loc-commonplace">
+                            <InputText id="loc-commonplace" readonly="@(!_modifyMode)"
+                                       class="@(_modifyMode ? "form-control form-control-sm" : "form-control-plaintext form-control-sm ps-0")"
+                                       @bind-Value="_editVm.CommonPlaceName" placeholder="Park, school, business…" />
+                            <ValidationMessage For="() => _editVm.CommonPlaceName" />
+                        </FormField>
+                    </div>
+                    <div class="col-sm-6 col-md-4">
+                        <FormField Label="GPS Coordinates" For="loc-coordinates">
+                            <InputText id="loc-coordinates" readonly="@(!_modifyMode)"
+                                       class="@(_modifyMode ? "form-control form-control-sm" : "form-control-plaintext form-control-sm ps-0")"
+                                       @bind-Value="_editVm.Coordinates" placeholder="lat,lng" />
+                            <ValidationMessage For="() => _editVm.Coordinates" />
+                        </FormField>
+                    </div>
+                    <div class="col-12">
+                        <FormField Label="Full Address" For="loc-address" Help="(auto-filled from map)">
+                            <InputText id="loc-address" readonly="@(!_modifyMode)"
+                                       class="@(_modifyMode ? "form-control form-control-sm" : "form-control-plaintext form-control-sm ps-0")"
+                                       @bind-Value="_editVm.Address" placeholder="e.g. 3001 E Plano Pkwy #400, Plano, TX 75074, USA" />
+                            <ValidationMessage For="() => _editVm.Address" />
+                        </FormField>
+                    </div>
+                    <div class="col-12">
+                        <FormField Label="Comments" For="loc-comments">
+                            <InputTextArea id="loc-comments" readonly="@(!_modifyMode)"
+                                           class="@(_modifyMode ? "form-control form-control-sm" : "form-control-plaintext form-control-sm ps-0")"
+                                           @bind-Value="_editVm.Comments" rows="3" />
+                            <ValidationMessage For="() => _editVm.Comments" />
+                        </FormField>
+                    </div>
                 </div>
-                <div class="col-sm-6 col-md-4">
-                    <label class="@LabelClass">GPS Coordinates</label>
-                    @if (_modifyMode)
-                    {
-                        <InputText class="form-control" @bind-Value="_editCoordinates" placeholder="lat,lng" />
-                    }
-                    else
-                    {
-                        <p class="form-control-plaintext form-control-sm ps-0 fw-semibold mb-0">@(_location.Coordinates ?? "—")</p>
-                    }
-                </div>
-                <div class="col-12">
-                    <label class="@LabelClass">Full Address <span class="text-muted small">(auto-filled from map)</span></label>
-                    @if (_modifyMode)
-                    {
-                        <InputText class="form-control" @bind-Value="_editAddress" placeholder="e.g. 3001 E Plano Pkwy #400, Plano, TX 75074, USA" />
-                    }
-                    else
-                    {
-                        <p class="form-control-plaintext form-control-sm ps-0 fw-semibold mb-0">@(_location.Address ?? "—")</p>
-                    }
-                </div>
-                <div class="col-12">
-                    <label class="@LabelClass">Comments</label>
-                    @if (_modifyMode)
-                    {
-                        <InputTextArea class="form-control" @bind-Value="_editComments" rows="3" />
-                    }
-                    else
-                    {
-                        <p class="form-control-plaintext form-control-sm ps-0 fw-semibold mb-0" style="white-space:pre-wrap;">@(_location.Comments ?? "—")</p>
-                    }
-                </div>
-            </div>
+            </EditForm>
         </div>
     </div>
 
@@ -343,9 +314,9 @@ else if (_location is not null)
     @if (_modifyMode)
     {
         <div class="record-save-row mb-4">
-            <button class="btn btn-sm btn-primary" @onclick="SaveRecordAsync">
+            <BusyButton Class="btn btn-sm btn-primary" OnClick="SaveRecordAsync" BusyText="Saving…">
                 <i class="bi bi-floppy-fill me-1"></i>Save
-            </button>
+            </BusyButton>
         </div>
     }
     </div>
@@ -381,20 +352,14 @@ else if (_location is not null)
     private TimeSpan RenewInterval => TimeSpan.FromSeconds(Math.Max(5, _lockTimeout.TotalSeconds / 3));
 
     // Edit fields
-    private string  _editStreetAddress   = string.Empty;
-    private string  _editCity            = string.Empty;
-    private string? _editStreetNumber;
+    private readonly EditLocationViewModel _editVm = new();
+    private EditContext _editContext = null!;
+    private string? _pendingNavUri;
     private Guid?   _editPreDirectionId;
     private Guid?   _editStreetTypeId;
     private Guid?   _editPostDirectionId;
     private Guid?   _editStateId;
     private Guid?   _editCountryId;
-    private string? _editZip;
-    private string? _editAptSuite;
-    private string? _editCoordinates;
-    private string? _editCommonPlaceName;
-    private string? _editComments;
-    private string? _editAddress;
 
     // Read-only picklist labels
     private string? _preDirectionLabel;
@@ -425,6 +390,7 @@ else if (_location is not null)
 
     protected override async Task OnInitializedAsync()
     {
+        _editContext = new EditContext(_editVm);
         _currentUserId = TenantProvider.GetUserId();
         await LoadAsync();
         await LoadLockTimeoutAsync();
@@ -542,14 +508,14 @@ else if (_location is not null)
     [JSInvokable]
     public async Task OnPlaceSelected(LocationCreate.PlaceSelectedPayload payload)
     {
-        _editStreetNumber = payload.StreetNumber ?? _editStreetNumber;
-        _editAptSuite     = payload.AptSuite     ?? _editAptSuite;
-        _editCity         = payload.City         ?? _editCity;
-        _editZip          = payload.Zip          ?? _editZip;
-        _editAddress      = payload.FormattedAddress ?? _editAddress;
+        _editVm.StreetNumber = payload.StreetNumber ?? _editVm.StreetNumber;
+        _editVm.AptSuite     = payload.AptSuite     ?? _editVm.AptSuite;
+        _editVm.City         = payload.City         ?? _editVm.City;
+        _editVm.Zip          = payload.Zip          ?? _editVm.Zip;
+        _editVm.Address      = payload.FormattedAddress ?? _editVm.Address;
 
         if (payload.Lat.HasValue && payload.Lng.HasValue)
-            _editCoordinates = $"{payload.Lat.Value},{payload.Lng.Value}";
+            _editVm.Coordinates = $"{payload.Lat.Value},{payload.Lng.Value}";
 
         // Parse route into pre-direction, street name, street type
         if (!string.IsNullOrWhiteSpace(payload.Route))
@@ -558,7 +524,7 @@ else if (_location is not null)
             _streetTypeItems ??= await Mediator.Send(new GetPicklistItemsQuery(PicklistTypes.StreetType, ActiveOnly: true));
 
             var (preId, name, typeId) = LocationParseHelper.ParseRoute(payload.Route, _directionItems, _streetTypeItems);
-            if (!string.IsNullOrWhiteSpace(name))  _editStreetAddress   = name;
+            if (!string.IsNullOrWhiteSpace(name))  _editVm.StreetAddress = name;
             if (preId.HasValue)                    _editPreDirectionId  = preId;
             if (typeId.HasValue)                   _editStreetTypeId    = typeId;
         }
@@ -605,28 +571,28 @@ else if (_location is not null)
     private void LoadEditFields()
     {
         if (_location is null) return;
-        _editStreetAddress   = _location.StreetAddress;
-        _editCity            = _location.City;
-        _editStreetNumber    = _location.StreetNumber;
+        _editVm.StreetAddress   = _location.StreetAddress;
+        _editVm.City            = _location.City;
+        _editVm.StreetNumber    = _location.StreetNumber;
         _editPreDirectionId  = _location.PreDirectionId;
         _editStreetTypeId    = _location.StreetTypeId;
         _editPostDirectionId = _location.PostDirectionId;
         _editStateId         = _location.StateId;
         _editCountryId       = _location.CountryId;
-        _editZip             = _location.Zip;
-        _editAptSuite        = _location.AptSuite;
-        _editCoordinates     = _location.Coordinates;
-        _editCommonPlaceName = _location.CommonPlaceName;
-        _editComments        = _location.Comments;
-        _editAddress         = _location.Address;
+        _editVm.Zip             = _location.Zip;
+        _editVm.AptSuite        = _location.AptSuite;
+        _editVm.Coordinates     = _location.Coordinates;
+        _editVm.CommonPlaceName = _location.CommonPlaceName;
+        _editVm.Comments        = _location.Comments;
+        _editVm.Address         = _location.Address;
         _editSnapshot = ComputeEditSnapshot();
     }
 
     private string ComputeEditSnapshot() =>
-        string.Join("§", _editStreetAddress, _editCity, _editStreetNumber,
+        string.Join("§", _editVm.StreetAddress, _editVm.City, _editVm.StreetNumber,
             _editPreDirectionId, _editStreetTypeId, _editPostDirectionId,
-            _editStateId, _editCountryId, _editZip, _editAptSuite,
-            _editCoordinates, _editCommonPlaceName, _editComments);
+            _editStateId, _editCountryId, _editVm.Zip, _editVm.AptSuite,
+            _editVm.Coordinates, _editVm.CommonPlaceName, _editVm.Comments, _editVm.Address);
 
     private bool HasPendingChanges => _modifyMode && _editSnapshot != ComputeEditSnapshot();
 
@@ -644,6 +610,7 @@ else if (_location is not null)
         {
             if (HasPendingChanges)
             {
+                _pendingNavUri = null;
                 _pendingNewRecord = true;
                 _showReleaseConfirm = true;
             }
@@ -663,28 +630,49 @@ else if (_location is not null)
     {
         _showReleaseConfirm = false;
         _pendingNewRecord = false;
+        _pendingNavUri = null;
     }
+
+    // Where to go once the unsaved-changes prompt is resolved: an intercepted
+    // navigation target if set, otherwise the create page for "Save & New".
+    private string? PendingReleaseTarget =>
+        _pendingNavUri ?? (_pendingNewRecord ? "/locations/create" : null);
 
     private async Task SaveAndReleaseAsync()
     {
         _showReleaseConfirm = false;
-        var navigateToNew = _pendingNewRecord;
+        var target = PendingReleaseTarget;
         _pendingNewRecord = false;
-        await SaveRecordAsync();
-        if (_actionError is null)
+        _pendingNavUri = null;
+        if (await TrySaveAsync())
         {
             await ExitModifyModeAsync();
-            if (navigateToNew) Nav.NavigateTo("/locations/create");
+            if (target is not null) Nav.NavigateTo(target);
         }
     }
 
     private async Task DiscardAndReleaseAsync()
     {
         _showReleaseConfirm = false;
-        var navigateToNew = _pendingNewRecord;
+        var target = PendingReleaseTarget;
         _pendingNewRecord = false;
+        _pendingNavUri = null;
         await ExitModifyModeAsync();
-        if (navigateToNew) Nav.NavigateTo("/locations/create");
+        if (target is not null) Nav.NavigateTo(target);
+    }
+
+    // Intercepts in-app navigation (sidebar links, back) while edits are
+    // pending: cancels the navigation and shows the unsaved-changes prompt,
+    // remembering where the user was trying to go. The browser-level prompt
+    // (tab close / refresh / external links) is handled declaratively by
+    // NavigationLock's ConfirmExternalNavigation.
+    private void HandleInternalNavigation(LocationChangingContext context)
+    {
+        if (!HasPendingChanges) return;
+        context.PreventNavigation();
+        _pendingNewRecord = false;
+        _pendingNavUri = context.TargetLocation;
+        _showReleaseConfirm = true;
     }
 
     private async Task LoadAsync()
@@ -765,41 +753,47 @@ else if (_location is not null)
         await LoadAsync();
     }
 
-    private async Task SaveRecordAsync()
+    private Task SaveRecordAsync() => TrySaveAsync();
+
+    private async Task<bool> TrySaveAsync()
     {
         _actionError = null;
         _saveSuccessMessage = null;
+
+        // Field-level client validation before the round-trip; invalid fields
+        // show their error inline and the save is aborted.
+        if (!_editContext.Validate())
+            return false;
+
         try
         {
             await LocationService.UpdateDetailsAsync(
                 _locationId,
-                _editStreetAddress,
-                _editCity,
-                _editStreetNumber,
+                _editVm.StreetAddress,
+                _editVm.City,
+                _editVm.StreetNumber,
                 _editPreDirectionId,
                 _editStreetTypeId,
                 _editPostDirectionId,
                 _editStateId,
                 _editCountryId,
-                _editZip,
-                _editAptSuite,
-                _editCoordinates,
-                _editCommonPlaceName,
-                _editComments,
-                _editAddress);
+                _editVm.Zip,
+                _editVm.AptSuite,
+                _editVm.Coordinates,
+                _editVm.CommonPlaceName,
+                _editVm.Comments,
+                _editVm.Address);
 
             await LoadAsync();
             _editSnapshot = ComputeEditSnapshot();
             _saveSuccessMessage = "Record saved successfully.";
-            _ = Task.Delay(3000).ContinueWith(_ => InvokeAsync(() =>
-            {
-                _saveSuccessMessage = null;
-                StateHasChanged();
-            }));
+            return true;
         }
         catch (Exception ex)
         {
             _actionError = ex.Message;
+            try { await LoadAsync(); } catch { _actionError += " (State may be out of sync — please refresh the page.)"; }
+            return false;
         }
     }
 
