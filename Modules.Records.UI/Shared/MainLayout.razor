@@ -66,9 +66,12 @@
                             {
                                 <span class="top-header-role-pill">@_role</span>
                             }
-                            <a href="/account/change-password" title="Change Password" class="top-header-pwd-link">
-                                <i class="bi bi-key"></i>
-                            </a>
+                            @if (!CurrentUser.IsDemoUser)
+                            {
+                                <a href="/account/change-password" title="Change Password" class="top-header-pwd-link">
+                                    <i class="bi bi-key"></i>
+                                </a>
+                            }
                         </div>
                     </div>
                 }

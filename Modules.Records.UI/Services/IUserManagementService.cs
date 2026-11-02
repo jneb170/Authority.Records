@@ -29,6 +29,9 @@ public interface IUserManagementService
         Guid primaryAgencyId, IEnumerable<string> roles, IEnumerable<Guid> agencyIds);
     Task<IdentityResult> ResetPasswordAsync(string userId, string newPassword);
     Task<IdentityResult> ChangePasswordAsync(string userId, string currentPassword, string newPassword);
+
+    /// <summary>True for the shared demo account and per-visitor demo accounts, which can't change passwords.</summary>
+    Task<bool> IsDemoAccountAsync(string userId);
     Task<IdentityResult> DeleteAsync(string userId);
     Task<List<string>> GetAvailableRolesAsync();
     Task<List<Agency>> GetAgenciesForUserAsync(string userId);
