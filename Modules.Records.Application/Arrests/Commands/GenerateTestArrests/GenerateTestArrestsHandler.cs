@@ -1,3 +1,4 @@
+using Modules.Records.Application.Common.Exceptions;
 using MediatR;
 using Microsoft.EntityFrameworkCore;
 using Modules.Records.Application.Abstractions;
@@ -238,6 +239,12 @@ public sealed class GenerateTestArrestsHandler : IRequestHandler<GenerateTestArr
                     cancellationToken);
 
                 created++;
+            }
+            catch (DemoLimitExceededException ex)
+            {
+                // Every further create would fail the same way: stop and say why (issue #90).
+                errors.Add($"Stopped after {created} record(s): {ex.Message}");
+                break;
             }
             catch (Exception ex)
             {

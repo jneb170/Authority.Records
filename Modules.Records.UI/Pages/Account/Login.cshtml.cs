@@ -15,15 +15,18 @@ public class LoginModel : PageModel
     private readonly SignInManager<ApplicationUser> _signInManager;
     private readonly UserManager<ApplicationUser> _userManager;
     private readonly IConfiguration _configuration;
+    private readonly DemoVisitorAccounts _visitorAccounts;
 
     public LoginModel(
         SignInManager<ApplicationUser> signInManager,
         UserManager<ApplicationUser> userManager,
-        IConfiguration configuration)
+        IConfiguration configuration,
+        DemoVisitorAccounts visitorAccounts)
     {
         _signInManager = signInManager;
         _userManager = userManager;
         _configuration = configuration;
+        _visitorAccounts = visitorAccounts;
     }
 
     [BindProperty]
@@ -97,7 +100,14 @@ public class LoginModel : PageModel
             AllowRefresh = false,
         };
 
-        await _signInManager.SignInAsync(demoUser, properties);
+        // Each visitor gets their own account copied from the demo account (agency, roles), so create
+        // quotas, record locks and the audit trail are per visitor (issues #90, #92). Falls back to the
+        // shared account when visitor accounts are disabled or the hourly cap is reached.
+        var signInAs = demoUser;
+        if (_visitorAccounts.Enabled)
+            signInAs = await _visitorAccounts.CreateVisitorAsync(demoUser, HttpContext.RequestAborted) ?? demoUser;
+
+        await _signInManager.SignInAsync(signInAs, properties);
         return LocalRedirect(returnUrl);
     }
 

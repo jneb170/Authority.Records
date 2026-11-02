@@ -174,7 +174,7 @@
 
                 @if (_generateResult is not null)
                 {
-                    <div class="alert @(_generateErrors == 0 ? "alert-success" : "alert-warning") mt-2">
+                    <div class="alert @(_generateErrors == 0 && !_generateStopped ? "alert-success" : "alert-warning") mt-2">
                         @_generateResult
                     </div>
                 }
@@ -445,6 +445,7 @@
     private int     _generatedCount  = 0;
     private int     _generateErrors  = 0;
     private string? _generateResult;
+    private bool _generateStopped;
     private bool    _canGenerate     = false;
 
     protected override async Task OnInitializedAsync()
@@ -645,14 +646,22 @@
         _generatedCount = 0;
         _generateErrors = 0;
         _generateResult = null;
+        _generateStopped = false;
 
         var count = Math.Clamp(_generateCount, 1, 500);
+        string? stoppedReason = null;
 
         for (int i = 0; i < count; i++)
         {
             try
             {
                 await CreateOneFakeNameAsync();
+            }
+            catch (Modules.Records.Application.Common.Exceptions.DemoLimitExceededException ex)
+            {
+                // Every further create would fail the same way: stop and say why (issue #90).
+                stoppedReason = ex.Message;
+                break;
             }
             catch
             {
@@ -666,9 +675,13 @@
         }
 
         _generating     = false;
-        _generateResult = _generateErrors == 0
-            ? $"✅ Successfully created {_generatedCount} fake Name records."
-            : $"⚠️ Created {_generatedCount - _generateErrors} records; {_generateErrors} error(s).";
+        _generateStopped = stoppedReason is not null;
+        var createdNames = _generatedCount - _generateErrors;
+        _generateResult = stoppedReason is not null
+            ? $"Stopped after {createdNames} of {count} records: demo limit reached. {stoppedReason}"
+            : _generateErrors == 0
+                ? $"Created {_generatedCount} fake Name records."
+                : $"Created {createdNames} records; {_generateErrors} error(s).";
 
         StateHasChanged();
     }
@@ -771,7 +784,10 @@
             _locErrors         = result.Failed;
             _locErrorDetails   = result.Errors.ToList();
 
-            _locResult = result.Failed == 0
+            var locStopped = result.Errors.FirstOrDefault(e => e.StartsWith("Stopped after", StringComparison.Ordinal));
+            _locResult = locStopped is not null
+                ? $"⚠️ {locStopped}"
+                : result.Failed == 0
                 ? $"✅ Successfully created {result.Created} location record(s)."
                 : $"⚠️ Created {result.Created} record(s); {result.Failed} error(s).";
 
@@ -844,7 +860,10 @@
             _arrestErrorDetails = result.Errors.ToList();
             _arrestSummary = BuildArrestSummary(result);
 
-            _arrestResult = result.Failed == 0
+            var arrestStopped = result.Errors.FirstOrDefault(e => e.StartsWith("Stopped after", StringComparison.Ordinal));
+            _arrestResult = arrestStopped is not null
+                ? $"⚠️ {arrestStopped}"
+                : result.Failed == 0
                 ? $"✅ Successfully created {result.Created} arrest record(s)."
                 : $"⚠️ Created {result.Created} arrest record(s); {result.Failed} error(s).";
 

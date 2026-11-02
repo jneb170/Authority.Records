@@ -1,4 +1,5 @@
-﻿using System.Data.Common;
+using Microsoft.Extensions.DependencyInjection.Extensions;
+using System.Data.Common;
 using Microsoft.AspNetCore.DataProtection;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
@@ -48,6 +49,13 @@ if (!string.IsNullOrWhiteSpace(dataProtectionKeysPath))
 // variables (deploy/aws/app.env on the Lightsail host).
 builder.Services.AddOptions<Modules.Records.Application.Common.DemoRateLimitOptions>()
     .BindConfiguration(Modules.Records.Application.Common.DemoRateLimitOptions.SectionName);
+
+// Per-visitor demo accounts (issues #90-#92): each "Explore the live demo" click gets its own user.
+builder.Services.AddOptions<DemoVisitorOptions>().BindConfiguration(DemoVisitorOptions.SectionName);
+builder.Services.TryAddSingleton(TimeProvider.System);
+builder.Services.AddScoped<DemoVisitorAccounts>();
+if (builder.Configuration.GetValue("Demo:Enabled", true))
+    builder.Services.AddHostedService<DemoVisitorCleanupService>();
 
 // Override ITenantProvider with Blazor-aware implementation.
 // IHttpContextAccessor.HttpContext is null during Blazor Server SignalR interactions;

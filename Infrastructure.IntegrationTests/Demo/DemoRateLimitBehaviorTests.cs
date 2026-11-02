@@ -160,6 +160,46 @@ public sealed class DemoRateLimitBehaviorTests : IDisposable
         Assert.False(nextCalled);
     }
 
+    [Fact]
+    public async Task DemoVisitor_WhenAllVisitorsTogetherHitSharedCap_IsRejected()
+    {
+        // Issue #90: each visitor now has their own quota, so a jurisdiction-wide cap bounds the total.
+        var options = new DemoRateLimitOptions { MaxCreatesPerWindow = 30, MaxCreatesPerWindowAllVisitors = 5, WindowMinutes = 60 };
+        await SeedIncidentsAsync(Guid.NewGuid(), DateTime.UtcNow, count: 3);
+        await SeedIncidentsAsync(Guid.NewGuid(), DateTime.UtcNow, count: 2);
+
+        var nextCalled = false;
+        var ex = await Assert.ThrowsAsync<DemoLimitExceededException>(() =>
+            Handle(SampleCommand(), isDemo: true, options, () => nextCalled = true));
+
+        Assert.Contains("demo is busy", ex.Message);
+        Assert.False(nextCalled);
+    }
+
+    [Fact]
+    public async Task DemoVisitor_OtherVisitorsRecords_DoNotUseTheirOwnQuota()
+    {
+        var options = new DemoRateLimitOptions { MaxCreatesPerWindow = 3, MaxCreatesPerWindowAllVisitors = 100, WindowMinutes = 60 };
+        await SeedIncidentsAsync(Guid.NewGuid(), DateTime.UtcNow, count: 10); // someone else's records
+
+        var nextCalled = false;
+        await Handle(SampleCommand(), isDemo: true, options, () => nextCalled = true);
+
+        Assert.True(nextCalled);
+    }
+
+    [Fact]
+    public async Task DemoVisitor_SharedCap_IgnoresOtherJurisdictions()
+    {
+        var options = new DemoRateLimitOptions { MaxCreatesPerWindow = 30, MaxCreatesPerWindowAllVisitors = 2, WindowMinutes = 60 };
+        await SeedIncidentsAsync(Guid.NewGuid(), DateTime.UtcNow, count: 5, jurisdictionId: Guid.NewGuid());
+
+        var nextCalled = false;
+        await Handle(SampleCommand(), isDemo: true, options, () => nextCalled = true);
+
+        Assert.True(nextCalled);
+    }
+
     private static CreateIncidentCommand SampleCommand(string description = "test") =>
         new(new IncidentDetails { IncidentNum = "INC-1", LocalNum = "L-1", Description = description });
 
@@ -190,7 +230,7 @@ public sealed class DemoRateLimitBehaviorTests : IDisposable
             CancellationToken.None);
     }
 
-    private async Task SeedIncidentsAsync(Guid userId, DateTime createdAt, int count)
+    private async Task SeedIncidentsAsync(Guid userId, DateTime createdAt, int count, Guid? jurisdictionId = null)
     {
         using var scope = _provider.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
@@ -201,9 +241,9 @@ public sealed class DemoRateLimitBehaviorTests : IDisposable
         {
             var incident = factory.Create(new CreateIncidentRequest
             {
-                JurisdictionId = _jurisdictionId,
+                JurisdictionId = jurisdictionId ?? _jurisdictionId,
                 AgencyId = _agencyId,
-                Details = new IncidentDetails { IncidentNum = $"INC-{i}", LocalNum = $"L-{i}" }
+                Details = new IncidentDetails { IncidentNum = $"INC-{Guid.NewGuid():N}", LocalNum = $"L-{i}" }
             });
             db.Incidents.Add(incident);
             ids.Add(incident.Id);

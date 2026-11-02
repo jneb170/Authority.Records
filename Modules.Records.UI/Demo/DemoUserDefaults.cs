@@ -50,6 +50,16 @@ public static class DemoUserDefaults
     public const string AgencyName = "Demo Police Department";
     public const string AgencyCode = "DPD";
 
+    /// <summary>
+    /// Email domain for per-visitor demo accounts (see <see cref="DemoVisitorAccounts"/>). Never receives mail;
+    /// it only keeps visitor usernames unique and recognisable.
+    /// </summary>
+    public const string VisitorEmailDomain = "visitors.demo.authorityrecords.dev";
+
+    /// <summary>Visitor accounts are named "Demo Visitor 4821".</summary>
+    public const string VisitorFirstName = "Demo";
+    public const string VisitorLastNamePrefix = "Visitor";
+
     /// <summary>How long a Try-the-demo cookie lasts before the user must sign in again.</summary>
     public static readonly TimeSpan SessionLifetime = TimeSpan.FromHours(12);
 }

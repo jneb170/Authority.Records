@@ -9,12 +9,15 @@ using Modules.Records.Domain.Abstractions;
 namespace Modules.Records.Application.Common.Behaviors;
 
 /// <summary>
-/// Abuse limits for the shared public "Try the demo" account. Real users are
-/// never affected. Two limits, both configurable via <see cref="DemoRateLimitOptions"/>:
+/// Abuse limits for public "Try the demo" accounts (the shared demo account and the per-visitor
+/// accounts created by "Explore the live demo"). Real users are never affected. Limits, all
+/// configurable via <see cref="DemoRateLimitOptions"/>:
 /// <list type="bullet">
 /// <item>a per-write size cap (caps how much a single save can stuff into the
 /// unbounded narrative/description fields); and</item>
-/// <item>a rolling per-window cap on how many records the account may create.</item>
+/// <item>a rolling per-window cap on how many records the account may create; and</item>
+/// <item>a rolling per-window cap on how many records all demo visitors together may create in the
+/// jurisdiction, so fresh per-visitor quotas can't be used to flood the demo.</item>
 /// </list>
 /// </summary>
 public sealed class DemoRateLimitBehavior<TRequest, TResponse>
@@ -107,6 +110,24 @@ public sealed class DemoRateLimitBehavior<TRequest, TResponse>
             throw new DemoLimitExceededException(
                 $"Demo accounts are limited to {limit} new records per {_options.WindowMinutes} minutes. " +
                 "Please wait a little while before creating more.");
+
+        var sharedLimit = _options.MaxCreatesPerWindowAllVisitors;
+        if (sharedLimit <= 0)
+            return;
+
+        var jurisdictionId = _tenantProvider.GetJurisdictionId();
+        var createdByEveryone =
+            await _db.Incidents.IgnoreQueryFilters().CountAsync(e => e.JurisdictionId == jurisdictionId && e.CreatedAt >= cutoff, cancellationToken)
+            + await _db.Arrests.IgnoreQueryFilters().CountAsync(e => e.JurisdictionId == jurisdictionId && e.CreatedAt >= cutoff, cancellationToken)
+            + await _db.Citations.IgnoreQueryFilters().CountAsync(e => e.JurisdictionId == jurisdictionId && e.CreatedAt >= cutoff, cancellationToken)
+            + await _db.Names.IgnoreQueryFilters().CountAsync(e => e.JurisdictionId == jurisdictionId && e.CreatedAt >= cutoff, cancellationToken)
+            + await _db.Locations.IgnoreQueryFilters().CountAsync(e => e.JurisdictionId == jurisdictionId && e.CreatedAt >= cutoff, cancellationToken)
+            + await _db.Mugshots.IgnoreQueryFilters().CountAsync(e => e.JurisdictionId == jurisdictionId && e.CreatedAt >= cutoff, cancellationToken);
+
+        if (createdByEveryone >= sharedLimit)
+            throw new DemoLimitExceededException(
+                $"The demo is busy: visitors have created {sharedLimit} records in the last {_options.WindowMinutes} minutes. " +
+                "Please try again a little later.");
     }
 
     private static Task<int> CountSince<T>(

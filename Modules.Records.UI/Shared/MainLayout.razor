@@ -87,7 +87,9 @@
         {
             <div class="alert alert-info demo-banner" role="status">
                 <span><i class="bi bi-info-circle-fill me-1"></i><strong>Shared demo.</strong>
-                    You're signed in as a supervisor at a fictional agency. All people and records are made up, and other visitors see the same data.</span>
+                    You're signed in as @(string.IsNullOrWhiteSpace(_displayName) ? "a demo user" : _displayName), a supervisor at a fictional agency.
+                    All people and records are made up, and other visitors see the same records.
+                    <span class="demo-banner-tip">Tip: open a record in a second browser and press Modify in both to see record locking.</span></span>
                 @if (_sourceUrl is not null)
                 {
                     <a href="@_sourceUrl" target="_blank" rel="noopener"><i class="bi bi-github me-1"></i>View the source</a>

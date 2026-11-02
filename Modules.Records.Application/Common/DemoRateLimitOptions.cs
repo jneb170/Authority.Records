@@ -9,8 +9,17 @@ public sealed class DemoRateLimitOptions
 {
     public const string SectionName = "Demo:RateLimit";
 
-    /// <summary>Max records the demo account may create per <see cref="WindowMinutes"/>, across all aggregates.</summary>
+    /// <summary>
+    /// Max records one demo account may create per <see cref="WindowMinutes"/>, across all aggregates.
+    /// Each "Explore the live demo" visitor has their own account, so this is a per-visitor quota.
+    /// </summary>
     public int MaxCreatesPerWindow { get; set; } = 30;
+
+    /// <summary>
+    /// Max records all demo accounts together may create in the demo jurisdiction per <see cref="WindowMinutes"/>.
+    /// Bounds abuse now that every visitor gets a fresh per-visitor quota (issue #90). 0 disables it.
+    /// </summary>
+    public int MaxCreatesPerWindowAllVisitors { get; set; } = 600;
 
     /// <summary>Rolling window, in minutes, the create count is measured over.</summary>
     public int WindowMinutes { get; set; } = 60;
