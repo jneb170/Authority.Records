@@ -1,0 +1,35 @@
+# Keeps NuGet packages, GitHub Actions and the container base images current (issue #102).
+version: 2
+updates:
+  - package-ecosystem: nuget
+    directory: "/"
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 5
+    groups:
+      # EF Core and ASP.NET Core packages must move together.
+      microsoft-dotnet:
+        patterns:
+          - "Microsoft.EntityFrameworkCore*"
+          - "Microsoft.AspNetCore.*"
+          - "Microsoft.Extensions.*"
+          - "System.*"
+      test-tooling:
+        patterns:
+          - "xunit*"
+          - "coverlet.*"
+          - "Microsoft.NET.Test.Sdk"
+    ignore:
+      # Major versions need a deliberate upgrade (e.g. .NET 11 with the SDK in global.json).
+      - dependency-name: "*"
+        update-types: ["version-update:semver-major"]
+
+  - package-ecosystem: github-actions
+    directory: "/"
+    schedule:
+      interval: monthly
+
+  - package-ecosystem: docker
+    directory: "/"
+    schedule:
+      interval: weekly
