@@ -29,6 +29,16 @@ dotnet test ./Modules.Records.Domain.Tests/Modules.Records.Domain.Tests.csproj -
 
 CI skips integration tests with `--filter "Category!=Integration"`. Check `.github/workflows/deploy.yml` before changing build, migration, publish, or deployment behavior.
 
+## Running the demo locally (manual QA, screenshots, UI verification)
+
+```bash
+scripts/run-local-demo.sh --fresh       # production-equivalent instance on http://127.0.0.1:8080
+node scripts/demo-browser/smoke.js      # Playwright crawl: errors + screenshots in /tmp/authority-demo/shots
+scripts/run-local-demo.sh --stop
+```
+
+In Claude Code cloud sessions the live site and the GHCR image are unreachable, `dotnet` isn't preinstalled, and the Bootstrap CDN is blocked. The script and `scripts/demo-browser/lib.js` work around all of these. Read `.claude/skills/run-demo/SKILL.md` (the `run-demo` skill) before driving the app. It covers accounts, seeded record numbers, the shared demo create quota, Playwright gotchas, and the already-filed demo-review issues (#90-#102).
+
 ## Deployment
 
 Production runs on a single AWS Lightsail instance: the UI host is built into a container image (`Dockerfile`), pushed to GHCR, and run with Docker Compose behind Caddy (`deploy/aws/`). Production uses the SQLite provider; databases, Data Protection keys, and mugshot uploads live on Docker volumes, and migrations apply on app startup. See `Documents/aws-deployment-guide.md`. Configuration that would have been an App Service setting is an environment variable (`deploy/aws/app.env` on the host).
