@@ -2513,3 +2513,16 @@ kbd.shortcut-hint {
         border-radius: var(--bs-border-radius) !important;
     }
 }
+
+.location-mini-map-placeholder {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.35rem 0.6rem;
+    max-width: 300px;
+    margin-top: 0.5rem;
+    padding: 0.5rem 0.75rem;
+    border: 1px dashed rgba(30,45,69,.2);
+    border-radius: 6px;
+    background: rgba(247,248,251,.8);
+}

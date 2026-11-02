@@ -75,7 +75,7 @@ public sealed class GetRecentActivityHandler
                 "Incident", r.Id, identifier,
                 $"/incidents/{r.RecordNumber}",
                 r.Status,
-                r.ModifiedBy == userId ? "Modified" : "Created",
+                ActivityLabel(r.ModifiedBy, r.CreatedAtUtc, r.UpdatedAtUtc),
                 r.UpdatedAtUtc));
         }
 
@@ -88,7 +88,7 @@ public sealed class GetRecentActivityHandler
                 "Arrest", r.Id, identifier,
                 $"/arrests/{r.RecordNumber}",
                 r.Status,
-                r.ModifiedBy == userId ? "Modified" : "Created",
+                ActivityLabel(r.ModifiedBy, r.CreatedAtUtc, r.UpdatedAtUtc),
                 r.UpdatedAtUtc));
         }
 
@@ -101,7 +101,7 @@ public sealed class GetRecentActivityHandler
                 "Citation", r.Id, identifier,
                 $"/citations/{r.RecordNumber}",
                 r.IsIssued ? "Issued" : "Draft",
-                r.ModifiedBy == userId ? "Modified" : "Created",
+                ActivityLabel(r.ModifiedBy, r.CreatedAtUtc, r.UpdatedAtUtc),
                 r.UpdatedAtUtc));
         }
 
@@ -112,7 +112,7 @@ public sealed class GetRecentActivityHandler
                 "Name", r.Id, identifier,
                 $"/names/{r.RecordNumber}",
                 null,
-                r.ModifiedBy == userId ? "Modified" : "Created",
+                ActivityLabel(r.ModifiedBy, r.CreatedAtUtc, r.UpdatedAtUtc),
                 r.UpdatedAtUtc));
         }
 
@@ -121,6 +121,15 @@ public sealed class GetRecentActivityHandler
             .Take(request.Take)
             .ToList();
     }
+
+    /// <summary>
+    /// "Modified" when the record was changed after it was created (by anyone), otherwise "Created". It used
+    /// to say "Modified" only when the viewer made the change, so the agency-wide feed a new user sees
+    /// labelled everything "Created" (issue #99). The one-minute grace covers the save that immediately
+    /// follows a create on the create pages.
+    /// </summary>
+    internal static string ActivityLabel(Guid? modifiedBy, DateTime createdAtUtc, DateTime updatedAtUtc)
+        => modifiedBy.HasValue && updatedAtUtc > createdAtUtc.AddMinutes(1) ? "Modified" : "Created";
 
     private static string BuildNameIdentifier(string nameType, string? firstName, string lastOrBusiness, long recordNumber)
     {

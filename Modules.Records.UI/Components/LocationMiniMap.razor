@@ -7,11 +7,20 @@
 @inject ILocationService LocationService
 @implements IAsyncDisposable
 
-@if (_hasCoords)
+@if (_hasCoords && _hasApiKey)
 {
     <div id="@_elementId"
          style="height:150px; max-width:300px; width:100%; border-radius:6px; overflow:hidden; margin-top:.5rem;"
          class="border">
+    </div>
+}
+else if (_hasCoords)
+{
+    @* No Maps key: the empty map container used to render as a blank white box (issue #99). *@
+    <div class="location-mini-map-placeholder small text-muted">
+        <i class="bi bi-geo-alt" aria-hidden="true"></i>
+        <span>@_lat.ToString("0.0000", CultureInfo.InvariantCulture), @_lng.ToString("0.0000", CultureInfo.InvariantCulture)</span>
+        <a href="@OpenStreetMapUrl" target="_blank" rel="noopener">View on a map</a>
     </div>
 }
 
@@ -20,6 +29,7 @@
 
     private readonly string _elementId = $"mini-map-{Guid.NewGuid():N}";
     private bool   _hasCoords;
+    private bool   _hasApiKey;
     private double _lat;
     private double _lng;
     private bool   _initialised;
@@ -44,12 +54,16 @@
         if (!double.TryParse(parts[0].Trim(), NumberStyles.Float, CultureInfo.InvariantCulture, out _lat)) return;
         if (!double.TryParse(parts[1].Trim(), NumberStyles.Float, CultureInfo.InvariantCulture, out _lng)) return;
 
+        _hasApiKey = !string.IsNullOrEmpty(await GoogleMapsConfigService.GetApiKeyAsync());
         _hasCoords = true;
     }
 
+    private string OpenStreetMapUrl => FormattableString.Invariant(
+        $"https://www.openstreetmap.org/?mlat={_lat:0.######}&mlon={_lng:0.######}#map=17/{_lat:0.######}/{_lng:0.######}");
+
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
-        if (!_hasCoords || _initialised) return;
+        if (!_hasCoords || !_hasApiKey || _initialised) return;
 
         var apiKey = await GoogleMapsConfigService.GetApiKeyAsync();
         if (string.IsNullOrEmpty(apiKey)) return;
