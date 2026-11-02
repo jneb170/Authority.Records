@@ -2,6 +2,7 @@
 @inject IAgencyClock Clock
 @using System.Security.Claims
 @using Microsoft.JSInterop
+@using Modules.Records.Application.Common.Queries.GetDashboardCounts
 @using Modules.Records.Application.Common.Queries.GetMapMarkers
 @using Modules.Records.Application.Common.Queries.GetRecentActivity
 @using Modules.Records.UI.Interop
@@ -20,10 +21,6 @@
         <h2 class="page-header-title"><i class="bi bi-house-fill"></i> Home</h2>
         <div class="page-header-sub">Welcome back, <strong>@_displayName</strong> &mdash; @Clock.Today.ToString("dddd, MMMM d, yyyy")</div>
     </div>
-    <div class="dashboard-header-chip">
-        <i class="bi bi-shield-check"></i>
-        <span>Shift summary</span>
-    </div>
 </div>
 
 <section class="dashboard-hero mb-4">
@@ -33,20 +30,22 @@
         <p>Use this dashboard to review recent incidents, arrests, citations, and map activity before moving into report entry or follow-up work.</p>
     </div>
     <div class="dashboard-metrics">
+        @* Real counts for the agency (issue #100), not a breakdown of the 20-row activity feed. *@
         <div class="dashboard-metric-card">
-            <span class="dashboard-metric-label">Recent incidents</span>
-            <strong>@RecentIncidentCount</strong>
-            <span class="dashboard-metric-detail">@ActivityFeedLabel</span>
+            <span class="dashboard-metric-label">New incidents</span>
+            <strong>@(_counts?.NewIncidents ?? 0)</strong>
+            <span class="dashboard-metric-detail">@CountsWindowLabel</span>
+            <span class="dashboard-metric-detail">@(_counts?.OpenIncidents ?? 0) open</span>
         </div>
         <div class="dashboard-metric-card">
-            <span class="dashboard-metric-label">Recent arrests</span>
-            <strong>@RecentArrestCount</strong>
-            <span class="dashboard-metric-detail">@ActivityFeedLabel</span>
+            <span class="dashboard-metric-label">New arrests</span>
+            <strong>@(_counts?.NewArrests ?? 0)</strong>
+            <span class="dashboard-metric-detail">@CountsWindowLabel</span>
         </div>
         <div class="dashboard-metric-card">
-            <span class="dashboard-metric-label">Recent citations</span>
-            <strong>@RecentCitationCount</strong>
-            <span class="dashboard-metric-detail">@ActivityFeedLabel</span>
+            <span class="dashboard-metric-label">New citations</span>
+            <strong>@(_counts?.NewCitations ?? 0)</strong>
+            <span class="dashboard-metric-detail">@CountsWindowLabel</span>
         </div>
         <div class="dashboard-metric-card">
             <span class="dashboard-metric-label">Mapped events</span>
@@ -298,10 +297,9 @@
     private bool _showPlaces    = false;
     private bool _mapInitialised = false;
     private int  _mapWindowHours = 24;   // 0 = all time
-    private int RecentIncidentCount => _activity?.Count(a => string.Equals(a.RecordType, "Incident", StringComparison.OrdinalIgnoreCase)) ?? 0;
-    private int RecentArrestCount => _activity?.Count(a => string.Equals(a.RecordType, "Arrest", StringComparison.OrdinalIgnoreCase)) ?? 0;
-    private int RecentCitationCount => _activity?.Count(a => string.Equals(a.RecordType, "Citation", StringComparison.OrdinalIgnoreCase)) ?? 0;
-    private string ActivityFeedLabel => _activityIsAgencyWide ? "in the agency activity feed" : "in the latest activity feed";
+    private const int CountsWindowDays = 7;
+    private const string CountsWindowLabel = "past 7 days";
+    private DashboardCountsDto? _counts;
     private string MapWindowLabel => _mapWindowHours switch
     {
         24 => "past 24 hours",
@@ -314,7 +312,8 @@
     protected override async Task OnInitializedAsync()
     {
         var authState = await AuthStateProvider.GetAuthenticationStateAsync();
-        _displayName = authState.User.FindFirst(ClaimTypes.Email)?.Value
+        // Display name ("Demo Visitor 4821"), not the email address (issue #100).
+        _displayName = authState.User.FindFirst(global::Shared.Infrastructure.Identity.RecordsUserClaimsPrincipalFactory.FullNameClaimType)?.Value
                     ?? authState.User.FindFirst(ClaimTypes.Name)?.Value
                     ?? "Officer";
 
@@ -338,6 +337,7 @@
             }
             _mapWindowHours = mapStateTask.Result.WindowHours;
             _mapMarkers  = mapStateTask.Result.Markers;
+            _counts = await HomeService.GetDashboardCountsAsync(CountsWindowDays);
         }
         finally
         {

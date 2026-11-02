@@ -173,7 +173,9 @@
 
         if (!string.IsNullOrWhiteSpace(_displayName))
         {
-            var parts = _displayName.Trim().Split(' ', StringSplitOptions.RemoveEmptyEntries);
+            // Letters only, so "Demo Visitor 4821" gives "DV" rather than "D4".
+            var parts = _displayName.Trim().Split(' ', StringSplitOptions.RemoveEmptyEntries)
+                .Where(p => char.IsLetter(p[0])).DefaultIfEmpty(_displayName.Trim()).ToArray();
             _initials = parts.Length >= 2
                 ? $"{char.ToUpper(parts[0][0])}{char.ToUpper(parts[^1][0])}"
                 : _displayName[..Math.Min(2, _displayName.Length)].ToUpper();
