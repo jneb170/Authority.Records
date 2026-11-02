@@ -21,7 +21,7 @@ public sealed class RestoreNarrativeHandler : IRequestHandler<RestoreNarrativeCo
     {
         // Soft-deleted records are excluded by the global query filter, so bypass it to find one.
         var narrative = await _dbContext.Narratives
-            .IgnoreQueryFilters()
+            .IgnoreQueryFilters([QueryFilterNames.SoftDelete])
             .FirstOrDefaultAsync(n =>
                 n.Id == request.NarrativeId &&
                 n.JurisdictionId == _tenantProvider.GetJurisdictionId(),

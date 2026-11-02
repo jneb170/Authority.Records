@@ -21,7 +21,7 @@ public sealed class RestoreCitationHandler : IRequestHandler<RestoreCitationComm
     public async Task Handle(RestoreCitationCommand request, CancellationToken cancellationToken)
     {
         var citation = await _dbContext.Citations
-            .IgnoreQueryFilters()
+            .IgnoreQueryFilters([QueryFilterNames.SoftDelete])
             .FirstOrDefaultAsync(c =>
                 c.Id == request.CitationId &&
                 c.JurisdictionId == _tenantProvider.GetJurisdictionId(),

@@ -21,7 +21,7 @@ public sealed class RestoreArrestHandler : IRequestHandler<RestoreArrestCommand>
     public async Task Handle(RestoreArrestCommand request, CancellationToken cancellationToken)
     {
         var arrest = await _dbContext.Arrests
-            .IgnoreQueryFilters()
+            .IgnoreQueryFilters([QueryFilterNames.SoftDelete])
             .FirstOrDefaultAsync(a =>
                 a.Id == request.ArrestId &&
                 a.JurisdictionId == _tenantProvider.GetJurisdictionId(),

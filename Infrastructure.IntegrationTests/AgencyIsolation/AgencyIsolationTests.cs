@@ -7,6 +7,7 @@ using Modules.Records.Application.Abstractions;
 using Modules.Records.Application.Admin.Commands.RebuildReadModels;
 using Modules.Records.Application.Admin.Queries.GetAuditLogs;
 using Modules.Records.Application.Incidents.Commands.AcquireIncidentLock;
+using Modules.Records.Application.Incidents.Commands.RestoreIncident;
 using Modules.Records.Application.Names.Commands.AcquireNameLock;
 using Modules.Records.Application.Names.Commands.CreateName;
 using Modules.Records.Application.Narratives.Commands.CreateNarrative;
@@ -93,6 +94,25 @@ public sealed class AgencyIsolationTests : IDisposable
             Assert.True(await db.Citations.AnyAsync(c => c.Id == citationId));
         }
         Assert.Single(await Send(new GetNarrativesByOwnerQuery(NarrativeOwnerTypes.Incident, incidentId)));
+    }
+
+    [Fact]
+    public async Task Other_agency_cannot_restore_a_deleted_record()
+    {
+        var (incidentId, _, _) = await SeedAgencyARecordsAsync();
+        await using (var db = CreateDb())
+        {
+            var incident = await db.Incidents.SingleAsync(i => i.Id == incidentId);
+            incident.SoftDelete(UserA);
+            await db.SaveChangesAsync();
+        }
+
+        // Restore skips only the soft-delete filter, never the agency filter.
+        ActAs(UserB, AgencyB);
+        await Assert.ThrowsAsync<InvalidOperationException>(() => Send(new RestoreIncidentCommand(incidentId)));
+
+        ActAs(UserA, AgencyA);
+        await Send(new RestoreIncidentCommand(incidentId));
     }
 
     [Fact]

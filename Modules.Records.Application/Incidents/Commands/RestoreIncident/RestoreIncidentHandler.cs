@@ -21,7 +21,7 @@ public sealed class RestoreIncidentHandler : IRequestHandler<RestoreIncidentComm
     public async Task Handle(RestoreIncidentCommand request, CancellationToken cancellationToken)
     {
         var incident = await _dbContext.Incidents
-            .IgnoreQueryFilters()
+            .IgnoreQueryFilters([QueryFilterNames.SoftDelete])
             .FirstOrDefaultAsync(i =>
                 i.Id == request.IncidentId &&
                 i.JurisdictionId == _tenantProvider.GetJurisdictionId(),
