@@ -1,5 +1,5 @@
 @page "/admin/read-model-rebuild"
-@attribute [Authorize(Roles = "Admin,Supervisor")]
+@attribute [Authorize(Roles = "Admin")]
 @inject IAdminService AdminService
 @using Microsoft.AspNetCore.Authorization
 @using Modules.Records.Application.Admin.Commands.RebuildReadModels

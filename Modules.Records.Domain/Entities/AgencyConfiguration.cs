@@ -26,7 +26,17 @@ public sealed class AgencyConfiguration : AggregateRoot, IMultiTenant
 
     public void Update(string newValue)
     {
+        var previous = Value;
         Value = newValue;
-        AddDomainEvent(new AgencyConfigurationSetDomainEvent(Id, JurisdictionId, AgencyId, Key, Value));
+        AddDomainEvent(new AgencyConfigurationSetDomainEvent(Id, JurisdictionId, AgencyId, Key, Value, previous));
+    }
+
+    public override void SoftDelete(Guid userId)
+    {
+        if (IsDeleted)
+            return;
+
+        base.SoftDelete(userId);
+        AddDomainEvent(new AgencyConfigurationDeletedDomainEvent(Id, JurisdictionId, AgencyId, Key, Value, userId));
     }
 }

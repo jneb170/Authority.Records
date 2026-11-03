@@ -1,3 +1,4 @@
+@inject Microsoft.Extensions.Options.IOptions<Modules.Records.Application.Abstractions.DemoModeOptions> DemoMode
 <a href="/" class="sidebar-brand" @onclick="OnNavClicked">
     <span class="sidebar-brand-icon-wrap">
         <img src="/favicon.svg" width="24" height="24" alt="AR" />
@@ -77,13 +78,6 @@
             </button>
 
             <div class="@GetSectionContentClass(_administrationExpanded)">
-                <NavLink class="nav-link" href="admin/configurations" @onclick="OnNavClicked" title="Configurations">
-                    <i class="bi bi-gear-fill"></i>
-                    <span class="nav-link-label">
-                        <span class="nav-label-full">Configurations</span>
-                        <span class="nav-label-short">Config</span>
-                    </span>
-                </NavLink>
                 <NavLink class="nav-link" href="admin/picklists" @onclick="OnNavClicked" title="Picklist Items">
                     <i class="bi bi-list-ul"></i>
                     <span class="nav-link-label">
@@ -98,22 +92,34 @@
                         <span class="nav-label-short">Charges</span>
                     </span>
                 </NavLink>
-                <NavLink class="nav-link" href="admin/test-data" @onclick="OnNavClicked" title="Test Data">
-                    <i class="bi bi-database-fill-gear"></i>
-                    <span class="nav-link-label">
-                        <span class="nav-label-full">Test Data</span>
-                        <span class="nav-label-short">Test Data</span>
-                    </span>
-                </NavLink>
-                <NavLink class="nav-link" href="admin/read-model-rebuild" @onclick="OnNavClicked" title="Read Model Rebuild">
-                    <i class="bi bi-arrow-repeat"></i>
-                    <span class="nav-link-label">
-                        <span class="nav-label-full">Read Model Rebuild</span>
-                        <span class="nav-label-short">Rebuild</span>
-                    </span>
-                </NavLink>
+                @* Test data is demo-only (#125). *@
+                @if (DemoMode.Value.Enabled)
+                {
+                    <NavLink class="nav-link" href="admin/test-data" @onclick="OnNavClicked" title="Test Data">
+                        <i class="bi bi-database-fill-gear"></i>
+                        <span class="nav-link-label">
+                            <span class="nav-label-full">Test Data</span>
+                            <span class="nav-label-short">Test Data</span>
+                        </span>
+                    </NavLink>
+                }
 
+                @* Settings and the read-model rebuild are Admin-only (#125). *@
                 <AuthorizeView Roles="Admin">
+                    <NavLink class="nav-link" href="admin/configurations" @onclick="OnNavClicked" title="Configurations">
+                        <i class="bi bi-gear-fill"></i>
+                        <span class="nav-link-label">
+                            <span class="nav-label-full">Configurations</span>
+                            <span class="nav-label-short">Config</span>
+                        </span>
+                    </NavLink>
+                    <NavLink class="nav-link" href="admin/read-model-rebuild" @onclick="OnNavClicked" title="Read Model Rebuild">
+                        <i class="bi bi-arrow-repeat"></i>
+                        <span class="nav-link-label">
+                            <span class="nav-label-full">Read Model Rebuild</span>
+                            <span class="nav-label-short">Rebuild</span>
+                        </span>
+                    </NavLink>
                     <NavLink class="nav-link" href="admin/agencies" @onclick="OnNavClicked" title="Agencies">
                         <i class="bi bi-building-fill"></i>
                         <span class="nav-link-label">

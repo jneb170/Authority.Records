@@ -251,9 +251,10 @@ public sealed class AgencyIsolationTests : IDisposable
         public void SetJurisdictionId(Guid jurisdictionId) { }
     }
 
+    /// <summary>Each test user is an admin of their own agency (rebuild is Admin-only, #125).</summary>
     private sealed class NotDemoUser : ICurrentUserContext
     {
-        public bool IsInRole(string roleName) => false;
+        public bool IsInRole(string roleName) => roleName == RoleNames.Admin;
         public bool IsDemoUser => false;
     }
 

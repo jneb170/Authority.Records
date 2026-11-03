@@ -57,6 +57,10 @@ builder.Services.AddScoped<DemoVisitorAccounts>();
 if (builder.Configuration.GetValue("Demo:Enabled", true))
     builder.Services.AddHostedService<DemoVisitorCleanupService>();
 
+// Test-data generation is refused outside demo mode (issue #125). Same default as above.
+builder.Services.Configure<Modules.Records.Application.Abstractions.DemoModeOptions>(
+    o => o.Enabled = builder.Configuration.GetValue("Demo:Enabled", true));
+
 // Override ITenantProvider with Blazor-aware implementation.
 // IHttpContextAccessor.HttpContext is null during Blazor Server SignalR interactions;
 // BlazorTenantProvider falls back to AuthenticationStateProvider for claims.
