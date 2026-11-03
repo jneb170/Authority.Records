@@ -57,9 +57,9 @@ namespace Modules.Records.UI.Demo;
 /// </summary>
 internal static class DemoDataset
 {
-    private const string City = "Riverbend";
+    private const string City = "Plano";
     private const string StateCode = "TX";
-    private const string Zip = "78640";
+    private const string Zip = "75074";
 
     /// <summary>Record numbers the previous, minimal seeder used. Replaced by this dataset.</summary>
     private static readonly string[] LegacyIncidentNums = ["DEMO-2026-001", "DEMO-2026-002", "DEMO-2026-003", "DEMO-2026-004"];
@@ -242,26 +242,27 @@ internal static class DemoDataset
 
     private static readonly PlaceSeed[] Places =
     [
-        new("pharmacy",  "4521", "Maple",      "Ave",  "Maple Avenue Pharmacy",     33.0255, -96.6983),
-        new("5th-main",  null,   "5th St & Main", null, null,                       33.0199, -96.6995),
-        new("library",   "200",  "Library",    "Ln",   "Riverbend Public Library",  33.0214, -96.6982),
-        new("oak22",     "22",   "Oak",        "St",   null,                        33.0236, -96.7030),
-        new("quickstop", "1800", "Commerce",   "St",   "QuickStop Convenience #14", 33.0176, -96.7068, PreDirection: "W"),
-        new("park",      "950",  "River",      "Rd",   "Riverside Park",            33.0203, -96.7022),
-        new("mall",      "3100", "Northgate",  "Blvd", "Northgate Mall",            33.0285, -96.7045),
-        new("elm415",    "415",  "Elm",        "St",   "Elm Street Apartments",     33.0170, -96.6960, Apt: "3B"),
-        new("taproom",   "77",   "Center",     "St",   "The Tap Room",              33.0196, -96.7003),
-        new("storage",   "1200", "Industrial", "Blvd", "Riverbend Self Storage",    33.0128, -96.7000),
-        new("oak-center", null,  "Oak St & Center St", null, null,                  33.0187, -96.6990),
-        new("pecan610",  "610",  "Pecan",      "Dr",   null,                        33.0222, -96.6930),
-        new("willow1450","1450", "Willow",     "Way",  null,                        33.0150, -96.6915),
-        new("lakeview88","88",   "Lakeview",   "Ct",   null,                        33.0265, -96.6935),
+        // Real downtown Plano streets; the businesses are made up.
+        new("pharmacy",  "1820", "K",          "Ave",  "Northside Pharmacy",          33.0242, -96.6990),
+        new("5th-main",  null,   "15th St & K Ave", null, null,                        33.0200, -96.6990),
+        new("library",   "1610", "J",          "Ave",  "J Avenue Branch Library",     33.0215, -96.7008),
+        new("oak22",     "1702", "H",          "Ave",  null,                          33.0228, -96.7040),
+        new("quickstop", "600",  "15th",       "St",   "QuickStop Convenience #14",   33.0199, -96.7115, PreDirection: "W"),
+        new("park",      "901",  "15th",       "St",   "Haggard Park",                33.0203, -96.7020, PreDirection: "E"),
+        new("mall",      "1001", "Park",       "Blvd", "Park Boulevard Plaza",        33.0315, -96.7010, PreDirection: "E"),
+        new("elm415",    "1009", "14th",       "St",   "Fourteenth Street Apartments", 33.0183, -96.7000, Apt: "3B", PreDirection: "E"),
+        new("taproom",   "1017", "15th",       "St",   "The Tap Room",                33.0199, -96.7000, PreDirection: "E"),
+        new("storage",   "1001", "K",          "Ave",  "K Avenue Self Storage",       33.0128, -96.6990),
+        new("oak-center", null,  "14th St & H Ave", null, null,                        33.0182, -96.7040),
+        new("pecan610",  "1210", "17th",       "St",   null,                          33.0225, -96.6965, PreDirection: "E"),
+        new("willow1450","1306", "16th",       "St",   null,                          33.0212, -96.6945, PreDirection: "E"),
+        new("lakeview88","1801", "J",          "Ave",  null,                          33.0240, -96.7008),
     ];
 
     /// <summary>
-    /// Where each place used to be seeded: an empty field south of Austin that matched none of the addresses.
-    /// Databases seeded before the move still hold these, and <see cref="RelocateLegacyPlacesAsync"/> moves them
-    /// to the downtown Plano coordinates in <see cref="Places"/>.
+    /// Where each place used to be seeded, when the demo was a made-up "Riverbend, TX 78640" whose pins sat in an
+    /// empty field south of Austin. Databases seeded before the move still hold these coordinates, and
+    /// <see cref="RelocateLegacyPlacesAsync"/> rewrites those locations to the downtown Plano places in <see cref="Places"/>.
     /// </summary>
     private static readonly Dictionary<string, (double Lat, double Lng)> LegacyPlaceCoordinates = new()
     {
@@ -284,20 +285,30 @@ internal static class DemoDataset
     /// <summary>Same text the seeder stores, so legacy values can be matched exactly.</summary>
     private static string FormatCoordinates(double lat, double lng) => FormattableString.Invariant($"{lat},{lng}");
 
+    /// <summary>Formatted address as Google would give it: "600 W 15th St, Plano, TX 75074", or "15th St &amp; K Ave, Plano, TX 75074".</summary>
+    private static string FormatAddress(PlaceSeed p)
+    {
+        if (p.Number is null)
+            return $"{p.Street}, {City}, {StateCode} {Zip}";
+
+        var street = string.Join(' ', new[] { p.Number, p.PreDirection, p.Street, p.StreetType }.Where(x => x is not null));
+        var apt = p.Apt is null ? "" : $" #{p.Apt}";
+        return $"{street}{apt}, {City}, {StateCode} {Zip}";
+    }
+
     /// <summary>
-    /// Moves seeded locations that still sit at their old coordinates to the current ones. Runs on every start
-    /// and only touches a location whose coordinates are exactly an old seed value, so a location someone has
-    /// re-pinned since is left alone. Goes through the normal lock / update / release commands, so the change is
-    /// audited and the read models follow. A location another user has locked is skipped and retried next start.
+    /// Rewrites seeded locations that are still at their old Riverbend coordinates to their downtown Plano address
+    /// and coordinates. Runs on every start and only touches a location whose coordinates are exactly an old seed
+    /// value, so a location someone has re-pinned or edited is left alone. Goes through the normal lock / update /
+    /// release commands, so the change is audited and the read models follow. A location another user has locked
+    /// is skipped and retried on the next start.
     /// </summary>
     private static async Task RelocateLegacyPlacesAsync(IServiceProvider sp, AppDbContext db, Guid jurisdictionId, ILogger logger)
     {
-        var moves = Places
+        var placeByLegacyCoordinates = Places
             .Where(p => LegacyPlaceCoordinates.ContainsKey(p.Key))
-            .ToDictionary(
-                p => FormatCoordinates(LegacyPlaceCoordinates[p.Key].Lat, LegacyPlaceCoordinates[p.Key].Lng),
-                p => FormatCoordinates(p.Lat, p.Lng));
-        var legacyValues = moves.Keys.ToList();
+            .ToDictionary(p => FormatCoordinates(LegacyPlaceCoordinates[p.Key].Lat, LegacyPlaceCoordinates[p.Key].Lng));
+        var legacyValues = placeByLegacyCoordinates.Keys.ToList();
 
         var stale = await db.Locations.AsNoTracking()
             .Where(l => l.JurisdictionId == jurisdictionId
@@ -307,10 +318,21 @@ internal static class DemoDataset
         if (stale.Count == 0)
             return;
 
+        var picklists = sp.GetRequiredService<IPicklistService>();
+        async Task<Dictionary<string, Guid>> LoadAsync(string type)
+            => (await picklists.GetItemsAsync(type, activeOnly: false))
+                .GroupBy(x => x.Value, StringComparer.OrdinalIgnoreCase)
+                .ToDictionary(g => g.Key, g => g.First().Id, StringComparer.OrdinalIgnoreCase);
+        var directions = await LoadAsync(PicklistTypes.Direction);
+        var streetTypes = await LoadAsync(PicklistTypes.StreetType);
+        Guid? Lookup(Dictionary<string, Guid> ids, string? value)
+            => value is not null && ids.TryGetValue(value, out var id) ? id : null;
+
         var sender = sp.GetRequiredService<ISender>();
         var moved = 0;
         foreach (var l in stale)
         {
+            var p = placeByLegacyCoordinates[l.Coordinates!];
             try
             {
                 await sender.Send(new AcquireLocationLockCommand(l.Id));
@@ -324,10 +346,21 @@ internal static class DemoDataset
             try
             {
                 await sender.Send(new UpdateLocationDetailsCommand(
-                    l.Id, l.StreetAddress, l.City, l.StreetNumber, l.PreDirectionId, l.StreetTypeId,
-                    l.PostDirectionId, l.StateId, l.CountryId, l.Zip, l.AptSuite,
-                    Coordinates: moves[l.Coordinates!],
-                    l.CommonPlaceName, l.Comments, l.Address));
+                    l.Id,
+                    StreetAddress: p.Street,
+                    City: City,
+                    StreetNumber: p.Number,
+                    PreDirectionId: Lookup(directions, p.PreDirection),
+                    StreetTypeId: Lookup(streetTypes, p.StreetType),
+                    PostDirectionId: null,
+                    StateId: l.StateId,
+                    CountryId: l.CountryId,
+                    Zip: Zip,
+                    AptSuite: p.Apt,
+                    Coordinates: FormatCoordinates(p.Lat, p.Lng),
+                    CommonPlaceName: p.PlaceName,
+                    Comments: l.Comments,
+                    Address: FormatAddress(p)));
                 moved++;
             }
             finally
@@ -341,18 +374,18 @@ internal static class DemoDataset
 
     private static readonly PersonSeed[] People =
     [
-        new("carter",   "Carter",   "Marcus",  "James",   "M", "B", new(1994, 3, 12),  71, 185, "BLK", "BRN", "41872256", "willow1450", "512-555-0142"),
-        new("alvarez",  "Alvarez",  "Sofia",   "Isabel",  "F", "H", new(1988, 7, 22),  64, 135, "BRN", "BRN", "30219874", "pecan610",   "512-555-0178"),
-        new("nguyen",   "Nguyen",   "Daniel",  "Minh",    "M", "A", new(1979, 11, 2),  68, 160, "BLK", "BRN", "27736410", "lakeview88", "512-555-0115"),
-        new("brooks",   "Brooks",   "Hannah",  "Lee",     "F", "W", new(2001, 5, 30),  66, 140, "BLD", "BLU", "45590123", "elm415",     "512-555-0193"),
+        new("carter",   "Carter",   "Marcus",  "James",   "M", "B", new(1994, 3, 12),  71, 185, "BLK", "BRN", "41872256", "willow1450", "972-555-0142"),
+        new("alvarez",  "Alvarez",  "Sofia",   "Isabel",  "F", "H", new(1988, 7, 22),  64, 135, "BRN", "BRN", "30219874", "pecan610",   "972-555-0178"),
+        new("nguyen",   "Nguyen",   "Daniel",  "Minh",    "M", "A", new(1979, 11, 2),  68, 160, "BLK", "BRN", "27736410", "lakeview88", "972-555-0115"),
+        new("brooks",   "Brooks",   "Hannah",  "Lee",     "F", "W", new(2001, 5, 30),  66, 140, "BLD", "BLU", "45590123", "elm415",     "972-555-0193"),
         new("hollis",   "Hollis",   "Raymond", "Earl",    "M", "W", new(1967, 1, 18),  70, 210, "GRY", "BLU", null,       null,         null),
-        new("whitaker", "Whitaker", "Eleanor", "Mae",     "F", "W", new(1941, 9, 9),   62, 120, "WHT", "HAZ", null,       "oak22",      "512-555-0107"),
+        new("whitaker", "Whitaker", "Eleanor", "Mae",     "F", "W", new(1941, 9, 9),   62, 120, "WHT", "HAZ", null,       "oak22",      "972-555-0107"),
         new("reyes",    "Reyes",    "Anthony", "Michael", "M", "H", new(1998, 12, 4),  69, 175, "BLK", "BRN", "48812037", "elm415",     null),
-        new("patel",    "Patel",    "Priya",   null,      "F", "A", new(1990, 2, 14),  63, 125, "BLK", "BRN", "39904418", null,         "512-555-0166"),
-        new("doyle",    "Doyle",    "Kevin",   "Patrick", "M", "W", new(1985, 6, 27),  73, 230, "RED", "GRN", "33671205", null,         "512-555-0121"),
-        new("simmons",  "Simmons",  "Tyler",   "Ray",     "M", "B", new(1996, 8, 19),  72, 190, "BLK", "BRN", "46120987", null,         "512-555-0154"),
+        new("patel",    "Patel",    "Priya",   null,      "F", "A", new(1990, 2, 14),  63, 125, "BLK", "BRN", "39904418", null,         "972-555-0166"),
+        new("doyle",    "Doyle",    "Kevin",   "Patrick", "M", "W", new(1985, 6, 27),  73, 230, "RED", "GRN", "33671205", null,         "972-555-0121"),
+        new("simmons",  "Simmons",  "Tyler",   "Ray",     "M", "B", new(1996, 8, 19),  72, 190, "BLK", "BRN", "46120987", null,         "972-555-0154"),
         new("foster",   "Foster",   "Jessica", "Lynn",    "F", "W", new(2004, 10, 11), 65, 130, "BRN", "GRN", "50017733", null,         null),
-        new("kim",      "Kim",      "Jason",   "Ho",      "M", "A", new(1975, 4, 3),   67, 165, "BLK", "BRN", "25548861", null,         "512-555-0139"),
+        new("kim",      "Kim",      "Jason",   "Ho",      "M", "A", new(1975, 4, 3),   67, 165, "BLK", "BRN", "25548861", null,         "972-555-0139"),
         new("morales",  "Morales",  "Luis",    "Antonio", "M", "H", new(2003, 1, 25),  68, 155, "BLK", "BRN", null,       null,         null),
         new("bennett",  "Bennett",  "Chloe",   "Anne",    "F", "W", new(2006, 3, 8),   64, 120, "BLD", "BLU", "52230419", null,         null),
     ];
@@ -360,9 +393,9 @@ internal static class DemoDataset
     private static readonly IncidentSeed[] IncidentSeeds =
     [
         new("burglary", "26-004512", "CFS-26-018834",
-            "Burglary of a business: rear door forced overnight at Maple Avenue Pharmacy; register drawer and OTC merchandise taken.",
+            "Burglary of a business: rear door forced overnight at Northside Pharmacy; register drawer and OTC merchandise taken.",
             "pharmacy", Days(6) + Hours(3), ["Burglary"],
-            "On the listed date at approximately 0640 hrs, I (Ofc. J. Ramirez #214) responded to Maple Avenue Pharmacy, 4521 Maple Ave, regarding a burglary discovered at opening. " +
+            "On the listed date at approximately 0640 hrs, I (Ofc. J. Ramirez #214) responded to Northside Pharmacy, 1820 K Ave, regarding a burglary discovered at opening. " +
             "Store manager Sofia Alvarez met me at the front entrance and advised the rear service door had been forced open overnight.\n\n" +
             "I observed pry marks on the door frame consistent with a flat-bladed tool. The cash register drawer (approx. $240) and several boxes of OTC medication were missing. " +
             "Exterior camera footage shows a male in a dark hooded sweatshirt entering at 0247 hrs and leaving at 0258 hrs carrying a black duffel bag.\n\n" +
@@ -371,16 +404,16 @@ internal static class DemoDataset
             RecordStatus.Open),
 
         new("collision", "26-004377", "CFS-26-018290",
-            "Two-vehicle collision at 5th St & Main St. Minor damage, no injuries. One driver unable to provide proof of insurance.",
+            "Two-vehicle collision at 15th St & K Ave. Minor damage, no injuries. One driver unable to provide proof of insurance.",
             "5th-main", Days(12) + Hours(7), [],
-            "I (Ofc. M. Chen #231) responded to a two-vehicle collision at the intersection of 5th St and Main St. " +
-            "Vehicle 1 (Daniel Nguyen) was northbound on Main St with a green signal. Vehicle 2 (Hannah Brooks) was turning left from 5th St and failed to yield.\n\n" +
+            "I (Ofc. M. Chen #231) responded to a two-vehicle collision at the intersection of 15th St and K Ave. " +
+            "Vehicle 1 (Daniel Nguyen) was northbound on K Ave with a green signal. Vehicle 2 (Hannah Brooks) was turning left from 15th St and failed to yield.\n\n" +
             "Both drivers declined EMS. Damage was limited to V1's front bumper and V2's passenger door. Both vehicles were driven from the scene.\n\n" +
             "Brooks could not provide proof of financial responsibility and was cited (see linked citation). Information was exchanged between the parties.",
             RecordStatus.Closed),
 
         new("trespass", "26-004421", "CFS-26-018502",
-            "Trespass complaint at Riverbend Public Library. Subject identified and issued a criminal trespass warning.",
+            "Trespass complaint at J Avenue Branch Library. Subject identified and issued a criminal trespass warning.",
             "library", Days(9) + Hours(5), ["Criminal Trespass"],
             "Library staff requested assistance with a male who had been asked to leave at closing and refused. " +
             "I (Ofc. J. Ramirez #214) contacted the subject, identified as Raymond Hollis, in the reading room.\n\n" +
@@ -389,17 +422,17 @@ internal static class DemoDataset
             RecordStatus.Closed),
 
         new("welfare", "26-004298", "CFS-26-017964",
-            "Welfare check on an elderly resident at 22 Oak St at the request of family. Resident contacted and well.",
+            "Welfare check on an elderly resident at 1702 H Ave at the request of family. Resident contacted and well.",
             "oak22", Days(15) + Hours(2), [],
             "Dispatch received a call from the resident's daughter, who had been unable to reach her mother by phone for two days. " +
-            "I (Sgt. L. Thompson #108) responded to 22 Oak St and made contact with Eleanor Whitaker at the front door.\n\n" +
+            "I (Sgt. L. Thompson #108) responded to 1702 H Ave and made contact with Eleanor Whitaker at the front door.\n\n" +
             "Mrs. Whitaker was alert and in good health and explained that her phone had stopped working. I let her use my phone to call her daughter and provided the number for the senior services line. No further action required.",
             RecordStatus.Closed),
 
         new("robbery", "26-004588", "CFS-26-019127",
             "Robbery at QuickStop Convenience #14: suspect implied a weapon and demanded cash, fled on foot, and was apprehended nearby.",
             "quickstop", Hours(7), ["Robbery", "Evading Arrest on Foot"],
-            "Dispatched to a robbery just occurred at QuickStop Convenience #14, 1800 W Commerce St. " +
+            "Dispatched to a robbery just occurred at QuickStop Convenience #14, 600 W 15th St. " +
             "Clerk Priya Patel reported that a male approached the counter with his hand in his jacket pocket, said he had a gun, and demanded the money from the register. She complied and handed over approximately $180.\n\n" +
             "The suspect fled westbound on foot. Responding units located a male matching the description two blocks west. He ran when ordered to stop and was detained after a short foot pursuit.\n\n" +
             "No weapon was found. Patel positively identified the suspect, Anthony Reyes, in a field show-up. Cash matching the amount taken was recovered from his jacket. See linked arrest.",
@@ -408,37 +441,37 @@ internal static class DemoDataset
         new("taproom", "26-004530", "CFS-26-018911",
             "Disturbance at The Tap Room: fight between two patrons. One arrested for assault; the other cited for public intoxication.",
             "taproom", Days(4) + Hours(1), ["Assault Causing Bodily Injury", "Public Intoxication"],
-            "Responded with two other units to a fight in progress at The Tap Room, 77 Center St. On arrival, staff had separated two male patrons.\n\n" +
+            "Responded with two other units to a fight in progress at The Tap Room, 1017 E 15th St. On arrival, staff had separated two male patrons.\n\n" +
             "Witnesses and bar staff stated Kevin Doyle struck Tyler Simmons in the face after an argument over a pool game, causing a laceration above his left eye. Simmons declined EMS transport.\n\n" +
             "Doyle was arrested for assault (see linked arrest). Simmons was unsteady, had slurred speech and a strong odor of alcohol, and was cited for public intoxication and released to a sober friend.",
             RecordStatus.Closed),
 
         new("shoplift", "26-004571", "CFS-26-019050",
-            "Shoplifting at Northgate Mall: loss prevention detained a subject with concealed merchandise valued at $64.",
+            "Shoplifting at Park Boulevard Plaza: store loss prevention detained a subject with concealed merchandise valued at $64.",
             "mall", Days(1) + Hours(2), ["Theft Under $100"],
-            "Northgate Mall loss prevention detained a female who concealed two cosmetics items and a phone case (total retail $64.18) in her purse and walked past the last point of sale.\n\n" +
+            "Store loss prevention at Park Boulevard Plaza detained a female who concealed two cosmetics items and a phone case (total retail $64.18) in her purse and walked past the last point of sale.\n\n" +
             "I (Ofc. M. Chen #231) reviewed the store's video, which showed the concealment. The subject, Jessica Foster, admitted taking the items. The merchandise was recovered undamaged.\n\n" +
-            "The store requested prosecution. Foster was cited for theft under $100 and issued a trespass warning by mall management.",
+            "The store requested prosecution. Foster was cited for theft under $100 and issued a trespass warning by plaza management.",
             RecordStatus.Open),
 
         new("vehicle-theft", "26-004595", "CFS-26-019144",
-            "Motor vehicle theft reported at Riverbend Self Storage: 2019 Ford F-150 taken from the gated lot overnight. Report in progress.",
+            "Motor vehicle theft reported at K Avenue Self Storage: 2019 Ford F-150 taken from the gated lot overnight. Report in progress.",
             "storage", Hours(3), ["Motor Vehicle Theft"],
-            "Owner Jason Kim reported that his white 2019 Ford F-150 was taken from the fenced lot at Riverbend Self Storage overnight. The gate keypad log shows no unusual codes. " +
+            "Owner Jason Kim reported that his white 2019 Ford F-150 was taken from the fenced lot at K Avenue Self Storage overnight. The gate keypad log shows no unusual codes. " +
             "The vehicle was entered into NCIC as stolen. Facility video has been requested. (Draft: pending video review.)",
             RecordStatus.Draft),
 
         new("harassment", "26-004466", "CFS-26-018677",
-            "Harassment complaint: resident at Elm Street Apartments reports repeated unwanted messages from a former acquaintance.",
+            "Harassment complaint: resident at Fourteenth Street Apartments reports repeated unwanted messages from a former acquaintance.",
             "elm415", Days(7) + Hours(4), ["Harassment"],
-            "The complainant, a resident of Elm Street Apartments, unit 3B, reports receiving more than 40 unwanted text messages and calls over the past week from a former acquaintance after asking them to stop.\n\n" +
+            "The complainant, a resident of Fourteenth Street Apartments, unit 3B, reports receiving more than 40 unwanted text messages and calls over the past week from a former acquaintance after asking them to stop.\n\n" +
             "Screenshots were collected and attached to the case file. The complainant was advised of the protective order process. The case has been forwarded to investigations for follow-up.",
             RecordStatus.Open),
 
         new("park", "26-004102", "CFS-26-017201",
-            "Narcotics: subject found in possession of marijuana and paraphernalia in Riverside Park after hours.",
+            "Narcotics: subject found in possession of marijuana and paraphernalia in Haggard Park after hours.",
             "park", Days(20) + Hours(6), ["Possession of Marijuana < 2 oz", "Possession of Drug Paraphernalia"],
-            "While on patrol in Riverside Park after posted closing hours, I (Ofc. J. Ramirez #214) contacted a male seated in a parked vehicle near the boat ramp. A strong odor of marijuana was coming from the vehicle.\n\n" +
+            "While on patrol in Haggard Park after posted closing hours, I (Ofc. J. Ramirez #214) contacted a male seated in a parked vehicle near the pavilion. A strong odor of marijuana was coming from the vehicle.\n\n" +
             "The driver, Tyler Simmons, admitted to having marijuana. A search revealed a plastic bag of a green leafy substance (field weight 0.6 oz) and a glass pipe. " +
             "Simmons was arrested (see linked arrest). The evidence was tagged and submitted to the property room.",
             RecordStatus.Closed),
@@ -447,7 +480,7 @@ internal static class DemoDataset
     private static readonly ArrestSeed[] ArrestSeeds =
     [
         new("carter-warrant", "carter", "burglary", "willow1450", "Warrant", Days(5) + Hours(2), ["Burglary"],
-            "Served the burglary warrant at the arrestee's residence, 1450 Willow Way. Marcus Carter answered the door and was taken into custody without incident. " +
+            "Served the burglary warrant at the arrestee's residence, 1306 E 16th St. Marcus Carter answered the door and was taken into custody without incident. " +
             "A black duffel bag matching the one in the store footage was in plain view in the living room and was seized as evidence.",
             Close: false),
         new("reyes-robbery", "reyes", "robbery", "quickstop", "OnView", Hours(6), ["Robbery", "Evading Arrest on Foot"],
@@ -461,17 +494,17 @@ internal static class DemoDataset
     private static readonly CitationSeed[] CitationSeeds =
     [
         new("brooks-insurance", "brooks", "collision", "5th-main", Days(12) + Hours(6),
-            "No proof of financial responsibility after a collision at 5th St & Main St.", ["No Insurance (FMFR)"]),
+            "No proof of financial responsibility after a collision at 15th St & K Ave.", ["No Insurance (FMFR)"]),
         new("simmons-pi", "simmons", "taproom", "taproom", Days(4),
             "Public intoxication: subject unsteady with slurred speech following a disturbance at The Tap Room.", ["Public Intoxication"]),
         new("foster-theft", "foster", "shoplift", "mall", Days(1) + Hours(1),
-            "Theft of merchandise valued at $64.18 from a Northgate Mall retailer.", ["Theft Under $100"]),
+            "Theft of merchandise valued at $64.18 from a Park Boulevard Plaza retailer.", ["Theft Under $100"]),
         new("morales-stop", "morales", null, "oak-center", Days(5) + Hours(9),
-            "Traffic stop for a stop sign violation at Oak St & Center St. Driver unlicensed and uninsured.", ["Driving Without License", "No Insurance (FMFR)"]),
+            "Traffic stop for a stop sign violation at 14th St & H Ave. Driver unlicensed and uninsured.", ["Driving Without License", "No Insurance (FMFR)"]),
         new("bennett-mip", "bennett", null, "park", Days(10) + Hours(3),
-            "Minor in possession of alcohol at Riverside Park after hours.", ["Minor in Possession of Alcohol"]),
+            "Minor in possession of alcohol at Haggard Park after hours.", ["Minor in Possession of Alcohol"]),
         new("doyle-container", "doyle", null, "taproom", Days(18) + Hours(2),
-            "Open container of alcohol in a vehicle parked on Center St outside The Tap Room.", ["Open Container"]),
+            "Open container of alcohol in a vehicle parked on E 15th St outside The Tap Room.", ["Open Container"]),
     ];
 
     // ------------------------------------------------------------------
@@ -618,10 +651,6 @@ internal static class DemoDataset
 
         private async Task CreateLocationAsync(PlaceSeed p)
         {
-            var display = p.Number is null
-                ? $"{p.Street}, {City}, {StateCode} {Zip}"
-                : $"{p.PreDirection}{(p.PreDirection is null ? "" : " ")}{p.Number} {p.Street} {p.StreetType}{(p.Apt is null ? "" : $" #{p.Apt}")}, {City}, {StateCode} {Zip}";
-
             var recordNumber = await _sender.Send(new CreateLocationCommand(
                 StreetAddress: p.Street,
                 City: City,
@@ -634,7 +663,7 @@ internal static class DemoDataset
                 AptSuite: p.Apt,
                 Coordinates: FormatCoordinates(p.Lat, p.Lng),
                 CommonPlaceName: p.PlaceName,
-                Address: display));
+                Address: FormatAddress(p)));
 
             Locations[p.Key] = await db.Locations.AsNoTracking()
                 .Where(l => l.RecordNumber == recordNumber).Select(l => l.Id).SingleAsync();
