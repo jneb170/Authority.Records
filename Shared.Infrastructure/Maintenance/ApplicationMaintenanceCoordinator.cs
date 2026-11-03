@@ -138,8 +138,11 @@ public sealed class ApplicationMaintenanceCoordinator
     {
         try
         {
-            var sender = services.GetRequiredService<ISender>();
-            await sender.Send(new RebuildReadModelsCommand(), cancellationToken);
+            // System maintenance, not a user action: run the handler directly. Sending the
+            // Admin-only RebuildReadModelsCommand would be refused for whichever non-admin
+            // user's request happened to trigger it (issue #125).
+            var handler = ActivatorUtilities.CreateInstance<RebuildReadModelsHandler>(services);
+            await handler.Handle(new RebuildReadModelsCommand(), cancellationToken);
             _rebuiltJurisdictionsInCurrentWindow.Add(jurisdictionId);
         }
         catch (Exception ex)

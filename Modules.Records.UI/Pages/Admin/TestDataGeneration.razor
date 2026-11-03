@@ -6,6 +6,7 @@
 @inject IGoogleMapsConfigService GoogleMapsConfig
 @inject MediatR.ISender Sender
 @inject IWebHostEnvironment HostEnvironment
+@inject Microsoft.Extensions.Options.IOptions<Modules.Records.Application.Abstractions.DemoModeOptions> DemoMode
 @using Modules.Records.Application.Arrests.Commands.GenerateTestArrests
 
 <AppPageTitle Title="Test Data Generation" />
@@ -13,6 +14,15 @@
 <PageHeader Icon="bi-database-fill-gear" Title="Test Data Generation"
             Subtitle="Seed picklists and the charge catalog, and generate realistic fake records for testing." />
 
+@if (!DemoMode.Value.Enabled)
+{
+    @* Fake records must never be written into a real agency's data (#125). *@
+    <div class="alert alert-secondary">
+        <i class="bi bi-slash-circle me-1"></i>Test data generation is only available in the demo.
+    </div>
+}
+else
+{
 @* ── Step 1: Seed Picklists ──────────────────────────────────────────────── *@
 <h5 class="fw-semibold mb-3">Step 1 — Seed Picklist Defaults</h5>
 <p class="text-muted small mb-3">
@@ -405,6 +415,7 @@
         </div>
     </div>
 </div>
+}
 
 @code {
     // ── Picklist counts ──────────────────────────────────────────────────────
@@ -446,6 +457,9 @@
 
     protected override async Task OnInitializedAsync()
     {
+        if (!DemoMode.Value.Enabled)
+            return;
+
         await LoadPicklistCountsAsync();
         _hasMapsApiKey = !string.IsNullOrWhiteSpace(await GoogleMapsConfig.GetApiKeyAsync());
     }

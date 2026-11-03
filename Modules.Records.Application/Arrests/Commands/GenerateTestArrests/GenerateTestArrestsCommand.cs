@@ -1,7 +1,10 @@
 using MediatR;
+using Modules.Records.Application.Abstractions;
 
 namespace Modules.Records.Application.Arrests.Commands.GenerateTestArrests;
 
+[DemoOnly]
+[RequiresRole(RoleNames.Admin, RoleNames.Supervisor)]
 public sealed record GenerateTestArrestsCommand(
     int Count,
     DateTime ArrestedFrom,

@@ -14,8 +14,10 @@ namespace Modules.Records.Application
             services.AddMediatR(cfg =>
             {
                 cfg.RegisterServicesFromAssembly(typeof(DependencyInjection).Assembly);
-                // Demo abuse limits run first so an over-limit demo request is
-                // rejected before any validation or handler work.
+                // Role and demo-mode checks run first, so an unauthorized request does no
+                // work at all (issue #125). Demo abuse limits run next, so an over-limit demo
+                // request is rejected before any validation or handler work.
+                cfg.AddOpenBehavior(typeof(AuthorizationBehavior<,>));
                 cfg.AddOpenBehavior(typeof(DemoRateLimitBehavior<,>));
                 cfg.AddOpenBehavior(typeof(ValidationBehavior<,>));
             });
@@ -24,6 +26,7 @@ namespace Modules.Records.Application
 
             // Defaults apply unless a host binds the "Demo:RateLimit" section.
             services.AddOptions<DemoRateLimitOptions>();
+            services.AddOptions<DemoModeOptions>();
 
             // Hosts (Shared.Infrastructure / UI) replace this with a real
             // implementation; the null default keeps consumers safe for tests

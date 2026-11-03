@@ -145,6 +145,20 @@ internal static class AuditLogEntryFactory
                 $"{recordType} status changed from {previous} to {next}.");
         }
 
+        // Settings changes name the key and both values, e.g. TimeZoneId (#125).
+        if (domainEvent is AgencyConfigurationSetDomainEvent set)
+        {
+            return set.PreviousValue is null
+                ? new AuditLogMetadata("Information", "Configuration", "Created", $"Configuration {set.Key} set to \"{set.Value}\".")
+                : new AuditLogMetadata("Warning", "Configuration", "Updated", $"Configuration {set.Key} changed from \"{set.PreviousValue}\" to \"{set.Value}\".");
+        }
+
+        if (domainEvent is AgencyConfigurationDeletedDomainEvent deleted)
+        {
+            return new AuditLogMetadata("Warning", "Configuration", "Deleted",
+                $"Configuration {deleted.Key} deleted (was \"{deleted.PreviousValue}\"); the default now applies.");
+        }
+
         var eventName = type.Name.EndsWith("DomainEvent", StringComparison.Ordinal)
             ? type.Name[..^"DomainEvent".Length]
             : type.Name;

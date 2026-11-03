@@ -126,6 +126,33 @@ public sealed class AuditAttributionTests : IDisposable
         Assert.Null(created.UserDisplayName);
     }
 
+    [Fact]
+    public async Task Configuration_changes_and_deletes_are_audited_with_old_and_new_values()
+    {
+        _tenant.UserId = UserA;
+        var config = new AgencyConfiguration(JurisdictionId, AgencyId, "LockTimeoutSeconds", "600");
+        await using (var context = CreateContext())
+        {
+            context.AgencyConfigurations.Add(config);
+            await context.SaveChangesAsync();
+        }
+
+        await using (var context = CreateContext())
+        {
+            var tracked = await context.AgencyConfigurations.SingleAsync(c => c.Id == config.Id);
+            tracked.Update("900");
+            await context.SaveChangesAsync();
+            tracked.SoftDelete(UserA);
+            await context.SaveChangesAsync();
+        }
+
+        await using var read = CreateContext();
+        var rows = await read.AuditLogReadModels.Where(x => x.AggregateId == config.Id).ToListAsync();
+        Assert.All(rows, r => Assert.Equal(UserA, r.UserId));
+        Assert.Contains(rows, r => r.ActionType == "Updated" && r.Message.Contains("from \"600\" to \"900\""));
+        Assert.Contains(rows, r => r.ActionType == "Deleted" && r.Message.Contains("was \"900\""));
+    }
+
     [Theory]
     [InlineData("LifecycleStatusChangedDomainEvent`1", "Incident", "IncidentStatusChanged")]
     [InlineData("LockReleasedDomainEvent`1", "Arrest", "ArrestLockReleased")]

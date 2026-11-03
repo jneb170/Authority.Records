@@ -1,7 +1,9 @@
 @page "/admin/configurations"
-@attribute [Authorize(Roles = "Admin,Supervisor")]
+@attribute [Authorize(Roles = "Admin")]
 @inject IAgencyConfigurationService ConfigService
 @inject NavigationManager Nav
+@inject IAgencyClock Clock
+@using Modules.Records.Application.Configurations.Validators
 @using Microsoft.AspNetCore.Authorization
 @using Modules.Records.Domain.Common
 @using Modules.Records.Domain.Common.Implementations
@@ -83,7 +85,7 @@ else
                                         <small class="text-muted">@TryPreview(cfg.Value)</small>
                                     }
                                 </td>
-                                <td><small class="text-muted">@(cfg.UpdatedAtUtc?.ToString("g") ?? "—")</small></td>
+                                <td><small class="text-muted">@Clock.Format(cfg.UpdatedAtUtc, "g", withZone: true, empty: "—")</small></td>
                                 <td class="text-end">
                                     @if (_editingKey == cfg.Key)
                                     {
@@ -93,7 +95,11 @@ else
                                     else
                                     {
                                         <button class="btn btn-sm btn-outline-secondary me-1" @onclick="() => StartEdit(cfg)">Edit</button>
-                                        <button class="btn btn-sm btn-outline-danger" @onclick="() => DeleteAsync(cfg.Key)">Delete</button>
+                                        @* Required settings can be changed but not deleted (#125). *@
+                                        @if (!RequiredConfigurationKeys.All.Contains(cfg.Key))
+                                        {
+                                            <button class="btn btn-sm btn-outline-danger" @onclick="() => DeleteAsync(cfg.Key)">Delete</button>
+                                        }
                                     }
                                 </td>
                             </tr>
@@ -184,6 +190,8 @@ else
         _error = null;
         try
         {
+            Clock.Reset();   // a TimeZoneId change must show up immediately
+            await Clock.EnsureLoadedAsync();
             _configs = await ConfigService.GetAllAsync();
         }
         catch (Exception ex)
