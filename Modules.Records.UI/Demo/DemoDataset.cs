@@ -242,21 +242,22 @@ internal static class DemoDataset
 
     private static readonly PlaceSeed[] Places =
     [
-        // Real downtown Plano streets; the businesses are made up.
-        new("pharmacy",  "1820", "K",          "Ave",  "Northside Pharmacy",          33.0242, -96.6990),
-        new("5th-main",  null,   "15th St & K Ave", null, null,                        33.0200, -96.6990),
-        new("library",   "1610", "J",          "Ave",  "J Avenue Branch Library",     33.0215, -96.7008),
-        new("oak22",     "1702", "H",          "Ave",  null,                          33.0228, -96.7040),
-        new("quickstop", "600",  "15th",       "St",   "QuickStop Convenience #14",   33.0199, -96.7115, PreDirection: "W"),
-        new("park",      "901",  "15th",       "St",   "Haggard Park",                33.0203, -96.7020, PreDirection: "E"),
-        new("mall",      "1001", "Park",       "Blvd", "Park Boulevard Plaza",        33.0315, -96.7010, PreDirection: "E"),
-        new("elm415",    "1009", "14th",       "St",   "Fourteenth Street Apartments", 33.0183, -96.7000, Apt: "3B", PreDirection: "E"),
-        new("taproom",   "1017", "15th",       "St",   "The Tap Room",                33.0199, -96.7000, PreDirection: "E"),
-        new("storage",   "1001", "K",          "Ave",  "K Avenue Self Storage",       33.0128, -96.6990),
-        new("oak-center", null,  "14th St & H Ave", null, null,                        33.0182, -96.7040),
-        new("pecan610",  "1210", "17th",       "St",   null,                          33.0225, -96.6965, PreDirection: "E"),
-        new("willow1450","1306", "16th",       "St",   null,                          33.0212, -96.6945, PreDirection: "E"),
-        new("lakeview88","1801", "J",          "Ave",  null,                          33.0240, -96.7008),
+        // Real places in and near downtown Plano. People live in real apartment buildings with made-up unit
+        // numbers, so no actual house is tied to a seeded record.
+        new("pharmacy",  "2300", "Park",  "Blvd", "Walgreens",                      33.0242, -96.6990, PreDirection: "E"),
+        new("5th-main",  null,   "15th St & K Ave", null, null,                      33.0200, -96.6990),
+        new("library",   "1501", "18th",  "St",   "Harrington Library",             33.0215, -96.7008),
+        new("oak22",     "1928", "K",     "Ave",  "Pioneer Place Senior Housing",   33.0228, -96.7040, Apt: "105"),
+        new("quickstop", "3601", "14th",  "St",   "7-Eleven",                       33.0199, -96.7115, PreDirection: "E"),
+        new("park",      "901",  "15th",  "St",   "Haggard Park",                   33.0203, -96.7020, PreDirection: "E"),
+        new("mall",      "3513", "Park",  "Blvd", "Walmart Neighborhood Market",    33.0315, -96.7010, PreDirection: "E"),
+        new("elm415",    "930",  "15th",  "St",   "Junction 15 Apartments",         33.0183, -96.7000, Apt: "312", PreDirection: "E"),
+        new("taproom",   "1004", "15th",  "St",   "The Fillmore Pub",               33.0199, -96.7000, PreDirection: "E"),
+        new("storage",   "2200", "K",     "Ave",  "Public Storage",                 33.0128, -96.6990),
+        new("oak-center", null,  "14th St & H Ave", null, null,                      33.0182, -96.7040),
+        new("pecan610",  "1200", "15th",  "St",   "@15th Apartments",               33.0225, -96.6965, Apt: "214", PreDirection: "E"),
+        new("willow1450","1045", "15th",  "Pl",   "Link at Plano Apartments",       33.0212, -96.6945, Apt: "208"),
+        new("lakeview88","1200", "15th",  "St",   "@15th Apartments",               33.0240, -96.7008, Apt: "327", PreDirection: "E"),
     ];
 
     /// <summary>
@@ -393,9 +394,9 @@ internal static class DemoDataset
     private static readonly IncidentSeed[] IncidentSeeds =
     [
         new("burglary", "26-004512", "CFS-26-018834",
-            "Burglary of a business: rear door forced overnight at Northside Pharmacy; register drawer and OTC merchandise taken.",
+            "Burglary of a business: rear door forced overnight at Walgreens; register drawer and OTC merchandise taken.",
             "pharmacy", Days(6) + Hours(3), ["Burglary"],
-            "On the listed date at approximately 0640 hrs, I (Ofc. J. Ramirez #214) responded to Northside Pharmacy, 1820 K Ave, regarding a burglary discovered at opening. " +
+            "On the listed date at approximately 0640 hrs, I (Ofc. J. Ramirez #214) responded to Walgreens, 2300 E Park Blvd, regarding a burglary discovered at opening. " +
             "Store manager Sofia Alvarez met me at the front entrance and advised the rear service door had been forced open overnight.\n\n" +
             "I observed pry marks on the door frame consistent with a flat-bladed tool. The cash register drawer (approx. $240) and several boxes of OTC medication were missing. " +
             "Exterior camera footage shows a male in a dark hooded sweatshirt entering at 0247 hrs and leaving at 0258 hrs carrying a black duffel bag.\n\n" +
@@ -413,7 +414,7 @@ internal static class DemoDataset
             RecordStatus.Closed),
 
         new("trespass", "26-004421", "CFS-26-018502",
-            "Trespass complaint at J Avenue Branch Library. Subject identified and issued a criminal trespass warning.",
+            "Trespass complaint at Harrington Library. Subject identified and issued a criminal trespass warning.",
             "library", Days(9) + Hours(5), ["Criminal Trespass"],
             "Library staff requested assistance with a male who had been asked to leave at closing and refused. " +
             "I (Ofc. J. Ramirez #214) contacted the subject, identified as Raymond Hollis, in the reading room.\n\n" +
@@ -422,49 +423,49 @@ internal static class DemoDataset
             RecordStatus.Closed),
 
         new("welfare", "26-004298", "CFS-26-017964",
-            "Welfare check on an elderly resident at 1702 H Ave at the request of family. Resident contacted and well.",
+            "Welfare check on an elderly resident at Pioneer Place Senior Housing, 1928 K Ave, at the request of family. Resident contacted and well.",
             "oak22", Days(15) + Hours(2), [],
             "Dispatch received a call from the resident's daughter, who had been unable to reach her mother by phone for two days. " +
-            "I (Sgt. L. Thompson #108) responded to 1702 H Ave and made contact with Eleanor Whitaker at the front door.\n\n" +
+            "I (Sgt. L. Thompson #108) responded to Pioneer Place Senior Housing, 1928 K Ave, apartment 105, and made contact with Eleanor Whitaker at her door.\n\n" +
             "Mrs. Whitaker was alert and in good health and explained that her phone had stopped working. I let her use my phone to call her daughter and provided the number for the senior services line. No further action required.",
             RecordStatus.Closed),
 
         new("robbery", "26-004588", "CFS-26-019127",
-            "Robbery at QuickStop Convenience #14: suspect implied a weapon and demanded cash, fled on foot, and was apprehended nearby.",
+            "Robbery at 7-Eleven: suspect implied a weapon and demanded cash, fled on foot, and was apprehended nearby.",
             "quickstop", Hours(7), ["Robbery", "Evading Arrest on Foot"],
-            "Dispatched to a robbery just occurred at QuickStop Convenience #14, 600 W 15th St. " +
+            "Dispatched to a robbery just occurred at 7-Eleven, 3601 E 14th St. " +
             "Clerk Priya Patel reported that a male approached the counter with his hand in his jacket pocket, said he had a gun, and demanded the money from the register. She complied and handed over approximately $180.\n\n" +
             "The suspect fled westbound on foot. Responding units located a male matching the description two blocks west. He ran when ordered to stop and was detained after a short foot pursuit.\n\n" +
             "No weapon was found. Patel positively identified the suspect, Anthony Reyes, in a field show-up. Cash matching the amount taken was recovered from his jacket. See linked arrest.",
             RecordStatus.Open),
 
         new("taproom", "26-004530", "CFS-26-018911",
-            "Disturbance at The Tap Room: fight between two patrons. One arrested for assault; the other cited for public intoxication.",
+            "Disturbance at The Fillmore Pub: fight between two patrons. One arrested for assault; the other cited for public intoxication.",
             "taproom", Days(4) + Hours(1), ["Assault Causing Bodily Injury", "Public Intoxication"],
-            "Responded with two other units to a fight in progress at The Tap Room, 1017 E 15th St. On arrival, staff had separated two male patrons.\n\n" +
-            "Witnesses and bar staff stated Kevin Doyle struck Tyler Simmons in the face after an argument over a pool game, causing a laceration above his left eye. Simmons declined EMS transport.\n\n" +
+            "Responded with two other units to a fight in progress at The Fillmore Pub, 1004 E 15th St. On arrival, staff had separated two male patrons.\n\n" +
+            "Witnesses and bar staff stated Kevin Doyle struck Tyler Simmons in the face after an argument at the bar, causing a laceration above his left eye. Simmons declined EMS transport.\n\n" +
             "Doyle was arrested for assault (see linked arrest). Simmons was unsteady, had slurred speech and a strong odor of alcohol, and was cited for public intoxication and released to a sober friend.",
             RecordStatus.Closed),
 
         new("shoplift", "26-004571", "CFS-26-019050",
-            "Shoplifting at Park Boulevard Plaza: store loss prevention detained a subject with concealed merchandise valued at $64.",
+            "Shoplifting at Walmart Neighborhood Market: loss prevention detained a subject with concealed merchandise valued at $64.",
             "mall", Days(1) + Hours(2), ["Theft Under $100"],
-            "Store loss prevention at Park Boulevard Plaza detained a female who concealed two cosmetics items and a phone case (total retail $64.18) in her purse and walked past the last point of sale.\n\n" +
+            "Loss prevention at Walmart Neighborhood Market, 3513 E Park Blvd, detained a female who concealed two cosmetics items and a phone case (total retail $64.18) in her purse and walked past the last point of sale.\n\n" +
             "I (Ofc. M. Chen #231) reviewed the store's video, which showed the concealment. The subject, Jessica Foster, admitted taking the items. The merchandise was recovered undamaged.\n\n" +
-            "The store requested prosecution. Foster was cited for theft under $100 and issued a trespass warning by plaza management.",
+            "The store requested prosecution. Foster was cited for theft under $100 and issued a trespass warning by store management.",
             RecordStatus.Open),
 
         new("vehicle-theft", "26-004595", "CFS-26-019144",
-            "Motor vehicle theft reported at K Avenue Self Storage: 2019 Ford F-150 taken from the gated lot overnight. Report in progress.",
+            "Motor vehicle theft reported at Public Storage, 2200 K Ave: 2019 Ford F-150 taken from the gated lot overnight. Report in progress.",
             "storage", Hours(3), ["Motor Vehicle Theft"],
-            "Owner Jason Kim reported that his white 2019 Ford F-150 was taken from the fenced lot at K Avenue Self Storage overnight. The gate keypad log shows no unusual codes. " +
+            "Owner Jason Kim reported that his white 2019 Ford F-150 was taken from the fenced lot at Public Storage, 2200 K Ave, overnight. The gate keypad log shows no unusual codes. " +
             "The vehicle was entered into NCIC as stolen. Facility video has been requested. (Draft: pending video review.)",
             RecordStatus.Draft),
 
         new("harassment", "26-004466", "CFS-26-018677",
-            "Harassment complaint: resident at Fourteenth Street Apartments reports repeated unwanted messages from a former acquaintance.",
+            "Harassment complaint: resident at Junction 15 Apartments reports repeated unwanted messages from a former acquaintance.",
             "elm415", Days(7) + Hours(4), ["Harassment"],
-            "The complainant, a resident of Fourteenth Street Apartments, unit 3B, reports receiving more than 40 unwanted text messages and calls over the past week from a former acquaintance after asking them to stop.\n\n" +
+            "The complainant, a resident of Junction 15 Apartments, unit 312, reports receiving more than 40 unwanted text messages and calls over the past week from a former acquaintance after asking them to stop.\n\n" +
             "Screenshots were collected and attached to the case file. The complainant was advised of the protective order process. The case has been forwarded to investigations for follow-up.",
             RecordStatus.Open),
 
@@ -480,7 +481,7 @@ internal static class DemoDataset
     private static readonly ArrestSeed[] ArrestSeeds =
     [
         new("carter-warrant", "carter", "burglary", "willow1450", "Warrant", Days(5) + Hours(2), ["Burglary"],
-            "Served the burglary warrant at the arrestee's residence, 1306 E 16th St. Marcus Carter answered the door and was taken into custody without incident. " +
+            "Served the burglary warrant at the arrestee's residence, Link at Plano Apartments, 1045 15th Pl #208. Marcus Carter answered the door and was taken into custody without incident. " +
             "A black duffel bag matching the one in the store footage was in plain view in the living room and was seized as evidence.",
             Close: false),
         new("reyes-robbery", "reyes", "robbery", "quickstop", "OnView", Hours(6), ["Robbery", "Evading Arrest on Foot"],
@@ -496,15 +497,15 @@ internal static class DemoDataset
         new("brooks-insurance", "brooks", "collision", "5th-main", Days(12) + Hours(6),
             "No proof of financial responsibility after a collision at 15th St & K Ave.", ["No Insurance (FMFR)"]),
         new("simmons-pi", "simmons", "taproom", "taproom", Days(4),
-            "Public intoxication: subject unsteady with slurred speech following a disturbance at The Tap Room.", ["Public Intoxication"]),
+            "Public intoxication: subject unsteady with slurred speech following a disturbance at The Fillmore Pub.", ["Public Intoxication"]),
         new("foster-theft", "foster", "shoplift", "mall", Days(1) + Hours(1),
-            "Theft of merchandise valued at $64.18 from a Park Boulevard Plaza retailer.", ["Theft Under $100"]),
+            "Theft of merchandise valued at $64.18 from Walmart Neighborhood Market.", ["Theft Under $100"]),
         new("morales-stop", "morales", null, "oak-center", Days(5) + Hours(9),
             "Traffic stop for a stop sign violation at 14th St & H Ave. Driver unlicensed and uninsured.", ["Driving Without License", "No Insurance (FMFR)"]),
         new("bennett-mip", "bennett", null, "park", Days(10) + Hours(3),
             "Minor in possession of alcohol at Haggard Park after hours.", ["Minor in Possession of Alcohol"]),
         new("doyle-container", "doyle", null, "taproom", Days(18) + Hours(2),
-            "Open container of alcohol in a vehicle parked on E 15th St outside The Tap Room.", ["Open Container"]),
+            "Open container of alcohol in a vehicle parked on E 15th St outside The Fillmore Pub.", ["Open Container"]),
     ];
 
     // ------------------------------------------------------------------
