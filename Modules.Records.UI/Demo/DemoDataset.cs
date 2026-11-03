@@ -22,7 +22,10 @@ using Modules.Records.Application.Incidents.Commands.CreateIncident;
 using Modules.Records.Application.Incidents.Commands.OpenIncident;
 using Modules.Records.Application.Incidents.Commands.SaveIncidentPage;
 using Modules.Records.Application.Incidents.Commands.SoftDeleteIncident;
+using Modules.Records.Application.Locations.Commands.AcquireLocationLock;
 using Modules.Records.Application.Locations.Commands.CreateLocation;
+using Modules.Records.Application.Locations.Commands.ReleaseLocationLock;
+using Modules.Records.Application.Locations.Commands.UpdateLocationDetails;
 using Modules.Records.Application.Names.Commands.AcquireNameLock;
 using Modules.Records.Application.Names.Commands.CreateName;
 using Modules.Records.Application.Names.Commands.ReleaseNameLock;
@@ -91,6 +94,15 @@ internal static class DemoDataset
             logger.LogWarning(ex, "Demo dataset: could not apply the demo agency configuration.");
         }
 
+        try
+        {
+            await RelocateLegacyPlacesAsync(sp, db, jurisdictionId, logger);
+        }
+        catch (Exception ex)
+        {
+            logger.LogWarning(ex, "Demo dataset: could not move the seeded locations to their current coordinates.");
+        }
+
         if (await db.Names.IgnoreQueryFilters().AnyAsync(n => n.JurisdictionId == jurisdictionId))
             return;
 
@@ -128,20 +140,39 @@ internal static class DemoDataset
         (ConfigurationKeys.TimeZoneId, ConfigurationKeys.DefaultTimeZoneId),
         (ConfigurationKeys.LockTimeoutSeconds, "600"),
         (ConfigurationKeys.NarrativeLockTimeoutSeconds, "3600"),
+        (ConfigurationKeys.MapStartCoordinates, "33.0200,-96.6990"),
+    ];
+
+    /// <summary>
+    /// Settings whose seeded value has since changed. A stored value that still equals the old seed was never
+    /// edited by an admin, so it is moved to the new seed; anything else is left alone.
+    /// </summary>
+    private static readonly (string Key, string OldValue)[] ReplacedConfigurationSeeds =
+    [
+        // The demo used to sit in an empty field south of Austin; it now centres on downtown Plano.
         (ConfigurationKeys.MapStartCoordinates, "30.0680,-97.9400"),
     ];
 
     private static async Task EnsureAgencyConfigurationAsync(IServiceProvider sp, AppDbContext db, Guid jurisdictionId, Guid agencyId)
     {
         var sender = sp.GetRequiredService<ISender>();
+        // Deleted rows count as existing: an admin who deleted a setting meant it.
         var existing = await db.AgencyConfigurations.IgnoreQueryFilters()
             .Where(c => c.AgencyId == agencyId)
-            .Select(c => c.Key)
+            .Select(c => new { c.Key, c.Value, c.IsDeleted })
             .ToListAsync();
 
         foreach (var (key, value) in AgencyConfiguration)
         {
-            if (!existing.Contains(key))
+            if (!existing.Any(c => c.Key == key))
+            {
+                await sender.Send(new SetAgencyConfigurationCommand(key, value));
+                continue;
+            }
+
+            var isUntouchedOldSeed = existing.Any(c => c.Key == key && !c.IsDeleted &&
+                ReplacedConfigurationSeeds.Any(r => r.Key == key && r.OldValue == c.Value));
+            if (isUntouchedOldSeed)
                 await sender.Send(new SetAgencyConfigurationCommand(key, value));
         }
 
@@ -211,21 +242,102 @@ internal static class DemoDataset
 
     private static readonly PlaceSeed[] Places =
     [
-        new("pharmacy",  "4521", "Maple",      "Ave",  "Maple Avenue Pharmacy",     30.0712, -97.9318),
-        new("5th-main",  null,   "5th St & Main", null, null,                       30.0668, -97.9405),
-        new("library",   "200",  "Library",    "Ln",   "Riverbend Public Library",  30.0651, -97.9377),
-        new("oak22",     "22",   "Oak",        "St",   null,                        30.0623, -97.9442),
-        new("quickstop", "1800", "Commerce",   "St",   "QuickStop Convenience #14", 30.0701, -97.9520, PreDirection: "W"),
-        new("park",      "950",  "River",      "Rd",   "Riverside Park",            30.0589, -97.9351),
-        new("mall",      "3100", "Northgate",  "Blvd", "Northgate Mall",            30.0874, -97.9289),
-        new("elm415",    "415",  "Elm",        "St",   "Elm Street Apartments",     30.0640, -97.9468, Apt: "3B"),
-        new("taproom",   "77",   "Center",     "St",   "The Tap Room",              30.0659, -97.9398),
-        new("storage",   "1200", "Industrial", "Blvd", "Riverbend Self Storage",    30.0782, -97.9611),
-        new("oak-center", null,  "Oak St & Center St", null, null,                  30.0631, -97.9401),
-        new("pecan610",  "610",  "Pecan",      "Dr",   null,                        30.0557, -97.9284),
-        new("willow1450","1450", "Willow",     "Way",  null,                        30.0729, -97.9187),
-        new("lakeview88","88",   "Lakeview",   "Ct",   null,                        30.0815, -97.9452),
+        new("pharmacy",  "4521", "Maple",      "Ave",  "Maple Avenue Pharmacy",     33.0255, -96.6983),
+        new("5th-main",  null,   "5th St & Main", null, null,                       33.0199, -96.6995),
+        new("library",   "200",  "Library",    "Ln",   "Riverbend Public Library",  33.0214, -96.6982),
+        new("oak22",     "22",   "Oak",        "St",   null,                        33.0236, -96.7030),
+        new("quickstop", "1800", "Commerce",   "St",   "QuickStop Convenience #14", 33.0176, -96.7068, PreDirection: "W"),
+        new("park",      "950",  "River",      "Rd",   "Riverside Park",            33.0203, -96.7022),
+        new("mall",      "3100", "Northgate",  "Blvd", "Northgate Mall",            33.0285, -96.7045),
+        new("elm415",    "415",  "Elm",        "St",   "Elm Street Apartments",     33.0170, -96.6960, Apt: "3B"),
+        new("taproom",   "77",   "Center",     "St",   "The Tap Room",              33.0196, -96.7003),
+        new("storage",   "1200", "Industrial", "Blvd", "Riverbend Self Storage",    33.0128, -96.7000),
+        new("oak-center", null,  "Oak St & Center St", null, null,                  33.0187, -96.6990),
+        new("pecan610",  "610",  "Pecan",      "Dr",   null,                        33.0222, -96.6930),
+        new("willow1450","1450", "Willow",     "Way",  null,                        33.0150, -96.6915),
+        new("lakeview88","88",   "Lakeview",   "Ct",   null,                        33.0265, -96.6935),
     ];
+
+    /// <summary>
+    /// Where each place used to be seeded: an empty field south of Austin that matched none of the addresses.
+    /// Databases seeded before the move still hold these, and <see cref="RelocateLegacyPlacesAsync"/> moves them
+    /// to the downtown Plano coordinates in <see cref="Places"/>.
+    /// </summary>
+    private static readonly Dictionary<string, (double Lat, double Lng)> LegacyPlaceCoordinates = new()
+    {
+        ["pharmacy"]   = (30.0712, -97.9318),
+        ["5th-main"]   = (30.0668, -97.9405),
+        ["library"]    = (30.0651, -97.9377),
+        ["oak22"]      = (30.0623, -97.9442),
+        ["quickstop"]  = (30.0701, -97.9520),
+        ["park"]       = (30.0589, -97.9351),
+        ["mall"]       = (30.0874, -97.9289),
+        ["elm415"]     = (30.0640, -97.9468),
+        ["taproom"]    = (30.0659, -97.9398),
+        ["storage"]    = (30.0782, -97.9611),
+        ["oak-center"] = (30.0631, -97.9401),
+        ["pecan610"]   = (30.0557, -97.9284),
+        ["willow1450"] = (30.0729, -97.9187),
+        ["lakeview88"] = (30.0815, -97.9452),
+    };
+
+    /// <summary>Same text the seeder stores, so legacy values can be matched exactly.</summary>
+    private static string FormatCoordinates(double lat, double lng) => FormattableString.Invariant($"{lat},{lng}");
+
+    /// <summary>
+    /// Moves seeded locations that still sit at their old coordinates to the current ones. Runs on every start
+    /// and only touches a location whose coordinates are exactly an old seed value, so a location someone has
+    /// re-pinned since is left alone. Goes through the normal lock / update / release commands, so the change is
+    /// audited and the read models follow. A location another user has locked is skipped and retried next start.
+    /// </summary>
+    private static async Task RelocateLegacyPlacesAsync(IServiceProvider sp, AppDbContext db, Guid jurisdictionId, ILogger logger)
+    {
+        var moves = Places
+            .Where(p => LegacyPlaceCoordinates.ContainsKey(p.Key))
+            .ToDictionary(
+                p => FormatCoordinates(LegacyPlaceCoordinates[p.Key].Lat, LegacyPlaceCoordinates[p.Key].Lng),
+                p => FormatCoordinates(p.Lat, p.Lng));
+        var legacyValues = moves.Keys.ToList();
+
+        var stale = await db.Locations.AsNoTracking()
+            .Where(l => l.JurisdictionId == jurisdictionId
+                     && l.Coordinates != null
+                     && legacyValues.Contains(l.Coordinates))
+            .ToListAsync();
+        if (stale.Count == 0)
+            return;
+
+        var sender = sp.GetRequiredService<ISender>();
+        var moved = 0;
+        foreach (var l in stale)
+        {
+            try
+            {
+                await sender.Send(new AcquireLocationLockCommand(l.Id));
+            }
+            catch (Exception ex)
+            {
+                logger.LogInformation(ex, "Demo dataset: location {RecordNumber} is locked; it will be moved on a later start.", l.RecordNumber);
+                continue;
+            }
+
+            try
+            {
+                await sender.Send(new UpdateLocationDetailsCommand(
+                    l.Id, l.StreetAddress, l.City, l.StreetNumber, l.PreDirectionId, l.StreetTypeId,
+                    l.PostDirectionId, l.StateId, l.CountryId, l.Zip, l.AptSuite,
+                    Coordinates: moves[l.Coordinates!],
+                    l.CommonPlaceName, l.Comments, l.Address));
+                moved++;
+            }
+            finally
+            {
+                await sender.Send(new ReleaseLocationLockCommand(l.Id));
+            }
+        }
+
+        logger.LogInformation("Demo dataset: moved {Moved} of {Stale} seeded location(s) to downtown Plano.", moved, stale.Count);
+    }
 
     private static readonly PersonSeed[] People =
     [
@@ -520,7 +632,7 @@ internal static class DemoDataset
                 CountryId: Pick(PicklistTypes.Country, "US"),
                 Zip: Zip,
                 AptSuite: p.Apt,
-                Coordinates: FormattableString.Invariant($"{p.Lat},{p.Lng}"),
+                Coordinates: FormatCoordinates(p.Lat, p.Lng),
                 CommonPlaceName: p.PlaceName,
                 Address: display));
 
