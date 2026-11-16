@@ -32,7 +32,7 @@ RUN test -f /app/publish/wwwroot/_framework/blazor.server.js \
  || { echo "ERROR: wwwroot/_framework/blazor.server.js missing from publish output" >&2; exit 1; }
 
 # ── Runtime ──────────────────────────────────────────────────────────────────
-FROM mcr.microsoft.com/dotnet/aspnet:10.0 AS runtime
+FROM mcr.microsoft.com/dotnet/aspnet:11.0 AS runtime
 WORKDIR /app
 COPY --from=build /app/publish .
 
