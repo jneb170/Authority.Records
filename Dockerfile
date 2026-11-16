@@ -5,7 +5,7 @@
 # Lightsail instance via deploy/aws/docker-compose.yml.
 
 # ── Build ────────────────────────────────────────────────────────────────────
-FROM mcr.microsoft.com/dotnet/sdk:10.0 AS build
+FROM mcr.microsoft.com/dotnet/sdk:11.0 AS build
 WORKDIR /src
 
 # Restore first, using only the project files, so the restore layer is cached
